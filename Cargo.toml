@@ -1,0 +1,15 @@
+[package]
+name = "jrw-graph"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pathfinding = { version = "4.14.0", optional = true }
+
+[features]
+default = [
+  "pathfinding",
+]
+pathfinding = [
+  "dep:pathfinding",
+]
