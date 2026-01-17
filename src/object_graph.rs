@@ -1,37 +1,43 @@
-use std::{fmt::Debug, hash::Hash, mem::transmute};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::transmute};
 
 use super::Graph;
 
-pub struct VertexId<V>(*const V);
+pub struct VertexId<'g, V>(*const V, PhantomData<&'g V>);
 
-impl<V> PartialEq for VertexId<V> {
+impl<'g, V> PartialEq for VertexId<'g, V> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.0, other.0)
     }
 }
 
-impl<V> Eq for VertexId<V> {}
+impl<'g, V> Eq for VertexId<'g, V> {}
 
-impl<V> Clone for VertexId<V> {
+impl<'g, V> Clone for VertexId<'g, V> {
     fn clone(&self) -> Self {
-        VertexId(self.0)
+        VertexId(self.0, self.1)
     }
 }
 
-impl<V> Copy for VertexId<V> {}
+impl<'g, V> Copy for VertexId<'g, V> {}
 
-impl<V> Hash for VertexId<V> {
+impl<'g, V> Hash for VertexId<'g, V> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
-impl<V> Debug for VertexId<V>
+impl<'g, V> Debug for VertexId<'g, V>
 where
     V: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "VertexId({:?})", unsafe { &*self.0 })
+    }
+}
+
+impl<'a, V> From<&'a V> for VertexId<'a, V> {
+    fn from(v: &'a V) -> Self {
+        VertexId(v as *const V, PhantomData)
     }
 }
 
@@ -51,8 +57,8 @@ where
     }
 
     /// Get the VertexId of the root vertex.
-    pub fn root(&self) -> VertexId<V> {
-        VertexId(self.root)
+    pub fn root(&self) -> VertexId<'a, V> {
+        VertexId::from(self.root)
     }
 
     /// Get the VertexId for a given vertex reference.
@@ -61,8 +67,8 @@ where
     /// This function is unsafe because it creates a VertexId from a reference.
     /// The caller must ensure that the reference is to a valid vertex in the
     /// graph.
-    pub unsafe fn vertex_id(&self, v: &V) -> VertexId<V> {
-        VertexId(v)
+    pub unsafe fn vertex_id(&self, v: &'a V) -> VertexId<'a, V> {
+        VertexId::from(v)
     }
 }
 
@@ -70,7 +76,7 @@ impl<'a, V, F> Graph for ObjectGraph<'a, V, F>
 where
     F: Fn(&'a V) -> Vec<&'a V>,
 {
-    type VertexId = VertexId<V>;
+    type VertexId = VertexId<'a, V>;
     type VertexData = &'a V;
     type EdgeData = ();
 
@@ -80,7 +86,7 @@ where
     ) -> impl IntoIterator<Item = <Self as Graph>::VertexId> {
         let vertex_data: Self::VertexData = self.vertex_data(from);
         let items = (self.neighbors_fn)(vertex_data);
-        items.into_iter().map(|v| VertexId(v))
+        items.into_iter().map(VertexId::from)
     }
 
     fn vertex_data(&self, id: &VertexId<V>) -> &<Self as Graph>::VertexData {
@@ -95,7 +101,7 @@ where
         let neighbors = (self.neighbors_fn)(self.vertex_data(from));
         neighbors
             .iter()
-            .position(|&v| VertexId(v) == *to)
+            .position(|&v| VertexId::from(v) == *to)
             .map(|_| &())
     }
 }
