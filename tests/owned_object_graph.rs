@@ -1,8 +1,7 @@
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
 use jrw_graph::Graph;
 
-#[derive(Debug)]
 pub struct VertexId<V>(*const V);
 
 impl<V> PartialEq for VertexId<V> {
@@ -27,6 +26,15 @@ impl<V> Hash for VertexId<V> {
     }
 }
 
+impl<V> Debug for VertexId<V>
+where
+    V: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VertexId({:?})", unsafe { &*self.0 })
+    }
+}
+
 // A graph representation for traversing object graphs using a user-provided neighbor function.
 pub struct OwnedObjectGraph<V, F> {
     neighbors_fn: F,
@@ -45,11 +53,16 @@ where
     pub fn root(&self) -> VertexId<V> {
         VertexId(&self.root)
     }
+
+    pub fn vertex_id(&self, v: &V) -> VertexId<V> {
+        VertexId(v)
+    }
 }
 
 impl<V, F> Graph for OwnedObjectGraph<V, F>
 where
     F: for<'a> Fn(&'a V) -> Vec<&'a V>,
+    V: Debug,
 {
     type VertexId = VertexId<V>;
     type VertexData = V;
@@ -80,6 +93,7 @@ mod tests {
 
     #[test]
     fn test_object_graph() {
+        #[derive(Debug)]
         struct Node {
             value: i32,
             neighbors: Vec<Node>,
@@ -124,11 +138,11 @@ mod tests {
             neighbors: Vec<&'a Node<'a>>,
         }
 
-        //            1
-        //           /|
-        //          2 |
-        //         / \|
-        //        3   4
+        //     1
+        //    /|
+        //   2 |
+        //  / \|
+        // 3   4
         let node4 = Node {
             value: 4,
             neighbors: vec![],
@@ -146,13 +160,32 @@ mod tests {
             neighbors: vec![&node2, &node4],
         };
 
+        fn values<'a, F: for<'b> Fn(&'b Node<'a>) -> Vec<&'b Node<'a>>>(
+            graph: &OwnedObjectGraph<Node<'a>, F>,
+            path: &Vec<VertexId<Node<'a>>>,
+        ) -> Vec<i32> {
+            path.iter()
+                .map(|vid| graph.vertex_data(vid).value)
+                .collect()
+        }
+
         let graph = OwnedObjectGraph::new(node1, |node: &Node| node.neighbors.clone());
 
-        let root_id = graph.root();
+        let id1 = graph.root();
+        let id2 = graph.vertex_id(&node2);
+        let id3 = graph.vertex_id(&node3);
+        let id4 = graph.vertex_id(&node4);
 
-        let paths = graph.shortest_paths(&root_id, |_from, _to| 1);
+        let paths = graph.shortest_paths(&id1, |_from, _to| 1);
+        dbg!(&paths);
         assert_eq!(paths.len(), 4);
-        assert_eq!(paths.get(&graph.root()).unwrap().1, 0); // cost to self is 0
-        assert_eq!(paths.get(&graph.root()).unwrap().0.len(), 1); // path to self is just self
+        assert_eq!(paths.get(&id1).unwrap().1, 0);
+        assert_eq!(values(&graph, &paths.get(&id1).unwrap().0), vec![1]);
+        assert_eq!(paths.get(&id2).unwrap().1, 1);
+        assert_eq!(values(&graph, &paths.get(&id2).unwrap().0), vec![1, 2]);
+        assert_eq!(paths.get(&id3).unwrap().1, 2);
+        assert_eq!(values(&graph, &paths.get(&id3).unwrap().0), vec![1, 2, 3]);
+        assert_eq!(paths.get(&id4).unwrap().1, 1);
+        assert_eq!(values(&graph, &paths.get(&id4).unwrap().0), vec![1, 4]);
     }
 }

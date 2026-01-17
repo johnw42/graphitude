@@ -1,3 +1,4 @@
+#[cfg(feature = "pathfinding")]
 use std::{collections::HashMap, hash::Hash};
 
 #[cfg(feature = "pathfinding")]
@@ -41,7 +42,7 @@ pub trait Graph {
             });
         let mut result: HashMap<Self::VertexId, (Vec<Self::VertexId>, C)> = parents
             .iter()
-            .map(|(k, (_, cost))| (k.clone(), (build_path(start, &parents), *cost)))
+            .map(|(k, (_, cost))| (k.clone(), (build_path(k, &parents), *cost)))
             .collect();
         result.insert(start.clone(), (vec![start.clone()], C::zero()));
         result
