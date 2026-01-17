@@ -62,6 +62,7 @@
 //     }
 // }
 
-mod graph;
+pub mod graph;
+pub mod object_graph;
 
 pub use graph::{Graph, GraphMut};

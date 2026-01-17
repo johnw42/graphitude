@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash, mem::transmute};
 
-use jrw_graph::Graph;
+use super::Graph;
 
 pub struct VertexId<V>(*const V);
 
@@ -35,7 +35,7 @@ where
     }
 }
 
-// A graph representation for traversing object graphs using a user-provided neighbor function.
+/// A graph representation for traversing object graphs using a user-provided neighbor function.
 pub struct ObjectGraph<'a, V, F> {
     neighbors_fn: F,
     root: &'a V,
@@ -45,16 +45,23 @@ impl<'a, V, F> ObjectGraph<'a, V, F>
 where
     F: Fn(&'a V) -> Vec<&'a V>,
 {
-    // Create a new ObjectGraph given an object and a function to get its neighbors.
+    /// Create a new ObjectGraph given an object and a function to get its neighbors.
     pub fn new(root: &'a V, neighbors_fn: F) -> Self {
         Self { neighbors_fn, root }
     }
 
+    /// Get the VertexId of the root vertex.
     pub fn root(&self) -> VertexId<V> {
         VertexId(self.root)
     }
 
-    pub fn vertex_id(&self, v: &V) -> VertexId<V> {
+    /// Get the VertexId for a given vertex reference.
+    ///
+    /// # Safety
+    /// This function is unsafe because it creates a VertexId from a reference.
+    /// The caller must ensure that the reference is to a valid vertex in the
+    /// graph.
+    pub unsafe fn vertex_id(&self, v: &V) -> VertexId<V> {
         VertexId(v)
     }
 }
@@ -67,17 +74,24 @@ where
     type VertexData = &'a V;
     type EdgeData = ();
 
-    fn neighbors(&self, from: &Self::VertexId) -> impl IntoIterator<Item = Self::VertexId> {
+    fn neighbors(
+        &self,
+        from: &<Self as Graph>::VertexId,
+    ) -> impl IntoIterator<Item = <Self as Graph>::VertexId> {
         let vertex_data: Self::VertexData = self.vertex_data(from);
         let items = (self.neighbors_fn)(vertex_data);
         items.into_iter().map(|v| VertexId(v))
     }
 
-    fn vertex_data(&self, id: &VertexId<V>) -> &Self::VertexData {
+    fn vertex_data(&self, id: &VertexId<V>) -> &<Self as Graph>::VertexData {
         unsafe { transmute::<&*const V, &&'a V>(&id.0) }
     }
 
-    fn edge_data(&self, from: &Self::VertexId, to: &Self::VertexId) -> Option<&Self::EdgeData> {
+    fn edge_data(
+        &self,
+        from: &<Self as Graph>::VertexId,
+        to: &<Self as Graph>::VertexId,
+    ) -> Option<&<Self as Graph>::EdgeData> {
         let neighbors = (self.neighbors_fn)(self.vertex_data(from));
         neighbors
             .iter()
@@ -160,9 +174,9 @@ mod tests {
         let graph = ObjectGraph::new(&node1, |node: &Node| node.neighbors.clone());
 
         let id1 = graph.root();
-        let id2 = graph.vertex_id(&node2);
-        let id3 = graph.vertex_id(&node3);
-        let id4 = graph.vertex_id(&node4);
+        let id2 = unsafe { graph.vertex_id(&node2) };
+        let id3 = unsafe { graph.vertex_id(&node3) };
+        let id4 = unsafe { graph.vertex_id(&node4) };
 
         let paths = graph.shortest_paths(&id1, |_from, _to| 1);
 
