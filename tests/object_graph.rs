@@ -1,85 +1,76 @@
 use std::hash::Hash;
 
-use super::Graph;
-
-// A graph representation for traversing object graphs using a user-provided neighbor function.
-pub struct ObjectGraph<'a, V: 'a, F>
-where
-    F: Fn(&'a V) -> Vec<&'a V>,
-{
-    neighbors_fn: F,
-    root: &'a V,
-}
-
-impl<'a, V, F> ObjectGraph<'a, V, F>
-where
-    F: Fn(&'a V) -> Vec<&'a V>,
-{
-    // Create a new ObjectGraph given an object and a function to get its neighbors.
-    pub fn new(root: &'a V, neighbors_fn: F) -> Self {
-        Self { neighbors_fn, root }
-    }
-
-    pub fn root(&self) -> VertexId<'a, V> {
-        VertexId(self.root)
-    }
-}
+use jrw_graph::Graph;
 
 #[derive(Debug)]
-pub struct VertexId<'a, V>(&'a V);
+pub struct VertexId<V>(*const V);
 
-impl<'a, V> PartialEq for VertexId<'a, V> {
+impl<V> PartialEq for VertexId<V> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.0, other.0)
     }
 }
 
-impl<'a, V> Eq for VertexId<'a, V> {}
+impl<V> Eq for VertexId<V> {}
 
-impl<'a, V> Clone for VertexId<'a, V> {
+impl<V> Clone for VertexId<V> {
     fn clone(&self) -> Self {
         VertexId(self.0)
     }
 }
 
-impl<'a, V> Copy for VertexId<'a, V> {}
+impl<V> Copy for VertexId<V> {}
 
-impl<'a, V> Hash for VertexId<'a, V> {
+impl<V> Hash for VertexId<V> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (self.0 as *const V).hash(state);
+        self.0.hash(state);
     }
 }
 
-impl<'a, V> From<&'a V> for VertexId<'a, V> {
-    fn from(value: &'a V) -> Self {
-        VertexId(value)
-    }
+// A graph representation for traversing object graphs using a user-provided neighbor function.
+pub struct OwnedObjectGraph<V, F> {
+    neighbors_fn: F,
+    root: V,
 }
 
-impl<'a, V, F> Graph for ObjectGraph<'a, V, F>
+impl<V, F> OwnedObjectGraph<V, F>
 where
-    F: Fn(&'a V) -> Vec<&'a V>,
+    F: for<'a> Fn(&'a V) -> Vec<&'a V>,
 {
-    type VertexId = VertexId<'a, V>;
-    type VertexData = &'a V;
+    // Create a new ObjectGraph given an object and a function to get its neighbors.
+    pub fn new(root: V, neighbors_fn: F) -> Self {
+        Self { neighbors_fn, root }
+    }
+
+    pub fn root(&self) -> VertexId<V> {
+        VertexId(&self.root)
+    }
+}
+
+impl<V, F> Graph for OwnedObjectGraph<V, F>
+where
+    F: for<'a> Fn(&'a V) -> Vec<&'a V>,
+{
+    type VertexId = VertexId<V>;
+    type VertexData = V;
     type EdgeData = ();
 
     fn neighbors(&self, from: &Self::VertexId) -> impl IntoIterator<Item = Self::VertexId> {
-        (self.neighbors_fn)(&self.vertex_data(from))
-            .into_iter()
-            .map(|v| VertexId(v))
+        let vertex_data: &Self::VertexData = self.vertex_data(from);
+        let items = (self.neighbors_fn)(vertex_data);
+        items.into_iter().map(|v| VertexId(v))
     }
 
-    fn vertex_data(&self, id: &Self::VertexId) -> Self::VertexData {
-        id.0
+    fn vertex_data(&self, id: &VertexId<V>) -> &Self::VertexData {
+        unsafe { &*id.0 }
     }
 
-    fn edge_data(&self, from: &Self::VertexId, to: &Self::VertexId) -> Option<Self::EdgeData> {
-        let neighbors = (self.neighbors_fn)(&self.vertex_data(from));
+    fn edge_data(&self, from: &Self::VertexId, to: &Self::VertexId) -> Option<&Self::EdgeData> {
+        let neighbors = (self.neighbors_fn)(self.vertex_data(from));
         neighbors
             .iter()
             .position(|&v| VertexId(v) == *to)
-            .map(|_| ())
+            .map(|_| &())
     }
 }
 
@@ -107,7 +98,7 @@ mod tests {
             neighbors: vec![node2],
         };
 
-        let graph = ObjectGraph::new(&node1, |node: &Node| node.neighbors.iter().collect());
+        let graph = OwnedObjectGraph::new(node1, |node: &Node| node.neighbors.iter().collect());
 
         let root_id = graph.root();
         assert_eq!(graph.vertex_data(&root_id).value, 1);
@@ -155,7 +146,7 @@ mod tests {
             neighbors: vec![&node2, &node4],
         };
 
-        let graph = ObjectGraph::new(&node1, |node: &Node| node.neighbors.clone());
+        let graph = OwnedObjectGraph::new(node1, |node: &Node| node.neighbors.clone());
 
         let root_id = graph.root();
 

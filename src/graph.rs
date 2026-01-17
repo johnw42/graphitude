@@ -12,10 +12,10 @@ pub trait Graph {
     fn neighbors(&self, from: &Self::VertexId) -> impl IntoIterator<Item = Self::VertexId>;
 
     /// Get the data associated with a vertex.
-    fn vertex_data(&self, id: &Self::VertexId) -> Self::VertexData;
+    fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData;
 
     /// Get the data associated with an edge, if it exists.
-    fn edge_data(&self, from: &Self::VertexId, to: &Self::VertexId) -> Option<Self::EdgeData>;
+    fn edge_data(&self, from: &Self::VertexId, to: &Self::VertexId) -> Option<&Self::EdgeData>;
 
     /// Check if there is an edge between two vertices.
     fn has_edge(&self, from: &Self::VertexId, to: &Self::VertexId) -> bool {
@@ -47,3 +47,16 @@ pub trait Graph {
         result
     }
 }
+
+pub trait GraphMut: Graph {
+    /// Add a vertex with the given data to the graph, returning its VertexId.
+    fn add_vertex(&mut self, data: Self::VertexData) -> Self::VertexId;
+
+    /// Add an edge with the given data between two vertices.
+    fn add_edge(
+        &mut self,
+        from: &Self::VertexId,
+        to: &Self::VertexId,
+        data: Self::EdgeData,
+    );
+}   

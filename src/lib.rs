@@ -1,5 +1,3 @@
-mod object_graph;
-
 // use std::{collections::HashMap, hash::Hash, marker::PhantomData};
 
 // mod id;
@@ -66,13 +64,4 @@ mod object_graph;
 
 mod graph;
 
-pub use graph::Graph;
-pub use object_graph::ObjectGraph;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {}
-}
+pub use graph::{Graph, GraphMut};
