@@ -1,4 +1,4 @@
-use std::{fmt::Debug, hash::Hash};
+use std::hash::Hash;
 
 use jrw_graph::Graph;
 
@@ -23,15 +23,6 @@ impl<V> Copy for VertexId<V> {}
 impl<V> Hash for VertexId<V> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
-    }
-}
-
-impl<V> Debug for VertexId<V>
-where
-    V: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "VertexId({:?})", unsafe { &*self.0 })
     }
 }
 
@@ -62,7 +53,6 @@ where
 impl<V, F> Graph for OwnedObjectGraph<V, F>
 where
     F: for<'a> Fn(&'a V) -> Vec<&'a V>,
-    V: Debug,
 {
     type VertexId = VertexId<V>;
     type VertexData = V;
@@ -93,7 +83,6 @@ mod tests {
 
     #[test]
     fn test_object_graph() {
-        #[derive(Debug)]
         struct Node {
             value: i32,
             neighbors: Vec<Node>,
@@ -132,7 +121,6 @@ mod tests {
     #[cfg(feature = "pathfinding")]
     #[test]
     fn test_shortest_paths() {
-        #[derive(Debug)]
         struct Node<'a> {
             value: i32,
             neighbors: Vec<&'a Node<'a>>,
@@ -177,7 +165,6 @@ mod tests {
         let id4 = graph.vertex_id(&node4);
 
         let paths = graph.shortest_paths(&id1, |_from, _to| 1);
-        dbg!(&paths);
         assert_eq!(paths.len(), 4);
         assert_eq!(paths.get(&id1).unwrap().1, 0);
         assert_eq!(values(&graph, &paths.get(&id1).unwrap().0), vec![1]);
