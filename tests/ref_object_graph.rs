@@ -53,6 +53,10 @@ where
     pub fn root(&self) -> VertexId<V> {
         VertexId(self.root)
     }
+
+    pub fn vertex_id(&self, v: &V) -> VertexId<V> {
+        VertexId(v)
+    }
 }
 
 impl<'a, V, F> Graph for ObjectGraph<'a, V, F>
@@ -126,17 +130,16 @@ mod tests {
     #[cfg(feature = "pathfinding")]
     #[test]
     fn test_shortest_paths() {
-        #[derive(Debug)]
         struct Node<'a> {
             value: i32,
             neighbors: Vec<&'a Node<'a>>,
         }
 
-        //            1
-        //           /|
-        //          2 |
-        //         / \|
-        //        3   4
+        //     1
+        //    /|
+        //   2 |
+        //  / \|
+        // 3   4
         let node4 = Node {
             value: 4,
             neighbors: vec![],
@@ -156,11 +159,33 @@ mod tests {
 
         let graph = ObjectGraph::new(&node1, |node: &Node| node.neighbors.clone());
 
-        let root_id = graph.root();
+        let id1 = graph.root();
+        let id2 = graph.vertex_id(&node2);
+        let id3 = graph.vertex_id(&node3);
+        let id4 = graph.vertex_id(&node4);
 
-        let paths = graph.shortest_paths(&root_id, |_from, _to| 1);
+        let paths = graph.shortest_paths(&id1, |_from, _to| 1);
+
+        let values = |id| {
+            paths
+                .get(id)
+                .unwrap()
+                .0
+                .iter()
+                .map(|vid| graph.vertex_data(vid).value)
+                .collect::<Vec<_>>()
+        };
         assert_eq!(paths.len(), 4);
-        assert_eq!(paths.get(&graph.root()).unwrap().1, 0); // cost to self is 0
-        assert_eq!(paths.get(&graph.root()).unwrap().0.len(), 1); // path to self is just self
+
+        assert_eq!(paths.get(&id1).unwrap().1, 0);
+        assert_eq!(values(&id1), vec![1]);
+        assert_eq!(paths.get(&id2).unwrap().1, 1);
+        assert_eq!(values(&id2), vec![1, 2]);
+        assert_eq!(paths.get(&id3).unwrap().1, 2);
+        assert_eq!(values(&id3), vec![1, 2, 3]);
+        assert_eq!(paths.get(&id4).unwrap().1, 1);
+        assert_eq!(values(&id4), vec![1, 4]);
+
+        (&node1, &node2, &node3, &node4);
     }
 }
