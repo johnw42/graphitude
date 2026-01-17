@@ -2,31 +2,31 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::transmute};
 
 use super::Graph;
 
-pub struct VertexId<'g, V>(*const V, PhantomData<&'g V>);
+pub struct VertexId<'g, V, F>(*const V, &'g ObjectGraph<'g, V, F>);
 
-impl<'g, V> PartialEq for VertexId<'g, V> {
+impl<'g, V, F> PartialEq for VertexId<'g, V, F> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.0, other.0)
     }
 }
 
-impl<'g, V> Eq for VertexId<'g, V> {}
+impl<'g, V, F> Eq for VertexId<'g, V, F> {}
 
-impl<'g, V> Clone for VertexId<'g, V> {
+impl<'g, V, F> Clone for VertexId<'g, V, F> {
     fn clone(&self) -> Self {
         VertexId(self.0, self.1)
     }
 }
 
-impl<'g, V> Copy for VertexId<'g, V> {}
+impl<'g, V, F> Copy for VertexId<'g, V, F> {}
 
-impl<'g, V> Hash for VertexId<'g, V> {
+impl<'g, V, F> Hash for VertexId<'g, V, F> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
-impl<'g, V> Debug for VertexId<'g, V>
+impl<'g, V, F> Debug for VertexId<'g, V, F>
 where
     V: Debug,
 {
@@ -35,30 +35,24 @@ where
     }
 }
 
-impl<'a, V> From<&'a V> for VertexId<'a, V> {
-    fn from(v: &'a V) -> Self {
-        VertexId(v as *const V, PhantomData)
-    }
-}
-
 /// A graph representation for traversing object graphs using a user-provided neighbor function.
-pub struct ObjectGraph<'a, V, F> {
+pub struct ObjectGraph<'g, V, F> {
     neighbors_fn: F,
-    root: &'a V,
+    root: &'g V,
 }
 
-impl<'a, V, F> ObjectGraph<'a, V, F>
+impl<'g, V, F> ObjectGraph<'g, V, F>
 where
-    F: Fn(&'a V) -> Vec<&'a V>,
+    F: Fn(&'g V) -> Vec<&'g V>,
 {
     /// Create a new ObjectGraph given an object and a function to get its neighbors.
-    pub fn new(root: &'a V, neighbors_fn: F) -> Self {
+    pub fn new(root: &'g V, neighbors_fn: F) -> Self {
         Self { neighbors_fn, root }
     }
 
     /// Get the VertexId of the root vertex.
-    pub fn root(&self) -> VertexId<'a, V> {
-        VertexId::from(self.root)
+    pub fn root(&'g self) -> VertexId<'g, V, F> {
+        VertexId(self.root, &self)
     }
 
     /// Get the VertexId for a given vertex reference.
@@ -67,41 +61,42 @@ where
     /// This function is unsafe because it creates a VertexId from a reference.
     /// The caller must ensure that the reference is to a valid vertex in the
     /// graph.
-    pub unsafe fn vertex_id(&self, v: &'a V) -> VertexId<'a, V> {
-        VertexId::from(v)
+    pub unsafe fn vertex_id(&'g self, v: &'g V) -> VertexId<'g, V, F> {
+        VertexId(v, &self)
     }
 }
 
-impl<'a, V, F> Graph for ObjectGraph<'a, V, F>
+impl<'g, V, F> Graph<'g> for ObjectGraph<'g, V, F>
 where
-    F: Fn(&'a V) -> Vec<&'a V>,
+    F: Fn(&'g V) -> Vec<&'g V> + 'g,
 {
-    type VertexId = VertexId<'a, V>;
-    type VertexData = &'a V;
+    type VertexId = VertexId<'g, V, F>;
+    type VertexData = &'g V;
     type EdgeData = ();
 
     fn neighbors(
-        &self,
-        from: &<Self as Graph>::VertexId,
-    ) -> impl IntoIterator<Item = <Self as Graph>::VertexId> {
+        &'g self,
+        from: &Self::VertexId,
+    ) -> impl IntoIterator<Item = Self::VertexId> {
         let vertex_data: Self::VertexData = self.vertex_data(from);
         let items = (self.neighbors_fn)(vertex_data);
-        items.into_iter().map(VertexId::from)
+        items.into_iter().map(|v| VertexId(v, self))
     }
 
-    fn vertex_data(&self, id: &VertexId<V>) -> &<Self as Graph>::VertexData {
-        unsafe { transmute::<&*const V, &&'a V>(&id.0) }
+    fn vertex_data(&'g self, id: &Self::VertexId) -> &'g Self::VertexData {
+        assert!(std::ptr::eq(id.1, self), "VertexId does not belong to this graph");
+        unsafe { transmute::<&*const V, &&'g V>(&id.0) }
     }
 
     fn edge_data(
-        &self,
-        from: &<Self as Graph>::VertexId,
-        to: &<Self as Graph>::VertexId,
-    ) -> Option<&<Self as Graph>::EdgeData> {
+        &'g self,
+        from: &Self::VertexId,
+        to: &Self::VertexId,
+    ) -> Option<&'g Self::EdgeData> {
         let neighbors = (self.neighbors_fn)(self.vertex_data(from));
         neighbors
             .iter()
-            .position(|&v| VertexId::from(v) == *to)
+            .position(|&v| VertexId(v, self) == *to)
             .map(|_| &())
     }
 }
@@ -150,9 +145,9 @@ mod tests {
     #[cfg(feature = "pathfinding")]
     #[test]
     fn test_shortest_paths() {
-        struct Node<'a> {
+        struct Node<'g> {
             value: i32,
-            neighbors: Vec<&'a Node<'a>>,
+            neighbors: Vec<&'g Node<'g>>,
         }
 
         //     1
