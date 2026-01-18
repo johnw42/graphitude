@@ -50,26 +50,25 @@ where
     }
 }
 
-impl<'g, V, F> Graph<'g> for OwnedObjectGraph<V, F>
+impl<V, F> Graph for OwnedObjectGraph<V, F>
 where
-    V: 'g,
-    F: Fn(&'g V) -> Vec<&'g V>,
+    F: for<'a> Fn(&'a V) -> Vec<&'a V>,
 {
     type VertexId = VertexId<V>;
     type VertexData = V;
     type EdgeData = ();
 
-    fn neighbors(&'g self, from: &Self::VertexId) -> impl IntoIterator<Item = Self::VertexId> {
+    fn neighbors(&self, from: &Self::VertexId) -> impl IntoIterator<Item = Self::VertexId> {
         let vertex_data: &Self::VertexData = self.vertex_data(from);
         let items = (self.neighbors_fn)(vertex_data);
         items.into_iter().map(|v| VertexId(v))
     }
 
-    fn vertex_data(&'g self, id: &Self::VertexId) -> &'g Self::VertexData {
+    fn vertex_data(&self, id: &VertexId<V>) -> &Self::VertexData {
         unsafe { &*id.0 }
     }
 
-    fn edge_data(&'g self, from: &Self::VertexId, to: &Self::VertexId) -> Option<&'g Self::EdgeData> {
+    fn edge_data(&self, from: &Self::VertexId, to: &Self::VertexId) -> Option<&Self::EdgeData> {
         let neighbors = (self.neighbors_fn)(self.vertex_data(from));
         neighbors
             .iter()
