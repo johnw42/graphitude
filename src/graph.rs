@@ -1,8 +1,69 @@
+use double_vec_queue::Queue;
+use std::collections::HashSet;
+
 #[cfg(feature = "pathfinding")]
 use std::{collections::HashMap, hash::Hash};
 
 #[cfg(feature = "pathfinding")]
 use pathfinding::num_traits::Zero;
+
+pub struct DfsIterator<'g, G: Graph + ?Sized> {
+    graph: &'g G,
+    visited: HashSet<G::VertexId>,
+    stack: Vec<G::VertexId>,
+}
+
+impl<'g, G> Iterator for DfsIterator<'g, G>
+where
+    G: Graph,
+{
+    type Item = G::VertexId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(vid) = self.stack.pop() {
+            if self.visited.contains(&vid) {
+                continue;
+            }
+            self.visited.insert(vid.clone());
+            for neighbor in self.graph.neighbors(&vid) {
+                if !self.visited.contains(&neighbor) {
+                    self.stack.push(neighbor);
+                }
+            }
+            return Some(vid);
+        }
+        None
+    }
+}
+
+pub struct BfsIterator<'g, G: Graph + ?Sized> {
+    graph: &'g G,
+    visited: HashSet<G::VertexId>,
+    queue: Queue<G::VertexId>,
+}
+
+impl<'g, G> Iterator for BfsIterator<'g, G>
+where
+    G: Graph,
+{
+    type Item = G::VertexId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(vid) = self.queue.pop() {
+            if self.visited.contains(&vid) {
+                continue;
+            }
+            self.visited.insert(vid.clone());
+            for neighbor in self.graph.neighbors(&vid) {
+                if !self.visited.contains(&neighbor) {
+                    self.queue.push(neighbor);
+                }
+            }
+            return Some(vid);
+        }
+        None
+    }
+}
 
 pub trait Graph {
     type VertexId: Eq + Hash + Clone;
@@ -21,6 +82,52 @@ pub trait Graph {
     /// Check if there is an edge between two vertices.
     fn has_edge(&self, from: &Self::VertexId, to: &Self::VertexId) -> bool {
         self.edge_data(from, to).is_some()
+    }
+
+    /// Get the number of vertices in the graph.
+    fn num_vertices(&self) -> usize {
+        self.vertex_ids().len()
+    }
+
+    /// Get the number of edges in the graph.
+    fn num_edges(&self) -> usize {
+        self.edge_ids().len()
+    }
+
+    /// Get a vector of all VertexIds in the graph.
+    fn vertex_ids(&self) -> Vec<Self::VertexId>;
+
+    /// Get a vector of all edges in the graph as (from, to) VertexId pairs.
+    fn edge_ids(&self) -> Vec<(Self::VertexId, Self::VertexId)> {
+        let mut edges = Vec::new();
+        for from in self.vertex_ids() {
+            for to in self.neighbors(&from) {
+                edges.push((from.clone(), to));
+            }
+        }
+        edges
+    }
+
+    /// Perform a depth-first search starting from the given vertex.
+    fn bfs(&self, start: &Self::VertexId) -> BfsIterator<'_, Self> {
+        BfsIterator {
+            graph: self,
+            visited: HashSet::new(),
+            queue: {
+                let mut q = Queue::new();
+                q.push(start.clone());
+                q
+            },
+        }
+    }
+
+    /// Perform a depth-first search starting from the given vertex.
+    fn dfs(&self, start: &Self::VertexId) -> DfsIterator<'_, Self> {
+        DfsIterator {
+            graph: self,
+            visited: HashSet::new(),
+            stack: vec![start.clone()],
+        }
     }
 
     /// Find shortest paths from a starting vertex to all other vertices using
@@ -54,10 +161,5 @@ pub trait GraphMut: Graph {
     fn add_vertex(&mut self, data: Self::VertexData) -> Self::VertexId;
 
     /// Add an edge with the given data between two vertices.
-    fn add_edge(
-        &mut self,
-        from: &Self::VertexId,
-        to: &Self::VertexId,
-        data: Self::EdgeData,
-    );
-}   
+    fn add_edge(&mut self, from: &Self::VertexId, to: &Self::VertexId, data: Self::EdgeData);
+}

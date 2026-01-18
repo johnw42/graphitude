@@ -75,6 +75,11 @@ where
             .position(|&v| VertexId(v) == *to)
             .map(|_| &())
     }
+
+    fn vertex_ids(&self) -> Vec<Self::VertexId> {
+        self.bfs(&self.root()).collect()
+    }
+
 }
 
 #[test]

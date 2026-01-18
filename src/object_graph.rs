@@ -104,6 +104,10 @@ where
             .position(|&v| VertexId::from(v) == *to)
             .map(|_| &())
     }
+
+    fn vertex_ids(&self) -> Vec<<Self as Graph>::VertexId> {
+        self.bfs(&self.root()).collect()
+    }
 }
 
 #[cfg(test)]

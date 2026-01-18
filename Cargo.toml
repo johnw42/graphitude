@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 pathfinding = { version = "4.14.0", optional = true }
+double_vec_queue = { path = "../double_vec_queue" }
 
 [features]
 default = [

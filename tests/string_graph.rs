@@ -46,6 +46,10 @@ impl Graph for StringGraph {
             }
         })
     }
+
+    fn vertex_ids(&self) -> Vec<Self::VertexId> {
+        self.vertices.clone()
+    }
 }
 
 impl GraphMut for StringGraph {
