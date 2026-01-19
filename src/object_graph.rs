@@ -1,3 +1,4 @@
+#![cfg(feature = "nope")]
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::transmute};
 
 use super::Graph;
@@ -103,6 +104,10 @@ where
             .iter()
             .position(|&v| VertexId::from(v) == *to)
             .map(|_| &())
+    }
+
+    fn make_edge_id(&self, from: &Self::VertexId, to: &Self::VertexId) -> Self::EdgeId {
+        (*from, *to)
     }
 
     fn vertex_ids(&self) -> Vec<<Self as Graph>::VertexId> {

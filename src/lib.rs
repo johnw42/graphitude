@@ -62,7 +62,12 @@
 //     }
 // }
 
+pub mod adjacency_matrix;
+pub mod edge_ref;
 pub mod graph;
 pub mod object_graph;
+pub mod vertex_ref;
+mod util;
 
-pub use graph::{Graph, GraphMut};
+
+pub use graph::{Graph, GraphMutData, GraphMutStructure};

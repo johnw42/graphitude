@@ -1,6 +1,7 @@
+#![cfg(feature = "nope")]
 use std::hash::Hash;
 
-use jrw_graph::Graph;
+use jrw_graph::{Graph, EdgeId};
 
 struct VertexId<V>(*const V);
 
@@ -57,6 +58,7 @@ where
     type VertexId = VertexId<V>;
     type VertexData = V;
     type EdgeData = ();
+    type EdgeId = (VertexId<V>, VertexId<V>);
 
     fn neighbors(&self, from: &Self::VertexId) -> impl IntoIterator<Item = Self::VertexId> {
         let vertex_data: &Self::VertexData = self.vertex_data(from);
@@ -74,6 +76,10 @@ where
             .iter()
             .position(|&v| VertexId(v) == *to)
             .map(|_| &())
+    }
+
+    fn make_edge_id(&self, from: &Self::VertexId, to: &Self::VertexId) -> Self::EdgeId {
+        (from.clone(), to.clone())
     }
 
     fn vertex_ids(&self) -> Vec<Self::VertexId> {
