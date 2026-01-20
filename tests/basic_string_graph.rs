@@ -145,3 +145,73 @@ fn test_string_graph() {
     assert_eq!(graph.edge_data(&ab), (&()));
     assert_eq!(graph.edge_data(&bc), (&()));
 }
+#[test]
+fn test_add_multiple_vertices() {
+    let mut graph = StringGraph::new();
+    let vertices: Vec<_> = vec!["A", "B", "C", "D"]
+        .into_iter()
+        .map(|s| graph.add_vertex(s.to_string()))
+        .collect();
+    assert_eq!(graph.vertex_ids().len(), 4);
+    for v in vertices {
+        assert_eq!(graph.vertex_data(&v), &v);
+    }
+}
+
+#[test]
+fn test_edge_id_ordering() {
+    let edge1 = EdgeId::new("Z".to_string(), "A".to_string());
+    let edge2 = EdgeId::new("A".to_string(), "Z".to_string());
+    assert_eq!(edge1, edge2);
+    assert_eq!(edge1.0, "A".to_string());
+}
+
+#[test]
+fn test_symmetric_edges() {
+    let mut graph = StringGraph::new();
+    let a = graph.add_vertex("A".to_string());
+    let b = graph.add_vertex("B".to_string());
+    graph.add_edge(&a, &b, ());
+    assert_eq!(graph.num_edges_between(&a, &b), 1);
+    assert_eq!(graph.num_edges_between(&b, &a), 1);
+}
+
+#[test]
+fn test_remove_vertex_cleans_edges() {
+    let mut graph = StringGraph::new();
+    let a = graph.add_vertex("A".to_string());
+    let b = graph.add_vertex("B".to_string());
+    graph.add_edge(&a, &b, ());
+    graph.remove_vertex(&a);
+    assert_eq!(graph.num_vertices(), 1);
+    assert_eq!(graph.num_edges(), 0);
+}
+
+#[test]
+fn test_remove_edge() {
+    let mut graph = StringGraph::new();
+    let a = graph.add_vertex("A".to_string());
+    let b = graph.add_vertex("B".to_string());
+    let edge = graph.add_edge(&a, &b, ()).0;
+    assert_eq!(graph.num_edges(), 1);
+    graph.remove_edge(&edge);
+    assert_eq!(graph.num_edges(), 0);
+}
+
+#[test]
+fn test_is_undirected() {
+    let graph = StringGraph::new();
+    assert!(!graph.is_directed());
+}
+
+#[test]
+fn test_edges_out_from_vertex() {
+    let mut graph = StringGraph::new();
+    let a = graph.add_vertex("A".to_string());
+    let b = graph.add_vertex("B".to_string());
+    let c = graph.add_vertex("C".to_string());
+    graph.add_edge(&a, &b, ());
+    graph.add_edge(&a, &c, ());
+    let edges_out = graph.edges_out(&a);
+    assert_eq!(edges_out.into_iter().count(), 2);
+}

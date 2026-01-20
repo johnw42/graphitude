@@ -214,6 +214,7 @@ impl AsymmetricBitvecAdjacencyMatrix {
 impl AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix {
     type Key = usize;
     type Value = ();
+    
     fn new() -> Self {
         AsymmetricBitvecAdjacencyMatrix {
             matrix: BitVec::new(),

@@ -45,7 +45,7 @@ impl<'a, V> From<&'a V> for VertexId<'a, V> {
 /// A graph representation for traversing object graphs using a user-provided neighbor function.
 pub struct ObjectGraph<'a, V, F> {
     neighbors_fn: F,
-    root: &'a V,
+    roots: Vec<&'a V>,
 }
 
 impl<'a, V, F> ObjectGraph<'a, V, F>

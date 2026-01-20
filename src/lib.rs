@@ -67,6 +67,8 @@ pub mod edge_ref;
 pub mod graph;
 pub mod object_graph;
 pub mod vertex_ref;
+
+mod id_vec;
 mod util;
 
 
