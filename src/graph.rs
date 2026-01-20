@@ -7,6 +7,8 @@ use std::{collections::HashMap, hash::Hash};
 #[cfg(feature = "pathfinding")]
 use pathfinding::num_traits::Zero;
 
+use crate::{edge_ref::EdgeRef, vertex_ref::VertexRef};
+
 // use crate::{edge_ref::EdgeRef, vertex_ref::VertexRef};
 
 pub struct DfsIterator<'g, G: Graph + ?Sized> {
@@ -17,7 +19,7 @@ pub struct DfsIterator<'g, G: Graph + ?Sized> {
 
 impl<'g, G> Iterator for DfsIterator<'g, G>
 where
-    G: Graph,
+    G: Graph + ?Sized,
 {
     type Item = G::VertexId;
 
@@ -47,7 +49,7 @@ pub struct BfsIterator<'g, G: Graph + ?Sized> {
 
 impl<'g, G> Iterator for BfsIterator<'g, G>
 where
-    G: Graph,
+    G: Graph + ?Sized,
 {
     type Item = G::VertexId;
 
@@ -81,48 +83,105 @@ pub trait Graph {
 
     /// # Vertices
 
-    /// Get the data associated with a vertex.
+    fn vertex(&self, id: &Self::VertexId) -> VertexRef<'_, Self> {
+        VertexRef::new(self, id.clone())
+    }
+
+    fn verticies(&self) -> impl Iterator<Item = VertexRef<'_, Self>> + '_ {
+        self.vertex_ids().into_iter().map(|vid| self.vertex(&vid))
+    }
+
+    /// Gets a vector of all VertexIds in the graph.
+    fn vertex_ids(&self) -> Vec<Self::VertexId>;
+
+
+    /// Gets the data associated with a vertex.
     fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData;
 
-    // fn vertex_ref(&self, id: &Self::VertexId) -> VertexRef<'_, Self> {
-    //     VertexRef::new(self, id.clone())
-    // }
-
-    /// Get the number of vertices in the graph.
+    /// Gets the number of vertices in the graph.
     fn num_vertices(&self) -> usize {
         self.vertex_ids().len()
     }
 
+    /// Gets an iterator over the predacessors vertices of a given vertex, i.e.
+    /// those vertices reachable by incoming edges.
+    fn predacessors<'a, 'b: 'a>(
+        &'a self,
+        vertex: &'b Self::VertexId,
+    ) -> impl Iterator<Item = Self::VertexId> + 'a {
+        let mut visited = HashSet::new();
+        self.edges_in(vertex).filter_map(|eid| {
+            let value = self.edge_source(&eid);
+            visited
+                .insert(value)
+                .then(|| self.edge_source(&eid))
+        })
+    }
+
+    /// Gets an iterator over the successor vertices of a given vertex, i.e.
+    /// those vertices reachable by outgoing edges.
+    fn successors<'a, 'b: 'a>(
+        &'a self,
+        vertex: &'b Self::VertexId,
+    ) -> impl Iterator<Item = Self::VertexId> + 'a {
+        let mut visited = HashSet::new();
+        self.edges_out(vertex).filter_map(|eid| {
+            visited
+                .insert(self.edge_target(&eid))
+                .then(|| self.edge_target(&eid))
+        })
+    }
+
     /// # Edges
 
-    /// Get the data associated with an edge.
+ 
+    fn edge(&self, id: &Self::EdgeId) -> EdgeRef<'_, Self> {
+        EdgeRef::new(self, id.clone())
+    }
+
+    fn edges(&self) -> impl Iterator<Item = EdgeRef<'_, Self>> + '_ {
+        self.edge_ids().into_iter().map(|eid| self.edge(&eid))
+    }
+
+   /// Gets the data associated with an edge.
     fn edge_data(&self, from: &Self::EdgeId) -> &Self::EdgeData;
 
-    // fn edge_ref(&self, id: &Self::EdgeId) -> EdgeRef<'_, Self> {
-    //     EdgeRef::new(self, id.clone())
-    // }
+    /// Gets a vector of all edges in the graph.
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
+        let mut edges = Vec::new();
+        for from in self.vertex_ids() {
+            edges.extend(self.edges_out(&from));
+        }
+        edges.into_iter()
+    }
 
-    /// Get an iterator over the outgoing edges from a given vertex.
-    fn edges_out(&self, from: &Self::VertexId) -> impl IntoIterator<Item = Self::EdgeId> {
-        self.edge_ids().into_iter().filter(move |eid| {
+    /// Gets an iterator over the outgoing edges from a given vertex.
+    fn edges_out<'a, 'b: 'a>(
+        &'a self,
+        from: &'b Self::VertexId,
+    ) -> impl Iterator<Item = Self::EdgeId> + Sized + 'a {
+        self.edge_ids().filter(move |eid| {
             self.edge_source(eid) == *from || !self.is_directed() && self.edge_target(eid) == *from
         })
     }
 
-    /// Get an iterator over the incoming edges to a given vertex.
-    fn edges_in(&self, into: &Self::VertexId) -> impl IntoIterator<Item = Self::EdgeId> {
-        self.edge_ids().into_iter().filter(move |eid| {
+    /// Gets an iterator over the incoming edges to a given vertex.
+    fn edges_in<'a, 'b: 'a>(
+        &'a self,
+        into: &'b Self::VertexId,
+    ) -> impl Iterator<Item = Self::EdgeId> + Sized + 'a {
+        self.edge_ids().filter(move |eid| {
             self.edge_target(eid) == *into || !self.is_directed() && self.edge_source(eid) == *into
         })
     }
 
-    /// Get an iterator over the edges between two vertices.
-    fn edges_between(
-        &self,
-        from: &Self::VertexId,
-        into: &Self::VertexId,
-    ) -> impl IntoIterator<Item = Self::EdgeId> {
-        self.edges_out(from).into_iter().filter(move |eid| {
+    /// Gets an iterator over the edges between two vertices.
+    fn edges_between<'a, 'b: 'a>(
+        &'a self,
+        from: &'b Self::VertexId,
+        into: &'b Self::VertexId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        self.edges_out(from).filter(move |eid| {
             self.edge_source(eid) == *from && self.edge_target(eid) == *into
                 || !self.is_directed()
                     && self.edge_source(eid) == *into
@@ -130,10 +189,10 @@ pub trait Graph {
         })
     }
 
-    /// Get the source vertex of an edge.
+    /// Gets the source vertex of an edge.
     fn edge_source(&self, id: &Self::EdgeId) -> Self::VertexId;
 
-    /// Get the target vertex of an edge.
+    /// Gets the target vertex of an edge.
     fn edge_target(&self, id: &Self::EdgeId) -> Self::VertexId;
 
     fn has_edge_out(&self, from: &Self::VertexId) -> bool {
@@ -144,12 +203,12 @@ pub trait Graph {
         self.num_edges_in(into) > 0
     }
 
-    /// Check if there is an edge between two vertices.
+    /// Checks if there is an edge between two vertices.
     fn has_edge_between(&self, from: &Self::VertexId, into: &Self::VertexId) -> bool {
         self.num_edges_between(from, into) > 0
     }
 
-    /// Get the number of edges in the graph.
+    /// Gets the number of edges in the graph.
     fn num_edges(&self) -> usize {
         self.edge_ids().len()
     }
@@ -162,46 +221,40 @@ pub trait Graph {
         self.edges_out(from).into_iter().count()
     }
 
-    /// Get the number of edges in the graph.
+    /// Gets the number of edges from one vertex to another.
     fn num_edges_between(&self, from: &Self::VertexId, into: &Self::VertexId) -> usize {
         self.edges_between(from, into).into_iter().count()
     }
 
-    /// Get a vector of all VertexIds in the graph.
-    fn vertex_ids(&self) -> Vec<Self::VertexId>;
-
-    /// Get a vector of all edges in the graph.
-    fn edge_ids(&self) -> Vec<Self::EdgeId> {
-        let mut edges = Vec::new();
-        for from in self.vertex_ids() {
-            edges.extend(self.edges_out(&from));
-        }
-        edges
+    /// Performs a breadth-first search starting from the given vertex.
+    fn bfs(&self, start: &Self::VertexId) -> BfsIterator<'_, Self> {
+        self.bfs_multi(&[start])
     }
 
-    /// Perform a depth-first search starting from the given vertex.
-    fn bfs(&self, start: &Self::VertexId) -> BfsIterator<'_, Self> {
+    /// Performs a breadth-first search starting from the given vertices.
+    fn bfs_multi(&self, start: &[&Self::VertexId]) -> BfsIterator<'_, Self> {
         BfsIterator {
             graph: self,
             visited: HashSet::new(),
-            queue: {
-                let mut q = Queue::new();
-                q.push(start.clone());
-                q
-            },
+            queue: start.iter().cloned().collect(),
         }
     }
 
-    /// Perform a depth-first search starting from the given vertex.
+    /// Performs a depth-first search starting from the given vertex.
     fn dfs(&self, start: &Self::VertexId) -> DfsIterator<'_, Self> {
+        self.dfs_multi(&[start])
+    }
+
+    /// Performs a depth-first search starting from the given vertex.
+    fn dfs_multi(&self, start: &[&Self::VertexId]) -> DfsIterator<'_, Self> {
         DfsIterator {
             graph: self,
             visited: HashSet::new(),
-            stack: vec![start.clone()],
+            stack: start.iter().cloned().collect(),
         }
     }
 
-    /// Find shortest paths from a starting vertex to all other vertices using
+    /// Finds shortest paths from a starting vertex to all other vertices using
     /// Dijkstra's algorithm.  Returns a map from each reachable vertex to a
     /// tuple of the path taken and the total cost.
     #[cfg(feature = "pathfinding")]

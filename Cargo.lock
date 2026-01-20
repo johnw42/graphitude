@@ -81,7 +81,17 @@ version = "0.1.0"
 dependencies = [
  "bitvec",
  "double_vec_queue",
+ "maybe_mut",
  "pathfinding",
+]
+
+[[package]]
+name = "maybe_mut"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

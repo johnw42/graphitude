@@ -1,5 +1,3 @@
-#![cfg(feature = "nope")]
-
 use crate::{
     Graph, GraphMut,
     vertex_ref::{VertexMut, VertexRef},
