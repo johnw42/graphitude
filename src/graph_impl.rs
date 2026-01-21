@@ -1,20 +1,18 @@
 use crate::{
     Graph,
-    adjacency_matrix::AsymmetricAdjacencyMatrix,
-    id_vec::{IdVec, IdVecIndex},
+    adjacency_matrix::{AdjacencyMatrix, AsymmetricAdjacencyMatrix},
+    id_vec::{IdVec, IdVecIndex}
 };
 
 pub struct GraphImpl<V, E> {
     vertices: IdVec<V>,
-    edges: IdVec<E>,
     adjacency: AsymmetricAdjacencyMatrix<IdVecIndex, E>,
 }
 
 impl<V, E> GraphImpl<V, E> {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             vertices: IdVec::new(),
-            edges: IdVec::new(),
             adjacency: AsymmetricAdjacencyMatrix::new(),
         }
     }
@@ -22,27 +20,31 @@ impl<V, E> GraphImpl<V, E> {
 
 impl<V, E> Graph for GraphImpl<V, E> {
     type EdgeData = E;
-    type EdgeId = IdVecIndex;
+    type EdgeId = (Self::VertexId, Self::VertexId);
     type VertexData = V;
     type VertexId = IdVecIndex;
 
-    fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId> + '_ {
-        todo!()
+    fn vertex_ids(&self) -> impl Iterator<Item = <Self as Graph>::VertexId> {
+        self.vertices.iter_indices()
     }
 
     fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData {
-        todo!()
+        &self.vertices[*id]
     }
 
-    fn edge_data(&self, from: &Self::EdgeId) -> &Self::EdgeData {
-        &self.edges[&from]
+    fn edge_data(&self, (from, to): &Self::EdgeId) -> &Self::EdgeData {
+        &self.adjacency.get(from, to).expect("no such edge")
     }
 
-    fn edge_source(&self, id: &Self::EdgeId) -> Self::VertexId {
-        &self.adjacency.get(id)
+    fn edge_source_and_target(&self, (from, to): Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+        (from, to)
     }
 
-    fn edge_target(&self, id: &Self::EdgeId) -> Self::VertexId {
-        todo!()
+    fn edges_in<'a>(&'a self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        self.adjacency.edges_into(&into).map(move |(from, _)| (from, into)).collect::<Vec<_>>().into_iter()
+    }
+
+    fn edges_out<'a>(&'a self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        self.adjacency.edges_from(&from).map(move |(to, _)| (from, to)).collect::<Vec<_>>().into_iter()
     }
 }
