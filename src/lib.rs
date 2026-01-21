@@ -73,4 +73,4 @@ mod id_vec;
 mod util;
 
 
-pub use graph::{Graph, GraphMutData, GraphMutStructure};
+pub use graph::{Graph, GraphMut};
