@@ -1,4 +1,3 @@
-
 //! `Graph` and `GraphMut` are the core traits for working with graphs in this
 //! library. `Graph` provides read-only access to the graph structure, while
 //! `GraphMut` extends `Graph` with methods for modifying the graph.
@@ -29,7 +28,10 @@ use double_vec_queue::Queue;
 use std::collections::HashSet;
 
 #[cfg(feature = "pathfinding")]
-use {std::{collections::HashMap, hash::Hash}, pathfinding::num_traits::Zero};
+use {
+    pathfinding::num_traits::Zero,
+    std::{collections::HashMap, hash::Hash},
+};
 
 use crate::{edge_ref::EdgeRef, vertex_ref::VertexRef};
 
@@ -115,14 +117,14 @@ pub trait Graph {
     }
 
     /// Gets a vector of all VertexIds in the graph.
-    fn vertex_ids(&self) -> Vec<Self::VertexId>;
+    fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId>;
 
     /// Gets the data associated with a vertex.
     fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData;
 
     /// Gets the number of vertices in the graph.
     fn num_vertices(&self) -> usize {
-        self.vertex_ids().len()
+        self.vertex_ids().count()
     }
 
     /// Gets an iterator over the predacessors vertices of a given vertex, i.e.
@@ -197,6 +199,15 @@ pub trait Graph {
         })
     }
 
+    /// Gets the number of edges from one vertex to another.
+    fn num_edges_between(&self, from: Self::VertexId, into: Self::VertexId) -> usize {
+        self.edges_between(from, into).into_iter().count()
+    }
+
+    fn has_edge(&self, from: Self::VertexId, into: Self::VertexId) -> bool {
+        self.num_edges_between(from, into) > 0
+    }
+
     fn edge_source_and_target(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId);
 
     /// Gets the source vertex of an edge.
@@ -233,11 +244,6 @@ pub trait Graph {
 
     fn num_edges_out(&self, from: Self::VertexId) -> usize {
         self.edges_out(from).into_iter().count()
-    }
-
-    /// Gets the number of edges from one vertex to another.
-    fn num_edges_between(&self, from: Self::VertexId, into: Self::VertexId) -> usize {
-        self.edges_between(from, into).into_iter().count()
     }
 
     /// Performs a breadth-first search starting from the given vertex.
