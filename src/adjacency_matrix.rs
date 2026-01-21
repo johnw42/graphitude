@@ -319,7 +319,7 @@ fn test_euler_sum() {
 }
 
 impl<V> SymmetricBitvecAdjacencyMatrix<V> {
-    fn with_size(size: usize) -> Self {
+    pub fn with_size(size: usize) -> Self {
         let capacity = size.next_power_of_two();
         let repr_size = euler_sum(capacity);
         let mut matrix = BitVec::with_capacity(repr_size);

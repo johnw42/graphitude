@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 
 use jrw_graph::{
-    Graph,
+    Graph, GraphMut,
     adjacency_matrix::{AdjacencyMatrix, SymmetricAdjacencyMatrix},
-    graph::GraphMutStructure,
 };
 
 /// An undirected graph where vertices are identified by strings.  A vertex's ID
@@ -63,35 +62,30 @@ impl Graph for StringGraph {
         self.vertices.get(id).expect("Vertex does not exist")
     }
 
-    fn num_edges_between(&self, from: &Self::VertexId, into: &Self::VertexId) -> usize {
-        self.edges.get(from, into).into_iter().count()
+    fn num_edges_between(&self, from: Self::VertexId, into: Self::VertexId) -> usize {
+        self.edges.get(&from, &into).into_iter().count()
     }
 
     fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
         self.edges.get(&id.0, &id.1).expect("Edge does not exist")
     }
 
-    fn edge_source(&self, id: &Self::EdgeId) -> Self::VertexId {
-        id.0.clone()
+    fn edge_source_and_target(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+        (eid.0.clone(), eid.1.clone())
     }
 
-    fn edge_target(&self, id: &Self::EdgeId) -> Self::VertexId {
-        id.1.clone()
+    fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId> {
+        self.vertices.iter().cloned()
     }
 
-    fn vertex_ids(&self) -> Vec<String> {
-        self.vertices.iter().cloned().collect()
-    }
-
-    fn edge_ids(&self) -> Vec<Self::EdgeId> {
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
         self.edges
             .edges()
             .map(|(from, into, _)| EdgeId::new(from, into))
-            .collect()
     }
 }
 
-impl GraphMutStructure for StringGraph {
+impl GraphMut for StringGraph {
     fn add_vertex(&mut self, data: Self::VertexData) -> Self::VertexId {
         self.vertices.insert(data.clone());
         data
@@ -135,9 +129,9 @@ fn test_string_graph() {
     let bc = graph.add_edge(&b, &c, ()).0;
     assert_eq!(
         graph
-            .edges_out(&a)
+            .edges_out(a.clone())
             .into_iter()
-            .map(|edge_id| graph.edge_target(&edge_id))
+            .map(|edge_id| graph.edge_target(edge_id))
             .collect::<Vec<_>>(),
         vec![b.clone()]
     );
@@ -152,7 +146,7 @@ fn test_add_multiple_vertices() {
         .into_iter()
         .map(|s| graph.add_vertex(s.to_string()))
         .collect();
-    assert_eq!(graph.vertex_ids().len(), 4);
+    assert_eq!(graph.vertex_ids().count(), 4);
     for v in vertices {
         assert_eq!(graph.vertex_data(&v), &v);
     }
@@ -172,8 +166,8 @@ fn test_symmetric_edges() {
     let a = graph.add_vertex("A".to_string());
     let b = graph.add_vertex("B".to_string());
     graph.add_edge(&a, &b, ());
-    assert_eq!(graph.num_edges_between(&a, &b), 1);
-    assert_eq!(graph.num_edges_between(&b, &a), 1);
+    assert_eq!(graph.num_edges_between(a.clone(), b.clone()), 1);
+    assert_eq!(graph.num_edges_between(b, a), 1);
 }
 
 #[test]
@@ -212,6 +206,6 @@ fn test_edges_out_from_vertex() {
     let c = graph.add_vertex("C".to_string());
     graph.add_edge(&a, &b, ());
     graph.add_edge(&a, &c, ());
-    let edges_out = graph.edges_out(&a);
+    let edges_out = graph.edges_out(a);
     assert_eq!(edges_out.into_iter().count(), 2);
 }
