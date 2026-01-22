@@ -35,7 +35,7 @@ use {
 
 use crate::{edge_ref::EdgeRef, vertex_ref::VertexRef};
 
-pub struct DfsIterator<'g, G: Graph + ?Sized> {
+pub struct DfsIterator<'g, G: Graph> {
     graph: &'g G,
     visited: HashSet<G::VertexId>,
     stack: Vec<G::VertexId>,
@@ -43,7 +43,7 @@ pub struct DfsIterator<'g, G: Graph + ?Sized> {
 
 impl<'g, G> Iterator for DfsIterator<'g, G>
 where
-    G: Graph + ?Sized,
+    G: Graph,
 {
     type Item = G::VertexId;
 
@@ -65,7 +65,7 @@ where
     }
 }
 
-pub struct BfsIterator<'g, G: Graph + ?Sized> {
+pub struct BfsIterator<'g, G: Graph> {
     graph: &'g G,
     visited: HashSet<G::VertexId>,
     queue: Queue<G::VertexId>,
@@ -73,7 +73,7 @@ pub struct BfsIterator<'g, G: Graph + ?Sized> {
 
 impl<'g, G> Iterator for BfsIterator<'g, G>
 where
-    G: Graph + ?Sized,
+    G: Graph,
 {
     type Item = G::VertexId;
 
@@ -96,7 +96,7 @@ where
 }
 
 /// A trait representing a graph data structure.
-pub trait Graph {
+pub trait Graph: Sized {
     type EdgeData;
     type EdgeId: Eq + Hash + Clone;
     type VertexData;
@@ -312,11 +312,20 @@ pub trait GraphMut: Graph {
     /// connected to the vertex are also be removed.
     fn remove_vertex(&mut self, id: &Self::VertexId) -> Self::VertexData;
 
+    fn add_edge(
+        &mut self,
+        from: &Self::VertexId,
+        to: &Self::VertexId,
+        data: Self::EdgeData,
+    ) -> Self::EdgeId {
+        self.add_or_replace_edge(from, to, data).0
+    }
+
     /// Adds an edge with the given data between two vertices and returns the
     /// `EdgeId`.  If an edge already exists between the two vertices, and the
     /// graph does not support parallel edges, the old edge is replaced and its
     /// data is returned as well.
-    fn add_edge(
+    fn add_or_replace_edge(
         &mut self,
         from: &Self::VertexId,
         to: &Self::VertexId,

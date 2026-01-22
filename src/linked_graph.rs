@@ -166,7 +166,7 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
         vid
     }
 
-    fn add_edge(
+    fn add_or_replace_edge(
         &mut self,
         from: &Self::VertexId,
         into: &Self::VertexId,
@@ -233,7 +233,13 @@ mod tests {
     use crate::{tests::TestDataBuilder, *};
     use super::*;
 
-    impl TestDataBuilder<LinkedGraph<i32, String>> for LinkedGraph<i32, String> {
+    impl TestDataBuilder for LinkedGraph<i32, String> {
+        type Graph = Self;
+
+        fn new_graph() -> Self::Graph {
+            Self::new()
+        }
+
         fn new_edge_data(i: usize) -> String {
             format!("e{}", i)
         }

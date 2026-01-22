@@ -21,35 +21,42 @@ impl BuilderState {
     }
 }
 
-pub trait TestDataBuilder<G: Graph> {
+pub trait TestDataBuilder {
+    type Graph: Graph;
+
     fn new() -> BuilderState {
         BuilderState { v: 0, e: 0 }
     }
 
-    fn new_edge_data(i: usize) -> G::EdgeData;
-    fn new_vertex_data(i: usize) -> G::VertexData;
+    fn new_graph() -> Self::Graph;
+    fn new_edge_data(i: usize) -> <Self::Graph as Graph>::EdgeData;
+    fn new_vertex_data(i: usize) -> <Self::Graph as Graph>::VertexData;
 }
 
-pub struct Builder<G>(BuilderState, PhantomData<G>);
+pub struct InternalBuilderImpl<G>(BuilderState, PhantomData<G>);
 
-impl<G> Builder<G>
+impl<G> InternalBuilderImpl<G>
 where
-    G: Graph + TestDataBuilder<G>,
-    <G as Graph>::VertexData: Clone + Eq,
-    <G as Graph>::EdgeData: Clone + Eq,
+    G: Graph + TestDataBuilder<Graph = G>,
+    G::VertexData: Clone + Eq,
+    G::EdgeData: Clone + Eq,
 {
     pub fn new() -> Self {
-        Self(<G as TestDataBuilder<G>>::new(), PhantomData)
+        Self(<G as TestDataBuilder>::new(), PhantomData)
+    }
+
+    pub fn new_graph(&self) -> G {
+        G::new_graph()
     }
 
     pub fn new_vertex_data(&mut self) -> G::VertexData {
         let id = self.0.next_vertex();
-        <G as TestDataBuilder<G>>::new_vertex_data(id)
+        G::new_vertex_data(id)
     }
 
     pub fn new_edge_data(&mut self) -> G::EdgeData {
         let id = self.0.next_edge();
-        <G as TestDataBuilder<G>>::new_edge_data(id)
+        G::new_edge_data(id)
     }
 }
 
@@ -65,43 +72,66 @@ macro_rules! graph_tests {
 
         #[test]
         fn test_vertex_data_retrieval() {
-            let mut graph: $type = <$type>::new();
-            let mut builder = crate::tests::Builder::<$type>::new();
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = builder.new_graph();
             let vd1 = builder.new_vertex_data();
-            let v1 = graph.add_vertex(vd1);
+            let v1 = graph.add_vertex(vd1.clone());
             assert_eq!(*graph.vertex_data(&v1), vd1);
         }
 
         #[test]
         fn test_edge_creation() {
-            let mut graph: $type = <$type>::new();
-            let mut builder = crate::tests::Builder::<$type>::new();
+            use std::collections::HashSet;
+
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = builder.new_graph();
             let vd1 = builder.new_vertex_data();
             let vd2 = builder.new_vertex_data();
+            let vd3 = builder.new_vertex_data();
             let ed1 = builder.new_edge_data();
+            let ed2 = builder.new_edge_data();
             let v1 = graph.add_vertex(vd1);
             let v2 = graph.add_vertex(vd2);
-            let e1 = graph.add_edge(&v1, &v2, ed1.clone()).0;
+            let v3 = graph.add_vertex(vd3);
+            let e1 = graph.add_edge(&v1, &v2, ed1.clone());
+            let e2 = graph.add_edge(&v2, &v3, ed2.clone());
 
-            assert_eq!(graph.edge_ids().count(), 1);
+            assert_eq!(
+                graph
+                    .edges_out(v1.clone())
+                    .into_iter()
+                    .map(|edge_id| graph.edge_target(edge_id))
+                    .collect::<Vec<_>>(),
+                vec![v2.clone()]
+            );
+
+            assert_eq!(graph.edge_data(&e1), (&ed1));
+            assert_eq!(graph.edge_data(&e2), (&ed2));
+
+            assert_eq!(graph.num_edges(), 2);
+            assert_eq!(
+                graph.edge_ids().collect::<HashSet<_>>(),
+                HashSet::from([e1.clone(), e2.clone()])
+            );
             assert_eq!(*graph.edge_data(&e1), ed1);
+            assert_eq!(*graph.edge_data(&e2), ed2);
         }
 
         #[test]
         fn test_vertex_removal() {
-            let mut graph: $type = <$type>::new();
-            let mut builder = crate::tests::Builder::<$type>::new();
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = builder.new_graph();
             let vd1 = builder.new_vertex_data();
             let vd2 = builder.new_vertex_data();
             let ed1 = builder.new_edge_data();
             let ed2 = builder.new_edge_data();
             let ed3 = builder.new_edge_data();
 
-            let v1 = graph.add_vertex(vd1);
-            let v2 = graph.add_vertex(vd2);
+            let v1 = graph.add_vertex(vd1.clone());
+            let v2 = graph.add_vertex(vd2.clone());
 
             // Normal edge.
-            graph.add_edge(&v1, &v2, ed1.clone());
+            graph.add_or_replace_edge(&v1, &v2, ed1.clone());
             // Duplicate edge.
             graph.add_edge(&v1, &v2, ed2.clone());
             // Self edge.
@@ -113,36 +143,90 @@ macro_rules! graph_tests {
             assert_eq!(graph.num_edges(), 0);
         }
 
+                #[test]
+        fn test_remove_vertex_cleans_edges() {
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = builder.new_graph();
+            let vd1 = builder.new_vertex_data();
+            let vd2 = builder.new_vertex_data();
+            let ed1 = builder.new_edge_data();
+            let ed2 = builder.new_edge_data();
+            let ed3 = builder.new_edge_data();
+
+            let v1 = graph.add_vertex(vd1.clone());
+            let v2 = graph.add_vertex(vd2.clone());
+
+            // Normal edge.
+            graph.add_or_replace_edge(&v1, &v2, ed1.clone());
+            // Duplicate edge.
+            graph.add_edge(&v1, &v2, ed2.clone());
+            // Self edge.
+            graph.add_edge(&v1, &v1, ed3.clone());
+
+            graph.remove_vertex(&v1);
+            assert_eq!(graph.num_vertices(), 1);
+            assert_eq!(graph.num_edges(), 0);
+        }
+
         #[test]
         fn test_edges_out() {
-            let mut graph: $type = <$type>::new();
-            let mut builder = crate::tests::Builder::<$type>::new();
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = builder.new_graph();
             let vd1 = builder.new_vertex_data();
             let vd2 = builder.new_vertex_data();
             let ed1 = builder.new_edge_data();
 
             let v1 = graph.add_vertex(vd1);
             let v2 = graph.add_vertex(vd2);
-            let e1 = graph.add_edge(&v1, &v2, ed1.clone()).0;
+            let e1 = graph.add_or_replace_edge(&v1, &v2, ed1.clone()).0;
 
             assert_eq!(graph.edges_out(v1).collect::<Vec<_>>(), vec![e1]);
-            assert_eq!(graph.num_edges_out(v2), 0);
+            assert_eq!(graph.num_edges_out(v2), (!graph.is_directed()).into());
+        }
+
+        #[test]
+        fn test_edges_in() {
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = builder.new_graph();
+            let vd1 = builder.new_vertex_data();
+            let vd2 = builder.new_vertex_data();
+            let ed1 = builder.new_edge_data();
+
+            let v1 = graph.add_vertex(vd1);
+            let v2 = graph.add_vertex(vd2);
+            let e1 = graph.add_or_replace_edge(&v1, &v2, ed1.clone()).0;
+
+            assert_eq!(graph.edges_in(v2).collect::<Vec<_>>(), vec![e1]);
+            assert_eq!(graph.num_edges_in(v1), (!graph.is_directed()).into());
         }
 
         #[test]
         fn test_edges_between() {
-            let mut graph: $type = <$type>::new();
-            let mut builder = crate::tests::Builder::<$type>::new();
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = builder.new_graph();
             let vd1 = builder.new_vertex_data();
             let vd2 = builder.new_vertex_data();
             let ed1 = builder.new_edge_data();
 
             let v1 = graph.add_vertex(vd1);
             let v2 = graph.add_vertex(vd2);
-            graph.add_edge(&v1, &v2, ed1);
+            let e1 = graph.add_edge(&v1, &v2, ed1);
 
-            assert_eq!(graph.num_edges_between(v1, v2), 1);
-            assert_eq!(graph.num_edges_between(v2, v1), 0);
+            assert_eq!(graph.num_edges_between(v1.clone(), v2.clone()), 1);
+            assert_eq!(
+                graph
+                    .edges_between(v1.clone(), v2.clone())
+                    .collect::<Vec<_>>(),
+                vec![e1.clone()]
+            );
+            assert_eq!(
+                graph.edges_between(v2, v1).collect::<Vec<_>>(),
+                if graph.is_directed() {
+                    vec![]
+                } else {
+                    vec![e1.clone()]
+                }
+            );
         }
     };
 }

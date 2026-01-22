@@ -6,14 +6,14 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct VertexRef<'g, G: Graph + ?Sized> {
+pub struct VertexRef<'g, G: Graph> {
     graph: &'g G,
     id: G::VertexId,
 }
 
 impl<'g, G> VertexRef<'g, G>
 where
-    G: Graph + ?Sized,
+    G: Graph,
 {
     pub(crate) fn new(graph: &'g G, id: G::VertexId) -> Self {
         Self { graph, id }

@@ -1,19 +1,19 @@
 use crate::{Graph, vertex_ref::VertexRef};
 
-pub trait EdgeRefCore<'g, G: Graph + ?Sized> {
+pub trait EdgeRefCore<'g, G: Graph> {
     fn graph(&self) -> &'g G;
     // fn data(&self) -> &'g G::EdgeData;
     // fn source(&self) -> VertexRef<'g, G>;
     // fn target(&self) -> VertexRef<'g, G>;
 }
 
-pub struct EdgeRef<'g, G: Graph + ?Sized> {
+pub struct EdgeRef<'g, G: Graph> {
     graph: &'g G,
     id: G::EdgeId,
 }
 impl<'g, G> EdgeRef<'g, G>
 where
-    G: Graph + ?Sized,
+    G: Graph,
 {
     pub(crate) fn new(graph: &'g G, id: G::EdgeId) -> Self {
         Self { graph, id }
