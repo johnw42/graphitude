@@ -175,6 +175,7 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
             (&mut *into.0).edges_in.push(eid);
         }
 
+        Box::leak(enode);
         (eid, None)
     }
 
