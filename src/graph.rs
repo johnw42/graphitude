@@ -170,7 +170,7 @@ pub trait Graph {
     }
 
     /// Gets an iterator over the outgoing edges from a given vertex.
-    fn edges_out<'a>(&'a self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_out(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.edge_ids().filter(move |eid| {
             let (source, target) = self.edge_source_and_target(eid.clone());
             source == from || !self.is_directed() && target == from
@@ -178,7 +178,7 @@ pub trait Graph {
     }
 
     /// Gets an iterator over the incoming edges to a given vertex.
-    fn edges_in<'a>(&'a self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_in(&self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.edge_ids().filter(move |eid| {
             let (source, target) = self.edge_source_and_target(eid.clone());
             target == into || !self.is_directed() && source == into
@@ -186,11 +186,11 @@ pub trait Graph {
     }
 
     /// Gets an iterator over the edges between two vertices.
-    fn edges_between<'a>(
-        &'a self,
+    fn edges_between(
+        &self,
         from: Self::VertexId,
         into: Self::VertexId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    ) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.edges_out(from.clone()).filter(move |eid| {
             let edge_source = self.edge_source(eid.clone());
             let edge_target = self.edge_target(eid.clone());
@@ -211,12 +211,12 @@ pub trait Graph {
     fn edge_source_and_target(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId);
 
     /// Gets the source vertex of an edge.
-    fn edge_source<'a, 'b>(&'a self, id: Self::EdgeId) -> Self::VertexId {
+    fn edge_source(&self, id: Self::EdgeId) -> Self::VertexId {
         self.edge_source_and_target(id).0
     }
 
     /// Gets the target vertex of an edge.
-    fn edge_target<'a, 'b>(&'a self, id: Self::EdgeId) -> Self::VertexId {
+    fn edge_target(&self, id: Self::EdgeId) -> Self::VertexId {
         self.edge_source_and_target(id).1
     }
 

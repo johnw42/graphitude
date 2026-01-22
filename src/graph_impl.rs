@@ -1,7 +1,7 @@
 use crate::{
     Graph,
     adjacency_matrix::{AdjacencyMatrix, AsymmetricAdjacencyMatrix},
-    id_vec::{IdVec, IdVecIndex}
+    id_vec::{IdVec, IdVecIndex},
 };
 
 pub struct GraphImpl<V, E> {
@@ -24,16 +24,20 @@ impl<V, E> Graph for GraphImpl<V, E> {
     type VertexData = V;
     type VertexId = IdVecIndex;
 
-    fn vertex_ids(&self) -> impl Iterator<Item = <Self as Graph>::VertexId> {
-        self.vertices.iter_indices()
-    }
-
     fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData {
         &self.vertices[*id]
     }
 
+    fn vertex_ids(&self) -> impl Iterator<Item = <Self as Graph>::VertexId> {
+        self.vertices.iter_indices()
+    }
+
     fn edge_data(&self, (from, to): &Self::EdgeId) -> &Self::EdgeData {
         &self.adjacency.get(from, to).expect("no such edge")
+    }
+
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
+        self.adjacency.edges().map(|(from, to, _)| (from, to))
     }
 
     fn edge_source_and_target(&self, (from, to): Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
@@ -41,10 +45,18 @@ impl<V, E> Graph for GraphImpl<V, E> {
     }
 
     fn edges_in<'a>(&'a self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.adjacency.edges_into(&into).map(move |(from, _)| (from, into)).collect::<Vec<_>>().into_iter()
+        self.adjacency
+            .edges_into(&into)
+            .map(move |(from, _)| (from, into))
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
     fn edges_out<'a>(&'a self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.adjacency.edges_from(&from).map(move |(to, _)| (from, to)).collect::<Vec<_>>().into_iter()
+        self.adjacency
+            .edges_from(&from)
+            .map(move |(to, _)| (from, to))
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 }

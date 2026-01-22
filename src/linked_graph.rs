@@ -1,0 +1,286 @@
+use std::{hash::Hash, ptr};
+
+use crate::{Graph, GraphMut};
+
+struct VertexNode<V, E> {
+    data: V,
+    edges_out: Vec<EdgeId<V, E>>,
+    edges_in: Vec<EdgeId<V, E>>,
+}
+
+#[derive(PartialOrd, Ord, Debug)]
+pub struct VertexId<V, E>(*mut VertexNode<V, E>);
+
+impl<V, E> Clone for VertexId<V, E> {
+    fn clone(&self) -> Self {
+        VertexId(self.0)
+    }
+}
+
+impl<V, E> Copy for VertexId<V, E> {}
+
+impl<V, E> PartialEq for VertexId<V, E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<V, E> Eq for VertexId<V, E> {}
+
+impl<V, E> Hash for VertexId<V, E> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (self.0 as usize).hash(state);
+    }
+}
+
+impl<V, E> From<&VertexNode<V, E>> for VertexId<V, E> {
+    fn from(ptr: &VertexNode<V, E>) -> Self {
+        VertexId(ptr as *const _ as *mut _)
+    }
+}
+
+struct EdgeNode<V, E> {
+    data: E,
+    from: VertexId<V, E>,
+    to: VertexId<V, E>,
+}
+
+#[derive(PartialOrd, Ord, Debug)]
+pub struct EdgeId<V, E>(*mut EdgeNode<V, E>);
+
+impl<V, E> Clone for EdgeId<V, E> {
+    fn clone(&self) -> Self {
+        EdgeId(self.0)
+    }
+}
+
+impl<V, E> Copy for EdgeId<V, E> {}
+
+impl<V, E> PartialEq for EdgeId<V, E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<V, E> Eq for EdgeId<V, E> {}
+
+impl<V, E> Hash for EdgeId<V, E> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (self.0 as usize).hash(state);
+    }
+}
+
+impl<V, E> From<&EdgeNode<V, E>> for EdgeId<V, E> {
+    fn from(ptr: &EdgeNode<V, E>) -> Self {
+        EdgeId(ptr as *const _ as *mut _)
+    }
+}
+
+pub struct LinkedGraph<V, E> {
+    vertices: Vec<Box<VertexNode<V, E>>>,
+}
+
+impl<V, E> LinkedGraph<V, E> {
+    pub fn new() -> Self {
+        Self {
+            vertices: Vec::new(),
+        }
+    }
+}
+
+impl<V, E> Graph for LinkedGraph<V, E> {
+    type VertexId = VertexId<V, E>;
+    type VertexData = V;
+    type EdgeId = EdgeId<V, E>;
+    type EdgeData = E;
+
+    fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData {
+        unsafe { &(*id.0).data }
+    }
+
+    fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId> {
+        self.vertices.iter().map(|node| VertexId::from(&**node))
+    }
+
+    fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
+        unsafe { &(*id.0).data }
+    }
+
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
+        self.vertices
+            .iter()
+            .flat_map(|vnode| vnode.edges_out.iter().cloned())
+    }
+
+    fn edge_source_and_target(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+        let edge_node = unsafe { &*eid.0 };
+        (edge_node.from, edge_node.to)
+    }
+
+    fn edges_out(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
+        unsafe { &*from.0 }.edges_out.iter().cloned()
+    }
+
+    fn edges_in(&self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
+        unsafe { &*into.0 }.edges_in.iter().cloned()
+    }
+
+    fn num_edges_in(&self, into: Self::VertexId) -> usize {
+        unsafe { &*into.0 }.edges_in.len()
+    }
+
+    fn num_edges_out(&self, from: Self::VertexId) -> usize {
+        unsafe { &*from.0 }.edges_out.len()
+    }
+
+    fn edges_between(
+        &self,
+        from: Self::VertexId,
+        into: Self::VertexId,
+    ) -> impl Iterator<Item = Self::EdgeId> {
+        self.edges_out(from).filter(move |eid| {
+            let (source, target) = self.edge_source_and_target(*eid);
+            source == from && target == into
+        })
+    }
+}
+
+impl<V, E> GraphMut for LinkedGraph<V, E> {
+    fn add_vertex(&mut self, data: Self::VertexData) -> Self::VertexId {
+        let vnode = Box::new(VertexNode {
+            data,
+            edges_out: Vec::new(),
+            edges_in: Vec::new(),
+        });
+        let vid = VertexId::from(&*vnode);
+        self.vertices.push(vnode);
+        vid
+    }
+
+    fn add_edge(
+        &mut self,
+        from: &Self::VertexId,
+        into: &Self::VertexId,
+        data: Self::EdgeData,
+    ) -> (Self::EdgeId, Option<Self::EdgeData>) {
+        let enode = Box::new(EdgeNode {
+            data,
+            from: *from,
+            to: *into,
+        });
+        let eid = EdgeId::from(&*enode);
+
+        unsafe {
+            (&mut *from.0).edges_out.push(eid);
+            (&mut *into.0).edges_in.push(eid);
+        }
+
+        (eid, None)
+    }
+
+    fn remove_vertex(&mut self, id: &Self::VertexId) -> V {
+        let index = self
+            .vertices
+            .iter()
+            .position(|vnode| VertexId::from(&**vnode) == *id)
+            .expect("Vertex does not exist");
+        let vnode = self.vertices.remove(index);
+        for eid in &vnode.edges_out {
+            let edge_node = unsafe { &*eid.0 };
+            let to_vid = edge_node.to;
+            let to_vnode = unsafe { &mut *to_vid.0 };
+            to_vnode.edges_in.retain(|&eid2| eid2 != *eid);
+            if !ptr::eq(&*vnode, to_vid.0) {
+                unsafe { drop(Box::from_raw(eid.0)) };
+            }
+        }
+        for eid in &vnode.edges_in {
+            let edge_node = unsafe { &*eid.0 };
+            let from_vid = edge_node.from;
+            let from_vnode = unsafe { &mut *from_vid.0 };
+            from_vnode.edges_out.retain(|&eid2| eid2 != *eid);
+            unsafe { drop(Box::from_raw(eid.0)) };
+        }
+        vnode.data
+    }
+
+    fn remove_edge(&mut self, eid: &Self::EdgeId) -> Option<Self::EdgeData> {
+        let edge_node = unsafe { &*eid.0 };
+        let from_vid = edge_node.from;
+        let to_vid = edge_node.to;
+
+        let from_vnode = unsafe { &mut *from_vid.0 };
+        from_vnode.edges_out.retain(|&eid2| *eid != eid2);
+
+        let to_vnode = unsafe { &mut *to_vid.0 };
+        to_vnode.edges_in.retain(|&eid2| *eid != eid2);
+
+        Some(unsafe { Box::from_raw(eid.0).data })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_graph_is_empty() {
+        let graph: LinkedGraph<i32, String> = LinkedGraph::new();
+        assert_eq!(graph.num_vertices(), 0);
+        assert_eq!(graph.num_edges(), 0);
+    }
+
+    #[test]
+    fn test_vertex_data_retrieval() {
+        let mut graph: LinkedGraph<i32, String> = LinkedGraph::new();
+        let v1 = graph.add_vertex(42);
+        assert_eq!(*graph.vertex_data(&v1), 42);
+    }
+
+    #[test]
+    fn test_edge_creation() {
+        let mut graph: LinkedGraph<i32, String> = LinkedGraph::new();
+        let v1 = graph.add_vertex(1);
+        let v2 = graph.add_vertex(2);
+        let e1 = graph.add_edge(&v1, &v2, "edge1".to_string()).0;
+
+        assert_eq!(graph.edge_ids().count(), 1);
+        assert_eq!(*graph.edge_data(&e1), "edge1");
+    }
+
+    #[test]
+    fn test_vertex_removal() {
+        let mut graph: LinkedGraph<i32, String> = LinkedGraph::new();
+        let v1 = graph.add_vertex(1);
+        let v2 = graph.add_vertex(2);
+        graph.add_edge(&v1, &v2, "self_edge".to_string());
+        graph.add_edge(&v1, &v2, "edge1".to_string());
+
+        let removed_data = graph.remove_vertex(&v1);
+        assert_eq!(removed_data, 1);
+        assert_eq!(graph.num_vertices(), 1);
+        assert_eq!(graph.num_edges(), 0);
+    }
+
+    #[test]
+    fn test_edges_out() {
+        let mut graph: LinkedGraph<i32, String> = LinkedGraph::new();
+        let v1 = graph.add_vertex(1);
+        let v2 = graph.add_vertex(2);
+        let e1 = graph.add_edge(&v1, &v2, "e1".to_string()).0;
+
+        assert_eq!(graph.edges_out(v1).collect::<Vec<_>>(), vec![e1]);
+        assert_eq!(graph.num_edges_out(v2), 0);
+    }
+
+    #[test]
+    fn test_edges_between() {
+        let mut graph: LinkedGraph<i32, String> = LinkedGraph::new();
+        let v1 = graph.add_vertex(1);
+        let v2 = graph.add_vertex(2);
+        graph.add_edge(&v1, &v2, "e1".to_string());
+
+        assert_eq!(graph.num_edges_between(v1, v2), 1);
+        assert_eq!(graph.num_edges_between(v2, v1), 0);
+    }
+}
