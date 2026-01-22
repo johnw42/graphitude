@@ -5,6 +5,7 @@ pub mod object_graph;
 pub mod vertex_ref;
 pub mod graph_impl;
 pub mod linked_graph;
+pub mod tests;
 
 mod id_vec;
 mod util;

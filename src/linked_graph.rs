@@ -227,69 +227,21 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
+    use crate::{tests::TestDataBuilder, *};
     use super::*;
 
-    #[test]
-    fn test_new_graph_is_empty() {
-        let graph: LinkedGraph<i32, String> = LinkedGraph::new();
-        assert_eq!(graph.num_vertices(), 0);
-        assert_eq!(graph.num_edges(), 0);
+    impl TestDataBuilder<LinkedGraph<i32, String>> for LinkedGraph<i32, String> {
+        fn new_edge_data(i: usize) -> String {
+            format!("e{}", i)
+        }
+
+        fn new_vertex_data(i: usize) -> i32 {
+            i as i32
+        }
     }
 
-    #[test]
-    fn test_vertex_data_retrieval() {
-        let mut graph: LinkedGraph<i32, String> = LinkedGraph::new();
-        let v1 = graph.add_vertex(42);
-        assert_eq!(*graph.vertex_data(&v1), 42);
-    }
-
-    #[test]
-    fn test_edge_creation() {
-        let mut graph: LinkedGraph<i32, String> = LinkedGraph::new();
-        let v1 = graph.add_vertex(1);
-        let v2 = graph.add_vertex(2);
-        let e1 = graph.add_edge(&v1, &v2, "edge1".to_string()).0;
-
-        assert_eq!(graph.edge_ids().count(), 1);
-        assert_eq!(*graph.edge_data(&e1), "edge1");
-    }
-
-    #[test]
-    fn test_vertex_removal() {
-        let mut graph: LinkedGraph<i32, String> = LinkedGraph::new();
-        let v1 = graph.add_vertex(1);
-        let v2 = graph.add_vertex(2);
-        graph.add_edge(&v1, &v1, "self_edge".to_string());
-        graph.add_edge(&v1, &v2, "edge1".to_string());
-        graph.add_edge(&v1, &v2, "edge2".to_string());
-
-        let removed_data = graph.remove_vertex(&v1);
-        assert_eq!(removed_data, 1);
-        assert_eq!(graph.num_vertices(), 1);
-        assert_eq!(graph.num_edges(), 0);
-    }
-
-    #[test]
-    fn test_edges_out() {
-        let mut graph: LinkedGraph<i32, String> = LinkedGraph::new();
-        let v1 = graph.add_vertex(1);
-        let v2 = graph.add_vertex(2);
-        let e1 = graph.add_edge(&v1, &v2, "e1".to_string()).0;
-
-        assert_eq!(graph.edges_out(v1).collect::<Vec<_>>(), vec![e1]);
-        assert_eq!(graph.num_edges_out(v2), 0);
-    }
-
-    #[test]
-    fn test_edges_between() {
-        let mut graph: LinkedGraph<i32, String> = LinkedGraph::new();
-        let v1 = graph.add_vertex(1);
-        let v2 = graph.add_vertex(2);
-        graph.add_edge(&v1, &v2, "e1".to_string());
-
-        assert_eq!(graph.num_edges_between(v1, v2), 1);
-        assert_eq!(graph.num_edges_between(v2, v1), 0);
-    }
+    graph_tests!(LinkedGraph<i32, String>);
 }
