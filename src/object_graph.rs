@@ -1,5 +1,7 @@
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::transmute};
 
+use crate::graph::Directed;
+
 use super::Graph;
 
 pub struct VertexId<'g, V>(*const V, PhantomData<&'g V>);
@@ -26,12 +28,9 @@ impl<'g, V> Hash for VertexId<'g, V> {
     }
 }
 
-impl<'g, V> Debug for VertexId<'g, V>
-where
-    V: Debug,
-{
+impl<'g, V> Debug for VertexId<'g, V> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "VertexId({:?})", unsafe { &*self.0 })
+        write!(f, "VertexId({:?})", self.0)
     }
 }
 
@@ -102,6 +101,7 @@ where
     type VertexData = &'a V;
     type EdgeId = (Self::VertexId, Self::VertexId);
     type EdgeData = ();
+    type Directedness = Directed;
 
     fn vertex_data(&self, id: &VertexId<V>) -> &<Self as Graph>::VertexData {
         unsafe { transmute::<&*const V, &&'a V>(&id.0) }
@@ -112,7 +112,8 @@ where
         neighbors
             .iter()
             .position(|&v| VertexId::from(v) == *to)
-            .map(|_| &()).expect("Edge does not exist")
+            .map(|_| &())
+            .expect("Edge does not exist")
     }
 
     fn edges_from<'b>(&'b self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'b {
@@ -125,7 +126,7 @@ where
     fn vertex_ids(&self) -> impl Iterator<Item = <Self as Graph>::VertexId> {
         self.bfs_multi(&self.roots().collect::<Vec<_>>())
     }
-    
+
     fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
         eid
     }

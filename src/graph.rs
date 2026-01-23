@@ -25,7 +25,7 @@
 //!   feature)
 //! - Queries for vertices, edges, predecessors, and successors
 use double_vec_queue::Queue;
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Debug};
 use std::iter::once;
 
 #[cfg(feature = "pathfinding")]
@@ -35,6 +35,25 @@ use {
 };
 
 use crate::{edge_ref::EdgeRef, vertex_ref::VertexRef};
+
+pub struct Directed;
+pub struct Undirected;
+
+pub trait Directedness {
+    fn is_directed() -> bool;
+}
+
+impl Directedness for Directed {
+    fn is_directed() -> bool {
+        true
+    }
+}
+
+impl Directedness for Undirected {
+    fn is_directed() -> bool {
+        false
+    }
+}
 
 pub struct DfsIterator<'g, G: Graph> {
     graph: &'g G,
@@ -99,12 +118,13 @@ where
 /// A trait representing a graph data structure.
 pub trait Graph: Sized {
     type EdgeData;
-    type EdgeId: Eq + Hash + Clone;
+    type EdgeId: Eq + Hash + Clone + Debug;
     type VertexData;
-    type VertexId: Eq + Hash + Clone;
+    type VertexId: Eq + Hash + Clone + Debug;
+    type Directedness: Directedness;
 
     fn is_directed(&self) -> bool {
-        true
+        Self::Directedness::is_directed()
     }
 
     /// # Vertices
@@ -296,7 +316,10 @@ pub trait Graph: Sized {
                 parents
                     .iter()
                     .map(|(k, (_, cost)): (&Self::VertexId, &(_, C))| {
-                        (k.clone(), (pathfinding::prelude::build_path(k, &parents), *cost))
+                        (
+                            k.clone(),
+                            (pathfinding::prelude::build_path(k, &parents), *cost),
+                        )
                     }),
             )
             .collect()
@@ -304,10 +327,6 @@ pub trait Graph: Sized {
 }
 
 pub trait GraphDirected: Graph {
-    fn is_directed(&self) -> bool {
-        true
-    }
-
     /// Finds the strongly connected component containing the given vertex.
     #[cfg(feature = "pathfinding")]
     fn strongly_connected_component(&self, start: &Self::VertexId) -> Vec<Self::VertexId> {
@@ -337,19 +356,18 @@ pub trait GraphDirected: Graph {
     }
 }
 
-pub trait GraphUndirected: Graph {
-    fn is_directed(&self) -> bool {
-        false
-    }
+impl<G> GraphDirected for G where G: Graph<Directedness = Directed> {}
 
+pub trait GraphUndirected: Graph {
     #[cfg(feature = "pathfinding")]
     fn connected_components(&self) -> Vec<HashSet<Self::VertexId>> {
-        pathfinding::prelude::connected_components(
-            &self.vertex_ids().collect::<Vec<_>>(),
-            |vid| self.successors(vid.clone()),
-        )
+        pathfinding::prelude::connected_components(&self.vertex_ids().collect::<Vec<_>>(), |vid| {
+            self.successors(vid.clone())
+        })
     }
 }
+
+impl<G> GraphUndirected for G where G: Graph<Directedness = Undirected> {}
 
 pub trait GraphMut: Graph {
     /// Removes all vertices and edges from the graph.
@@ -394,40 +412,40 @@ pub trait GraphMut: Graph {
     fn remove_edge(&mut self, from: &Self::EdgeId) -> Option<Self::EdgeData>;
 
     /// Copies all vertices and edges from another graph into this graph.
-    fn copy_from<G2>(&mut self, other: &G2) -> HashMap<G2::VertexId, Self::VertexId>
+    fn copy_from<S>(&mut self, source: &S) -> HashMap<S::VertexId, Self::VertexId>
     where
-        G2: Graph<VertexData = Self::VertexData, EdgeData = Self::EdgeData>,
+        S: Graph<VertexData = Self::VertexData, EdgeData = Self::EdgeData>,
         Self::VertexData: Clone,
         Self::EdgeData: Clone,
     {
-        self.copy_from_with(other, Clone::clone, Clone::clone)
+        self.copy_from_with(source, Clone::clone, Clone::clone)
     }
 
     /// Copies all vertices and edges from another graph into this graph,
     /// transforming the vertex and edge data using the provided mapping
     /// functions.
-    fn copy_from_with<G2, F, G>(
+    fn copy_from_with<S, F, G>(
         &mut self,
-        other: &G2,
+        source: &S,
         mut map_vertex: F,
         mut map_edge: G,
-    ) -> HashMap<G2::VertexId, Self::VertexId>
+    ) -> HashMap<S::VertexId, Self::VertexId>
     where
-        G2: Graph,
+        S: Graph,
         Self::VertexData: Clone,
         Self::EdgeData: Clone,
-        F: FnMut(&G2::VertexData) -> Self::VertexData,
-        G: FnMut(&G2::EdgeData) -> Self::EdgeData,
+        F: FnMut(&S::VertexData) -> Self::VertexData,
+        G: FnMut(&S::EdgeData) -> Self::EdgeData,
     {
         let mut vertex_map = HashMap::new();
-        for vid in other.vertex_ids() {
-            let vdata = map_vertex(other.vertex_data(&vid));
+        for vid in source.vertex_ids() {
+            let vdata = map_vertex(source.vertex_data(&vid));
             let new_vid = self.add_vertex(vdata);
             vertex_map.insert(vid, new_vid);
         }
-        for eid in other.edge_ids() {
-            let (from, to) = other.edge_ends(eid.clone());
-            let edata = map_edge(other.edge_data(&eid));
+        for eid in source.edge_ids() {
+            let (from, to) = source.edge_ends(eid.clone());
+            let edata = map_edge(source.edge_data(&eid));
             let new_from = vertex_map.get(&from).expect("missing vertex");
             let new_to = vertex_map.get(&to).expect("missing vertex");
             self.add_edge(new_from, new_to, edata);
@@ -439,22 +457,21 @@ pub trait GraphMut: Graph {
     /// Creates a mapping from edges in this graph to edges in another graph,
     /// based on a provided vertex mapping from [`Self::copy_from`] or
     /// [`Self::copy_from_with`].
-    fn make_edge_map<G2>(
+    fn make_edge_map<S>(
         &self,
-        g2: &G2,
-        vertex_map: &HashMap<Self::VertexId, G2::VertexId>,
-    ) -> HashMap<Self::EdgeId, G2::EdgeId>
+        source: &S,
+        vertex_map: &HashMap<S::VertexId, Self::VertexId>,
+    ) -> HashMap<S::EdgeId, Self::EdgeId>
     where
-        G2: Graph,
-        G2::VertexData: Eq,
+        S: Graph,
     {
         let mut edge_map = HashMap::new();
-        for eid in self.edge_ids() {
-            let (from1, to1) = self.edge_ends(eid.clone());
+        for eid in source.edge_ids() {
+            let (from1, to1) = source.edge_ends(eid.clone());
             if let Some(from2) = vertex_map.get(&from1)
                 && let Some(to2) = vertex_map.get(&to1)
             {
-                let eid2 = g2
+                let eid2 = self
                     .edges_between(from2.clone(), to2.clone())
                     .find(|_| true)
                     .expect("missing edge");

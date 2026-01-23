@@ -1,10 +1,7 @@
 use std::collections::HashSet;
 
 use jrw_graph::{
-    Graph, GraphMut,
-    adjacency_matrix::{AdjacencyMatrix, SymmetricAdjacencyMatrix},
-    graph_tests,
-    tests::TestDataBuilder,
+    Graph, GraphMut, adjacency_matrix::{AdjacencyMatrix, SymmetricAdjacencyMatrix}, graph::Undirected, graph_tests, tests::TestDataBuilder
 };
 
 /// An undirected graph where vertices are identified by strings.  A vertex's ID
@@ -55,10 +52,7 @@ impl Graph for StringGraph {
     type VertexId = VertexId;
     type EdgeData = ();
     type EdgeId = EdgeId;
-
-    fn is_directed(&self) -> bool {
-        false
-    }
+    type Directedness = Undirected;
 
     fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData {
         self.vertices.get(id).expect("Vertex does not exist")

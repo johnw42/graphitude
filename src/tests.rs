@@ -241,7 +241,7 @@ macro_rules! graph_tests {
 
             let mut target = builder.new_graph();
             let vertex_map = target.copy_from(&source);
-            let edge_map = source.make_edge_map(&target, &vertex_map);
+            let edge_map = target.make_edge_map(&source, &vertex_map);
 
             assert_eq!(target.vertex_ids().count(), 3);
             assert_eq!(target.edge_ids().count(), 2);
@@ -338,7 +338,7 @@ macro_rules! graph_test_copy_from_with {
             let f: Box<dyn Fn(&<$type as Graph>::VertexData) -> <$type as Graph>::VertexData> = Box::new($f);
             let g: Box<dyn Fn(&<$type as Graph>::EdgeData) -> <$type as Graph>::EdgeData> = Box::new($g);
             let vertex_map = target.copy_from_with(&source, &f, &g);
-            let edge_map = source.make_edge_map(&target, &vertex_map);
+            let edge_map = target.make_edge_map(&source, &vertex_map);
 
             assert_eq!(target.vertex_ids().count(), 3);
             assert_eq!(target.edge_ids().count(), 2);

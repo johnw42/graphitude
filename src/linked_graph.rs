@@ -1,6 +1,6 @@
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
-use crate::{Graph, GraphMut};
+use crate::{Graph, GraphMut, graph::Directed};
 
 struct VertexNode<V, E> {
     data: V,
@@ -8,8 +8,14 @@ struct VertexNode<V, E> {
     edges_in: Vec<EdgeId<V, E>>,
 }
 
-#[derive(PartialOrd, Ord, Debug)]
+#[derive(PartialOrd, Ord)]
 pub struct VertexId<V, E>(*mut VertexNode<V, E>);
+
+impl<V, E> Debug for VertexId<V, E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VertexId({:?})", self.0)
+    }
+}
 
 impl<V, E> Clone for VertexId<V, E> {
     fn clone(&self) -> Self {
@@ -45,8 +51,14 @@ struct EdgeNode<V, E> {
     to: VertexId<V, E>,
 }
 
-#[derive(PartialOrd, Ord, Debug)]
+#[derive(PartialOrd, Ord)]
 pub struct EdgeId<V, E>(*mut EdgeNode<V, E>);
+
+impl<V, E> Debug for EdgeId<V, E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "EdgeId({:?})", self.0)
+    }
+}
 
 impl<V, E> Clone for EdgeId<V, E> {
     fn clone(&self) -> Self {
@@ -99,6 +111,7 @@ impl<V, E> Graph for LinkedGraph<V, E> {
     type VertexData = V;
     type EdgeId = EdgeId<V, E>;
     type EdgeData = E;
+    type Directedness = Directed;
 
     fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData {
         unsafe { &(*id.0).data }
@@ -231,11 +244,10 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::{tests::TestDataBuilder, *};
     use super::*;
+    use crate::{tests::TestDataBuilder, *};
 
     impl TestDataBuilder for LinkedGraph<i32, String> {
         type Graph = Self;
