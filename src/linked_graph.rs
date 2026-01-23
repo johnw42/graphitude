@@ -94,6 +94,8 @@ impl<V, E> From<&Box<EdgeNode<V, E>>> for EdgeId<V, E> {
     }
 }
 
+/// A graph representation using linked vertex and edge nodes.
+/// Vertices and edges are stored in insertion order.
 pub struct LinkedGraph<V, E> {
     vertices: Vec<Box<VertexNode<V, E>>>,
 }
@@ -117,6 +119,7 @@ impl<V, E> Graph for LinkedGraph<V, E> {
         unsafe { &(*id.0).data }
     }
 
+    /// Gets an iterator over all vertex identifiers in the graph in insertion order.
     fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId> {
         self.vertices.iter().map(|node| VertexId::from(&**node))
     }
@@ -125,6 +128,8 @@ impl<V, E> Graph for LinkedGraph<V, E> {
         unsafe { &(*id.0).data }
     }
 
+    /// Gets an iterator over all edge identifiers in the graph in insertion order of the
+    /// source vertices and the insertion order of the edges from each source vertex.
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
         self.vertices
             .iter()
@@ -136,6 +141,8 @@ impl<V, E> Graph for LinkedGraph<V, E> {
         (edge_node.from, edge_node.to)
     }
 
+    /// Gets an iterator over the edges outgoing from the given vertex in
+    /// insertion order of the edges outgoing from the given vertex.
     fn edges_from(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
         unsafe { &*from.0 }
             .edges_out
@@ -143,6 +150,8 @@ impl<V, E> Graph for LinkedGraph<V, E> {
             .map(|enode| EdgeId::from(&**enode))
     }
 
+    /// Gets an iterator over the edges incoming to the given vertex in
+    /// insertion order of the edges incoming to the given vertex.
     fn edges_into(&self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
         unsafe { &*into.0 }.edges_in.iter().cloned()
     }
@@ -155,6 +164,8 @@ impl<V, E> Graph for LinkedGraph<V, E> {
         unsafe { &*from.0 }.edges_out.len()
     }
 
+    /// Gets an iterator over the edges between the given source and target vertices
+    /// in insertion order of the edges outgoing from the source vertex.
     fn edges_between(
         &self,
         from: Self::VertexId,

@@ -12,8 +12,8 @@ pub(crate) fn euler_sum(n: usize) -> usize {
 // Inverse of the Euler sum function, returning the largest n such that
 // euler_sum(n) <= k.
 pub(crate) fn euler_sum_inv_floor(k: usize) -> usize {
-    // (n * (n + 1)) / 2 = k
-    // n * (n + 1) = 2k
+    // n(n + 1) / 2 = k
+    // n(n + 1) = 2k
     // n^2 + n - 2k = 0
     // By the quadratic formula:
     (1 + 8*k).isqrt().wrapping_sub(1) / 2

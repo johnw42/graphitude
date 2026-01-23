@@ -139,7 +139,7 @@ mod tests {
         let vertices: Vec<_> = graph.vertex_ids().collect();
         let visited: Vec<_> = BfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 4);
-        assert_eq!(visited[0], vertices[0]);
+        assert_eq!(visited, vec![vertices[0], vertices[1], vertices[2], vertices[3]]);
     }
 
     #[test]
@@ -184,7 +184,7 @@ mod tests {
         let vertices: Vec<_> = graph.vertex_ids().collect();
         let visited: Vec<_> = DfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 4);
-        assert_eq!(visited[0], vertices[0]);
+        assert_eq!(visited, vec![vertices[0], vertices[1], vertices[3], vertices[2]]);
     }
 
     #[test]

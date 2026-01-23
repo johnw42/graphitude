@@ -55,7 +55,9 @@ impl Directedness for Undirected {
     }
 }
 
-/// A trait representing a graph data structure.
+/// A trait representing a graph data structure.  Methods that return iterators
+/// over vertices or edges return them in an unspecified order unless otherwise
+/// noted.
 pub trait Graph: Sized {
     type EdgeData;
     type EdgeId: Eq + Hash + Clone + Debug;
@@ -258,6 +260,8 @@ pub trait Graph: Sized {
     }
 }
 
+/// A trait which is automatically implemented for directed graphs, providing
+/// methods specific to directed graphs.
 pub trait GraphDirected: Graph {
     /// Finds the strongly connected component containing the given vertex.
     #[cfg(feature = "pathfinding")]
@@ -290,6 +294,8 @@ pub trait GraphDirected: Graph {
 
 impl<G> GraphDirected for G where G: Graph<Directedness = Directed> {}
 
+/// A trait which is automatically implemented for undirected graphs, providing
+/// methods specific to undirected graphs.
 pub trait GraphUndirected: Graph {
     #[cfg(feature = "pathfinding")]
     fn connected_components(&self) -> Vec<HashSet<Self::VertexId>> {
