@@ -93,12 +93,9 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(vid) = self.stack.pop() {
             if self.visited.insert(vid.clone()) {
-                for successor in self.graph.successors(vid.clone()) {
-                    let mut successors =
-                        self.graph.successors(successor.clone()).collect::<Vec<_>>();
-                    successors.reverse();
-                    self.stack.extend(successors);
-                }
+                let mut successors = self.graph.successors(vid.clone()).collect::<Vec<_>>();
+                successors.reverse();
+                self.stack.extend(successors);
                 return Some(vid);
             }
         }
