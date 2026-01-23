@@ -115,7 +115,7 @@ where
             .map(|_| &()).expect("Edge does not exist")
     }
 
-    fn edges_out<'b>(&'b self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'b {
+    fn edges_from<'b>(&'b self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'b {
         let neighbors = self.neighbors(&from);
         neighbors
             .into_iter()
@@ -126,7 +126,7 @@ where
         self.bfs_multi(&self.roots().collect::<Vec<_>>())
     }
     
-    fn edge_source_and_target(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
         eid
     }
 }

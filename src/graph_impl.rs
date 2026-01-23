@@ -40,11 +40,11 @@ impl<V, E> Graph for GraphImpl<V, E> {
         self.adjacency.edges().map(|(from, to, _)| (from, to))
     }
 
-    fn edge_source_and_target(&self, (from, to): Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+    fn edge_ends(&self, (from, to): Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
         (from, to)
     }
 
-    fn edges_in<'a>(&'a self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_into<'a>(&'a self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.adjacency
             .edges_into(&into)
             .map(move |(from, _)| (from, into))
@@ -52,7 +52,7 @@ impl<V, E> Graph for GraphImpl<V, E> {
             .into_iter()
     }
 
-    fn edges_out<'a>(&'a self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from<'a>(&'a self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.adjacency
             .edges_from(&from)
             .map(move |(to, _)| (from, to))

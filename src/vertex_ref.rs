@@ -33,12 +33,12 @@ where
 
     fn edges_out(&self) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
         let graph = self.graph();
-        graph.edges_out(self.id()).map(move |eid| graph.edge(eid))
+        graph.edges_from(self.id()).map(move |eid| graph.edge(eid))
     }
 
     fn edges_in(&self) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
         let graph = self.graph();
-        graph.edges_in(self.id()).map(move |eid| graph.edge(eid))
+        graph.edges_into(self.id()).map(move |eid| graph.edge(eid))
     }
 
     fn edges_from(&self, from: &VertexRef<'g, G>) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {

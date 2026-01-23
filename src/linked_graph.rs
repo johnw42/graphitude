@@ -118,27 +118,27 @@ impl<V, E> Graph for LinkedGraph<V, E> {
             .flat_map(|vnode| vnode.edges_out.iter().map(|enode| EdgeId::from(&**enode)))
     }
 
-    fn edge_source_and_target(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
         let edge_node = unsafe { &*eid.0 };
         (edge_node.from, edge_node.to)
     }
 
-    fn edges_out(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
+    fn edges_from(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
         unsafe { &*from.0 }
             .edges_out
             .iter()
             .map(|enode| EdgeId::from(&**enode))
     }
 
-    fn edges_in(&self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
+    fn edges_into(&self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
         unsafe { &*into.0 }.edges_in.iter().cloned()
     }
 
-    fn num_edges_in(&self, into: Self::VertexId) -> usize {
+    fn num_edges_into(&self, into: Self::VertexId) -> usize {
         unsafe { &*into.0 }.edges_in.len()
     }
 
-    fn num_edges_out(&self, from: Self::VertexId) -> usize {
+    fn num_edges_from(&self, from: Self::VertexId) -> usize {
         unsafe { &*from.0 }.edges_out.len()
     }
 
@@ -147,14 +147,18 @@ impl<V, E> Graph for LinkedGraph<V, E> {
         from: Self::VertexId,
         into: Self::VertexId,
     ) -> impl Iterator<Item = Self::EdgeId> {
-        self.edges_out(from).filter(move |eid| {
-            let (source, target) = self.edge_source_and_target(*eid);
+        self.edges_from(from).filter(move |eid| {
+            let (source, target) = self.edge_ends(*eid);
             source == from && target == into
         })
     }
 }
 
 impl<V, E> GraphMut for LinkedGraph<V, E> {
+    fn clear(&mut self) {
+        self.vertices.clear();
+    }
+
     fn add_vertex(&mut self, data: Self::VertexData) -> Self::VertexId {
         let vnode = Box::new(VertexNode {
             data,
@@ -250,4 +254,8 @@ mod tests {
     }
 
     graph_tests!(LinkedGraph<i32, String>);
+    graph_test_copy_from_with!(
+        LinkedGraph<i32, String>,
+        |data| data * 2,
+        |data: &String| format!("{}-copied", data));
 }

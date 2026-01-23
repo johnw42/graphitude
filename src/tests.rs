@@ -98,7 +98,7 @@ macro_rules! graph_tests {
 
             assert_eq!(
                 graph
-                    .edges_out(v1.clone())
+                    .edges_from(v1.clone())
                     .into_iter()
                     .map(|edge_id| graph.edge_target(edge_id))
                     .collect::<Vec<_>>(),
@@ -143,7 +143,7 @@ macro_rules! graph_tests {
             assert_eq!(graph.num_edges(), 0);
         }
 
-                #[test]
+        #[test]
         fn test_remove_vertex_cleans_edges() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
             let mut graph = builder.new_graph();
@@ -180,8 +180,8 @@ macro_rules! graph_tests {
             let v2 = graph.add_vertex(vd2);
             let e1 = graph.add_or_replace_edge(&v1, &v2, ed1.clone()).0;
 
-            assert_eq!(graph.edges_out(v1).collect::<Vec<_>>(), vec![e1]);
-            assert_eq!(graph.num_edges_out(v2), (!graph.is_directed()).into());
+            assert_eq!(graph.edges_from(v1).collect::<Vec<_>>(), vec![e1]);
+            assert_eq!(graph.num_edges_from(v2), (!graph.is_directed()).into());
         }
 
         #[test]
@@ -196,8 +196,8 @@ macro_rules! graph_tests {
             let v2 = graph.add_vertex(vd2);
             let e1 = graph.add_or_replace_edge(&v1, &v2, ed1.clone()).0;
 
-            assert_eq!(graph.edges_in(v2).collect::<Vec<_>>(), vec![e1]);
-            assert_eq!(graph.num_edges_in(v1), (!graph.is_directed()).into());
+            assert_eq!(graph.edges_into(v2).collect::<Vec<_>>(), vec![e1]);
+            assert_eq!(graph.num_edges_into(v1), (!graph.is_directed()).into());
         }
 
         #[test]
@@ -227,6 +227,94 @@ macro_rules! graph_tests {
                     vec![e1.clone()]
                 }
             );
+        }
+
+        #[test]
+        fn test_copy_from() {
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut source = builder.new_graph();
+            let v1 = source.add_vertex(builder.new_vertex_data());
+            let v2 = source.add_vertex(builder.new_vertex_data());
+            let v3 = source.add_vertex(builder.new_vertex_data());
+            let e1 = source.add_edge(&v1, &v2, builder.new_edge_data());
+            let e2 = source.add_edge(&v2, &v3, builder.new_edge_data());
+
+            let mut target = builder.new_graph();
+            let vertex_map = target.copy_from(&source);
+            let edge_map = source.make_edge_map(&target, &vertex_map);
+
+            assert_eq!(target.vertex_ids().count(), 3);
+            assert_eq!(target.edge_ids().count(), 2);
+            assert_eq!(
+                source.vertex_data(&v1),
+                target.vertex_data(&vertex_map[&v1])
+            );
+            assert_eq!(
+                source.vertex_data(&v2),
+                target.vertex_data(&vertex_map[&v2])
+            );
+            assert_eq!(
+                source.vertex_data(&v3),
+                target.vertex_data(&vertex_map[&v3])
+            );
+            assert_eq!(source.edge_data(&e1), target.edge_data(&edge_map[&e1]));
+            assert_eq!(source.edge_data(&e2), target.edge_data(&edge_map[&e2]));
+        }
+
+        #[test]
+        fn test_clear() {
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = builder.new_graph();
+            let v1 = graph.add_vertex(builder.new_vertex_data());
+            let v2 = graph.add_vertex(builder.new_vertex_data());
+            graph.add_edge(&v1, &v2, builder.new_edge_data());
+
+            assert_eq!(graph.vertex_ids().count(), 2);
+            assert_eq!(graph.edge_ids().count(), 1);
+
+            graph.clear();
+
+            assert_eq!(graph.vertex_ids().count(), 0);
+            assert_eq!(graph.edge_ids().count(), 0);
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! graph_test_copy_from_with {
+    ($type:ty, $f:expr, $g:expr) => {
+        #[test]
+        fn test_copy_from_with() {
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut source = builder.new_graph();
+            let v1 = source.add_vertex(builder.new_vertex_data());
+            let v2 = source.add_vertex(builder.new_vertex_data());
+            let v3 = source.add_vertex(builder.new_vertex_data());
+            let e1 = source.add_edge(&v1, &v2, builder.new_edge_data());
+            let e2 = source.add_edge(&v2, &v3, builder.new_edge_data());
+
+            let mut target = builder.new_graph();
+            let f: Box<dyn Fn(&<$type as Graph>::VertexData) -> <$type as Graph>::VertexData> = Box::new($f);
+            let g: Box<dyn Fn(&<$type as Graph>::EdgeData) -> <$type as Graph>::EdgeData> = Box::new($g);
+            let vertex_map = target.copy_from_with(&source, &f, &g);
+            let edge_map = source.make_edge_map(&target, &vertex_map);
+
+            assert_eq!(target.vertex_ids().count(), 3);
+            assert_eq!(target.edge_ids().count(), 2);
+            assert_eq!(
+                f(source.vertex_data(&v1)),
+                *target.vertex_data(&vertex_map[&v1])
+            );
+            assert_eq!(
+                f(source.vertex_data(&v2)),
+                *target.vertex_data(&vertex_map[&v2])
+            );
+            assert_eq!(
+                f(source.vertex_data(&v3)),
+                *target.vertex_data(&vertex_map[&v3])
+            );
+            assert_eq!(g(source.edge_data(&e1)), *target.edge_data(&edge_map[&e1]));
+            assert_eq!(g(source.edge_data(&e2)), *target.edge_data(&edge_map[&e2]));
         }
     };
 }

@@ -72,7 +72,7 @@ impl Graph for StringGraph {
         self.edges.get(&id.0, &id.1).expect("Edge does not exist")
     }
 
-    fn edge_source_and_target(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
         (eid.0.clone(), eid.1.clone())
     }
 

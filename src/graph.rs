@@ -53,7 +53,7 @@ where
                 continue;
             }
             self.visited.insert(vid.clone());
-            for eid in self.graph.edges_out(vid.clone()) {
+            for eid in self.graph.edges_from(vid.clone()) {
                 let neighbor = self.graph.edge_target(eid);
                 if !self.visited.contains(&neighbor) {
                     self.stack.push(neighbor);
@@ -83,7 +83,7 @@ where
                 continue;
             }
             self.visited.insert(vid.clone());
-            for eid in self.graph.edges_out(vid.clone()) {
+            for eid in self.graph.edges_from(vid.clone()) {
                 let neighbor = self.graph.edge_target(eid);
                 if !self.visited.contains(&neighbor) {
                     self.queue.push(neighbor);
@@ -131,7 +131,7 @@ pub trait Graph: Sized {
     /// those vertices reachable by incoming edges.
     fn predacessors(&self, vertex: Self::VertexId) -> impl Iterator<Item = Self::VertexId> + '_ {
         let mut visited = HashSet::new();
-        self.edges_in(vertex).filter_map(move |eid| {
+        self.edges_into(vertex).filter_map(move |eid| {
             let vid = self.edge_source(eid);
             visited.insert(vid.clone()).then_some(vid)
         })
@@ -141,7 +141,7 @@ pub trait Graph: Sized {
     /// those vertices reachable by outgoing edges.
     fn successors(&self, vertex: Self::VertexId) -> impl Iterator<Item = Self::VertexId> + '_ {
         let mut visited = HashSet::new();
-        self.edges_out(vertex).filter_map(move |eid| {
+        self.edges_from(vertex).filter_map(move |eid| {
             let vid = self.edge_target(eid);
             visited.insert(vid.clone()).then_some(vid)
         })
@@ -164,23 +164,23 @@ pub trait Graph: Sized {
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
         let mut edges = Vec::new();
         for from in self.vertex_ids() {
-            edges.extend(self.edges_out(from));
+            edges.extend(self.edges_from(from));
         }
         edges.into_iter()
     }
 
     /// Gets an iterator over the outgoing edges from a given vertex.
-    fn edges_out(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges_from(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.edge_ids().filter(move |eid| {
-            let (source, target) = self.edge_source_and_target(eid.clone());
+            let (source, target) = self.edge_ends(eid.clone());
             source == from || !self.is_directed() && target == from
         })
     }
 
     /// Gets an iterator over the incoming edges to a given vertex.
-    fn edges_in(&self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges_into(&self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.edge_ids().filter(move |eid| {
-            let (source, target) = self.edge_source_and_target(eid.clone());
+            let (source, target) = self.edge_ends(eid.clone());
             target == into || !self.is_directed() && source == into
         })
     }
@@ -191,7 +191,7 @@ pub trait Graph: Sized {
         from: Self::VertexId,
         into: Self::VertexId,
     ) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        self.edges_out(from.clone()).filter(move |eid| {
+        self.edges_from(from.clone()).filter(move |eid| {
             let edge_source = self.edge_source(eid.clone());
             let edge_target = self.edge_target(eid.clone());
             edge_source == from && edge_target == into
@@ -205,32 +205,33 @@ pub trait Graph: Sized {
     }
 
     fn has_edge(&self, from: Self::VertexId, into: Self::VertexId) -> bool {
-        self.num_edges_between(from, into) > 0
+        self.edges_between(from, into).next().is_some()
     }
 
-    fn edge_source_and_target(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId);
+    /// Gets the source and target vertices of an edge.
+    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId);
 
     /// Gets the source vertex of an edge.
     fn edge_source(&self, id: Self::EdgeId) -> Self::VertexId {
-        self.edge_source_and_target(id).0
+        self.edge_ends(id).0
     }
 
     /// Gets the target vertex of an edge.
     fn edge_target(&self, id: Self::EdgeId) -> Self::VertexId {
-        self.edge_source_and_target(id).1
+        self.edge_ends(id).1
     }
 
-    fn has_edge_out(&self, from: &Self::VertexId) -> bool {
-        self.num_edges_out(from.clone()) > 0
+    fn has_edge_from(&self, from: &Self::VertexId) -> bool {
+        self.edges_from(from.clone()).next().is_some()
     }
 
-    fn has_edge_in(&self, into: &Self::VertexId) -> bool {
-        self.num_edges_in(into.clone()) > 0
+    fn has_edge_into(&self, into: &Self::VertexId) -> bool {
+        self.edges_into(into.clone()).next().is_some()
     }
 
     /// Checks if there is an edge between two vertices.
     fn has_edge_between(&self, from: Self::VertexId, into: Self::VertexId) -> bool {
-        self.num_edges_between(from, into) > 0
+        self.edges_between(from, into).next().is_some()
     }
 
     /// Gets the number of edges in the graph.
@@ -238,12 +239,12 @@ pub trait Graph: Sized {
         self.edge_ids().count()
     }
 
-    fn num_edges_in(&self, into: Self::VertexId) -> usize {
-        self.edges_in(into).into_iter().count()
+    fn num_edges_into(&self, into: Self::VertexId) -> usize {
+        self.edges_into(into).into_iter().count()
     }
 
-    fn num_edges_out(&self, from: Self::VertexId) -> usize {
-        self.edges_out(from).into_iter().count()
+    fn num_edges_from(&self, from: Self::VertexId) -> usize {
+        self.edges_from(from).into_iter().count()
     }
 
     /// Performs a breadth-first search starting from the given vertex.
@@ -286,7 +287,7 @@ pub trait Graph: Sized {
         use pathfinding::prelude::*;
         let parents: HashMap<Self::VertexId, (Self::VertexId, C)> =
             dijkstra_all(&start, |vid| -> Vec<(Self::VertexId, C)> {
-                self.edges_out(vid.clone())
+                self.edges_from(vid.clone())
                     .map(|eid| {
                         let target_id = self.edge_target(eid);
                         (target_id.clone(), cost_fn(vid, &target_id))
@@ -305,6 +306,13 @@ pub trait Graph: Sized {
 }
 
 pub trait GraphMut: Graph {
+    /// Removes all vertices and edges from the graph.
+    fn clear(&mut self) {
+        for vid in self.vertex_ids().collect::<Vec<_>>() {
+            self.remove_vertex(&vid);
+        }
+    }
+
     /// Adds a vertex with the given data to the graph, returning its `VertexId`.
     fn add_vertex(&mut self, data: Self::VertexData) -> Self::VertexId;
 
@@ -312,6 +320,10 @@ pub trait GraphMut: Graph {
     /// connected to the vertex are also be removed.
     fn remove_vertex(&mut self, id: &Self::VertexId) -> Self::VertexData;
 
+    /// Adds an edge with the given data between two vertices and returns the
+    /// `EdgeId`.  If an edge already exists between the two vertices, and the
+    /// graph does not support parallel edges, the old edge is replaced.
+    /// Use [`Self::add_or_replace_edge`] to get the old edge data as well.
     fn add_edge(
         &mut self,
         from: &Self::VertexId,
@@ -334,4 +346,75 @@ pub trait GraphMut: Graph {
 
     /// Remove an edge between two vertices, returning its data if it existed.
     fn remove_edge(&mut self, from: &Self::EdgeId) -> Option<Self::EdgeData>;
+
+    /// Copies all vertices and edges from another graph into this graph.
+    fn copy_from<G2>(&mut self, other: &G2) -> HashMap<G2::VertexId, Self::VertexId>
+    where
+        G2: Graph<VertexData = Self::VertexData, EdgeData = Self::EdgeData>,
+        Self::VertexData: Clone,
+        Self::EdgeData: Clone,
+    {
+        self.copy_from_with(other, Clone::clone, Clone::clone)
+    }
+
+    /// Copies all vertices and edges from another graph into this graph,
+    /// transforming the vertex and edge data using the provided mapping
+    /// functions.
+    fn copy_from_with<G2, F, G>(
+        &mut self,
+        other: &G2,
+        mut map_vertex: F,
+        mut map_edge: G,
+    ) -> HashMap<G2::VertexId, Self::VertexId>
+    where
+        G2: Graph,
+        Self::VertexData: Clone,
+        Self::EdgeData: Clone,
+        F: FnMut(&G2::VertexData) -> Self::VertexData,
+        G: FnMut(&G2::EdgeData) -> Self::EdgeData,
+    {
+        let mut vertex_map = HashMap::new();
+        for vid in other.vertex_ids() {
+            let vdata = map_vertex(other.vertex_data(&vid));
+            let new_vid = self.add_vertex(vdata);
+            vertex_map.insert(vid, new_vid);
+        }
+        for eid in other.edge_ids() {
+            let (from, to) = other.edge_ends(eid.clone());
+            let edata = map_edge(other.edge_data(&eid));
+            let new_from = vertex_map.get(&from).expect("missing vertex");
+            let new_to = vertex_map.get(&to).expect("missing vertex");
+            self.add_edge(new_from, new_to, edata);
+        }
+
+        vertex_map
+    }
+
+    /// Creates a mapping from edges in this graph to edges in another graph,
+    /// based on a provided vertex mapping from [`Self::copy_from`] or
+    /// [`Self::copy_from_with`].
+    fn make_edge_map<G2>(
+        &self,
+        g2: &G2,
+        vertex_map: &HashMap<Self::VertexId, G2::VertexId>,
+    ) -> HashMap<Self::EdgeId, G2::EdgeId>
+    where
+        G2: Graph,
+        G2::VertexData: Eq,
+    {
+        let mut edge_map = HashMap::new();
+        for eid in self.edge_ids() {
+            let (from1, to1) = self.edge_ends(eid.clone());
+            if let Some(from2) = vertex_map.get(&from1)
+                && let Some(to2) = vertex_map.get(&to1)
+            {
+                let eid2 = g2
+                    .edges_between(from2.clone(), to2.clone())
+                    .find(|_| true)
+                    .expect("missing edge");
+                edge_map.insert(eid, eid2);
+            }
+        }
+        edge_map
+    }
 }
