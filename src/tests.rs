@@ -335,9 +335,9 @@ macro_rules! graph_test_copy_from_with {
             // Extra boxing here works around being unable to declare a variable
             // of an `impl` type.  This allows the caller of the macro to use
             // closures without declaring the types of the arguments explicitly.
-            let f: Box<dyn Fn(&<$type as Graph>::VertexData) -> <$type as Graph>::VertexData> = Box::new($f);
-            let g: Box<dyn Fn(&<$type as Graph>::EdgeData) -> <$type as Graph>::EdgeData> = Box::new($g);
-            let vertex_map = target.copy_from_with(&source, &f, &g);
+            let mut f: Box<dyn Fn(&<$type as Graph>::VertexData) -> <$type as Graph>::VertexData> = Box::new($f);
+            let mut g: Box<dyn Fn(&<$type as Graph>::EdgeData) -> <$type as Graph>::EdgeData> = Box::new($g);
+            let vertex_map = target.copy_from_with(&source, &mut f, &mut g);
             let edge_map = target.make_edge_map(&source, &vertex_map);
 
             assert_eq!(target.vertex_ids().count(), 3);

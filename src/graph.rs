@@ -24,7 +24,6 @@
 //! - Path finding utilities with Dijkstra's algorithm (requires `pathfinding`
 //!   feature)
 //! - Queries for vertices, edges, predecessors, and successors
-use double_vec_queue::Queue;
 use std::{collections::HashSet, fmt::Debug};
 use std::iter::once;
 
@@ -34,6 +33,7 @@ use {
     std::{collections::HashMap, hash::Hash},
 };
 
+use crate::search::{BfsIterator, DfsIterator};
 use crate::{edge_ref::EdgeRef, vertex_ref::VertexRef};
 
 pub struct Directed;
@@ -52,66 +52,6 @@ impl Directedness for Directed {
 impl Directedness for Undirected {
     fn is_directed() -> bool {
         false
-    }
-}
-
-pub struct DfsIterator<'g, G: Graph> {
-    graph: &'g G,
-    visited: HashSet<G::VertexId>,
-    stack: Vec<G::VertexId>,
-}
-
-impl<'g, G> Iterator for DfsIterator<'g, G>
-where
-    G: Graph,
-{
-    type Item = G::VertexId;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(vid) = self.stack.pop() {
-            if self.visited.contains(&vid) {
-                continue;
-            }
-            self.visited.insert(vid.clone());
-            for eid in self.graph.edges_from(vid.clone()) {
-                let neighbor = self.graph.edge_target(eid);
-                if !self.visited.contains(&neighbor) {
-                    self.stack.push(neighbor);
-                }
-            }
-            return Some(vid);
-        }
-        None
-    }
-}
-
-pub struct BfsIterator<'g, G: Graph> {
-    graph: &'g G,
-    visited: HashSet<G::VertexId>,
-    queue: Queue<G::VertexId>,
-}
-
-impl<'g, G> Iterator for BfsIterator<'g, G>
-where
-    G: Graph,
-{
-    type Item = G::VertexId;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while let Some(vid) = self.queue.pop() {
-            if self.visited.contains(&vid) {
-                continue;
-            }
-            self.visited.insert(vid.clone());
-            for eid in self.graph.edges_from(vid.clone()) {
-                let neighbor = self.graph.edge_target(eid);
-                if !self.visited.contains(&neighbor) {
-                    self.queue.push(neighbor);
-                }
-            }
-            return Some(vid);
-        }
-        None
     }
 }
 
@@ -270,16 +210,12 @@ pub trait Graph: Sized {
 
     /// Performs a breadth-first search starting from the given vertex.
     fn bfs(&self, start: Self::VertexId) -> BfsIterator<'_, Self> {
-        self.bfs_multi(&[start])
+        self.bfs_multi(vec![start])
     }
 
     /// Performs a breadth-first search starting from the given vertices.
-    fn bfs_multi(&self, start: &[Self::VertexId]) -> BfsIterator<'_, Self> {
-        BfsIterator {
-            graph: self,
-            visited: HashSet::new(),
-            queue: start.iter().cloned().collect(),
-        }
+    fn bfs_multi(&self, start: Vec<Self::VertexId>) -> BfsIterator<'_, Self> {
+        BfsIterator::new(self, start)
     }
 
     /// Performs a depth-first search starting from the given vertex.
@@ -289,11 +225,7 @@ pub trait Graph: Sized {
 
     /// Performs a depth-first search starting from the given vertex.
     fn dfs_multi(&self, start: Vec<Self::VertexId>) -> DfsIterator<'_, Self> {
-        DfsIterator {
-            graph: self,
-            visited: HashSet::new(),
-            stack: start.into(),
-        }
+        DfsIterator::new(self, start)
     }
 
     /// Finds shortest paths from a starting vertex to all other vertices using
@@ -418,7 +350,7 @@ pub trait GraphMut: Graph {
         Self::VertexData: Clone,
         Self::EdgeData: Clone,
     {
-        self.copy_from_with(source, Clone::clone, Clone::clone)
+        self.copy_from_with(source, &mut Clone::clone, &mut Clone::clone)
     }
 
     /// Copies all vertices and edges from another graph into this graph,
@@ -427,8 +359,8 @@ pub trait GraphMut: Graph {
     fn copy_from_with<S, F, G>(
         &mut self,
         source: &S,
-        mut map_vertex: F,
-        mut map_edge: G,
+        map_vertex: &mut F,
+        map_edge: &mut G,
     ) -> HashMap<S::VertexId, Self::VertexId>
     where
         S: Graph,

@@ -33,10 +33,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "double_vec_queue"
-version = "0.1.0"
-
-[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -78,18 +74,7 @@ name = "jrw-graph"
 version = "0.1.0"
 dependencies = [
  "bitvec",
- "double_vec_queue",
- "maybe_mut",
  "pathfinding",
-]
-
-[[package]]
-name = "maybe_mut"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

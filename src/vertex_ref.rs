@@ -1,11 +1,7 @@
 use std::ptr;
 
-use crate::{
-    Graph,
-    edge_ref::EdgeRef,
-};
+use crate::{Graph, edge_ref::EdgeRef};
 
-#[derive(Clone)]
 pub struct VertexRef<'g, G: Graph> {
     graph: &'g G,
     id: G::VertexId,
@@ -19,29 +15,35 @@ where
         Self { graph, id }
     }
 
-    fn graph(&self) -> &'g G {
+    /// Gets a reference to the graph this vertex belongs to.
+    pub fn graph(&self) -> &'g G {
         self.graph
     }
 
-    fn id(&self) -> G::VertexId {
+    /// Gets the identifier of this vertex.
+    pub fn id(&self) -> G::VertexId {
         self.id.clone()
     }
 
-    fn data(&self) -> &'g G::VertexData {
+    /// Gets the data associated with this vertex.
+    pub fn data(&self) -> &'g G::VertexData {
         self.graph().vertex_data(&self.id())
     }
 
-    fn edges_out(&self) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
+    /// Gets an iterator over the edges outgoing from this vertex.
+    pub fn edges_from(&self) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
         let graph = self.graph();
         graph.edges_from(self.id()).map(move |eid| graph.edge(eid))
     }
 
-    fn edges_in(&self) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
+    /// Gets an iterator over the edges incoming to this vertex.
+    pub fn edges_into(&self) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
         let graph = self.graph();
         graph.edges_into(self.id()).map(move |eid| graph.edge(eid))
     }
 
-    fn edges_from(&self, from: &VertexRef<'g, G>) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
+    /// Gets an iterator over the edges between this vertex and another vertex.
+    pub fn edges_to(&self, from: &VertexRef<'g, G>) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
         assert!(ptr::eq(self.graph(), from.graph()));
         let graph = self.graph();
         graph
@@ -49,17 +51,9 @@ where
             .map(move |eid| graph.edge(eid))
     }
 
-    fn edges_into(&self, into: &VertexRef<'g, G>) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
-        assert!(ptr::eq(self.graph(), into.graph()));
-        let graph = self.graph();
-        graph
-            .edges_between(self.id(), into.id())
-            .map(move |eid| graph.edge(eid))
-    }
-
     /// Gets an iterator over the predacessors vertices of a given vertex, i.e.
     /// those vertices reachable by incoming edges.
-    fn predacessors(&self) -> impl Iterator<Item = Self> {
+    pub fn predacessors(&self) -> impl Iterator<Item = Self> {
         self.graph()
             .predacessors(self.id())
             .map(|id| self.graph().vertex(id))
@@ -67,21 +61,42 @@ where
 
     /// Gets an iterator over the successor vertices of a given vertex, i.e.
     /// those vertices reachable by outgoing edges.
-    fn successors(&self) -> impl Iterator<Item = Self> {
+    pub fn successors(&self) -> impl Iterator<Item = Self> {
         self.graph()
             .successors(self.id())
             .map(|id| self.graph().vertex(id))
     }
 
-    fn bfs(&self) -> impl Iterator<Item = Self> {
+    pub fn bfs(&self) -> impl Iterator<Item = Self> {
         self.graph()
             .bfs(self.id())
             .map(|id| self.graph().vertex(id))
     }
 
-    fn dfs(&self) -> impl Iterator<Item = Self> {
+    pub fn dfs(&self) -> impl Iterator<Item = Self> {
         self.graph()
             .dfs(self.id())
             .map(|id| self.graph().vertex(id))
+    }
+}
+
+impl<'g, G> Clone for VertexRef<'g, G>
+where
+    G: Graph,
+{
+    fn clone(&self) -> Self {
+        Self {
+            graph: self.graph,
+            id: self.id.clone(),
+        }
+    }
+}
+
+impl<'g, G> std::fmt::Debug for VertexRef<'g, G>
+where
+    G: Graph,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VertexRef({:?})", self.id)
     }
 }

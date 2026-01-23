@@ -124,7 +124,7 @@ where
     }
 
     fn vertex_ids(&self) -> impl Iterator<Item = <Self as Graph>::VertexId> {
-        self.bfs_multi(&self.roots().collect::<Vec<_>>())
+        self.bfs_multi(self.roots().collect())
     }
 
     fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
