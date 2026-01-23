@@ -209,7 +209,7 @@ mod tests {
         let id3 = unsafe { graph.vertex_id(&node3) };
         let id4 = unsafe { graph.vertex_id(&node4) };
 
-        let paths = graph.shortest_paths(id1, |_from, _to| 1);
+        let paths = graph.shortest_paths(&id1, |_| 1);
 
         let values = |id| {
             paths

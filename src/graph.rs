@@ -26,6 +26,7 @@
 //! - Queries for vertices, edges, predecessors, and successors
 use double_vec_queue::Queue;
 use std::collections::HashSet;
+use std::iter::once;
 
 #[cfg(feature = "pathfinding")]
 use {
@@ -281,27 +282,72 @@ pub trait Graph: Sized {
     #[cfg(feature = "pathfinding")]
     fn shortest_paths<C: Zero + Ord + Copy>(
         &self,
-        start: Self::VertexId,
-        cost_fn: impl Fn(&Self::VertexId, &Self::VertexId) -> C,
+        start: &Self::VertexId,
+        cost_fn: impl Fn(&Self::EdgeId) -> C,
     ) -> HashMap<Self::VertexId, (Vec<Self::VertexId>, C)> {
-        use pathfinding::prelude::*;
         let parents: HashMap<Self::VertexId, (Self::VertexId, C)> =
-            dijkstra_all(&start, |vid| -> Vec<(Self::VertexId, C)> {
+            pathfinding::prelude::dijkstra_all(start, |vid| -> Vec<(Self::VertexId, C)> {
                 self.edges_from(vid.clone())
-                    .map(|eid| {
-                        let target_id = self.edge_target(eid);
-                        (target_id.clone(), cost_fn(vid, &target_id))
-                    })
+                    .map(|eid| (self.edge_target(eid.clone()), cost_fn(&eid)))
                     .collect()
             });
-        let mut result: HashMap<Self::VertexId, (Vec<Self::VertexId>, C)> = parents
-            .iter()
-            .map(|(k, (_, cost)): (&Self::VertexId, &(_, C))| {
-                (k.clone(), (build_path(k, &parents), *cost))
-            })
-            .collect();
-        result.insert(start.clone(), (vec![start.clone()], C::zero()));
-        result
+        once((start.clone(), (vec![start.clone()], C::zero())))
+            .chain(
+                parents
+                    .iter()
+                    .map(|(k, (_, cost)): (&Self::VertexId, &(_, C))| {
+                        (k.clone(), (pathfinding::prelude::build_path(k, &parents), *cost))
+                    }),
+            )
+            .collect()
+    }
+}
+
+pub trait GraphDirected: Graph {
+    fn is_directed(&self) -> bool {
+        true
+    }
+
+    /// Finds the strongly connected component containing the given vertex.
+    #[cfg(feature = "pathfinding")]
+    fn strongly_connected_component(&self, start: &Self::VertexId) -> Vec<Self::VertexId> {
+        pathfinding::prelude::strongly_connected_component(start, |vid| {
+            self.successors(vid.clone())
+        })
+    }
+
+    /// Partitions the graph into strongly connected components.
+    #[cfg(feature = "pathfinding")]
+    fn strongly_connected_components(&self) -> Vec<Vec<Self::VertexId>> {
+        pathfinding::prelude::strongly_connected_components(
+            &self.vertex_ids().collect::<Vec<_>>(),
+            |vid| self.successors(vid.clone()),
+        )
+    }
+
+    /// Partitions nodes reachable from a starting point into strongly connected components.
+    #[cfg(feature = "pathfinding")]
+    fn strongly_connected_components_from(
+        &self,
+        start: &Self::VertexId,
+    ) -> Vec<Vec<Self::VertexId>> {
+        pathfinding::prelude::strongly_connected_components_from(start, |vid| {
+            self.successors(vid.clone())
+        })
+    }
+}
+
+pub trait GraphUndirected: Graph {
+    fn is_directed(&self) -> bool {
+        false
+    }
+
+    #[cfg(feature = "pathfinding")]
+    fn connected_components(&self) -> Vec<HashSet<Self::VertexId>> {
+        pathfinding::prelude::connected_components(
+            &self.vertex_ids().collect::<Vec<_>>(),
+            |vid| self.successors(vid.clone()),
+        )
     }
 }
 

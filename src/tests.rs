@@ -277,6 +277,44 @@ macro_rules! graph_tests {
             assert_eq!(graph.vertex_ids().count(), 0);
             assert_eq!(graph.edge_ids().count(), 0);
         }
+
+                #[test]
+        fn test_shortest_paths() {
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = builder.new_graph();
+            let v0 = graph.add_vertex(builder.new_vertex_data());
+            let v1 = graph.add_vertex(builder.new_vertex_data());
+            let v2 = graph.add_vertex(builder.new_vertex_data());
+            let v3 = graph.add_vertex(builder.new_vertex_data());
+
+            graph.add_edge(&v0, &v1, builder.new_edge_data());
+            graph.add_edge(&v0, &v2, builder.new_edge_data());
+            graph.add_edge(&v1, &v2, builder.new_edge_data());
+            graph.add_edge(&v1, &v3, builder.new_edge_data());
+            graph.add_edge(&v2, &v3, builder.new_edge_data());
+
+            let paths = graph.shortest_paths( &v0, |_| 1);
+            assert_eq!(paths[&v0].1, 0);
+            assert_eq!(paths[&v1].1, 1);
+            assert_eq!(paths[&v2].1, 1);
+            assert_eq!(paths[&v3].1, 2);
+        }
+
+        #[test]
+        fn test_shortest_paths_disconnected() {
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = builder.new_graph();
+            let v0 = graph.add_vertex(builder.new_vertex_data());
+            let v1 = graph.add_vertex(builder.new_vertex_data());
+            let v2 = graph.add_vertex(builder.new_vertex_data());
+
+            graph.add_edge(&v0, &v1, builder.new_edge_data());
+
+            let paths = graph.shortest_paths(&v0, |_| 1);
+            assert_eq!(paths.get(&v0).map(|(_, dist)| *dist), Some(0));
+            assert_eq!(paths.get(&v1).map(|(_, dist)| *dist), Some(1));
+            assert_eq!(paths.get(&v2).map(|(_, dist)| *dist), None);
+        }
     };
 }
 
@@ -294,6 +332,9 @@ macro_rules! graph_test_copy_from_with {
             let e2 = source.add_edge(&v2, &v3, builder.new_edge_data());
 
             let mut target = builder.new_graph();
+            // Extra boxing here works around being unable to declare a variable
+            // of an `impl` type.  This allows the caller of the macro to use
+            // closures without declaring the types of the arguments explicitly.
             let f: Box<dyn Fn(&<$type as Graph>::VertexData) -> <$type as Graph>::VertexData> = Box::new($f);
             let g: Box<dyn Fn(&<$type as Graph>::EdgeData) -> <$type as Graph>::EdgeData> = Box::new($g);
             let vertex_map = target.copy_from_with(&source, &f, &g);

@@ -1,4 +1,3 @@
 Add `Debug` implementation for `Graph`
-Add `new` method to `Graph`
 Parameterize `Graph::VertexId` and `Graph::EdgeId` by the graph's lifetime
-Add generic test infrastructure for new graph tests.
+Add more graph algorithms
