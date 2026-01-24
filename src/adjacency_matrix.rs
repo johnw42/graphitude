@@ -4,7 +4,7 @@ use std::{
 
 use bitvec::vec::BitVec;
 
-use crate::{debug::format_debug, util::{euler_sum, euler_sum_inv_floor, sort_pair}};
+use crate::{util::{euler_sum, euler_sum_inv_floor, sort_pair}};
 
 pub trait AdjacencyMatrix
 where

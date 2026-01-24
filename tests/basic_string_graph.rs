@@ -1,7 +1,12 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Debug};
 
 use jrw_graph::{
-    Graph, GraphMut, adjacency_matrix::{AdjacencyMatrix, SymmetricAdjacencyMatrix}, graph::Undirected, graph_tests, tests::TestDataBuilder
+    Graph, GraphMut,
+    adjacency_matrix::{AdjacencyMatrix, SymmetricAdjacencyMatrix},
+    debug::format_debug_with,
+    graph::Undirected,
+    graph_tests,
+    tests::TestDataBuilder,
 };
 
 /// An undirected graph where vertices are identified by strings.  A vertex's ID
@@ -115,6 +120,19 @@ impl GraphMut for StringGraph {
     }
 }
 
+impl Debug for StringGraph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        format_debug_with(
+            self,
+            f,
+            "StringGraph",
+            &mut |vid| format!("{:?}", vid),
+            false,
+            false,
+        )
+    }
+}
+
 impl TestDataBuilder for StringGraph {
     type Graph = Self;
 
@@ -132,6 +150,33 @@ impl TestDataBuilder for StringGraph {
 }
 
 graph_tests!(StringGraph);
+
+#[test]
+fn test_format_debug_with() {
+    let mut graph = StringGraph::new();
+    // Add vertices in non-sorted order.
+    let v1 = graph.add_vertex("B".to_string());
+    let v2 = graph.add_vertex("A".to_string());
+    graph.add_edge(&v1, &v2, ());
+
+    // Single-line output.
+    let output = format!("{:?}", &graph);
+    let expected = r#"StringGraph { vertices: ["A", "B"], edges: ["A" -- "B"] }"#;
+    assert_eq!(output, expected);
+
+    // Multi-line output.
+    let output = format!("{:#?}", &graph);
+    let expected = r#"StringGraph {
+    vertices: [
+        "A",
+        "B",
+    ],
+    edges: [
+        "A" -- "B",
+    ],
+}"#;
+    assert_eq!(output, expected);
+}
 
 #[test]
 fn test_edge_id_ordering() {

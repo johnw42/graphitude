@@ -7,8 +7,8 @@ pub mod adjacency_graph;
 pub mod linked_graph;
 pub mod search;
 pub mod tests;
+pub mod debug;
 
-mod debug;
 mod id_vec;
 mod util;
 
