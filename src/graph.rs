@@ -33,27 +33,9 @@ use {
     std::{collections::HashMap, hash::Hash},
 };
 
+use crate::directedness::{Directed, Directedness, Undirected};
 use crate::search::{BfsIterator, DfsIterator};
 use crate::{edge_ref::EdgeRef, vertex_ref::VertexRef};
-
-pub struct Directed;
-pub struct Undirected;
-
-pub trait Directedness {
-    fn is_directed() -> bool;
-}
-
-impl Directedness for Directed {
-    fn is_directed() -> bool {
-        true
-    }
-}
-
-impl Directedness for Undirected {
-    fn is_directed() -> bool {
-        false
-    }
-}
 
 /// A trait representing a graph data structure.  Methods that return iterators
 /// over vertices or edges return them in an unspecified order unless otherwise

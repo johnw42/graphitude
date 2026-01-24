@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash};
 
-use crate::{Graph, GraphMut, debug::format_debug, graph::Directed};
+use crate::{Graph, GraphMut, debug::format_debug, directedness::Directed};
 
 struct VertexNode<V, E> {
     data: V,

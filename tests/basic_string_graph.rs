@@ -4,7 +4,7 @@ use jrw_graph::{
     Graph, GraphMut,
     adjacency_matrix::{AdjacencyMatrix, SymmetricAdjacencyMatrix},
     debug::format_debug_with,
-    graph::Undirected,
+    directedness::Undirected,
     graph_tests,
     tests::TestDataBuilder,
 };

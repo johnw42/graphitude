@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::transmute};
 
-use crate::graph::Directed;
+use crate::directedness::Directed;
 
 use super::Graph;
 

@@ -1,29 +1,38 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
-    Graph, GraphMut, adjacency_matrix::{AdjacencyMatrix, AsymmetricAdjacencyMatrix}, debug::format_debug, graph::Directed, id_vec::{IdVec, IdVecIndex}
+    Graph, GraphMut,
+    adjacency_matrix::{AdjacencyMatrix, AsymmetricAdjacencyMatrix},
+    debug::format_debug,
+    directedness::Directedness,
+    id_vec::{IdVec, IdVecIndex},
 };
 
-pub struct AdjacencyGraph<V, E> {
+pub struct AdjacencyGraph<V, E, D> {
     vertices: IdVec<V>,
     adjacency: AsymmetricAdjacencyMatrix<IdVecIndex, E>,
+    directedness: PhantomData<D>,
 }
 
-impl<V, E> AdjacencyGraph<V, E> {
+impl<V, E, D> AdjacencyGraph<V, E, D> {
     pub fn new() -> Self {
         Self {
             vertices: IdVec::new(),
             adjacency: AsymmetricAdjacencyMatrix::new(),
+            directedness: PhantomData,
         }
     }
 }
 
-impl<V, E> Graph for AdjacencyGraph<V, E> {
+impl<V, E, D> Graph for AdjacencyGraph<V, E, D>
+where
+    D: Directedness,
+{
     type EdgeData = E;
     type EdgeId = (Self::VertexId, Self::VertexId);
     type VertexData = V;
     type VertexId = IdVecIndex;
-    type Directedness = Directed;
+    type Directedness = D;
 
     fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData {
         &self.vertices[*id]
@@ -62,7 +71,10 @@ impl<V, E> Graph for AdjacencyGraph<V, E> {
     }
 }
 
-impl<V,E> GraphMut for AdjacencyGraph<V, E> {
+impl<V, E, D> GraphMut for AdjacencyGraph<V, E, D>
+where
+    D: Directedness,
+{
     fn add_vertex(&mut self, data: Self::VertexData) -> Self::VertexId {
         self.vertices.insert(data)
     }
@@ -78,7 +90,12 @@ impl<V,E> GraphMut for AdjacencyGraph<V, E> {
     }
 
     fn remove_vertex(&mut self, id: &Self::VertexId) -> Self::VertexData {
-        for into in self.adjacency.edges_from(id).map(|(to, _)| to).collect::<Vec<_>>() {
+        for into in self
+            .adjacency
+            .edges_from(id)
+            .map(|(to, _)| to)
+            .collect::<Vec<_>>()
+        {
             self.adjacency.remove(id, &into);
         }
         self.vertices.remove(*id)
@@ -89,10 +106,11 @@ impl<V,E> GraphMut for AdjacencyGraph<V, E> {
     }
 }
 
-impl<V,E> Debug for AdjacencyGraph<V, E>
+impl<V, E, D> Debug for AdjacencyGraph<V, E, D>
 where
     V: Debug,
     E: Debug,
+    D: Directedness,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "AdjacencyGraph")
@@ -101,10 +119,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{tests::TestDataBuilder, *};
     use super::*;
+    use crate::tests::TestDataBuilder;
 
-    impl TestDataBuilder for AdjacencyGraph<i32, String> {
+    impl<D: Directedness> TestDataBuilder for AdjacencyGraph<i32, String, D> {
         type Graph = Self;
 
         fn new_graph() -> Self::Graph {
@@ -120,9 +138,25 @@ mod tests {
         }
     }
 
-    graph_tests!(AdjacencyGraph<i32, String>);
-    graph_test_copy_from_with!(
-        AdjacencyGraph<i32, String>,
+    mod directed {
+        use super::*;
+        use crate::{directedness::Directed, graph_test_copy_from_with, graph_tests};
+
+        graph_tests!(AdjacencyGraph<i32, String, Directed>);
+        graph_test_copy_from_with!(
+        AdjacencyGraph<i32, String, Directed>,
         |data| data * 2,
         |data: &String| format!("{}-copied", data));
+    }
+
+    mod undirected {
+        use super::*;
+        use crate::{directedness::Undirected, graph_test_copy_from_with, graph_tests};
+
+        graph_tests!(AdjacencyGraph<i32, String, Undirected>);
+        graph_test_copy_from_with!(
+        AdjacencyGraph<i32, String, Undirected>,
+        |data| data * 2,
+        |data: &String| format!("{}-copied", data));
+    }
 }
