@@ -1,10 +1,13 @@
 use std::{
-    collections::{HashMap, HashSet}, fmt::Debug, hash::Hash, mem::MaybeUninit
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    hash::Hash,
+    mem::MaybeUninit,
 };
 
 use bitvec::vec::BitVec;
 
-use crate::{util::{euler_sum, euler_sum_inv_floor, sort_pair}};
+use crate::util::{euler_sum, euler_sum_inv_floor, sort_pair};
 
 pub trait AdjacencyMatrix
 where
@@ -54,8 +57,11 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct SymmetricAdjacencyMatrix<K, V> {
-    edges: HashMap<K, HashMap<K, V>>,
+pub struct SymmetricAdjacencyMatrix<K, V>
+where
+    K: Hash + Eq + Clone + Ord,
+{
+    edges: HashMap<K, HashMap<K, *mut V>>,
 }
 
 impl<K, V> AdjacencyMatrix for SymmetricAdjacencyMatrix<K, V>
@@ -71,40 +77,52 @@ where
         }
     }
 
-    fn insert(&mut self, from: K, into: K, data: V) -> Option<V> {
-        let (k1, k2) = sort_pair(from, into);
-        self.edges.entry(k1).or_default().insert(k2, data)
+    fn insert(&mut self, k1: K, k2: K, data: V) -> Option<V> {
+        let to_insert = Box::leak(Box::new(data)) as *mut V;
+        let old_data = self
+            .edges
+            .entry(k1.clone())
+            .or_default()
+            .insert(k2.clone(), to_insert);
+        self.edges.entry(k2).or_default().insert(k1, to_insert);
+        old_data.map(|d| unsafe { std::ptr::read(d) })
     }
 
     fn get(&self, from: &K, into: &K) -> Option<&V> {
         let (k1, k2) = sort_pair(from, into);
-        self.edges.get(&k1).and_then(|m| m.get(&k2))
+        self.edges
+            .get(&k1)
+            .and_then(|m| m.get(&k2))
+            .map(|ptr| unsafe { &**ptr })
     }
 
     fn remove(&mut self, from: &K, into: &K) -> Option<V> {
         let (k1, k2) = sort_pair(from, into);
-        self.edges.get_mut(&k1).and_then(|m| m.remove(&k2))
+        self.edges
+            .get_mut(&k1)
+            .and_then(|m| m.remove(&k2))
+            .map(|v| unsafe { std::ptr::read(v) })
     }
 
     fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
     where
         V: 'a,
     {
-        self.edges.iter().flat_map(|(from, targets)| {
+        self.edges.iter().flat_map(|(k1, targets)| {
             targets
                 .iter()
-                .map(move |(into, data)| (from.clone(), into.clone(), data))
+                .map(|(k2, v)| (k1.clone(), k2.clone(), unsafe { &**v }))
         })
     }
 
-    fn edges_from<'a>(&'a self, from: &K) -> impl Iterator<Item = (K, &'a V)>
+    fn edges_from<'a>(&'a self, k1: &K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
         self.edges
-            .get(from)
+            .get(k1)
             .into_iter()
-            .flat_map(|targets| targets.iter().map(move |(into, data)| (into.clone(), data)))
+            .flat_map(|targets| targets.iter().map(|(k2, v)| (k2.clone(), unsafe { &**v })))
     }
 
     fn edges_into<'a>(&'a self, into: &K) -> impl Iterator<Item = (K, &'a V)>
@@ -112,6 +130,23 @@ where
         V: 'a,
     {
         self.edges_from(into)
+    }
+}
+
+impl<K, V> Drop for SymmetricAdjacencyMatrix<K, V>
+where
+    K: Hash + Eq + Clone + Ord,
+{
+    fn drop(&mut self) {
+        for (k1, inner_map) in self.edges.iter() {
+            for (k2, data_ptr) in inner_map {
+                if k1 <= k2 {
+                    unsafe {
+                        drop(Box::from_raw(*data_ptr));
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -167,7 +202,7 @@ where
         self.edges.iter().flat_map(|(from, targets)| {
             targets
                 .iter()
-                .map(move |(into, data)| (from.clone(), into.clone(), data))
+                .map(|(into, data)| (from.clone(), into.clone(), data))
         })
     }
 
@@ -178,7 +213,7 @@ where
         self.edges
             .get(from)
             .into_iter()
-            .flat_map(|targets| targets.iter().map(move |(into, data)| (into.clone(), data)))
+            .flat_map(|targets| targets.iter().map(|(into, data)| (into.clone(), data)))
     }
 
     fn edges_into<'a>(&'a self, into: &K) -> impl Iterator<Item = (K, &'a V)>
@@ -606,9 +641,21 @@ mod tests {
     fn test_symmetric_matrix_edges_from() {
         let mut matrix = SymmetricAdjacencyMatrix::new();
         matrix.insert(0, 1, "a");
-        matrix.insert(2, 0, "b");
+        matrix.insert(0, 2, "b");
+        matrix.insert(1, 2, "c");
+        dbg!(&matrix);
         let edges: Vec<_> = matrix.edges_from(&0).collect();
         assert_eq!(edges.len(), 2);
+        assert!(edges.iter().any(|(to, _)| *to == 1));
+        assert!(edges.iter().any(|(to, _)| *to == 2));
+        let edges: Vec<_> = matrix.edges_from(&1).collect();
+        assert_eq!(edges.len(), 2);
+        assert!(edges.iter().any(|(to, _)| *to == 0));
+        assert!(edges.iter().any(|(to, _)| *to == 2));
+        let edges: Vec<_> = matrix.edges_from(&2).collect();
+        assert_eq!(edges.len(), 2);
+        assert!(edges.iter().any(|(to, _)| *to == 0));
+        assert!(edges.iter().any(|(to, _)| *to == 1));
     }
 
     #[test]
