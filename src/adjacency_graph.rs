@@ -1,5 +1,7 @@
+use std::fmt::Debug;
+
 use crate::{
-    Graph, GraphMut, adjacency_matrix::{AdjacencyMatrix, AsymmetricAdjacencyMatrix}, graph::Directed, id_vec::{IdVec, IdVecIndex}
+    Graph, GraphMut, adjacency_matrix::{AdjacencyMatrix, AsymmetricAdjacencyMatrix}, debug::format_debug, graph::Directed, id_vec::{IdVec, IdVecIndex}
 };
 
 pub struct AdjacencyGraph<V, E> {
@@ -84,6 +86,16 @@ impl<V,E> GraphMut for AdjacencyGraph<V, E> {
 
     fn remove_edge(&mut self, id: &Self::EdgeId) -> Option<Self::EdgeData> {
         self.adjacency.remove(&id.0, &id.1)
+    }
+}
+
+impl<V,E> Debug for AdjacencyGraph<V, E>
+where
+    V: Debug,
+    E: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        format_debug(self, f, "AdjacencyGraph")
     }
 }
 

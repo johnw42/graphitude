@@ -47,6 +47,50 @@ where
     }
 }
 
+pub struct BfsIteratorWithPaths<'g, G: Graph> {
+    graph: &'g G,
+    visited: HashSet<G::VertexId>,
+    queue: VecDeque<Vec<G::VertexId>>,
+}
+
+impl<'g, G> BfsIteratorWithPaths<'g, G>
+where
+    G: Graph,
+{
+    pub fn new(graph: &'g G, start: Vec<G::VertexId>) -> Self {
+        Self {
+            graph,
+            visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
+            queue: start.into_iter().map(|v| vec![v]).collect(),
+        }
+    }
+}
+
+impl<'g, G> Iterator for BfsIteratorWithPaths<'g, G>
+where
+    G: Graph,
+{
+    type Item = Vec<G::VertexId>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(path) = self.queue.pop_front() {
+            let vid = path.last().unwrap().clone();
+            if self.visited.insert(vid.clone()) {
+                for eid in self.graph.edges_from(vid.clone()) {
+                    let neighbor = self.graph.edge_target(eid);
+                    if !self.visited.contains(&neighbor) {
+                        let mut new_path = path.clone();
+                        new_path.push(neighbor);
+                        self.queue.push_back(new_path);
+                    }
+                }
+                return Some(path);
+            }
+        }
+        None
+    }
+}
+
 pub struct DfsIterator<'g, G: Graph> {
     graph: &'g G,
     visited: HashSet<G::VertexId>,
@@ -68,22 +112,6 @@ where
     }
 }
 
-fn dfs_multi<G: Graph, F: FnMut(G::VertexId)>(graph: &G, start: Vec<G::VertexId>, f: &mut F) {
-    let mut stack = start;
-    stack.reverse();
-    let mut visited = HashSet::<G::VertexId>::default();
-    while let Some(vid) = stack.pop() {
-        for successor in graph.successors(vid) {
-            if visited.insert(successor.clone()) {
-                let mut successors = graph.successors(successor.clone()).collect::<Vec<_>>();
-                successors.reverse();
-                stack.extend(successors);
-                f(successor);
-            }
-        }
-    }
-}
-
 impl<'g, G> Iterator for DfsIterator<'g, G>
 where
     G: Graph,
@@ -97,6 +125,50 @@ where
                 successors.reverse();
                 self.stack.extend(successors);
                 return Some(vid);
+            }
+        }
+        None
+    }
+}
+
+pub struct DfsIteratorWithPaths<'g, G: Graph> {
+    graph: &'g G,
+    visited: HashSet<G::VertexId>,
+    stack: Vec<Vec<G::VertexId>>,
+}
+
+impl<'g, G> DfsIteratorWithPaths<'g, G>
+where
+    G: Graph,
+{
+    pub fn new(graph: &'g G, start: Vec<G::VertexId>) -> Self {
+        let mut stack = start.into_iter().map(|v| vec![v]).collect::<Vec<_>>();
+        stack.reverse();
+        Self {
+            graph,
+            visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
+            stack,
+        }
+    }
+}
+
+impl<'g, G> Iterator for DfsIteratorWithPaths<'g, G>
+where
+    G: Graph,
+{
+    type Item = Vec<G::VertexId>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(path) = self.stack.pop() {
+            let vid = path.last().unwrap().clone();
+            if self.visited.insert(vid.clone()) {
+                let successors = self.graph.successors(vid.clone()).collect::<Vec<_>>();
+                for successor in successors.into_iter().rev() {
+                    let mut new_path = path.clone();
+                    new_path.push(successor);
+                    self.stack.push(new_path);
+                }
+                return Some(path);
             }
         }
         None
@@ -139,7 +211,10 @@ mod tests {
         let vertices: Vec<_> = graph.vertex_ids().collect();
         let visited: Vec<_> = BfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 4);
-        assert_eq!(visited, vec![vertices[0], vertices[1], vertices[2], vertices[3]]);
+        assert_eq!(
+            visited,
+            vec![vertices[0], vertices[1], vertices[2], vertices[3]]
+        );
     }
 
     #[test]
@@ -184,7 +259,10 @@ mod tests {
         let vertices: Vec<_> = graph.vertex_ids().collect();
         let visited: Vec<_> = DfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 4);
-        assert_eq!(visited, vec![vertices[0], vertices[1], vertices[3], vertices[2]]);
+        assert_eq!(
+            visited,
+            vec![vertices[0], vertices[1], vertices[3], vertices[2]]
+        );
     }
 
     #[test]
@@ -230,5 +308,39 @@ mod tests {
         let bfs_visited: HashSet<_> = BfsIterator::new(&graph, vec![vertices[0]]).collect();
         let dfs_visited: HashSet<_> = DfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(bfs_visited, dfs_visited);
+    }
+
+    #[test]
+    fn test_bfs_wth_paths() {
+        let graph = create_simple_graph();
+        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let visited: Vec<_> = BfsIteratorWithPaths::new(&graph, vec![vertices[0]]).collect();
+        assert_eq!(visited.len(), 4);
+        assert_eq!(
+            visited,
+            vec![
+                vec![vertices[0]],
+                vec![vertices[0], vertices[1]],
+                vec![vertices[0], vertices[2]],
+                vec![vertices[0], vertices[1], vertices[3]],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_dfs_wth_paths() {
+        let graph = create_simple_graph();
+        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let visited: Vec<_> = DfsIteratorWithPaths::new(&graph, vec![vertices[0]]).collect();
+        assert_eq!(visited.len(), 4);
+        assert_eq!(
+            visited,
+            vec![
+                vec![vertices[0]],
+                vec![vertices[0], vertices[1]],
+                vec![vertices[0], vertices[1], vertices[3]],
+                vec![vertices[0], vertices[2]]
+            ]
+        );
     }
 }

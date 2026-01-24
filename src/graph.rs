@@ -24,8 +24,8 @@
 //! - Path finding utilities with Dijkstra's algorithm (requires `pathfinding`
 //!   feature)
 //! - Queries for vertices, edges, predecessors, and successors
-use std::{collections::HashSet, fmt::Debug};
 use std::iter::once;
+use std::{collections::HashSet, fmt::Debug};
 
 #[cfg(feature = "pathfinding")]
 use {

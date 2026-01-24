@@ -1,12 +1,10 @@
 use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
-    mem::MaybeUninit,
+    collections::{HashMap, HashSet}, fmt::Debug, hash::Hash, mem::MaybeUninit
 };
 
 use bitvec::vec::BitVec;
 
-use crate::util::{euler_sum, euler_sum_inv_floor, sort_pair};
+use crate::{debug::format_debug, util::{euler_sum, euler_sum_inv_floor, sort_pair}};
 
 pub trait AdjacencyMatrix
 where

@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash};
 
-use crate::{Graph, GraphMut, graph::Directed};
+use crate::{Graph, GraphMut, debug::format_debug, graph::Directed};
 
 struct VertexNode<V, E> {
     data: V,
@@ -252,6 +252,16 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
         to_vnode.edges_in.retain(|&eid2| *eid != eid2);
 
         Some(unsafe { Box::from_raw(eid.0).data })
+    }
+}
+
+impl<V,E> Debug for LinkedGraph<V, E>
+where
+    V: Debug,
+    E: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        format_debug(self, f, "LinkedGraph")
     }
 }
 

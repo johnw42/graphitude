@@ -8,6 +8,7 @@ pub mod linked_graph;
 pub mod search;
 pub mod tests;
 
+mod debug;
 mod id_vec;
 mod util;
 
