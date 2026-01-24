@@ -19,6 +19,18 @@ pub struct IdVec<T> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct IdVecIndex(usize);
 
+impl From<usize> for IdVecIndex {
+    fn from(value: usize) -> Self {
+        IdVecIndex(value)
+    }
+}
+
+impl Into<usize> for IdVecIndex {
+    fn into(self) -> usize {
+        self.0
+    }
+}
+
 impl<T> IdVec<T> {
     /// Create a new, empty IdVec.
     pub fn new() -> Self {

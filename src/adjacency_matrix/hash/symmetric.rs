@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::Hash};
 
 use crate::util::sort_pair;
 
-use crate::adjacency_matrix::AdjacencyMatrix;
+use crate::adjacency_matrix::{AdjacencyMatrix, HashStorage, Symmetric};
 
 #[derive(Clone, Debug)]
 pub struct SymmetricHashAdjacencyMatrix<K, V>
@@ -18,6 +18,8 @@ where
 {
     type Key = K;
     type Value = V;
+    type Symmetry = Symmetric;
+    type Storage = HashStorage;
 
     fn new() -> Self {
         Self {
@@ -57,10 +59,22 @@ where
         V: 'a,
     {
         self.edges.iter().flat_map(|(k1, targets)| {
-            targets
-                .iter()
-                .map(|(k2, v)| (k1.clone(), k2.clone(), unsafe { &**v }))
+            targets.iter().filter_map(|(k2, v)| {
+                (*k1 <= *k2).then(|| (k1.clone(), k2.clone(), unsafe { &**v }))
+            })
         })
+    }
+    
+    fn edge_between(
+            &self,
+            from: &Self::Key,
+            into: &Self::Key,
+        ) -> Option<(Self::Key, Self::Key, &'_ Self::Value)> {
+            self.get(from, into)
+                .map(|data| {
+                    let (k1, k2) = sort_pair(from.clone(), into.clone());
+                    (k1, k2, data)
+                })
     }
 
     fn edges_from<'a>(&'a self, k1: &K) -> impl Iterator<Item = (K, &'a V)>
@@ -129,6 +143,18 @@ mod tests {
         matrix.insert(0, 1, "edge");
         assert_eq!(matrix.remove(&1, &0), Some("edge"));
         assert_eq!(matrix.get(&0, &1), None);
+    }
+
+    #[test]
+    fn test_edge_between() {
+        let mut matrix = SymmetricHashAdjacencyMatrix::new();
+        matrix.insert(0, 1, "edge");
+        let edge = matrix.edge_between(&0, &0);
+        assert_eq!(edge, None);
+        let edge = matrix.edge_between(&0, &1);
+        assert_eq!(edge, Some((0, 1, &"edge")));
+        let edge_rev = matrix.edge_between(&1, &0);
+        assert_eq!(edge_rev, Some((0, 1, &"edge")));
     }
 
     #[test]

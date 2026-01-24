@@ -3,7 +3,7 @@ use std::{
     hash::Hash,
 };
 
-use crate::adjacency_matrix::AdjacencyMatrix;
+use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, HashStorage};
 
 #[derive(Clone, Debug)]
 pub struct AsymmetricHashAdjacencyMatrix<K, V> {
@@ -17,6 +17,8 @@ where
 {
     type Key = K;
     type Value = V;
+    type Symmetry = Asymmetric;
+    type Storage = HashStorage;
 
     fn new() -> Self {
         AsymmetricHashAdjacencyMatrix {

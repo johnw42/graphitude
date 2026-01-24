@@ -1,17 +1,21 @@
-use std::mem::MaybeUninit;
+use std::{hash::Hash, marker::PhantomData, mem::MaybeUninit};
 
 use bitvec::vec::BitVec;
 
-use crate::adjacency_matrix::AdjacencyMatrix;
+use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, BitvecStorage};
 
-pub struct AsymmetricBitvecAdjacencyMatrix<V> {
+pub struct AsymmetricBitvecAdjacencyMatrix<K, V> {
     data: Vec<MaybeUninit<V>>,
     matrix: BitVec,
     size: usize,
     log2_size: u32,
+    key: PhantomData<K>,
 }
 
-impl<V> AsymmetricBitvecAdjacencyMatrix<V> {
+impl<K, V> AsymmetricBitvecAdjacencyMatrix<K, V>
+where
+    K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash,
+{
     fn with_size(size: usize) -> Self {
         let capacity = size.next_power_of_two();
         let mut matrix = BitVec::with_capacity(capacity * capacity);
@@ -23,12 +27,13 @@ impl<V> AsymmetricBitvecAdjacencyMatrix<V> {
             matrix,
             size: capacity,
             log2_size: capacity.trailing_zeros(),
+            key: PhantomData,
         }
     }
 
     /// Gets the linear index for the edge from `from` to `into`, if within bounds.
-    fn index(&self, from: usize, into: usize) -> Option<usize> {
-        (from < self.size && into < self.size).then(|| self.unchecked_index(from, into))
+    fn index(&self, from: K, into: K) -> Option<usize> {
+        (from.into() < self.size && into.into() < self.size).then(|| self.unchecked_index(from, into))
     }
 
     fn is_live(&self, index: usize) -> bool {
@@ -56,20 +61,25 @@ impl<V> AsymmetricBitvecAdjacencyMatrix<V> {
     }
 
     /// Gets the linear index for the edge from `from` to `into` without bounds checking.
-    fn unchecked_index(&self, from: usize, into: usize) -> usize {
-        (from << self.log2_size) + into
+    fn unchecked_index(&self, from: K, into: K) -> usize {
+        (from.into() << self.log2_size) + into.into()
     }
 
-    fn coordinates(&self, index: usize) -> (usize, usize) {
+    fn coordinates(&self, index: usize) -> (K, K) {
         let from = index >> self.log2_size;
         let into = index & (self.size - 1);
-        (from, into)
+        (from.into(), into.into())
     }
 }
 
-impl<V> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<V> {
-    type Key = usize;
+impl<K, V> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<K, V>
+where
+    K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash,
+{
+    type Key = K;
     type Value = V;
+    type Symmetry = Asymmetric;
+    type Storage = BitvecStorage;
 
     fn new() -> Self {
         Self {
@@ -77,17 +87,18 @@ impl<V> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<V> {
             size: 0,
             log2_size: 0,
             data: Vec::new(),
+            key: PhantomData,
         }
     }
 
-    fn insert(&mut self, from: usize, into: usize, data: V) -> Option<V> {
+    fn insert(&mut self, from: K, into: K, data: V) -> Option<V> {
         if self.index(from, into).is_none() {
-            let required_size = usize::max(from, into) + 1;
+            let required_size = usize::max(from.into(), into.into()) + 1;
             if self.size < required_size {
                 let mut new_self = Self::with_size(required_size);
                 for row in 0..self.size {
-                    let old_start = self.unchecked_index(row, 0);
-                    let new_start = new_self.unchecked_index(row, 0);
+                    let old_start = self.unchecked_index(row.into(), 0.into());
+                    let new_start = new_self.unchecked_index(row.into(), 0.into());
                     new_self.matrix[new_start..new_start + self.size]
                         .copy_from_bitslice(&self.matrix[old_start..old_start + self.size]);
                     for (col, old_datum) in self.data[old_start..old_start + self.size]
@@ -107,18 +118,18 @@ impl<V> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<V> {
         old_data
     }
 
-    fn get(&self, from: &usize, into: &usize) -> Option<&V> {
+    fn get(&self, from: &K, into: &K) -> Option<&V> {
         self.get_data_ref(self.index(*from, *into)?)
     }
 
-    fn remove(&mut self, from: &usize, into: &usize) -> Option<V> {
+    fn remove(&mut self, from: &K, into: &K) -> Option<V> {
         let index = self.index(*from, *into)?;
         let was_live = self.is_live(index);
         self.matrix.set(index, false);
         was_live.then(|| self.unchecked_get_data_read(index))
     }
 
-    fn edges<'a>(&'a self) -> impl Iterator<Item = (usize, usize, &'a V)>
+    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
     where
         V: 'a,
     {
@@ -128,24 +139,24 @@ impl<V> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<V> {
         })
     }
 
-    fn edges_from<'a>(&'a self, from: &usize) -> impl Iterator<Item = (usize, &'a V)>
+    fn edges_from<'a>(&'a self, from: &K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
-        let row_start = self.index(*from, 0).expect("Invalid 'from' index");
+        let row_start = self.index(*from, 0.into()).expect("Invalid 'from' index");
         let row_end = row_start + self.size;
         self.matrix[row_start..row_end]
             .iter_ones()
-            .map(|index| (index, self.unchecked_get_data_ref(index)))
+            .map(|index| (index.into(), self.unchecked_get_data_ref(index.into())))
     }
 
-    fn edges_into<'a>(&'a self, into: &usize) -> impl Iterator<Item = (usize, &'a V)>
+    fn edges_into<'a>(&'a self, into: &K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
-        let (_, into_col) = self.coordinates(*into);
+        let (_, into_col) = self.coordinates((*into).into());
         (0..self.size)
-            .filter_map(move |from_row| self.get(&from_row, &into_col).map(|data| (from_row, data)))
+            .filter_map(move |from_row| self.get(&from_row.into(), &into_col).map(|data| (from_row.into(), data)))
     }
 }
 
