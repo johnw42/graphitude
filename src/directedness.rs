@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
-use crate::adjacency_matrix::{
-    AdjacencyMatrix, AsymmetricAdjacencyMatrix, SymmetricAdjacencyMatrix,
+use crate::{
+    AdjacencyMatrix, AsymmetricHashAdjacencyMatrix, SymmetricHashAdjacencyMatrix,
 };
 
 pub struct Directed;
@@ -17,7 +17,7 @@ pub trait Directedness {
 
 impl Directedness for Directed {
     type AdjacencyMatrix<K, V>
-        = AsymmetricAdjacencyMatrix<K, V>
+        = AsymmetricHashAdjacencyMatrix<K, V>
     where
         K: Eq + Hash + Clone + Ord;
 
@@ -28,7 +28,7 @@ impl Directedness for Directed {
 
 impl Directedness for Undirected {
     type AdjacencyMatrix<K, V>
-        = SymmetricAdjacencyMatrix<K, V>
+        = SymmetricHashAdjacencyMatrix<K, V>
     where
         K: Eq + Hash + Clone + Ord;
 

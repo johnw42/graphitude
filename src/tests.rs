@@ -131,7 +131,7 @@ macro_rules! graph_tests {
             let v2 = graph.add_vertex(vd2.clone());
 
             // Normal edge.
-            graph.add_or_replace_edge(&v1, &v2, ed1.clone());
+            graph.add_edge(&v1, &v2, ed1.clone());
             // Duplicate edge.
             graph.add_edge(&v1, &v2, ed2.clone());
             // Self edge.
@@ -157,7 +157,7 @@ macro_rules! graph_tests {
             let v2 = graph.add_vertex(vd2.clone());
 
             // Normal edge.
-            graph.add_or_replace_edge(&v1, &v2, ed1.clone());
+            graph.add_edge(&v1, &v2, ed1.clone());
             // Duplicate edge.
             graph.add_edge(&v1, &v2, ed2.clone());
             // Self edge.
@@ -169,7 +169,7 @@ macro_rules! graph_tests {
         }
 
         #[test]
-        fn test_edges_out() {
+        fn test_edges_from() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
             let mut graph = builder.new_graph();
             let vd1 = builder.new_vertex_data();
@@ -178,14 +178,14 @@ macro_rules! graph_tests {
 
             let v1 = graph.add_vertex(vd1);
             let v2 = graph.add_vertex(vd2);
-            let e1 = graph.add_or_replace_edge(&v1, &v2, ed1.clone()).0;
+            let e1 = graph.add_edge(&v1, &v2, ed1.clone());
 
             assert_eq!(graph.edges_from(v1).collect::<Vec<_>>(), vec![e1]);
             assert_eq!(graph.num_edges_from(v2), (!graph.is_directed()).into());
         }
 
         #[test]
-        fn test_edges_in() {
+        fn test_edges_into() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
             let mut graph = builder.new_graph();
             let vd1 = builder.new_vertex_data();
@@ -194,7 +194,7 @@ macro_rules! graph_tests {
 
             let v1 = graph.add_vertex(vd1);
             let v2 = graph.add_vertex(vd2);
-            let e1 = graph.add_or_replace_edge(&v1, &v2, ed1.clone()).0;
+            let e1 = graph.add_edge(&v1, &v2, ed1.clone());
 
             assert_eq!(graph.edges_into(v2).collect::<Vec<_>>(), vec![e1]);
             assert_eq!(graph.num_edges_into(v1), (!graph.is_directed()).into());

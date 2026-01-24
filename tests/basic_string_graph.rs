@@ -1,12 +1,8 @@
 use std::{collections::HashSet, fmt::Debug};
 
 use jrw_graph::{
-    Graph, GraphMut,
-    adjacency_matrix::{AdjacencyMatrix, SymmetricAdjacencyMatrix},
-    debug::format_debug_with,
-    directedness::Undirected,
-    graph_tests,
-    tests::TestDataBuilder,
+    AdjacencyMatrix, Graph, GraphMut, SymmetricHashAdjacencyMatrix, debug::format_debug_with,
+    directedness::Undirected, graph_tests, tests::TestDataBuilder,
 };
 
 /// An undirected graph where vertices are identified by strings.  A vertex's ID
@@ -14,7 +10,7 @@ use jrw_graph::{
 /// of vertex IDs they connect.
 struct StringGraph {
     vertices: HashSet<VertexId>,
-    edges: SymmetricAdjacencyMatrix<VertexId, ()>,
+    edges: SymmetricHashAdjacencyMatrix<VertexId, ()>,
 }
 
 type VertexId = String;
@@ -37,7 +33,7 @@ impl StringGraph {
     fn new() -> Self {
         Self {
             vertices: HashSet::new(),
-            edges: SymmetricAdjacencyMatrix::new(),
+            edges: SymmetricHashAdjacencyMatrix::new(),
         }
     }
 

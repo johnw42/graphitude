@@ -1,8 +1,7 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
-    Graph, GraphMut,
-    adjacency_matrix::{AdjacencyMatrix, AsymmetricAdjacencyMatrix},
+    AdjacencyMatrix, AsymmetricHashAdjacencyMatrix, Graph, GraphMut,
     debug::format_debug,
     directedness::Directedness,
     id_vec::{IdVec, IdVecIndex},
@@ -10,7 +9,7 @@ use crate::{
 
 pub struct AdjacencyGraph<V, E, D> {
     vertices: IdVec<V>,
-    adjacency: AsymmetricAdjacencyMatrix<IdVecIndex, E>,
+    adjacency: AsymmetricHashAdjacencyMatrix<IdVecIndex, E>,
     directedness: PhantomData<D>,
 }
 
@@ -18,7 +17,7 @@ impl<V, E, D> AdjacencyGraph<V, E, D> {
     pub fn new() -> Self {
         Self {
             vertices: IdVec::new(),
-            adjacency: AsymmetricAdjacencyMatrix::new(),
+            adjacency: AsymmetricHashAdjacencyMatrix::new(),
             directedness: PhantomData,
         }
     }
@@ -55,17 +54,29 @@ where
     }
 
     fn edges_into<'a>(&'a self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        dbg!(
+            self.adjacency
+                .edges_from(&into)
+                .map(|(from, _)| (into, from))
+                .collect::<Vec<_>>()
+        );
         self.adjacency
             .edges_into(&into)
-            .map(move |(from, _)| (from, into))
+            .map(|(from, _)| (from, into))
             .collect::<Vec<_>>()
             .into_iter()
     }
 
     fn edges_from<'a>(&'a self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        dbg!(
+            self.adjacency
+                .edges_from(&from)
+                .map(|(into, _)| (from, into))
+                .collect::<Vec<_>>()
+        );
         self.adjacency
             .edges_from(&from)
-            .map(move |(to, _)| (from, to))
+            .map(|(to, _)| (from, to))
             .collect::<Vec<_>>()
             .into_iter()
     }
