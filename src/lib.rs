@@ -12,6 +12,7 @@ pub mod vertex_ref;
 
 mod id_vec;
 mod util;
+mod symmetric_maxtrix_indexing;
 
 pub use adjacency_matrix::{
     AdjacencyMatrix,

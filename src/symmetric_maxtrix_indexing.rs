@@ -1,0 +1,191 @@
+use std::ops::Range;
+
+use crate::util::{euler_sum, euler_sum_inv_floor, sort_pair};
+
+/// Utilities for indexing into symmetric matrices stored in a flat array.
+pub(crate) struct SymmetricMatrixIndexing {
+    /// The size of one dimension of the symmetric matrix.
+    size: usize,
+}
+
+impl SymmetricMatrixIndexing {
+    /// Creates a new `SymmetricMatrixIndexing` for a symmetric matrix of the given size.
+    pub fn new(size: usize) -> Self {
+        Self { size }
+    }
+
+    /// Returns the size of one dimension of the symmetric matrix.
+    #[allow(unused)]
+    pub fn size(&self) -> usize {
+        self.size
+    }
+
+    /// Returns the storage size required for the symmetric matrix.
+    pub fn storage_size(&self) -> usize {
+        euler_sum(self.size)
+    }
+
+    /// Resizes the symmetric matrix to the new size.
+    pub fn resize(&mut self, new_size: usize) {
+        self.size = new_size;
+    }
+
+    /// Returns the linear index row `i` and column `j`, if within bounds.
+    pub fn index(&self, i: usize, j: usize) -> Option<usize> {
+        (i < self.size && j < self.size).then(|| self.unchecked_index(i, j))
+    }
+
+    /// Returns the linear index row `i` and column `j` without bounds checking.
+    pub fn unchecked_index(&self, i: usize, j: usize) -> usize {
+        let (k1, k2) = sort_pair(i, j);
+        euler_sum(k2) + k1
+    }
+
+    /// Returns the `(column, row)` coordinates corresponding to the given
+    /// index, where `column <= row`.
+    pub fn coordinates(&self, index: usize) -> (usize, usize) {
+        let row = euler_sum_inv_floor(index);
+        let col = index - euler_sum(row);
+        (col, row)
+    }
+
+    /// Returns an iterator over the indices in row `i` of the symmetric matrix.
+    pub fn row(&self, i: usize) -> impl Iterator<Item = usize> + '_ {
+        let (range, iter) = self.row_with_range(i);
+        range.chain(iter)
+    }
+
+    /// Returns a tuple containing the range of indices for row `i` and an
+    /// iterator over the remaining indices in that row.
+    pub fn row_with_range(&self, i: usize) -> (Range<usize>, impl Iterator<Item = usize> + '_) {
+        let start = self.index(i, 0).unwrap();
+        let end = self.index(i, i).unwrap();
+        (
+            start..end,
+            (i..self.size).map(move |j| self.index(i, j).unwrap()),
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let smi = SymmetricMatrixIndexing::new(5);
+        assert_eq!(smi.size, 5);
+    }
+    #[test]
+    fn test_size() {
+        let smi = SymmetricMatrixIndexing::new(7);
+        assert_eq!(smi.size(), 7);
+    }
+
+    #[test]
+    fn test_resize() {
+        let mut smi = SymmetricMatrixIndexing::new(5);
+        assert_eq!(smi.size(), 5);
+
+        smi.resize(10);
+        assert_eq!(smi.size(), 10);
+
+        smi.resize(3);
+        assert_eq!(smi.size(), 3);
+    }
+
+    #[test]
+    fn test_resize_affects_index_bounds() {
+        let mut smi = SymmetricMatrixIndexing::new(3);
+        assert!(smi.index(2, 2).is_some());
+        assert!(smi.index(3, 3).is_none());
+
+        smi.resize(5);
+        assert!(smi.index(3, 3).is_some());
+        assert!(smi.index(4, 4).is_some());
+        assert!(smi.index(5, 5).is_none());
+
+        smi.resize(2);
+        assert!(smi.index(2, 2).is_none());
+        assert!(smi.index(1, 1).is_some());
+    }
+
+    #[test]
+    fn test_index_valid() {
+        let smi = SymmetricMatrixIndexing::new(4);
+        assert!(smi.index(0, 0).is_some());
+        assert!(smi.index(2, 3).is_some());
+        assert!(smi.index(3, 2).is_some());
+    }
+
+    #[test]
+    fn test_index_out_of_bounds() {
+        let smi = SymmetricMatrixIndexing::new(4);
+        assert!(smi.index(4, 0).is_none());
+        assert!(smi.index(0, 4).is_none());
+        assert!(smi.index(5, 5).is_none());
+    }
+
+    #[test]
+    fn test_symmetry() {
+        let smi = SymmetricMatrixIndexing::new(5);
+        for i in 0..5 {
+            for j in 0..5 {
+                assert_eq!(smi.index(i, j), smi.index(j, i));
+            }
+        }
+    }
+
+    #[test]
+    fn test_unchecked_index_diagonal() {
+        let smi = SymmetricMatrixIndexing::new(5);
+        assert_eq!(smi.unchecked_index(0, 0), 0);
+        assert_eq!(smi.unchecked_index(1, 1), 2);
+        assert_eq!(smi.unchecked_index(2, 2), 5);
+    }
+
+    #[test]
+    fn test_coordinates_roundtrip() {
+        let smi = SymmetricMatrixIndexing::new(6);
+        for i in 0..6 {
+            for j in 0..6 {
+                let idx = smi.unchecked_index(i, j);
+                let (col, row) = smi.coordinates(idx);
+                assert!(col <= row);
+                assert_eq!(smi.unchecked_index(col, row), idx);
+            }
+        }
+    }
+
+    #[test]
+    fn test_row_iterator() {
+        let smi = SymmetricMatrixIndexing::new(4);
+        let row_0: Vec<_> = smi.row(0).map(|index| smi.coordinates(index)).collect();
+        assert_eq!(row_0, vec![(0, 0), (0, 1), (0, 2), (0, 3)]);
+
+        let row_2: Vec<_> = smi.row(2).map(|index| smi.coordinates(index)).collect();
+        assert_eq!(row_2, vec![(0, 2), (1, 2), (2, 2), (2, 3)]);
+
+        // Verify that the row iterator produces correct indices
+        // according to a more straightforward method.
+        for i in 0..smi.size() {
+            assert_eq!(
+                smi.row(i).collect::<Vec<_>>(),
+                (0..smi.size())
+                    .map(|j| smi.index(i, j).unwrap())
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn test_row_symmetry() {
+        let smi = SymmetricMatrixIndexing::new(5);
+        for i in 0..5 {
+            let row: Vec<_> = smi.row(i).collect();
+            for (j, &idx) in row.iter().enumerate() {
+                assert_eq!(idx, smi.index(i, j).unwrap());
+            }
+        }
+    }
+}

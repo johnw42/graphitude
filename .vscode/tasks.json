@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "cargo",
+      "command": "test",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "env": {
+        "RUST_BACKTRACE": "1"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "label": "rust: cargo test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use crate::{
     AdjacencyMatrix, Graph, GraphMut,
@@ -7,6 +7,70 @@ use crate::{
     directedness::Directedness,
     id_vec::{IdVec, IdVecIndex},
 };
+
+pub struct EdgeId<V, D>(V, V, PhantomData<D>);
+
+impl<V, D> EdgeId<V, D>
+where
+    D: Directedness,
+    V: Ord,
+{
+    pub fn new(from: V, into: V) -> Self {
+        let (v1, v2) = D::maybe_sort(from, into);
+        EdgeId(v1, v2, PhantomData)
+    }
+}
+
+impl<V, D> Clone for EdgeId<V, D>
+where
+    V: Clone,
+{
+    fn clone(&self) -> Self {
+        EdgeId(self.0.clone(), self.1.clone(), PhantomData)
+    }
+}
+
+impl<V, D> PartialEq for EdgeId<V, D>
+where
+    V: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1 == other.1
+    }
+}
+
+impl<V, D> Eq for EdgeId<V, D> where V: Eq {}
+
+impl<V, D> Hash for EdgeId<V, D>
+where
+    V: Hash,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+        self.1.hash(state);
+    }
+}
+
+impl<V, D> Into<(V, V)> for EdgeId<V, D> {
+    fn into(self) -> (V, V) {
+        (self.0, self.1)
+    }
+}
+
+impl<'a, V, D> Into<(&'a V, &'a V)> for &'a EdgeId<V, D> {
+    fn into(self) -> (&'a V, &'a V) {
+        (&self.0, &self.1)
+    }
+}
+
+impl<V, D> Debug for EdgeId<V, D>
+where
+    V: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "EdgeId({:?}, {:?})", self.0, self.1)
+    }
+}
 
 pub struct AdjacencyGraph<V, E, D, S = HashStorage>
 where
@@ -41,7 +105,7 @@ where
     (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
 {
     type EdgeData = E;
-    type EdgeId = (Self::VertexId, Self::VertexId);
+    type EdgeId = EdgeId<Self::VertexId, Self::Directedness>;
     type VertexData = V;
     type VertexId = IdVecIndex;
     type Directedness = D;
@@ -54,16 +118,19 @@ where
         self.vertices.iter_indices()
     }
 
-    fn edge_data(&self, (from, to): &Self::EdgeId) -> &Self::EdgeData {
+    fn edge_data(&self, eid: &Self::EdgeId) -> &Self::EdgeData {
+        let (from, to) = eid.into();
         &self.adjacency.get(from, to).expect("no such edge")
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        self.adjacency.edges().map(|(from, to, _)| (from, to))
+        self.adjacency
+            .edges()
+            .map(|(from, to, _)| EdgeId::<Self::VertexId, Self::Directedness>::new(from, to))
     }
 
-    fn edge_ends(&self, (from, to): Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
-        (from, to)
+    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+        eid.into()
     }
 
     fn edges_between(
@@ -74,19 +141,13 @@ where
         self.adjacency
             .edge_between(&from, &into)
             .into_iter()
-            .map(|(from, into, _)| (from, into))
+            .map(|(from, into, _)| Self::EdgeId::new(from, into))
     }
 
     fn edges_into<'a>(&'a self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        dbg!(
-            self.adjacency
-                .edges_from(&into)
-                .map(|(from, _)| (into, from))
-                .collect::<Vec<_>>()
-        );
         self.adjacency
             .edges_into(&into)
-            .map(|(from, _)| (from, into))
+            .map(|(from, _)| Self::EdgeId::new(from, into))
             .collect::<Vec<_>>()
             .into_iter()
     }
@@ -94,7 +155,7 @@ where
     fn edges_from<'a>(&'a self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.adjacency
             .edges_from(&from)
-            .map(|(to, _)| (from, to))
+            .map(|(to, _)| Self::EdgeId::new(from, to))
             .collect::<Vec<_>>()
             .into_iter()
     }
@@ -117,7 +178,7 @@ where
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
         let old_data = self.adjacency.insert(from.clone(), into.clone(), data);
-        ((from.clone(), into.clone()), old_data)
+        (Self::EdgeId::new(from.clone(), into.clone()), old_data)
     }
 
     fn remove_vertex(&mut self, id: &Self::VertexId) -> Self::VertexData {
@@ -176,18 +237,33 @@ mod tests {
         }
     }
 
-    // mod directed_bitvec {
-    //     use bitvec::vec::BitVec;
+    mod directed_bitvec {
+        use super::*;
+        use crate::{
+            adjacency_matrix::BitvecStorage, directedness::Directed, graph_test_copy_from_with,
+            graph_tests,
+        };
 
-    //     use super::*;
-    //     use crate::{directedness::Directed, graph_test_copy_from_with, graph_tests};
+        graph_tests!(AdjacencyGraph<i32, String, Directed, BitvecStorage>);
+        graph_test_copy_from_with!(
+        AdjacencyGraph<i32, String, Directed, BitvecStorage>,
+        |data| data * 2,
+        |data: &String| format!("{}-copied", data));
+    }
 
-    //     graph_tests!(AdjacencyGraph<i32, String, Directed, BitVec>);
-    //     graph_test_copy_from_with!(
-    //     AdjacencyGraph<i32, String, Directed, BitVec>,
-    //     |data| data * 2,
-    //     |data: &String| format!("{}-copied", data));
-    // }
+    mod undirected_bitvec {
+        use super::*;
+        use crate::{
+            adjacency_matrix::BitvecStorage, directedness::Undirected, graph_test_copy_from_with,
+            graph_tests,
+        };
+
+        graph_tests!(AdjacencyGraph<i32, String, Undirected, BitvecStorage>);
+        graph_test_copy_from_with!(
+        AdjacencyGraph<i32, String, Undirected, BitvecStorage>,
+        |data| data * 2,
+        |data: &String| format!("{}-copied", data));
+    }
 
     mod directed_hash {
         use super::*;

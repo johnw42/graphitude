@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
 use crate::{
     AsymmetricBitvecAdjacencyMatrix, AsymmetricHashAdjacencyMatrix, SymmetricBitvecAdjacencyMatrix,
@@ -53,6 +53,13 @@ where
     where
         Self::Value: 'a;
 
+    fn edge_ends(k1: &Self::Key, k2: &Self::Key) -> (Self::Key, Self::Key)
+    where
+        Self::Symmetry: Symmetry,
+    {
+        (k1.clone(), k2.clone())
+    }
+
     /// Iterates over all edges between the given vertices `from` and `into`.
     fn edge_between(
         &self,
@@ -60,7 +67,10 @@ where
         into: &Self::Key,
     ) -> Option<(Self::Key, Self::Key, &'_ Self::Value)> {
         self.get(from, into)
-            .map(|data| (from.clone(), into.clone(), data))
+            .map(|data| {
+                let (k1, k2) = Self::edge_ends(from, into);
+                (k1, k2, data)
+            })
     }
 
     /// Iterates over all edges originating from the given vertex `from`.
@@ -104,7 +114,7 @@ where
 
 impl<K, V> AdjacencyMatrixSelector<K, V> for (Symmetric, HashStorage)
 where
-    K: Hash + Eq + Clone + Ord,
+    K: Hash + Eq + Clone + Ord + Debug,
 {
     type Matrix = SymmetricHashAdjacencyMatrix<K, V>;
 }

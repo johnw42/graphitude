@@ -2,6 +2,26 @@ pub(crate) fn sort_pair<K: Ord>(a: K, b: K) -> (K, K) {
     if a <= b { (a, b) } else { (b, a) }
 }
 
+// pub(crate) struct SortedPair<K: Ord>(K, K);
+
+// impl <K: Ord> SortedPair<K> {
+//     pub fn new(a: K, b: K) -> Self {
+//         let (k1, k2) = sort_pair(a, b);
+//         Self(k1, k2)
+//     }
+// }
+
+// impl<K> Into<(K, K)> for SortedPair<K> where K: Ord {
+//     fn into(self) -> (K, K) {
+//         (self.0, self.1)
+//     }
+// }
+
+// impl<K> From <(K, K)> for SortedPair<K> where K: Ord {
+//     fn from(pair: (K, K)) -> Self {
+//         SortedPair::new(pair.0, pair.1)
+//     }
+// }
 
 // Calculates the Euler sum of n, the sum of 1..n, also the number of edges in a
 // complete graph of n vertices.

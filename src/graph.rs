@@ -86,8 +86,17 @@ pub trait Graph: Sized {
     /// those vertices reachable by outgoing edges.
     fn successors(&self, vertex: Self::VertexId) -> impl Iterator<Item = Self::VertexId> + '_ {
         let mut visited = HashSet::new();
-        self.edges_from(vertex).filter_map(move |eid| {
-            let vid = self.edge_target(eid);
+        self.edges_from(vertex.clone()).filter_map(move |eid| {
+            let vid = if self.is_directed() {
+                self.edge_target(eid)
+            } else {
+                let (source, target) = self.edge_ends(eid);
+                if source == vertex {
+                    target
+                } else {
+                    source
+                }
+            };
             visited.insert(vid.clone()).then_some(vid)
         })
     }
@@ -223,9 +232,15 @@ pub trait Graph: Sized {
     ) -> HashMap<Self::VertexId, (Vec<Self::VertexId>, C)> {
         let parents: HashMap<Self::VertexId, (Self::VertexId, C)> =
             pathfinding::prelude::dijkstra_all(start, |vid| -> Vec<(Self::VertexId, C)> {
-                self.edges_from(vid.clone())
-                    .map(|eid| (self.edge_target(eid.clone()), cost_fn(&eid)))
-                    .collect()
+                let r: Vec<_> = self
+                    .edges_from(vid.clone())
+                    .map(|eid| {
+                        let cost = cost_fn(&eid);
+                        (self.edge_target(eid), cost)
+                    })
+                    .collect();
+                dbg!(vid, r.iter().map(|(eid, _)| eid).collect::<Vec<_>>());
+                r
             });
         once((start.clone(), (vec![start.clone()], C::zero())))
             .chain(

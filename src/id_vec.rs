@@ -15,7 +15,7 @@ pub struct IdVec<T> {
 }
 
 /// An index into an `IdVec`. Stable across insertions and removals, but not
-/// across compactions.
+/// across shrink_to_fit operations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct IdVecIndex(usize);
 
@@ -88,7 +88,7 @@ impl<T> IdVec<T> {
     /// Compact the `IdVec` by removing all dead entries and shifting live entries
     /// down to fill the gaps.  This invalidates all existing indices.
     /// No memory is reallocated.
-    pub fn compact(&mut self) {
+    pub fn shrink_to_fit(&mut self) {
         let new_id_offset = self.next_id();
         let mut di = 0;
         for si in self.id_offset..self.liveness.len() {
@@ -105,7 +105,7 @@ impl<T> IdVec<T> {
 
     /// Compact the `IdVec` by removing all dead entries without shifting live entries.
     /// This invalidates all existing indices.  Memory is reallocated to fit exactly.
-    pub fn compact_exact(&mut self) {
+    pub fn shrink_to_fit_exact(&mut self) {
         if self.len() == self.vec.len() + self.id_offset {
             return;
         }
@@ -285,7 +285,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compact() {
+    fn test_shrink_to_fit() {
         let mut vec = IdVec::new();
         let id1 = vec.insert(1);
         let id2 = vec.insert(2);
@@ -295,7 +295,7 @@ mod tests {
         assert_eq!(id3.0, 2);
 
         vec.remove(id2);
-        vec.compact();
+        vec.shrink_to_fit();
 
         assert_eq!(vec.len(), 2);
         assert_eq!(vec.iter().sum::<i32>(), 4);
@@ -311,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compact_exact() {
+    fn test_shrink_to_fit_exact() {
         let mut vec = IdVec::new();
         let id1 = vec.insert(1);
         let id2 = vec.insert(2);
@@ -322,7 +322,7 @@ mod tests {
 
         vec.remove(id1);
         vec.remove(id3);
-        vec.compact_exact();
+        vec.shrink_to_fit_exact();
 
         assert_eq!(vec.len(), 1);
 
@@ -423,13 +423,13 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_compact_invalidates_all_indices() {
+    fn test_shrink_to_fit_invalidates_all_indices() {
         let mut vec = IdVec::new();
         let id1 = vec.insert(1);
         let id2 = vec.insert(2);
 
         vec.remove(id1);
-        vec.compact();
+        vec.shrink_to_fit();
 
         let _ = vec[id2];
     }

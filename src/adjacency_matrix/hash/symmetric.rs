@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::{collections::HashMap, hash::Hash};
 
 use crate::util::sort_pair;
@@ -7,14 +8,14 @@ use crate::adjacency_matrix::{AdjacencyMatrix, HashStorage, Symmetric};
 #[derive(Clone, Debug)]
 pub struct SymmetricHashAdjacencyMatrix<K, V>
 where
-    K: Hash + Eq + Clone + Ord,
+    K: Hash + Eq + Clone + Ord + Debug,
 {
     edges: HashMap<K, HashMap<K, *mut V>>,
 }
 
 impl<K, V> AdjacencyMatrix for SymmetricHashAdjacencyMatrix<K, V>
 where
-    K: Hash + Eq + Clone + Ord,
+    K: Hash + Eq + Clone + Ord + Debug,
 {
     type Key = K;
     type Value = V;
@@ -35,6 +36,7 @@ where
             .or_default()
             .insert(k2.clone(), to_insert);
         self.edges.entry(k2).or_default().insert(k1, to_insert);
+        //dbg!(self.edges.iter().flat_map(|(k1, v)| v.keys().map(|k2| (k1,k2)).collect::<Vec<_>>()).collect::<Vec<_>>());
         old_data.map(|d| unsafe { std::ptr::read(d) })
     }
 
@@ -64,17 +66,10 @@ where
             })
         })
     }
-    
-    fn edge_between(
-            &self,
-            from: &Self::Key,
-            into: &Self::Key,
-        ) -> Option<(Self::Key, Self::Key, &'_ Self::Value)> {
-            self.get(from, into)
-                .map(|data| {
-                    let (k1, k2) = sort_pair(from.clone(), into.clone());
-                    (k1, k2, data)
-                })
+
+
+    fn edge_ends(k1: &Self::Key, k2: &Self::Key) -> (Self::Key, Self::Key) {
+        sort_pair(k1.clone(), k2.clone())
     }
 
     fn edges_from<'a>(&'a self, k1: &K) -> impl Iterator<Item = (K, &'a V)>
@@ -97,7 +92,7 @@ where
 
 impl<K, V> Drop for SymmetricHashAdjacencyMatrix<K, V>
 where
-    K: Hash + Eq + Clone + Ord,
+    K: Hash + Eq + Clone + Ord + Debug,
 {
     fn drop(&mut self) {
         for (k1, inner_map) in self.edges.iter() {
