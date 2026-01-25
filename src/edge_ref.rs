@@ -1,12 +1,5 @@
 use crate::{Graph, vertex_ref::VertexRef};
 
-pub trait EdgeRefCore<'g, G: Graph> {
-    fn graph(&self) -> &'g G;
-    // fn data(&self) -> &'g G::EdgeData;
-    // fn source(&self) -> VertexRef<'g, G>;
-    // fn target(&self) -> VertexRef<'g, G>;
-}
-
 pub struct EdgeRef<'g, G: Graph> {
     graph: &'g G,
     id: G::EdgeId,
@@ -19,8 +12,12 @@ where
         Self { graph, id }
     }
 
+    pub fn graph(&self) -> &'g G {
+        self.graph
+    }
+
     pub fn data(&self) -> &'g G::EdgeData {
-        self.graph.edge_data(&self.id)
+        self.graph.edge_data(self.id.clone())
     }
 
     pub fn source(&self) -> VertexRef<'g, G> {

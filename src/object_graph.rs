@@ -80,7 +80,7 @@ where
         VertexId::from(v)
     }
 
-    fn neighbors(&self, id: &VertexId<'a, V>) -> Vec<<Self as Graph>::VertexId> {
+    fn neighbors(&self, id: VertexId<'a, V>) -> Vec<<Self as Graph>::VertexId> {
         let v = self.vertex_data(id);
         (self.neighbors_fn)(v)
             .iter()
@@ -103,22 +103,21 @@ where
     type EdgeData = ();
     type Directedness = Directed;
 
-    fn vertex_data(&self, id: &VertexId<V>) -> &<Self as Graph>::VertexData {
+    fn vertex_data(&self, id: VertexId<V>) -> &<Self as Graph>::VertexData {
         unsafe { transmute::<&*const V, &&'a V>(&id.0) }
     }
 
-    fn edge_data(&self, (from, to): &<Self as Graph>::EdgeId) -> &<Self as Graph>::EdgeData {
+    fn edge_data(&self, (from, to): <Self as Graph>::EdgeId) -> &<Self as Graph>::EdgeData {
         let neighbors = (self.neighbors_fn)(self.vertex_data(from));
         neighbors
             .iter()
-            .position(|&v| VertexId::from(v) == *to)
+            .position(|&v| VertexId::from(v) == to)
             .map(|_| &())
             .expect("Edge does not exist")
     }
 
     fn edges_from<'b>(&'b self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'b {
-        let neighbors = self.neighbors(&from);
-        neighbors
+        self.neighbors(from)
             .into_iter()
             .map(move |to| self.make_edge_id(from, to))
     }
@@ -159,15 +158,15 @@ mod tests {
         let graph = ObjectGraph::new(&node1, |node: &Node| node.neighbors.iter().collect());
 
         let root_id = graph.roots().next().unwrap();
-        assert_eq!(graph.vertex_data(&root_id).value, 1);
+        assert_eq!(graph.vertex_data(root_id).value, 1);
 
-        let neighbors: Vec<_> = graph.neighbors(&root_id).into_iter().collect();
+        let neighbors: Vec<_> = graph.neighbors(root_id).into_iter().collect();
         assert_eq!(neighbors.len(), 1);
-        assert_eq!(graph.vertex_data(&neighbors[0]).value, 2);
+        assert_eq!(graph.vertex_data(neighbors[0]).value, 2);
 
-        let second_neighbors: Vec<_> = graph.neighbors(&neighbors[0]).into_iter().collect();
+        let second_neighbors: Vec<_> = graph.neighbors(neighbors[0]).into_iter().collect();
         assert_eq!(second_neighbors.len(), 1);
-        assert_eq!(graph.vertex_data(&second_neighbors[0]).value, 3);
+        assert_eq!(graph.vertex_data(second_neighbors[0]).value, 3);
 
         assert!(graph.has_edge(root_id, neighbors[0]));
         assert!(!graph.has_edge(root_id, second_neighbors[0]));
@@ -210,7 +209,7 @@ mod tests {
         let id3 = unsafe { graph.vertex_id(&node3) };
         let id4 = unsafe { graph.vertex_id(&node4) };
 
-        let paths = graph.shortest_paths(&id1, |_| 1);
+        let paths = graph.shortest_paths(id1, |_| 1);
 
         let values = |id| {
             paths
@@ -218,7 +217,7 @@ mod tests {
                 .unwrap()
                 .0
                 .iter()
-                .map(|vid| graph.vertex_data(vid).value)
+                .map(|vid| graph.vertex_data(*vid).value)
                 .collect::<Vec<_>>()
         };
         assert_eq!(paths.len(), 4);

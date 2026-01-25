@@ -55,16 +55,16 @@ impl Graph for StringGraph {
     type EdgeId = EdgeId;
     type Directedness = Undirected;
 
-    fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData {
-        self.vertices.get(id).expect("Vertex does not exist")
+    fn vertex_data(&self, id: Self::VertexId) -> &Self::VertexData {
+        self.vertices.get(&id).expect("Vertex does not exist")
     }
 
     fn num_edges_between(&self, from: Self::VertexId, into: Self::VertexId) -> usize {
-        self.edges.get(&from, &into).into_iter().count()
+        self.edges.get(from, into).into_iter().count()
     }
 
-    fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
-        self.edges.get(&id.0, &id.1).expect("Edge does not exist")
+    fn edge_data(&self, id: Self::EdgeId) -> &Self::EdgeData {
+        self.edges.get(id.0, id.1).expect("Edge does not exist")
     }
 
     fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
@@ -90,29 +90,29 @@ impl GraphMut for StringGraph {
 
     fn add_or_replace_edge(
         &mut self,
-        from: &Self::VertexId,
-        into: &Self::VertexId,
+        from: Self::VertexId,
+        into: Self::VertexId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
         let old_data = self.edges.insert(from.clone(), into.clone(), data);
         (self.edge_id(from.clone(), into.clone()), old_data)
     }
 
-    fn remove_vertex(&mut self, id: &Self::VertexId) -> String {
+    fn remove_vertex(&mut self, id: Self::VertexId) -> String {
         let edges_from = self
             .edges
-            .edges_from(id)
+            .edges_from(id.clone())
             .map(|(into, _)| into)
             .collect::<Vec<_>>();
         for into in edges_from {
-            self.edges.remove(id, &into);
+            self.edges.remove(id.clone(), into);
         }
-        self.vertices.remove(id);
+        self.vertices.remove(&id);
         id.clone()
     }
 
-    fn remove_edge(&mut self, id: &Self::EdgeId) -> Option<Self::EdgeData> {
-        self.edges.remove(&id.0, &id.1).map(|_| ())
+    fn remove_edge(&mut self, id: Self::EdgeId) -> Option<Self::EdgeData> {
+        self.edges.remove(id.0, id.1).map(|_| ())
     }
 }
 
@@ -153,7 +153,7 @@ fn test_format_debug_with() {
     // Add vertices in non-sorted order.
     let v1 = graph.add_vertex("B".to_string());
     let v2 = graph.add_vertex("A".to_string());
-    graph.add_edge(&v1, &v2, ());
+    graph.add_edge(v1, v2, ());
 
     // Single-line output.
     let output = format!("{:?}", &graph);

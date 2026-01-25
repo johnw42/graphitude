@@ -65,7 +65,7 @@ pub trait Graph: Sized {
     fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId>;
 
     /// Gets the data associated with a vertex.
-    fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData;
+    fn vertex_data(&self, id: Self::VertexId) -> &Self::VertexData;
 
     /// Gets the number of vertices in the graph.
     fn num_vertices(&self) -> usize {
@@ -112,7 +112,7 @@ pub trait Graph: Sized {
     }
 
     /// Gets the data associated with an edge.
-    fn edge_data(&self, from: &Self::EdgeId) -> &Self::EdgeData;
+    fn edge_data(&self, from: Self::EdgeId) -> &Self::EdgeData;
 
     /// Gets a vector of all edges in the graph.
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
@@ -175,12 +175,12 @@ pub trait Graph: Sized {
         self.edge_ends(id).1
     }
 
-    fn has_edge_from(&self, from: &Self::VertexId) -> bool {
-        self.edges_from(from.clone()).next().is_some()
+    fn has_edge_from(&self, from: Self::VertexId) -> bool {
+        self.edges_from(from).next().is_some()
     }
 
-    fn has_edge_into(&self, into: &Self::VertexId) -> bool {
-        self.edges_into(into.clone()).next().is_some()
+    fn has_edge_into(&self, into: Self::VertexId) -> bool {
+        self.edges_into(into).next().is_some()
     }
 
     /// Checks if there is an edge between two vertices.
@@ -227,11 +227,11 @@ pub trait Graph: Sized {
     #[cfg(feature = "pathfinding")]
     fn shortest_paths<C: Zero + Ord + Copy>(
         &self,
-        start: &Self::VertexId,
+        start: Self::VertexId,
         cost_fn: impl Fn(&Self::EdgeId) -> C,
     ) -> HashMap<Self::VertexId, (Vec<Self::VertexId>, C)> {
         let parents: HashMap<Self::VertexId, (Self::VertexId, C)> =
-            pathfinding::prelude::dijkstra_all(start, |vid| -> Vec<(Self::VertexId, C)> {
+            pathfinding::prelude::dijkstra_all(&start, |vid| -> Vec<(Self::VertexId, C)> {
                 let r: Vec<_> = self
                     .edges_from(vid.clone())
                     .map(|eid| {
@@ -242,7 +242,7 @@ pub trait Graph: Sized {
                 dbg!(vid, r.iter().map(|(eid, _)| eid).collect::<Vec<_>>());
                 r
             });
-        once((start.clone(), (vec![start.clone()], C::zero())))
+        once((start.clone(), (vec![start], C::zero())))
             .chain(
                 parents
                     .iter()
@@ -308,7 +308,7 @@ pub trait GraphMut: Graph {
     /// Removes all vertices and edges from the graph.
     fn clear(&mut self) {
         for vid in self.vertex_ids().collect::<Vec<_>>() {
-            self.remove_vertex(&vid);
+            self.remove_vertex(vid);
         }
     }
 
@@ -317,7 +317,7 @@ pub trait GraphMut: Graph {
 
     /// Removes a vertex from the graph, returning its data.  Any edges
     /// connected to the vertex are also be removed.
-    fn remove_vertex(&mut self, id: &Self::VertexId) -> Self::VertexData;
+    fn remove_vertex(&mut self, id: Self::VertexId) -> Self::VertexData;
 
     /// Adds an edge with the given data between two vertices and returns the
     /// `EdgeId`.  If an edge already exists between the two vertices, and the
@@ -325,8 +325,8 @@ pub trait GraphMut: Graph {
     /// Use [`Self::add_or_replace_edge`] to get the old edge data as well.
     fn add_edge(
         &mut self,
-        from: &Self::VertexId,
-        to: &Self::VertexId,
+        from: Self::VertexId,
+        to: Self::VertexId,
         data: Self::EdgeData,
     ) -> Self::EdgeId {
         self.add_or_replace_edge(from, to, data).0
@@ -338,13 +338,13 @@ pub trait GraphMut: Graph {
     /// data is returned as well.
     fn add_or_replace_edge(
         &mut self,
-        from: &Self::VertexId,
-        to: &Self::VertexId,
+        from: Self::VertexId,
+        to: Self::VertexId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>);
 
     /// Remove an edge between two vertices, returning its data if it existed.
-    fn remove_edge(&mut self, from: &Self::EdgeId) -> Option<Self::EdgeData>;
+    fn remove_edge(&mut self, from: Self::EdgeId) -> Option<Self::EdgeData>;
 
     /// Copies all vertices and edges from another graph into this graph.
     fn copy_from<S>(&mut self, source: &S) -> HashMap<S::VertexId, Self::VertexId>
@@ -362,8 +362,8 @@ pub trait GraphMut: Graph {
     fn copy_from_with<S, F, G>(
         &mut self,
         source: &S,
-        map_vertex: &mut F,
-        map_edge: &mut G,
+        mut map_vertex: F,
+        mut map_edge: G,
     ) -> HashMap<S::VertexId, Self::VertexId>
     where
         S: Graph,
@@ -374,18 +374,17 @@ pub trait GraphMut: Graph {
     {
         let mut vertex_map = HashMap::new();
         for vid in source.vertex_ids() {
-            let vdata = map_vertex(source.vertex_data(&vid));
+            let vdata = map_vertex(source.vertex_data(vid.clone()));
             let new_vid = self.add_vertex(vdata);
             vertex_map.insert(vid, new_vid);
         }
         for eid in source.edge_ids() {
             let (from, to) = source.edge_ends(eid.clone());
-            let edata = map_edge(source.edge_data(&eid));
+            let edata = map_edge(source.edge_data(eid));
             let new_from = vertex_map.get(&from).expect("missing vertex");
             let new_to = vertex_map.get(&to).expect("missing vertex");
-            self.add_edge(new_from, new_to, edata);
+            self.add_edge(new_from.clone(), new_to.clone(), edata);
         }
-
         vertex_map
     }
 

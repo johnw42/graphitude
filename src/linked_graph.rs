@@ -48,7 +48,7 @@ impl<V, E> From<&VertexNode<V, E>> for VertexId<V, E> {
 struct EdgeNode<V, E> {
     data: E,
     from: VertexId<V, E>,
-    to: VertexId<V, E>,
+    into: VertexId<V, E>,
 }
 
 #[derive(PartialOrd, Ord)]
@@ -115,7 +115,7 @@ impl<V, E> Graph for LinkedGraph<V, E> {
     type EdgeData = E;
     type Directedness = Directed;
 
-    fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData {
+    fn vertex_data(&self, id: Self::VertexId) -> &Self::VertexData {
         unsafe { &(*id.0).data }
     }
 
@@ -124,7 +124,7 @@ impl<V, E> Graph for LinkedGraph<V, E> {
         self.vertices.iter().map(|node| VertexId::from(&**node))
     }
 
-    fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
+    fn edge_data(&self, id: Self::EdgeId) -> &Self::EdgeData {
         unsafe { &(*id.0).data }
     }
 
@@ -138,7 +138,7 @@ impl<V, E> Graph for LinkedGraph<V, E> {
 
     fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
         let edge_node = unsafe { &*eid.0 };
-        (edge_node.from, edge_node.to)
+        (edge_node.from, edge_node.into)
     }
 
     /// Gets an iterator over the edges outgoing from the given vertex in
@@ -196,15 +196,11 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
 
     fn add_or_replace_edge(
         &mut self,
-        from: &Self::VertexId,
-        into: &Self::VertexId,
+        from: Self::VertexId,
+        into: Self::VertexId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
-        let enode = Box::new(EdgeNode {
-            data,
-            from: *from,
-            to: *into,
-        });
+        let enode = Box::new(EdgeNode { data, from, into });
         let eid = EdgeId::from(&*enode);
 
         unsafe {
@@ -215,15 +211,15 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
         (eid, None)
     }
 
-    fn remove_vertex(&mut self, id: &Self::VertexId) -> V {
+    fn remove_vertex(&mut self, vid: Self::VertexId) -> V {
         let index = self
             .vertices
             .iter()
-            .position(|vnode| VertexId::from(&**vnode) == *id)
+            .position(|vnode| VertexId::from(&**vnode) == vid)
             .expect("Vertex does not exist");
         let vnode = self.vertices.remove(index);
         for enode in &vnode.edges_out {
-            let to_vid = enode.to;
+            let to_vid = enode.into;
             let to_vnode = unsafe { &mut *to_vid.0 };
             to_vnode.edges_in.retain(|&eid| eid != EdgeId::from(enode));
         }
@@ -238,24 +234,24 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
         vnode.data
     }
 
-    fn remove_edge(&mut self, eid: &Self::EdgeId) -> Option<Self::EdgeData> {
+    fn remove_edge(&mut self, eid: Self::EdgeId) -> Option<Self::EdgeData> {
         let enode = unsafe { &*eid.0 };
         let from_vid = enode.from;
-        let to_vid = enode.to;
+        let to_vid = enode.into;
 
         let from_vnode = unsafe { &mut *from_vid.0 };
         from_vnode
             .edges_out
-            .retain(|enode| *eid != EdgeId::from(enode));
+            .retain(|enode| eid != EdgeId::from(enode));
 
         let to_vnode = unsafe { &mut *to_vid.0 };
-        to_vnode.edges_in.retain(|&eid2| *eid != eid2);
+        to_vnode.edges_in.retain(|&eid2| eid != eid2);
 
         Some(unsafe { Box::from_raw(eid.0).data })
     }
 }
 
-impl<V,E> Debug for LinkedGraph<V, E>
+impl<V, E> Debug for LinkedGraph<V, E>
 where
     V: Debug,
     E: Debug,

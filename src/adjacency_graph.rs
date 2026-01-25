@@ -110,15 +110,15 @@ where
     type VertexId = IdVecIndex;
     type Directedness = D;
 
-    fn vertex_data(&self, id: &Self::VertexId) -> &Self::VertexData {
-        &self.vertices[*id]
+    fn vertex_data(&self, id: Self::VertexId) -> &Self::VertexData {
+        &self.vertices[id]
     }
 
     fn vertex_ids(&self) -> impl Iterator<Item = <Self as Graph>::VertexId> {
         self.vertices.iter_indices()
     }
 
-    fn edge_data(&self, eid: &Self::EdgeId) -> &Self::EdgeData {
+    fn edge_data(&self, eid: Self::EdgeId) -> &Self::EdgeData {
         let (from, to) = eid.into();
         &self.adjacency.get(from, to).expect("no such edge")
     }
@@ -139,14 +139,14 @@ where
         into: Self::VertexId,
     ) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.adjacency
-            .edge_between(&from, &into)
+            .edge_between(from, into)
             .into_iter()
             .map(|(from, into, _)| Self::EdgeId::new(from, into))
     }
 
     fn edges_into<'a>(&'a self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.adjacency
-            .edges_into(&into)
+            .edges_into(into)
             .map(|(from, _)| Self::EdgeId::new(from, into))
             .collect::<Vec<_>>()
             .into_iter()
@@ -154,7 +154,7 @@ where
 
     fn edges_from<'a>(&'a self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.adjacency
-            .edges_from(&from)
+            .edges_from(from)
             .map(|(to, _)| Self::EdgeId::new(from, to))
             .collect::<Vec<_>>()
             .into_iter()
@@ -173,28 +173,28 @@ where
 
     fn add_or_replace_edge(
         &mut self,
-        from: &Self::VertexId,
-        into: &Self::VertexId,
+        from: Self::VertexId,
+        into: Self::VertexId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
         let old_data = self.adjacency.insert(from.clone(), into.clone(), data);
-        (Self::EdgeId::new(from.clone(), into.clone()), old_data)
+        (Self::EdgeId::new(from, into), old_data)
     }
 
-    fn remove_vertex(&mut self, id: &Self::VertexId) -> Self::VertexData {
+    fn remove_vertex(&mut self, id: Self::VertexId) -> Self::VertexData {
         for into in self
             .adjacency
             .edges_from(id)
             .map(|(to, _)| to)
             .collect::<Vec<_>>()
         {
-            self.adjacency.remove(id, &into);
+            self.adjacency.remove(id, into);
         }
-        self.vertices.remove(*id)
+        self.vertices.remove(id)
     }
 
-    fn remove_edge(&mut self, id: &Self::EdgeId) -> Option<Self::EdgeData> {
-        self.adjacency.remove(&id.0, &id.1)
+    fn remove_edge(&mut self, id: Self::EdgeId) -> Option<Self::EdgeData> {
+        self.adjacency.remove(id.0, id.1)
     }
 }
 

@@ -98,12 +98,12 @@ where
         old_data
     }
 
-    fn get(&self, from: &K, into: &K) -> Option<&V> {
-        self.get_data_ref(self.indexing.index((*from).into(), (*into).into())?)
+    fn get(&self, from: K, into: K) -> Option<&V> {
+        self.get_data_ref(self.indexing.index(from.into(), into.into())?)
     }
 
-    fn remove(&mut self, from: &K, into: &K) -> Option<V> {
-        let index = self.indexing.index((*from).into(), (*into).into())?;
+    fn remove(&mut self, from: K, into: K) -> Option<V> {
+        let index = self.indexing.index(from.into(), into.into())?;
         let was_live = self.is_live(index);
         self.matrix.set(index, false);
         was_live.then(|| self.unchecked_get_data_read(index))
@@ -119,15 +119,15 @@ where
         })
     }
 
-    fn edge_ends(k1: &Self::Key, k2: &Self::Key) -> (Self::Key, Self::Key) {
-        sort_pair(k1.clone(), k2.clone())
+    fn edge_ends(k1: Self::Key, k2: Self::Key) -> (Self::Key, Self::Key) {
+        sort_pair(k1, k2)
     }
 
-    fn edges_from<'a>(&'a self, from: &K) -> impl Iterator<Item = (K, &'a V)>
+    fn edges_from<'a>(&'a self, from: K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
-        let from = (*from).into();
+        let from = from.into();
         self.indexing.row(from).filter_map(move |index| {
             if self.is_live(index) {
                 let (i, j) = self.indexing.coordinates(index);
@@ -142,7 +142,7 @@ where
         })
     }
 
-    fn edges_into<'a>(&'a self, into: &K) -> impl Iterator<Item = (K, &'a V)>
+    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
@@ -185,8 +185,8 @@ mod tests {
     fn test_insert_and_get() {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
-        assert_eq!(matrix.get(&0, &1), Some(&()));
-        assert_eq!(matrix.get(&1, &0), Some(&()));
+        assert_eq!(matrix.get(0, 1), Some(&()));
+        assert_eq!(matrix.get(1, 0), Some(&()));
     }
 
     #[test]
@@ -194,7 +194,7 @@ mod tests {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
         matrix.insert(0, 2, ());
-        let edges: Vec<_> = matrix.edges_from(&0).collect();
+        let edges: Vec<_> = matrix.edges_from(0).collect();
         assert_eq!(edges.len(), 2);
     }
 
@@ -204,16 +204,16 @@ mod tests {
         matrix.insert(0, 2, ());
         matrix.insert(1, 2, ());
         matrix.insert(3,3, ());
-        assert_eq!(matrix.edges_into(&2).collect::<Vec<_>>(), vec![(0, &()), (1, &())]);
-        assert_eq!(matrix.edges_into(&3).collect::<Vec<_>>(), vec![(3, &())]);
+        assert_eq!(matrix.edges_into(2).collect::<Vec<_>>(), vec![(0, &()), (1, &())]);
+        assert_eq!(matrix.edges_into(3).collect::<Vec<_>>(), vec![(3, &())]);
     }
 
     #[test]
     fn test_edges_into2() {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
-        assert_eq!(matrix.edges_into(&1).collect::<Vec<_>>(), vec![(0, &())]);
-        assert_eq!(matrix.edges_into(&0).collect::<Vec<_>>(), vec![(1, &())]);
+        assert_eq!(matrix.edges_into(1).collect::<Vec<_>>(), vec![(0, &())]);
+        assert_eq!(matrix.edges_into(0).collect::<Vec<_>>(), vec![(1, &())]);
     }
 
     #[test]
@@ -227,23 +227,23 @@ mod tests {
     fn test_remove() {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
-        assert_eq!(matrix.remove(&0, &1), Some(()));
-        assert_eq!(matrix.get(&0, &1), None);
+        assert_eq!(matrix.remove(0, 1), Some(()));
+        assert_eq!(matrix.get(0, 1), None);
     }
 
     #[test]
     fn test_remove_both_directions() {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
-        assert_eq!(matrix.remove(&1, &0), Some(()));
-        assert_eq!(matrix.get(&0, &1), None);
-        assert_eq!(matrix.get(&1, &0), None);
+        assert_eq!(matrix.remove(1, 0), Some(()));
+        assert_eq!(matrix.get(0, 1), None);
+        assert_eq!(matrix.get(1, 0), None);
     }
 
     #[test]
     fn test_remove_nonexistent() {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
-        assert_eq!(matrix.remove(&0, &1), None);
+        assert_eq!(matrix.remove(0, 1), None);
     }
 
     #[test]
@@ -260,14 +260,14 @@ mod tests {
     fn test_large_indices() {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(100, 200, ());
-        assert_eq!(matrix.get(&100, &200), Some(&()));
-        assert_eq!(matrix.get(&200, &100), Some(&()));
+        assert_eq!(matrix.get(100, 200), Some(&()));
+        assert_eq!(matrix.get(200, 100), Some(&()));
     }
 
     #[test]
     fn test_self_loop() {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(5, 5, ());
-        assert_eq!(matrix.get(&5, &5), Some(&()));
+        assert_eq!(matrix.get(5, 5), Some(&()));
     }
 }

@@ -27,7 +27,7 @@ where
 
     /// Gets the data associated with this vertex.
     pub fn data(&self) -> &'g G::VertexData {
-        self.graph().vertex_data(&self.id())
+        self.graph().vertex_data(self.id())
     }
 
     /// Gets an iterator over the edges outgoing from this vertex.

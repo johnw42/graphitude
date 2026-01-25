@@ -31,7 +31,7 @@ where
                 .entries(self.vertex_order.iter().map(|vid| {
                     (
                         VertexTag(&self.vertex_tags[vid]),
-                        self.graph.vertex_data(vid),
+                        self.graph.vertex_data(vid.clone()),
                     )
                 }))
                 .finish()
@@ -40,7 +40,7 @@ where
                 .entries(
                     self.vertex_order
                         .iter()
-                        .map(|vid| self.graph.vertex_data(vid)),
+                        .map(|vid| self.graph.vertex_data(vid.clone())),
                 )
                 .finish()
         }
@@ -87,7 +87,7 @@ where
                 .entries(
                     self.edge_order
                         .iter()
-                        .map(|eid| (make_edge_tag(eid), self.graph.edge_data(eid))),
+                        .map(|eid| (make_edge_tag(eid), self.graph.edge_data(eid.clone()))),
                 )
                 .finish()
         } else {
@@ -180,7 +180,7 @@ mod tests {
         let mut graph = LinkedGraph::<&str, i32>::new();
         let v1 = graph.add_vertex("A");
         let v2 = graph.add_vertex("B");
-        graph.add_edge(&v1, &v2, 10);
+        graph.add_edge(v1, v2, 10);
 
         // Single-line output.
         let output = format!("{:?}", &graph);

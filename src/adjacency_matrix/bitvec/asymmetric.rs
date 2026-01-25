@@ -118,12 +118,12 @@ where
         old_data
     }
 
-    fn get(&self, from: &K, into: &K) -> Option<&V> {
-        self.get_data_ref(self.index(*from, *into)?)
+    fn get(&self, from: K, into: K) -> Option<&V> {
+        self.get_data_ref(self.index(from, into)?)
     }
 
-    fn remove(&mut self, from: &K, into: &K) -> Option<V> {
-        let index = self.index(*from, *into)?;
+    fn remove(&mut self, from: K, into: K) -> Option<V> {
+        let index = self.index(from, into)?;
         let was_live = self.is_live(index);
         self.matrix.set(index, false);
         was_live.then(|| self.unchecked_get_data_read(index))
@@ -139,24 +139,24 @@ where
         })
     }
 
-    fn edges_from<'a>(&'a self, from: &K) -> impl Iterator<Item = (K, &'a V)>
+    fn edges_from<'a>(&'a self, from: K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
-        let row_start = self.index(*from, 0.into()).expect("Invalid 'from' index");
+        let row_start = self.index(from, 0.into()).expect("Invalid 'from' index");
         let row_end = row_start + self.size;
         self.matrix[row_start..row_end]
             .iter_ones()
             .map(|index| (index.into(), self.unchecked_get_data_ref(index.into())))
     }
 
-    fn edges_into<'a>(&'a self, into: &K) -> impl Iterator<Item = (K, &'a V)>
+    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
-        let (_, into_col) = self.coordinates((*into).into());
+        let (_, into_col) = self.coordinates(into.into());
         (0..self.size)
-            .filter_map(move |from_row| self.get(&from_row.into(), &into_col).map(|data| (from_row.into(), data)))
+            .filter_map(move |from_row| self.get(from_row.into(), into_col).map(|data| (from_row.into(), data)))
     }
 }
 
@@ -168,8 +168,8 @@ mod tests {
     fn test_insert_and_get() {
         let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         assert_eq!(matrix.insert(0, 1, 42), None);
-        assert_eq!(matrix.get(&0, &1), Some(&42));
-        assert_eq!(matrix.get(&1, &0), None);
+        assert_eq!(matrix.get(0, 1), Some(&42));
+        assert_eq!(matrix.get(1, 0), None);
     }
 
     #[test]
@@ -183,8 +183,8 @@ mod tests {
     fn test_remove() {
         let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
-        assert_eq!(matrix.remove(&0, &1), Some(()));
-        assert_eq!(matrix.get(&0, &1), None);
+        assert_eq!(matrix.remove(0, 1), Some(()));
+        assert_eq!(matrix.get(0, 1), None);
     }
 
     #[test]
@@ -201,7 +201,7 @@ mod tests {
         let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
         matrix.insert(0, 3, ());
-        let edges: Vec<_> = matrix.edges_from(&0).collect();
+        let edges: Vec<_> = matrix.edges_from(0).collect();
         assert_eq!(edges.len(), 2);
         assert!(edges.iter().any(|(to, _)| *to == 1));
         assert!(edges.iter().any(|(to, _)| *to == 3));
@@ -211,12 +211,12 @@ mod tests {
     fn test_edges_into() {
         let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, "A");
-        assert_eq!(matrix.get(&0, &1), Some(&"A"));
+        assert_eq!(matrix.get(0, 1), Some(&"A"));
         matrix.insert(1, 1, "B");
-        assert_eq!(matrix.get(&1, &1), Some(&"B"));
+        assert_eq!(matrix.get(1, 1), Some(&"B"));
         matrix.insert(3, 1, "C");
-        assert_eq!(matrix.get(&3, &1), Some(&"C"));
-        let edges: Vec<_> = matrix.edges_into(&1).collect();
+        assert_eq!(matrix.get(3, 1), Some(&"C"));
+        let edges: Vec<_> = matrix.edges_into(1).collect();
         assert_eq!(edges.len(), 3);
         assert!(edges.iter().any(|(from, _)| *from == 0));
         assert!(edges.iter().any(|(from, _)| *from == 1));

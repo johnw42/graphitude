@@ -187,10 +187,10 @@ mod tests {
         let v1 = graph.add_vertex(1);
         let v2 = graph.add_vertex(2);
         let v3 = graph.add_vertex(3);
-        graph.add_edge(&v0, &v1, ());
-        graph.add_edge(&v0, &v2, ());
-        graph.add_edge(&v1, &v3, ());
-        graph.add_edge(&v2, &v3, ());
+        graph.add_edge(v0, v1, ());
+        graph.add_edge(v0, v2, ());
+        graph.add_edge(v1, v3, ());
+        graph.add_edge(v2, v3, ());
         graph
     }
 
@@ -199,9 +199,9 @@ mod tests {
         let v0 = graph.add_vertex(0);
         let v1 = graph.add_vertex(1);
         let v2 = graph.add_vertex(2);
-        graph.add_edge(&v0, &v1, ());
-        graph.add_edge(&v1, &v2, ());
-        graph.add_edge(&v2, &v0, ());
+        graph.add_edge(v0, v1, ());
+        graph.add_edge(v1, v2, ());
+        graph.add_edge(v2, v0, ());
         graph
     }
 

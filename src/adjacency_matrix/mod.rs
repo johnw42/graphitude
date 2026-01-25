@@ -43,32 +43,32 @@ where
     ) -> Option<Self::Value>;
 
     /// Gets a reference to the data associated with the edge from `from` to `into`, if it exists.
-    fn get(&self, from: &Self::Key, into: &Self::Key) -> Option<&Self::Value>;
+    fn get(&self, from: Self::Key, into: Self::Key) -> Option<&Self::Value>;
 
     /// Removes the edge from `from` to `into`, returning the associated data if it existed.
-    fn remove(&mut self, from: &Self::Key, into: &Self::Key) -> Option<Self::Value>;
+    fn remove(&mut self, from: Self::Key, into: Self::Key) -> Option<Self::Value>;
 
     /// Iterates over all edges in the adjacency matrix.
     fn edges<'a>(&'a self) -> impl Iterator<Item = (Self::Key, Self::Key, &'a Self::Value)>
     where
         Self::Value: 'a;
 
-    fn edge_ends(k1: &Self::Key, k2: &Self::Key) -> (Self::Key, Self::Key)
+    fn edge_ends(k1: Self::Key, k2: Self::Key) -> (Self::Key, Self::Key)
     where
         Self::Symmetry: Symmetry,
     {
-        (k1.clone(), k2.clone())
+        (k1, k2)
     }
 
     /// Iterates over all edges between the given vertices `from` and `into`.
     fn edge_between(
         &self,
-        from: &Self::Key,
-        into: &Self::Key,
+        from: Self::Key,
+        into: Self::Key,
     ) -> Option<(Self::Key, Self::Key, &'_ Self::Value)> {
-        self.get(from, into)
+        self.get(from.clone(), into.clone())
             .map(|data| {
-                let (k1, k2) = Self::edge_ends(from, into);
+                let (k1, k2) = Self::edge_ends(from.clone(), into.clone());
                 (k1, k2, data)
             })
     }
@@ -76,7 +76,7 @@ where
     /// Iterates over all edges originating from the given vertex `from`.
     fn edges_from<'a>(
         &'a self,
-        from: &Self::Key,
+        from: Self::Key,
     ) -> impl Iterator<Item = (Self::Key, &'a Self::Value)>
     where
         Self::Value: 'a;
@@ -84,7 +84,7 @@ where
     /// Iterates over all edges terminating at the given vertex `into`.
     fn edges_into<'a>(
         &'a self,
-        into: &Self::Key,
+        into: Self::Key,
     ) -> impl Iterator<Item = (Self::Key, &'a Self::Value)>
     where
         Self::Value: 'a;
