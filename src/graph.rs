@@ -115,13 +115,7 @@ pub trait Graph: Sized {
     fn edge_data(&self, from: Self::EdgeId) -> &Self::EdgeData;
 
     /// Gets a vector of all edges in the graph.
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        let mut edges = Vec::new();
-        for from in self.vertex_ids() {
-            edges.extend(self.edges_from(from));
-        }
-        edges.into_iter()
-    }
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
 
     /// Gets an iterator over the outgoing edges from a given vertex.
     fn edges_from(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {

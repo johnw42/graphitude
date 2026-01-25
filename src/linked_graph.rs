@@ -286,5 +286,5 @@ mod tests {
     graph_test_copy_from_with!(
         LinkedGraph<i32, String>,
         |data| data * 2,
-        |data: &String| format!("{}-copied", data));
+        |data| format!("{}-copied", data));
 }

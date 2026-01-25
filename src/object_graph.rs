@@ -125,6 +125,10 @@ where
     fn vertex_ids(&self) -> impl Iterator<Item = <Self as Graph>::VertexId> {
         self.bfs_multi(self.roots().collect())
     }
+    
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
+        self.vertex_ids().flat_map(|from| self.edges_from(from))
+    }
 
     fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
         eid

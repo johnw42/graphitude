@@ -1,8 +1,7 @@
 use std::{collections::HashSet, fmt::Debug};
 
 use jrw_graph::{
-    AdjacencyMatrix, Graph, GraphMut, SymmetricHashAdjacencyMatrix, debug::format_debug_with,
-    directedness::Undirected, graph_tests, tests::TestDataBuilder,
+    AdjacencyMatrix, Graph, GraphMut, SymmetricHashAdjacencyMatrix, debug::format_debug_with, directedness::Undirected, graph_test_copy_from_with, graph_tests, tests::TestDataBuilder
 };
 
 /// An undirected graph where vertices are identified by strings.  A vertex's ID
@@ -146,6 +145,10 @@ impl TestDataBuilder for StringGraph {
 }
 
 graph_tests!(StringGraph);
+graph_test_copy_from_with!(
+    StringGraph,
+    |data| format!("{}-copied", data),
+    |_| ());
 
 #[test]
 fn test_format_debug_with() {
