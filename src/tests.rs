@@ -98,7 +98,7 @@ macro_rules! graph_tests {
 
             assert_eq!(
                 graph
-                    .edges_from(v1.clone())
+                    .edges_from(&v1)
                     .into_iter()
                     .map(|edge_id| graph.edge_target(edge_id))
                     .collect::<Vec<_>>(),
@@ -208,30 +208,30 @@ macro_rules! graph_tests {
             let e4 = graph.add_edge(&v2, &v3, builder.new_edge_data());
 
             assert_eq!(
-                graph.edges_from(v0.clone()).collect::<HashSet<_>>(),
+                graph.edges_from(&v0).collect::<HashSet<_>>(),
                 HashSet::from([e0.clone(), e1.clone()])
             );
             if graph.is_directed() {
                 assert_eq!(
-                    graph.edges_from(v1.clone()).collect::<HashSet<_>>(),
+                    graph.edges_from(&v1).collect::<HashSet<_>>(),
                     HashSet::from([e2.clone(), e3.clone()])
                 );
                 assert_eq!(
-                    graph.edges_from(v2.clone()).collect::<HashSet<_>>(),
+                    graph.edges_from(&v2).collect::<HashSet<_>>(),
                     HashSet::from([e4.clone()])
                 );
-                assert_eq!(graph.edges_from(v3.clone()).count(), 0,);
+                assert_eq!(graph.edges_from(&v3).count(), 0,);
             } else {
                 assert_eq!(
-                    graph.edges_from(v1.clone()).collect::<HashSet<_>>(),
+                    graph.edges_from(&v1).collect::<HashSet<_>>(),
                     HashSet::from([e0.clone(), e2.clone(), e3.clone()])
                 );
                 assert_eq!(
-                    graph.edges_from(v2.clone()).collect::<HashSet<_>>(),
+                    graph.edges_from(&v2).collect::<HashSet<_>>(),
                     HashSet::from([e1.clone(), e2.clone(), e4.clone()])
                 );
                 assert_eq!(
-                    graph.edges_from(v3.clone()).collect::<HashSet<_>>(),
+                    graph.edges_from(&v3).collect::<HashSet<_>>(),
                     HashSet::from([e3.clone(), e4.clone()])
                 );
             }
@@ -250,8 +250,8 @@ macro_rules! graph_tests {
             let e1 = graph.add_edge(&v1, &v2, ed1.clone());
 
             dbg!(&graph);
-            assert_eq!(graph.edges_into(v2).collect::<Vec<_>>(), vec![e1]);
-            assert_eq!(graph.num_edges_into(v1), (!graph.is_directed()).into());
+            assert_eq!(graph.edges_into(&v2).collect::<Vec<_>>(), vec![e1]);
+            assert_eq!(graph.num_edges_into(&v1), if graph.is_directed() { 0 } else { 1 });
         }
 
         #[test]
@@ -266,15 +266,15 @@ macro_rules! graph_tests {
             let v2 = graph.add_vertex(vd2);
             let e1 = graph.add_edge(&v1, &v2, ed1);
 
-            assert_eq!(graph.num_edges_between(v1.clone(), v2.clone()), 1);
+            assert_eq!(graph.num_edges_between(&v1, &v2), 1);
             assert_eq!(
                 graph
-                    .edges_between(v1.clone(), v2.clone())
+                    .edges_between(&v1, &v2)
                     .collect::<Vec<_>>(),
                 vec![e1.clone()]
             );
             assert_eq!(
-                graph.edges_between(v2, v1).collect::<Vec<_>>(),
+                graph.edges_between(&v2, &v1).collect::<Vec<_>>(),
                 if graph.is_directed() {
                     vec![]
                 } else {
@@ -355,40 +355,40 @@ macro_rules! graph_tests {
             assert_eq!(graph.edge_ends(e3), (v1.clone(), v3.clone()));
             assert_eq!(graph.edge_ends(e4), (v2.clone(), v3.clone()));
             assert_eq!(
-                graph.successors(v0.clone()).collect::<HashSet<_>>(),
+                graph.successors(&v0).collect::<HashSet<_>>(),
                 HashSet::from([v1.clone(), v2.clone()])
             );
             if graph.is_directed() {
                 assert_eq!(
-                    graph.successors(v1.clone()).collect::<HashSet<_>>(),
+                    graph.successors(&v1).collect::<HashSet<_>>(),
                     HashSet::from([v2.clone(), v3.clone()])
                 );
                 assert_eq!(
-                    graph.successors(v2.clone()).collect::<HashSet<_>>(),
+                    graph.successors(&v2).collect::<HashSet<_>>(),
                     HashSet::from([v3.clone()])
                 );
-                assert_eq!(graph.successors(v3.clone()).count(), 0,);
+                assert_eq!(graph.successors(&v3).count(), 0,);
             } else {
                 assert_eq!(
-                    graph.successors(v1.clone()).collect::<HashSet<_>>(),
+                    graph.successors(&v1).collect::<HashSet<_>>(),
                     HashSet::from([v0.clone(), v2.clone(), v3.clone()])
                 );
                 assert_eq!(
-                    graph.successors(v2.clone()).collect::<HashSet<_>>(),
+                    graph.successors(&v2).collect::<HashSet<_>>(),
                     HashSet::from([v0.clone(), v1.clone(), v3.clone()])
                 );
                 assert_eq!(
-                    graph.successors(v3.clone()).collect::<HashSet<_>>(),
+                    graph.successors(&v3).collect::<HashSet<_>>(),
                     HashSet::from([v1.clone(), v2.clone()])
                 );
             }
             assert_eq!(graph.num_edges(), 5);
-            assert_eq!(graph.num_edges_between(v0.clone(), v1.clone()), 1);
-            assert_eq!(graph.num_edges_between(v0.clone(), v2.clone()), 1);
-            assert_eq!(graph.num_edges_between(v1.clone(), v2.clone()), 1);
-            assert_eq!(graph.num_edges_between(v1.clone(), v3.clone()), 1);
-            assert_eq!(graph.num_edges_between(v2.clone(), v3.clone()), 1);
-            assert_eq!(graph.num_edges_between(v0.clone(), v3.clone()), 0);
+            assert_eq!(graph.num_edges_between(&v0, &v1), 1);
+            assert_eq!(graph.num_edges_between(&v0, &v2), 1);
+            assert_eq!(graph.num_edges_between(&v1, &v2), 1);
+            assert_eq!(graph.num_edges_between(&v1, &v3), 1);
+            assert_eq!(graph.num_edges_between(&v2, &v3), 1);
+            assert_eq!(graph.num_edges_between(&v0, &v3), 0);
         }
 
         #[test]

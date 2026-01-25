@@ -31,23 +31,25 @@ where
     }
 
     /// Gets an iterator over the edges outgoing from this vertex.
-    pub fn edges_from(&self) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
-        let graph = self.graph();
-        graph.edges_from(self.id()).map(move |eid| graph.edge(eid))
+    pub fn edges_from<'a: 'g>(&'a self) -> impl Iterator<Item = EdgeRef<'g, G>> + 'a {
+        self.graph
+            .edges_from(&self.id)
+            .map(move |eid| self.graph.edge(eid))
     }
 
     /// Gets an iterator over the edges incoming to this vertex.
-    pub fn edges_into(&self) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
-        let graph = self.graph();
-        graph.edges_into(self.id()).map(move |eid| graph.edge(eid))
+    pub fn edges_into<'a: 'g>(&'a self) -> impl Iterator<Item = EdgeRef<'g, G>> + 'a {
+        self.graph
+            .edges_into(&self.id)
+            .map(move |eid| self.graph.edge(eid))
     }
 
     /// Gets an iterator over the edges between this vertex and another vertex.
-    pub fn edges_to(&self, from: &VertexRef<'g, G>) -> impl Iterator<Item = EdgeRef<'g, G>> + 'g {
+    pub fn edges_to<'a>(&'a self, from: &'a VertexRef<'g, G>) -> impl Iterator<Item = EdgeRef<'g, G>> + 'a {
         assert!(ptr::eq(self.graph(), from.graph()));
         let graph = self.graph();
         graph
-            .edges_between(from.id(), self.id())
+            .edges_between(&from.id, &self.id)
             .map(move |eid| graph.edge(eid))
     }
 
@@ -55,7 +57,7 @@ where
     /// those vertices reachable by incoming edges.
     pub fn predacessors(&self) -> impl Iterator<Item = Self> {
         self.graph()
-            .predacessors(self.id())
+            .predacessors(&self.id)
             .map(|id| self.graph().vertex(id))
     }
 
@@ -63,7 +65,7 @@ where
     /// those vertices reachable by outgoing edges.
     pub fn successors(&self) -> impl Iterator<Item = Self> {
         self.graph()
-            .successors(self.id())
+            .successors(&self.id)
             .map(|id| self.graph().vertex(id))
     }
 

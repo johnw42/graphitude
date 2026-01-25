@@ -74,24 +74,33 @@ pub trait Graph: Sized {
 
     /// Gets an iterator over the predacessors vertices of a given vertex, i.e.
     /// those vertices reachable by incoming edges.
-    fn predacessors(&self, vertex: Self::VertexId) -> impl Iterator<Item = Self::VertexId> + '_ {
+    fn predacessors<'a, 'b: 'a>(&'a self, vertex: &'b Self::VertexId) -> impl Iterator<Item = Self::VertexId> + 'a {
         let mut visited = HashSet::new();
         self.edges_into(vertex).filter_map(move |eid| {
-            let vid = self.edge_source(eid);
+            let vid = if self.is_directed() {
+                self.edge_target(eid)
+            } else {
+                let (source, target) = self.edge_ends(eid);
+                if source == *vertex {
+                    target
+                } else {
+                    source
+                }
+            };
             visited.insert(vid.clone()).then_some(vid)
         })
     }
 
     /// Gets an iterator over the successor vertices of a given vertex, i.e.
     /// those vertices reachable by outgoing edges.
-    fn successors(&self, vertex: Self::VertexId) -> impl Iterator<Item = Self::VertexId> + '_ {
+    fn successors<'a, 'b: 'a>(&'a self, vertex: &'b Self::VertexId) -> impl Iterator<Item = Self::VertexId> + 'a {
         let mut visited = HashSet::new();
-        self.edges_from(vertex.clone()).filter_map(move |eid| {
+        self.edges_from(vertex).filter_map(move |eid| {
             let vid = if self.is_directed() {
                 self.edge_target(eid)
             } else {
                 let (source, target) = self.edge_ends(eid);
-                if source == vertex {
+                if source == *vertex {
                     target
                 } else {
                     source
@@ -118,47 +127,46 @@ pub trait Graph: Sized {
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
         let mut edges = Vec::new();
         for from in self.vertex_ids() {
-            edges.extend(self.edges_from(from));
+            edges.extend(self.edges_from(&from));
         }
         edges.into_iter()
     }
 
     /// Gets an iterator over the outgoing edges from a given vertex.
-    fn edges_from(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges_from<'a, 'b: 'a>(&'a self, from: &'b Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(move |eid| {
             let (source, target) = self.edge_ends(eid.clone());
-            source == from || !self.is_directed() && target == from
+            source == *from || !self.is_directed() && target == *from
         })
     }
 
     /// Gets an iterator over the incoming edges to a given vertex.
-    fn edges_into(&self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges_into<'a, 'b: 'a>(&'a self, into: &'b Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(move |eid| {
             let (source, target) = self.edge_ends(eid.clone());
-            target == into || !self.is_directed() && source == into
+            target == *into || !self.is_directed() && source == *into
         })
     }
 
     /// Gets an iterator over the edges between two vertices.
-    fn edges_between(
-        &self,
-        from: Self::VertexId,
-        into: Self::VertexId,
-    ) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        self.edges_from(from.clone()).filter(move |eid| {
-            let edge_source = self.edge_source(eid.clone());
-            let edge_target = self.edge_target(eid.clone());
-            edge_source == from && edge_target == into
-                || !self.is_directed() && edge_source == into && edge_target == from
+    fn edges_between<'a, 'b: 'a>(
+        &'a self,
+        from: &'b Self::VertexId,
+        into: &'b Self::VertexId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        self.edges_from(from).filter(|eid| {
+            let (edge_source, edge_target) = self.edge_ends(eid.clone());
+            edge_source == *from && edge_target == *into
+                || !self.is_directed() && edge_source == *into && edge_target == *from
         })
     }
 
     /// Gets the number of edges from one vertex to another.
-    fn num_edges_between(&self, from: Self::VertexId, into: Self::VertexId) -> usize {
+    fn num_edges_between(&self, from: &Self::VertexId, into: &Self::VertexId) -> usize {
         self.edges_between(from, into).into_iter().count()
     }
 
-    fn has_edge(&self, from: Self::VertexId, into: Self::VertexId) -> bool {
+    fn has_edge(&self, from: &Self::VertexId, into: &Self::VertexId) -> bool {
         self.edges_between(from, into).next().is_some()
     }
 
@@ -176,15 +184,15 @@ pub trait Graph: Sized {
     }
 
     fn has_edge_from(&self, from: &Self::VertexId) -> bool {
-        self.edges_from(from.clone()).next().is_some()
+        self.edges_from(from).next().is_some()
     }
 
     fn has_edge_into(&self, into: &Self::VertexId) -> bool {
-        self.edges_into(into.clone()).next().is_some()
+        self.edges_into(into).next().is_some()
     }
 
     /// Checks if there is an edge between two vertices.
-    fn has_edge_between(&self, from: Self::VertexId, into: Self::VertexId) -> bool {
+    fn has_edge_between(&self, from: &Self::VertexId, into: &Self::VertexId) -> bool {
         self.edges_between(from, into).next().is_some()
     }
 
@@ -193,11 +201,11 @@ pub trait Graph: Sized {
         self.edge_ids().count()
     }
 
-    fn num_edges_into(&self, into: Self::VertexId) -> usize {
+    fn num_edges_into(&self, into: &Self::VertexId) -> usize {
         self.edges_into(into).into_iter().count()
     }
 
-    fn num_edges_from(&self, from: Self::VertexId) -> usize {
+    fn num_edges_from(&self, from: &Self::VertexId) -> usize {
         self.edges_from(from).into_iter().count()
     }
 
@@ -233,7 +241,7 @@ pub trait Graph: Sized {
         let parents: HashMap<Self::VertexId, (Self::VertexId, C)> =
             pathfinding::prelude::dijkstra_all(start, |vid| -> Vec<(Self::VertexId, C)> {
                 let r: Vec<_> = self
-                    .edges_from(vid.clone())
+                    .edges_from(vid)
                     .map(|eid| {
                         let cost = cost_fn(&eid);
                         (self.edge_target(eid), cost)
@@ -264,7 +272,7 @@ pub trait GraphDirected: Graph {
     #[cfg(feature = "pathfinding")]
     fn strongly_connected_component(&self, start: &Self::VertexId) -> Vec<Self::VertexId> {
         pathfinding::prelude::strongly_connected_component(start, |vid| {
-            self.successors(vid.clone())
+            self.successors(vid).collect::<Vec<_>>().into_iter()
         })
     }
 
@@ -273,7 +281,7 @@ pub trait GraphDirected: Graph {
     fn strongly_connected_components(&self) -> Vec<Vec<Self::VertexId>> {
         pathfinding::prelude::strongly_connected_components(
             &self.vertex_ids().collect::<Vec<_>>(),
-            |vid| self.successors(vid.clone()),
+            |vid| self.successors(vid).collect::<Vec<_>>().into_iter(),
         )
     }
 
@@ -284,7 +292,7 @@ pub trait GraphDirected: Graph {
         start: &Self::VertexId,
     ) -> Vec<Vec<Self::VertexId>> {
         pathfinding::prelude::strongly_connected_components_from(start, |vid| {
-            self.successors(vid.clone())
+            self.successors(vid).collect::<Vec<_>>().into_iter()
         })
     }
 }
@@ -297,7 +305,7 @@ pub trait GraphUndirected: Graph {
     #[cfg(feature = "pathfinding")]
     fn connected_components(&self) -> Vec<HashSet<Self::VertexId>> {
         pathfinding::prelude::connected_components(&self.vertex_ids().collect::<Vec<_>>(), |vid| {
-            self.successors(vid.clone())
+            self.successors(vid).collect::<Vec<_>>().into_iter()
         })
     }
 }
@@ -407,7 +415,7 @@ pub trait GraphMut: Graph {
                 && let Some(to2) = vertex_map.get(&to1)
             {
                 let eid2 = self
-                    .edges_between(from2.clone(), to2.clone())
+                    .edges_between(from2, to2)
                     .find(|_| true)
                     .expect("missing edge");
                 edge_map.insert(eid, eid2);

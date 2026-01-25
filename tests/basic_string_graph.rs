@@ -59,8 +59,8 @@ impl Graph for StringGraph {
         self.vertices.get(id).expect("Vertex does not exist")
     }
 
-    fn num_edges_between(&self, from: Self::VertexId, into: Self::VertexId) -> usize {
-        self.edges.get(&from, &into).into_iter().count()
+    fn num_edges_between(&self, from: &Self::VertexId, into: &Self::VertexId) -> usize {
+        self.edges.get(from, into).into_iter().count()
     }
 
     fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {

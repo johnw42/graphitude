@@ -93,18 +93,18 @@ where
     }
 }
 
-impl<'a, V, F> Graph for ObjectGraph<'a, V, F>
+impl<'v, V, F> Graph for ObjectGraph<'v, V, F>
 where
-    F: Fn(&'a V) -> Vec<&'a V>,
+    F: Fn(&'v V) -> Vec<&'v V>,
 {
-    type VertexId = VertexId<'a, V>;
-    type VertexData = &'a V;
+    type VertexId = VertexId<'v, V>;
+    type VertexData = &'v V;
     type EdgeId = (Self::VertexId, Self::VertexId);
     type EdgeData = ();
     type Directedness = Directed;
 
     fn vertex_data(&self, id: &VertexId<V>) -> &<Self as Graph>::VertexData {
-        unsafe { transmute::<&*const V, &&'a V>(&id.0) }
+        unsafe { transmute::<&*const V, &&'v V>(&id.0) }
     }
 
     fn edge_data(&self, (from, to): &<Self as Graph>::EdgeId) -> &<Self as Graph>::EdgeData {
@@ -116,11 +116,11 @@ where
             .expect("Edge does not exist")
     }
 
-    fn edges_from<'b>(&'b self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'b {
-        let neighbors = self.neighbors(&from);
+    fn edges_from<'a, 'b: 'a>(&'a self, from: &'b Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        let neighbors = self.neighbors(from);
         neighbors
             .into_iter()
-            .map(move |to| self.make_edge_id(from, to))
+            .map(move |to| self.make_edge_id(from.clone(), to))
     }
 
     fn vertex_ids(&self) -> impl Iterator<Item = <Self as Graph>::VertexId> {
@@ -169,8 +169,8 @@ mod tests {
         assert_eq!(second_neighbors.len(), 1);
         assert_eq!(graph.vertex_data(&second_neighbors[0]).value, 3);
 
-        assert!(graph.has_edge(root_id, neighbors[0]));
-        assert!(!graph.has_edge(root_id, second_neighbors[0]));
+        assert!(graph.has_edge(&root_id, &neighbors[0]));
+        assert!(!graph.has_edge(&root_id, &second_neighbors[0]));
     }
 
     #[cfg(feature = "pathfinding")]

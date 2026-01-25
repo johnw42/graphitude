@@ -133,29 +133,29 @@ where
         eid.into()
     }
 
-    fn edges_between(
+    fn edges_between<'a, 'b: 'a>(
         &self,
-        from: Self::VertexId,
-        into: Self::VertexId,
+        from: &'b Self::VertexId,
+        into: &'b Self::VertexId,
     ) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.adjacency
-            .edge_between(&from, &into)
+            .edge_between(from, into)
             .into_iter()
             .map(|(from, into, _)| Self::EdgeId::new(from, into))
     }
 
-    fn edges_into<'a>(&'a self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_into<'a, 'b: 'a>(&'a self, into: &'b Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.adjacency
-            .edges_into(&into)
-            .map(|(from, _)| Self::EdgeId::new(from, into))
+            .edges_into(into)
+            .map(|(from, _)| Self::EdgeId::new(from, into.clone()))
             .collect::<Vec<_>>()
             .into_iter()
     }
 
-    fn edges_from<'a>(&'a self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from<'a, 'b: 'a>(&'a self, from: &'b Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.adjacency
-            .edges_from(&from)
-            .map(|(to, _)| Self::EdgeId::new(from, to))
+            .edges_from(from)
+            .map(|(to, _)| Self::EdgeId::new(from.clone(), to))
             .collect::<Vec<_>>()
             .into_iter()
     }

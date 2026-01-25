@@ -143,7 +143,7 @@ impl<V, E> Graph for LinkedGraph<V, E> {
 
     /// Gets an iterator over the edges outgoing from the given vertex in
     /// insertion order of the edges outgoing from the given vertex.
-    fn edges_from(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
+    fn edges_from<'a, 'b: 'a>(&'a self, from: &'b Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         unsafe { &*from.0 }
             .edges_out
             .iter()
@@ -152,28 +152,28 @@ impl<V, E> Graph for LinkedGraph<V, E> {
 
     /// Gets an iterator over the edges incoming to the given vertex in
     /// insertion order of the edges incoming to the given vertex.
-    fn edges_into(&self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
+    fn edges_into<'a, 'b: 'a>(&'a self, into: &'b Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         unsafe { &*into.0 }.edges_in.iter().cloned()
     }
 
-    fn num_edges_into(&self, into: Self::VertexId) -> usize {
+    fn num_edges_into(&self, into: &Self::VertexId) -> usize {
         unsafe { &*into.0 }.edges_in.len()
     }
 
-    fn num_edges_from(&self, from: Self::VertexId) -> usize {
+    fn num_edges_from(&self, from: &Self::VertexId) -> usize {
         unsafe { &*from.0 }.edges_out.len()
     }
 
     /// Gets an iterator over the edges between the given source and target vertices
     /// in insertion order of the edges outgoing from the source vertex.
-    fn edges_between(
-        &self,
-        from: Self::VertexId,
-        into: Self::VertexId,
-    ) -> impl Iterator<Item = Self::EdgeId> {
+    fn edges_between<'a, 'b: 'a>(
+        &'a self,
+        from: &'b Self::VertexId,
+        into: &'b Self::VertexId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edges_from(from).filter(move |eid| {
             let (source, target) = self.edge_ends(*eid);
-            source == from && target == into
+            source == *from && target == *into
         })
     }
 }
@@ -255,7 +255,7 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
     }
 }
 
-impl<V,E> Debug for LinkedGraph<V, E>
+impl<V, E> Debug for LinkedGraph<V, E>
 where
     V: Debug,
     E: Debug,
