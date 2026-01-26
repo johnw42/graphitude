@@ -1,3 +1,4 @@
+#![cfg(feature = "bitvec")]
 use std::{fmt::Debug, hash::Hash};
 
 use crate::{
@@ -66,11 +67,10 @@ where
         from: Self::Key,
         into: Self::Key,
     ) -> Option<(Self::Key, Self::Key, &'_ Self::Value)> {
-        self.get(from.clone(), into.clone())
-            .map(|data| {
-                let (k1, k2) = Self::edge_ends(from.clone(), into.clone());
-                (k1, k2, data)
-            })
+        self.get(from.clone(), into.clone()).map(|data| {
+            let (k1, k2) = Self::edge_ends(from.clone(), into.clone());
+            (k1, k2, data)
+        })
     }
 
     /// Iterates over all edges originating from the given vertex `from`.
@@ -98,6 +98,7 @@ where
     type Matrix: AdjacencyMatrix<Key = K, Value = V>;
 }
 
+#[cfg(feature = "bitvec")]
 impl<K, V> AdjacencyMatrixSelector<K, V> for (Asymmetric, BitvecStorage)
 where
     K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash,
@@ -105,6 +106,7 @@ where
     type Matrix = AsymmetricBitvecAdjacencyMatrix<K, V>;
 }
 
+#[cfg(feature = "bitvec")]
 impl<K, V> AdjacencyMatrixSelector<K, V> for (Symmetric, BitvecStorage)
 where
     K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord,

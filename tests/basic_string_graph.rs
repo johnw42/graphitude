@@ -1,3 +1,5 @@
+#![cfg(feature = "bitvec")]
+
 use std::{collections::HashSet, fmt::Debug};
 
 use jrw_graph::{

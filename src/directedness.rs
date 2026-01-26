@@ -1,16 +1,21 @@
+#[cfg(feature = "bitvec")]
 use std::{fmt::Debug, hash::Hash};
 
+use crate::util::sort_pair;
+
+#[cfg(feature = "bitvec")]
 use crate::{
     AdjacencyMatrix, AsymmetricHashAdjacencyMatrix, SymmetricHashAdjacencyMatrix,
     adjacency_matrix::{Asymmetric, Symmetric, Symmetry},
-    util::sort_pair,
 };
 
 pub struct Directed;
 pub struct Undirected;
 
 pub trait Directedness {
+    #[cfg(feature = "bitvec")]
     type Symmetry: Symmetry;
+    #[cfg(feature = "bitvec")]
     type AdjacencyMatrix<K, V>: AdjacencyMatrix<Key = K, Value = V>
     where
         K: Eq + Hash + Clone + Ord + Debug;
@@ -20,7 +25,9 @@ pub trait Directedness {
 }
 
 impl Directedness for Directed {
+    #[cfg(feature = "bitvec")]
     type Symmetry = Asymmetric;
+    #[cfg(feature = "bitvec")]
     type AdjacencyMatrix<K, V>
         = AsymmetricHashAdjacencyMatrix<K, V>
     where
@@ -36,7 +43,9 @@ impl Directedness for Directed {
 }
 
 impl Directedness for Undirected {
+    #[cfg(feature = "bitvec")]
     type Symmetry = Symmetric;
+    #[cfg(feature = "bitvec")]
     type AdjacencyMatrix<K, V>
         = SymmetricHashAdjacencyMatrix<K, V>
     where

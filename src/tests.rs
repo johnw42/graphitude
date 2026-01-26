@@ -402,6 +402,7 @@ macro_rules! graph_tests {
         }
 
         #[test]
+        #[cfg(feature = "pathfinding")]
         fn test_shortest_paths() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
             let mut graph = builder.new_graph();
@@ -428,6 +429,7 @@ macro_rules! graph_tests {
         }
 
         #[test]
+        #[cfg(feature = "pathfinding")]
         fn test_shortest_paths_disconnected() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
             let mut graph = builder.new_graph();

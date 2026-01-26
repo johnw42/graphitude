@@ -1,6 +1,8 @@
+#![cfg(feature = "bitvec")]
+
 use std::ops::Range;
 
-use crate::util::{euler_sum, euler_sum_inv_floor, sort_pair};
+use crate::{euler_sum::{euler_sum, euler_sum_inv_floor}, util::sort_pair};
 
 /// Utilities for indexing into symmetric matrices stored in a flat array.
 pub(crate) struct SymmetricMatrixIndexing {

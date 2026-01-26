@@ -34,26 +34,12 @@ impl StringGraph {
         self.vertices.get(id).expect("Invalid vertex ID")
     }
 
-    fn vertex_mut(&mut self, id: &VertexId) -> &mut Vertex {
-        self.vertices.get_mut(id).expect("Invalid vertex ID")
-    }
-
     fn edge(&self, id: &EdgeId) -> &Edge {
         self.vertices
             .get(&id.0)
             .expect("Invalid edge ID")
             .edges_out
             .iter()
-            .find(|e| e.target == id.1)
-            .expect("Invalid edge ID")
-    }
-
-    fn edge_mut(&mut self, id: &EdgeId) -> &mut Edge {
-        self.vertices
-            .get_mut(&id.0)
-            .expect("Invalid edge ID")
-            .edges_out
-            .iter_mut()
             .find(|e| e.target == id.1)
             .expect("Invalid edge ID")
     }

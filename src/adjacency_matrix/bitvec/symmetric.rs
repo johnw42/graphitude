@@ -5,8 +5,9 @@ use std::mem::MaybeUninit;
 
 use bitvec::vec::BitVec;
 
+use crate::euler_sum::{euler_sum, euler_sum_inv_floor};
 use crate::symmetric_maxtrix_indexing::SymmetricMatrixIndexing;
-use crate::util::{euler_sum, euler_sum_inv_floor, sort_pair};
+use crate::util::sort_pair;
 
 use crate::adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric};
 
@@ -203,8 +204,11 @@ mod tests {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 2, ());
         matrix.insert(1, 2, ());
-        matrix.insert(3,3, ());
-        assert_eq!(matrix.edges_into(2).collect::<Vec<_>>(), vec![(0, &()), (1, &())]);
+        matrix.insert(3, 3, ());
+        assert_eq!(
+            matrix.edges_into(2).collect::<Vec<_>>(),
+            vec![(0, &()), (1, &())]
+        );
         assert_eq!(matrix.edges_into(3).collect::<Vec<_>>(), vec![(3, &())]);
     }
 

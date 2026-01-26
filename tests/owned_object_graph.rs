@@ -1,9 +1,14 @@
-#![cfg(feature = "nope")]
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
-use jrw_graph::{Graph, EdgeId};
+use jrw_graph::{Graph, directedness::Directed};
 
 struct VertexId<V>(*const V);
+
+impl<V> Debug for VertexId<V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VertexId({:?})", self.0)
+    }
+}
 
 impl<V> PartialEq for VertexId<V> {
     fn eq(&self, other: &Self) -> bool {
@@ -46,6 +51,7 @@ where
         VertexId(&self.root)
     }
 
+    #[cfg(feature = "pathfinding")]
     fn vertex_id(&self, v: &V) -> VertexId<V> {
         VertexId(v)
     }
@@ -59,33 +65,33 @@ where
     type VertexData = V;
     type EdgeData = ();
     type EdgeId = (VertexId<V>, VertexId<V>);
+    type Directedness = Directed;
 
-    fn neighbors(&self, from: &Self::VertexId) -> impl IntoIterator<Item = Self::VertexId> {
-        let vertex_data: &Self::VertexData = self.vertex_data(from);
+    fn edges_from(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {
+        let vertex_data: &Self::VertexData = self.vertex_data(from.clone());
         let items = (self.neighbors_fn)(vertex_data);
-        items.into_iter().map(|v| VertexId(v))
+        items.into_iter().map(move |v| (from, VertexId(v)))
     }
 
-    fn vertex_data(&self, id: &VertexId<V>) -> &Self::VertexData {
+    fn vertex_data(&self, id: VertexId<V>) -> &Self::VertexData {
         unsafe { &*id.0 }
     }
 
-    fn edge_data(&self, from: &Self::VertexId, to: &Self::VertexId) -> Option<&Self::EdgeData> {
-        let neighbors = (self.neighbors_fn)(self.vertex_data(from));
-        neighbors
-            .iter()
-            .position(|&v| VertexId(v) == *to)
-            .map(|_| &())
+    fn edge_data(&self, _eid: Self::EdgeId) -> &Self::EdgeData {
+        &()
     }
 
-    fn make_edge_id(&self, from: &Self::VertexId, to: &Self::VertexId) -> Self::EdgeId {
-        (from.clone(), to.clone())
+    fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId> {
+        self.bfs(self.root())
     }
 
-    fn vertex_ids(&self) -> Vec<Self::VertexId> {
-        self.bfs(&self.root()).collect()
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
+        self.vertex_ids().flat_map(|from| self.edges_from(from))
     }
 
+    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+        eid
+    }
 }
 
 #[test]
@@ -111,18 +117,20 @@ fn test_object_graph() {
     let graph = OwnedObjectGraph::new(node1, |node: &Node| node.neighbors.iter().collect());
 
     let root_id = graph.root();
-    assert_eq!(graph.vertex_data(&root_id).value, 1);
+    assert_eq!(graph.vertex_data(root_id.clone()).value, 1);
 
-    let neighbors: Vec<_> = graph.neighbors(&root_id).into_iter().collect();
-    assert_eq!(neighbors.len(), 1);
-    assert_eq!(graph.vertex_data(&neighbors[0]).value, 2);
+    let successors: Vec<_> = graph.successors(root_id.clone()).into_iter().collect();
+    assert_eq!(successors.len(), 1);
+    assert_eq!(graph.vertex_data(successors[0].clone()).value, 2);
+    let second_successors: Vec<_> = graph
+        .successors(successors[0].clone())
+        .into_iter()
+        .collect();
+    assert_eq!(second_successors.len(), 1);
+    assert_eq!(graph.vertex_data(second_successors[0].clone()).value, 3);
 
-    let second_neighbors: Vec<_> = graph.neighbors(&neighbors[0]).into_iter().collect();
-    assert_eq!(second_neighbors.len(), 1);
-    assert_eq!(graph.vertex_data(&second_neighbors[0]).value, 3);
-
-    assert!(graph.has_edge(&root_id, &neighbors[0]));
-    assert!(!graph.has_edge(&root_id, &second_neighbors[0]));
+    assert!(graph.has_edge(root_id.clone(), successors[0].clone()));
+    assert!(!graph.has_edge(root_id.clone(), second_successors[0].clone()));
 }
 
 #[cfg(feature = "pathfinding")]
@@ -160,7 +168,7 @@ fn test_shortest_paths() {
         path: &Vec<VertexId<Node<'a>>>,
     ) -> Vec<i32> {
         path.iter()
-            .map(|vid| graph.vertex_data(vid).value)
+            .map(|vid| graph.vertex_data(vid.clone()).value)
             .collect()
     }
 
@@ -171,7 +179,7 @@ fn test_shortest_paths() {
     let id3 = graph.vertex_id(&node3);
     let id4 = graph.vertex_id(&node4);
 
-    let paths = graph.shortest_paths(&id1, |_from, _to| 1);
+    let paths = graph.shortest_paths(id1.clone(), |_| 1);
     assert_eq!(paths.len(), 4);
     assert_eq!(paths.get(&id1).unwrap().1, 0);
     assert_eq!(values(&graph, &paths.get(&id1).unwrap().0), vec![1]);

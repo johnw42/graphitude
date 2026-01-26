@@ -24,14 +24,14 @@
 //! - Path finding utilities with Dijkstra's algorithm (requires `pathfinding`
 //!   feature)
 //! - Queries for vertices, edges, predecessors, and successors
-use std::iter::once;
-use std::{collections::HashSet, fmt::Debug};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    hash::Hash,
+};
 
 #[cfg(feature = "pathfinding")]
-use {
-    pathfinding::num_traits::Zero,
-    std::{collections::HashMap, hash::Hash},
-};
+use {pathfinding::num_traits::Zero, std::iter::once};
 
 use crate::directedness::{Directed, Directedness, Undirected};
 use crate::search::{BfsIterator, DfsIterator};
@@ -91,11 +91,7 @@ pub trait Graph: Sized {
                 self.edge_target(eid)
             } else {
                 let (source, target) = self.edge_ends(eid);
-                if source == vertex {
-                    target
-                } else {
-                    source
-                }
+                if source == vertex { target } else { source }
             };
             visited.insert(vid.clone()).then_some(vid)
         })

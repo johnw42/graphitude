@@ -11,13 +11,18 @@ pub mod tests;
 pub mod vertex_ref;
 
 mod id_vec;
-mod util;
 mod symmetric_maxtrix_indexing;
+mod util;
 
+#[cfg(feature = "bitvec")]
+mod euler_sum;
+
+#[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{
     AdjacencyMatrix,
     bitvec::{asymmetric::AsymmetricBitvecAdjacencyMatrix, symmetric::SymmetricBitvecAdjacencyMatrix},
     hash::{asymmetric::AsymmetricHashAdjacencyMatrix, symmetric::SymmetricHashAdjacencyMatrix},
 };
+
 pub use directedness::{Directed, Directedness, Undirected};
-pub use graph::{Graph, GraphMut, GraphDirected, GraphUndirected};
+pub use graph::{Graph, GraphDirected, GraphMut, GraphUndirected};

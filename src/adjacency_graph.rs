@@ -1,11 +1,11 @@
+#![cfg(feature = "bitvec")]
 use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use crate::{
     AdjacencyMatrix, Graph, GraphMut,
     adjacency_matrix::{AdjacencyMatrixSelector, HashStorage, SelectMatrix, Storage},
     debug::format_debug,
-    directedness::Directedness,
-    id_vec::{IdVec, IdVecIndex},
+    directedness::Directedness, id_vec::{IdVec, IdVecIndex},
 };
 
 pub struct EdgeId<V, D>(V, V, PhantomData<D>);

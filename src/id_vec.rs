@@ -1,4 +1,5 @@
 #![allow(unused)]
+#![cfg(feature = "bitvec")]
 
 use std::{
     mem::MaybeUninit,
