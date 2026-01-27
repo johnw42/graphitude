@@ -183,25 +183,25 @@ mod tests {
 
     fn create_simple_graph() -> LinkedGraph<usize, ()> {
         let mut graph = LinkedGraph::new();
-        let v0 = graph.add_node(0);
-        let v1 = graph.add_node(1);
-        let v2 = graph.add_node(2);
-        let v3 = graph.add_node(3);
-        graph.add_edge(v0, v1, ());
-        graph.add_edge(v0, v2, ());
-        graph.add_edge(v1, v3, ());
-        graph.add_edge(v2, v3, ());
+        let n0 = graph.add_node(0);
+        let n1 = graph.add_node(1);
+        let n2 = graph.add_node(2);
+        let n3 = graph.add_node(3);
+        graph.add_edge(n0, n1, ());
+        graph.add_edge(n0, n2, ());
+        graph.add_edge(n1, n3, ());
+        graph.add_edge(n2, n3, ());
         graph
     }
 
     fn create_cyclic_graph() -> LinkedGraph<usize, ()> {
         let mut graph = LinkedGraph::new();
-        let v0 = graph.add_node(0);
-        let v1 = graph.add_node(1);
-        let v2 = graph.add_node(2);
-        graph.add_edge(v0, v1, ());
-        graph.add_edge(v1, v2, ());
-        graph.add_edge(v2, v0, ());
+        let n0 = graph.add_node(0);
+        let n1 = graph.add_node(1);
+        let n2 = graph.add_node(2);
+        graph.add_edge(n0, n1, ());
+        graph.add_edge(n1, n2, ());
+        graph.add_edge(n2, n0, ());
         graph
     }
 

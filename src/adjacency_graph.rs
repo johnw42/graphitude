@@ -16,8 +16,8 @@ where
     V: Ord,
 {
     pub fn new(from: V, into: V) -> Self {
-        let (v1, v2) = D::maybe_sort(from, into);
-        EdgeId(v1, v2, PhantomData)
+        let (n1, n2) = D::maybe_sort(from, into);
+        EdgeId(n1, n2, PhantomData)
     }
 }
 

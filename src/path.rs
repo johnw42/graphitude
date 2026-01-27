@@ -189,23 +189,23 @@ mod tests {
     #[test]
     fn test_new_path() {
         let mut graph = LinkedGraph::<i32, ()>::new();
-        let v1 = graph.add_node(1);
-        let path = Path::new(&graph, v1);
-        assert_eq!(path.first_node(), v1);
-        assert_eq!(path.last_node(), v1);
+        let n1 = graph.add_node(1);
+        let path = Path::new(&graph, n1);
+        assert_eq!(path.first_node(), n1);
+        assert_eq!(path.last_node(), n1);
     }
 
     #[test]
     fn test_add_edge() {
         let mut graph = LinkedGraph::new();
-        let v1 = graph.add_node(1);
-        let v2 = graph.add_node(2);
-        let e1 = graph.add_edge(v1, v2, ());
+        let n1 = graph.add_node(1);
+        let n2 = graph.add_node(2);
+        let e1 = graph.add_edge(n1, n2, ());
 
-        let mut path = Path::new(&graph, v1);
+        let mut path = Path::new(&graph, n1);
         path.add_edge(e1);
 
-        assert_eq!(path.last_node(), v2);
+        assert_eq!(path.last_node(), n2);
         assert_eq!(path.edges().count(), 1);
         assert_eq!(path.nodes().count(), 2);
     }
@@ -213,37 +213,37 @@ mod tests {
     #[test]
     fn test_nodes_with_edges() {
         let mut graph = LinkedGraph::new();
-        let v1 = graph.add_node(1);
-        let v2 = graph.add_node(2);
-        let v3 = graph.add_node(3);
-        let e1 = graph.add_edge(v1.clone(), v2.clone(), ());
-        let e2 = graph.add_edge(v2.clone(), v3.clone(), ());
-        let mut path = Path::new(&graph, v1.clone());
+        let n1 = graph.add_node(1);
+        let n2 = graph.add_node(2);
+        let n3 = graph.add_node(3);
+        let e1 = graph.add_edge(n1.clone(), n2.clone(), ());
+        let e2 = graph.add_edge(n2.clone(), n3.clone(), ());
+        let mut path = Path::new(&graph, n1.clone());
         path.add_edge(e1);
         path.add_edge(e2);
         let mut iter = path.nodes_with_edges();
-        assert_eq!(iter.next(), Some((None, v1.clone(), Some(e1.clone()))));
+        assert_eq!(iter.next(), Some((None, n1.clone(), Some(e1.clone()))));
         assert_eq!(
             iter.next(),
-            Some((Some(e1.clone()), v2.clone(), Some(e2.clone())))
+            Some((Some(e1.clone()), n2.clone(), Some(e2.clone())))
         );
-        assert_eq!(iter.next(), Some((Some(e2.clone()), v3.clone(), None)));
+        assert_eq!(iter.next(), Some((Some(e2.clone()), n3.clone(), None)));
         assert_eq!(iter.next(), None);
     }
 
     #[test]
     fn test_extend_with() {
         let mut graph = LinkedGraph::new();
-        let v1 = graph.add_node("v1");
-        let v2 = graph.add_node("v2");
-        let v3 = graph.add_node("v3");
-        let e1 = graph.add_edge(v1, v2, "e12");
-        let e2 = graph.add_edge(v2, v3, "e23");
+        let n1 = graph.add_node("n1");
+        let n2 = graph.add_node("n2");
+        let n3 = graph.add_node("n3");
+        let e1 = graph.add_edge(n1, n2, "e12");
+        let e2 = graph.add_edge(n2, n3, "e23");
 
-        let mut path1 = Path::new(&graph, v1);
+        let mut path1 = Path::new(&graph, n1);
         path1.add_edge(e1);
 
-        let mut path2 = Path::new(&graph, v2);
+        let mut path2 = Path::new(&graph, n2);
         path2.add_edge(e2);
 
         path1.extend_with(&path2);
@@ -255,13 +255,13 @@ mod tests {
     #[test]
     fn test_extend() {
         let mut graph = LinkedGraph::new();
-        let v1 = graph.add_node("v1");
-        let v2 = graph.add_node("v2");
-        let v3 = graph.add_node("v3");
-        let e1 = graph.add_edge(v1, v2, "e12");
-        let e2 = graph.add_edge(v2, v3, "e23");
+        let n1 = graph.add_node("n1");
+        let n2 = graph.add_node("n2");
+        let n3 = graph.add_node("n3");
+        let e1 = graph.add_edge(n1, n2, "e12");
+        let e2 = graph.add_edge(n2, n3, "e23");
 
-        let mut path = Path::new(&graph, v1);
+        let mut path = Path::new(&graph, n1);
         path.extend(vec![e1, e2]);
 
         assert_eq!(path.nodes().count(), 3);
@@ -271,18 +271,18 @@ mod tests {
     #[test]
     fn test_debug() {
         let mut graph = LinkedGraph::new();
-        let v1 = graph.add_node("v1");
-        let v2 = graph.add_node("v2");
-        let v3 = graph.add_node("v3");
-        let e1 = graph.add_edge(v1, v2, "e12");
-        let e2 = graph.add_edge(v2, v3, "e23");
-        let e3 = graph.add_edge(v3, v1, "e31");
+        let n1 = graph.add_node("n1");
+        let n2 = graph.add_node("n2");
+        let n3 = graph.add_node("n3");
+        let e1 = graph.add_edge(n1, n2, "e12");
+        let e2 = graph.add_edge(n2, n3, "e23");
+        let e3 = graph.add_edge(n3, n1, "e31");
 
-        let mut path = Path::new(&graph, v1);
+        let mut path = Path::new(&graph, n1);
         path.extend(vec![e1, e2, e3]);
         assert_eq!(
             format!("{:?}", path),
-            r#"Path { nodes: {0: "v1", 1: "v2", 2: "v3", 3: "v1"}, edges: {0 -> 1: "e12", 1 -> 2: "e23", 2 -> 3: "e31"} }"#
+            r#"Path { nodes: {0: "n1", 1: "n2", 2: "n3", 3: "n1"}, edges: {0 -> 1: "e12", 1 -> 2: "e23", 2 -> 3: "e31"} }"#
         );
     }
 }

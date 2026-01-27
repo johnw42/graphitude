@@ -178,9 +178,9 @@ mod tests {
     #[test]
     fn test_format_debug() {
         let mut graph = LinkedGraph::<&str, i32>::new();
-        let v1 = graph.add_node("A");
-        let v2 = graph.add_node("B");
-        graph.add_edge(v1, v2, 10);
+        let n1 = graph.add_node("A");
+        let n2 = graph.add_node("B");
+        graph.add_edge(n1, n2, 10);
 
         // Single-line output.
         let output = format!("{:?}", &graph);

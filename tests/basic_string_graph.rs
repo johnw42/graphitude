@@ -156,9 +156,9 @@ graph_test_copy_from_with!(
 fn test_format_debug_with() {
     let mut graph = StringGraph::new();
     // Add nodes in non-sorted order.
-    let v1 = graph.add_node("B".to_string());
-    let v2 = graph.add_node("A".to_string());
-    graph.add_edge(v1, v2, ());
+    let n1 = graph.add_node("B".to_string());
+    let n2 = graph.add_node("A".to_string());
+    graph.add_edge(n1, n2, ());
 
     // Single-line output.
     let output = format!("{:?}", &graph);
