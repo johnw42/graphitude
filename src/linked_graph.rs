@@ -181,9 +181,9 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
             edges_out: Vec::new(),
             edges_in: Vec::new(),
         });
-        let vid = NodeId::from(&*vnode);
+        let nid = NodeId::from(&*vnode);
         self.nodes.push(vnode);
-        vid
+        nid
     }
 
     fn add_or_replace_edge(
@@ -203,22 +203,22 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
         (eid, None)
     }
 
-    fn remove_node(&mut self, vid: Self::NodeId) -> V {
+    fn remove_node(&mut self, nid: Self::NodeId) -> V {
         let index = self
             .nodes
             .iter()
-            .position(|vnode| NodeId::from(&**vnode) == vid)
+            .position(|vnode| NodeId::from(&**vnode) == nid)
             .expect("Node does not exist");
         let vnode = self.nodes.remove(index);
         for enode in &vnode.edges_out {
-            let to_vid = enode.into;
-            let to_vnode = unsafe { &mut *to_vid.0 };
+            let to_nid = enode.into;
+            let to_vnode = unsafe { &mut *to_nid.0 };
             to_vnode.edges_in.retain(|&eid| eid != EdgeId::from(enode));
         }
         for eid in &vnode.edges_in {
             let enode = unsafe { &*eid.0 };
-            let from_vid = enode.from;
-            let from_vnode = unsafe { &mut *from_vid.0 };
+            let from_nid = enode.from;
+            let from_vnode = unsafe { &mut *from_nid.0 };
             from_vnode
                 .edges_out
                 .retain(|enode| EdgeId::from(enode) != *eid);
@@ -228,15 +228,15 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
 
     fn remove_edge(&mut self, eid: Self::EdgeId) -> Option<Self::EdgeData> {
         let enode = unsafe { &*eid.0 };
-        let from_vid = enode.from;
-        let to_vid = enode.into;
+        let from_nid = enode.from;
+        let to_nid = enode.into;
 
-        let from_vnode = unsafe { &mut *from_vid.0 };
+        let from_vnode = unsafe { &mut *from_nid.0 };
         from_vnode
             .edges_out
             .retain(|enode| eid != EdgeId::from(enode));
 
-        let to_vnode = unsafe { &mut *to_vid.0 };
+        let to_vnode = unsafe { &mut *to_nid.0 };
         to_vnode.edges_in.retain(|&eid2| eid != eid2);
 
         Some(unsafe { Box::from_raw(eid.0).data })

@@ -168,15 +168,15 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Create a temporary LinkedGraph to leverage `format_debug`.
         let mut temp_graph = LinkedGraph::<&'g G::NodeData, &'g G::EdgeData>::new();
-        let mut prev_new_vid = None;
-        for (eid, vid, _) in self.nodes_with_edges() {
-            let v_data = self.graph.node_data(vid.clone());
-            let new_vid = temp_graph.add_node(v_data);
+        let mut prev_new_nid = None;
+        for (eid, nid, _) in self.nodes_with_edges() {
+            let n_data = self.graph.node_data(nid.clone());
+            let new_nid = temp_graph.add_node(n_data);
             if let Some(eid) = eid {
                 let e_data = self.graph.edge_data(eid.clone());
-                temp_graph.add_edge(prev_new_vid.take().unwrap(), new_vid.clone(), e_data);
+                temp_graph.add_edge(prev_new_nid.take().unwrap(), new_nid.clone(), e_data);
             }
-            prev_new_vid = Some(new_vid);
+            prev_new_nid = Some(new_nid);
         }
         format_debug(&temp_graph, f, "Path")
     }

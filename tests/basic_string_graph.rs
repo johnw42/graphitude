@@ -123,7 +123,7 @@ impl Debug for StringGraph {
             self,
             f,
             "StringGraph",
-            &mut |vid| format!("{:?}", vid),
+            &mut |nid| format!("{:?}", nid),
             false,
             false,
         )

@@ -168,7 +168,7 @@ fn test_shortest_paths() {
         path: &Vec<NodeId<Node<'a>>>,
     ) -> Vec<i32> {
         path.iter()
-            .map(|vid| graph.node_data(vid.clone()).value)
+            .map(|nid| graph.node_data(nid.clone()).value)
             .collect()
     }
 

@@ -221,7 +221,7 @@ mod tests {
                 .unwrap()
                 .0
                 .iter()
-                .map(|vid| graph.node_data(*vid).value)
+                .map(|nid| graph.node_data(*nid).value)
                 .collect::<Vec<_>>()
         };
         assert_eq!(paths.len(), 4);

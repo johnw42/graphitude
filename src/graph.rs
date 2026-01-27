@@ -62,7 +62,7 @@ pub trait Graph: Sized {
     /// Checks if a NodeId is valid in the graph. This operation is
     /// potentially costly.
     fn is_valid_node_id(&self, id: &Self::NodeId) -> bool {
-        self.node_ids().any(|vid| &vid == id)
+        self.node_ids().any(|nid| &nid == id)
     }
 
     /// Checks if a NodeId is valid in the graph to the extent that can be
@@ -103,8 +103,8 @@ pub trait Graph: Sized {
     fn predacessors(&self, node: Self::NodeId) -> impl Iterator<Item = Self::NodeId> + '_ {
         let mut visited = HashSet::new();
         self.edges_into(node).filter_map(move |eid| {
-            let vid = self.edge_source(eid);
-            visited.insert(vid.clone()).then_some(vid)
+            let nid = self.edge_source(eid);
+            visited.insert(nid.clone()).then_some(nid)
         })
     }
 
@@ -113,13 +113,13 @@ pub trait Graph: Sized {
     fn successors(&self, node: Self::NodeId) -> impl Iterator<Item = Self::NodeId> + '_ {
         let mut visited = HashSet::new();
         self.edges_from(node.clone()).filter_map(move |eid| {
-            let vid = if self.is_directed() {
+            let nid = if self.is_directed() {
                 self.edge_target(eid)
             } else {
                 let (source, target) = self.edge_ends(eid);
                 if source == node { target } else { source }
             };
-            visited.insert(vid.clone()).then_some(vid)
+            visited.insert(nid.clone()).then_some(nid)
         })
     }
 
@@ -295,9 +295,9 @@ pub trait Graph: Sized {
         cost_fn: impl Fn(&Self::EdgeId) -> C,
     ) -> HashMap<Self::NodeId, (Vec<Self::NodeId>, C)> {
         let parents: HashMap<Self::NodeId, (Self::NodeId, C)> =
-            pathfinding::prelude::dijkstra_all(&start, |vid| -> Vec<(Self::NodeId, C)> {
+            pathfinding::prelude::dijkstra_all(&start, |nid| -> Vec<(Self::NodeId, C)> {
                 let r: Vec<_> = self
-                    .edges_from(vid.clone())
+                    .edges_from(nid.clone())
                     .map(|eid| {
                         let cost = cost_fn(&eid);
                         (self.edge_target(eid), cost)
@@ -326,8 +326,8 @@ pub trait GraphDirected: Graph {
     /// Finds the strongly connected component containing the given node.
     #[cfg(feature = "pathfinding")]
     fn strongly_connected_component(&self, start: &Self::NodeId) -> Vec<Self::NodeId> {
-        pathfinding::prelude::strongly_connected_component(start, |vid| {
-            self.successors(vid.clone())
+        pathfinding::prelude::strongly_connected_component(start, |nid| {
+            self.successors(nid.clone())
         })
     }
 
@@ -336,7 +336,7 @@ pub trait GraphDirected: Graph {
     fn strongly_connected_components(&self) -> Vec<Vec<Self::NodeId>> {
         pathfinding::prelude::strongly_connected_components(
             &self.node_ids().collect::<Vec<_>>(),
-            |vid| self.successors(vid.clone()),
+            |nid| self.successors(nid.clone()),
         )
     }
 
@@ -346,8 +346,8 @@ pub trait GraphDirected: Graph {
         &self,
         start: &Self::NodeId,
     ) -> Vec<Vec<Self::NodeId>> {
-        pathfinding::prelude::strongly_connected_components_from(start, |vid| {
-            self.successors(vid.clone())
+        pathfinding::prelude::strongly_connected_components_from(start, |nid| {
+            self.successors(nid.clone())
         })
     }
 }
@@ -359,8 +359,8 @@ impl<G> GraphDirected for G where G: Graph<Directedness = Directed> {}
 pub trait GraphUndirected: Graph {
     #[cfg(feature = "pathfinding")]
     fn connected_components(&self) -> Vec<HashSet<Self::NodeId>> {
-        pathfinding::prelude::connected_components(&self.node_ids().collect::<Vec<_>>(), |vid| {
-            self.successors(vid.clone())
+        pathfinding::prelude::connected_components(&self.node_ids().collect::<Vec<_>>(), |nid| {
+            self.successors(nid.clone())
         })
     }
 }
@@ -370,8 +370,8 @@ impl<G> GraphUndirected for G where G: Graph<Directedness = Undirected> {}
 pub trait GraphMut: Graph {
     /// Removes all nodes and edges from the graph.
     fn clear(&mut self) {
-        for vid in self.node_ids().collect::<Vec<_>>() {
-            self.remove_node(vid);
+        for nid in self.node_ids().collect::<Vec<_>>() {
+            self.remove_node(nid);
         }
     }
 
@@ -436,10 +436,10 @@ pub trait GraphMut: Graph {
         G: FnMut(&S::EdgeData) -> Self::EdgeData,
     {
         let mut node_map = HashMap::new();
-        for vid in source.node_ids() {
-            let vdata = map_node(source.node_data(vid.clone()));
-            let new_vid = self.add_node(vdata);
-            node_map.insert(vid, new_vid);
+        for nid in source.node_ids() {
+            let vdata = map_node(source.node_data(nid.clone()));
+            let new_nid = self.add_node(vdata);
+            node_map.insert(nid, new_nid);
         }
         for eid in source.edge_ids() {
             let (from, to) = source.edge_ends(eid.clone());

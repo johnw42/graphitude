@@ -28,10 +28,10 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if self.show_data {
             f.debug_map()
-                .entries(self.node_order.iter().map(|vid| {
+                .entries(self.node_order.iter().map(|nid| {
                     (
-                        NodeTag(&self.node_tags[vid]),
-                        self.graph.node_data(vid.clone()),
+                        NodeTag(&self.node_tags[nid]),
+                        self.graph.node_data(nid.clone()),
                     )
                 }))
                 .finish()
@@ -40,7 +40,7 @@ where
                 .entries(
                     self.node_order
                         .iter()
-                        .map(|vid| self.graph.node_data(vid.clone())),
+                        .map(|nid| self.graph.node_data(nid.clone())),
                 )
                 .finish()
         }
@@ -107,13 +107,13 @@ where
     let node_tags: HashMap<_, _> = graph
         .node_ids()
         .enumerate()
-        .map(|(i, vid)| (vid.clone(), i.to_string()))
+        .map(|(i, nid)| (nid.clone(), i.to_string()))
         .collect();
     format_debug_with(
         graph,
         fmt,
         name,
-        &mut |vid| node_tags[vid].clone(),
+        &mut |nid| node_tags[nid].clone(),
         true,
         true,
     )
@@ -134,10 +134,10 @@ where
 {
     let node_tags: HashMap<_, _> = graph
         .node_ids()
-        .map(|vid: <G as Graph>::NodeId| (vid.clone(), node_tag(&vid)))
+        .map(|nid: <G as Graph>::NodeId| (nid.clone(), node_tag(&nid)))
         .collect();
     let mut node_order = node_tags.keys().cloned().collect::<Vec<_>>();
-    node_order.sort_by_key(|vid| &node_tags[vid]);
+    node_order.sort_by_key(|nid| &node_tags[nid]);
 
     let edge_tags: HashMap<_, _> = graph
         .edge_ids()

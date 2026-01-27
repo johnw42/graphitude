@@ -30,18 +30,18 @@ where
     type Item = G::NodeId;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(vid) = self.queue.pop_front() {
-            if self.visited.contains(&vid) {
+        while let Some(nid) = self.queue.pop_front() {
+            if self.visited.contains(&nid) {
                 continue;
             }
-            self.visited.insert(vid.clone());
-            for eid in self.graph.edges_from(vid.clone()) {
+            self.visited.insert(nid.clone());
+            for eid in self.graph.edges_from(nid.clone()) {
                 let neighbor = self.graph.edge_target(eid);
                 if !self.visited.contains(&neighbor) {
                     self.queue.push_back(neighbor);
                 }
             }
-            return Some(vid);
+            return Some(nid);
         }
         None
     }
@@ -74,9 +74,9 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(path) = self.queue.pop_front() {
-            let vid = path.last().unwrap().clone();
-            if self.visited.insert(vid.clone()) {
-                for eid in self.graph.edges_from(vid.clone()) {
+            let nid = path.last().unwrap().clone();
+            if self.visited.insert(nid.clone()) {
+                for eid in self.graph.edges_from(nid.clone()) {
                     let neighbor = self.graph.edge_target(eid);
                     if !self.visited.contains(&neighbor) {
                         let mut new_path = path.clone();
@@ -119,12 +119,12 @@ where
     type Item = G::NodeId;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(vid) = self.stack.pop() {
-            if self.visited.insert(vid.clone()) {
-                let mut successors = self.graph.successors(vid.clone()).collect::<Vec<_>>();
+        while let Some(nid) = self.stack.pop() {
+            if self.visited.insert(nid.clone()) {
+                let mut successors = self.graph.successors(nid.clone()).collect::<Vec<_>>();
                 successors.reverse();
                 self.stack.extend(successors);
-                return Some(vid);
+                return Some(nid);
             }
         }
         None
@@ -160,9 +160,9 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(path) = self.stack.pop() {
-            let vid = path.last().unwrap().clone();
-            if self.visited.insert(vid.clone()) {
-                let successors = self.graph.successors(vid.clone()).collect::<Vec<_>>();
+            let nid = path.last().unwrap().clone();
+            if self.visited.insert(nid.clone()) {
+                let successors = self.graph.successors(nid.clone()).collect::<Vec<_>>();
                 for successor in successors.into_iter().rev() {
                     let mut new_path = path.clone();
                     new_path.push(successor);
