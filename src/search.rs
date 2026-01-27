@@ -6,15 +6,15 @@ const DEFAULT_HASH_SET_CAPACITY: usize = 64;
 
 pub struct BfsIterator<'g, G: Graph> {
     graph: &'g G,
-    visited: HashSet<G::NodeId>,
-    queue: VecDeque<G::NodeId>,
+    visited: HashSet<G::NodeId<'g>>,
+    queue: VecDeque<G::NodeId<'g>>,
 }
 
 impl<'g, G> BfsIterator<'g, G>
 where
     G: Graph,
 {
-    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId<'g>>) -> Self {
         Self {
             graph,
             visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
@@ -27,7 +27,7 @@ impl<'g, G> Iterator for BfsIterator<'g, G>
 where
     G: Graph,
 {
-    type Item = G::NodeId;
+    type Item = G::NodeId<'g>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(nid) = self.queue.pop_front() {
@@ -49,15 +49,15 @@ where
 
 pub struct BfsIteratorWithPaths<'g, G: Graph> {
     graph: &'g G,
-    visited: HashSet<G::NodeId>,
-    queue: VecDeque<Vec<G::NodeId>>,
+    visited: HashSet<G::NodeId<'g>>,
+    queue: VecDeque<Vec<G::NodeId<'g>>>,
 }
 
 impl<'g, G> BfsIteratorWithPaths<'g, G>
 where
     G: Graph,
 {
-    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId<'g>>) -> Self {
         Self {
             graph,
             visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
@@ -70,7 +70,7 @@ impl<'g, G> Iterator for BfsIteratorWithPaths<'g, G>
 where
     G: Graph,
 {
-    type Item = Vec<G::NodeId>;
+    type Item = Vec<G::NodeId<'g>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(path) = self.queue.pop_front() {
@@ -93,15 +93,15 @@ where
 
 pub struct DfsIterator<'g, G: Graph> {
     graph: &'g G,
-    visited: HashSet<G::NodeId>,
-    stack: Vec<G::NodeId>,
+    visited: HashSet<G::NodeId<'g>>,
+    stack: Vec<G::NodeId<'g>>,
 }
 
 impl<'g, G> DfsIterator<'g, G>
 where
     G: Graph,
 {
-    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId<'g>>) -> Self {
         let mut stack = start;
         stack.reverse();
         Self {
@@ -116,7 +116,7 @@ impl<'g, G> Iterator for DfsIterator<'g, G>
 where
     G: Graph,
 {
-    type Item = G::NodeId;
+    type Item = G::NodeId<'g>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(nid) = self.stack.pop() {
@@ -133,15 +133,15 @@ where
 
 pub struct DfsIteratorWithPaths<'g, G: Graph> {
     graph: &'g G,
-    visited: HashSet<G::NodeId>,
-    stack: Vec<Vec<G::NodeId>>,
+    visited: HashSet<G::NodeId<'g>>,
+    stack: Vec<Vec<G::NodeId<'g>>>,
 }
 
 impl<'g, G> DfsIteratorWithPaths<'g, G>
 where
     G: Graph,
 {
-    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId<'g>>) -> Self {
         let mut stack = start.into_iter().map(|v| vec![v]).collect::<Vec<_>>();
         stack.reverse();
         Self {
@@ -156,7 +156,7 @@ impl<'g, G> Iterator for DfsIteratorWithPaths<'g, G>
 where
     G: Graph,
 {
-    type Item = Vec<G::NodeId>;
+    type Item = Vec<G::NodeId<'g>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(path) = self.stack.pop() {

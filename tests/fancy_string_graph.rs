@@ -52,27 +52,27 @@ impl Graph for StringGraph {
     type EdgeId = EdgeId;
     type Directedness = Directed;
 
-    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
+    fn node_data(&self, id: Self::NodeId<'_>) -> &Self::NodeData {
         &self.node(&id).data
     }
 
-    fn edge_data(&self, id: Self::EdgeId) -> &Self::EdgeData {
+    fn edge_data(&self, id: Self::EdgeId<'_>) -> &Self::EdgeData {
         &self.edge(&id).data
     }
 
-    fn edge_source(&self, id: Self::EdgeId) -> Self::NodeId {
+    fn edge_source(&self, id: Self::EdgeId<'_>) -> Self::NodeId<'_> {
         id.0
     }
 
-    fn edge_target(&self, id: Self::EdgeId) -> Self::NodeId {
+    fn edge_target(&self, id: Self::EdgeId<'_>) -> Self::NodeId<'_> {
         id.1
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
+    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId<'_>> {
         self.nodes.keys().cloned()
     }
 
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId<'_>> {
         self.nodes.iter().flat_map(|(from_id, node)| {
             node
                 .edges_out
@@ -81,13 +81,13 @@ impl Graph for StringGraph {
         })
     }
 
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
+    fn edge_ends(&self, eid: Self::EdgeId<'_>) -> (Self::NodeId<'_>, Self::NodeId<'_>) {
         eid
     }
 }
 
 impl GraphMut for StringGraph {
-    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
+    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId<'_> {
         let id = self.next_node_id;
         self.next_node_id += 1;
         self.nodes.insert(
@@ -102,10 +102,10 @@ impl GraphMut for StringGraph {
 
     fn add_or_replace_edge(
         &mut self,
-        from: Self::NodeId,
-        to: Self::NodeId,
+        from: Self::NodeId<'_>,
+        to: Self::NodeId<'_>,
         data: Self::EdgeData,
-    ) -> (Self::EdgeId, Option<Self::EdgeData>) {
+    ) -> (Self::EdgeId<'_>, Option<Self::EdgeData>) {
         assert!(self.nodes.contains_key(&to), "Invalid 'to' node ID");
         self.nodes
             .get_mut(&from)
@@ -118,14 +118,14 @@ impl GraphMut for StringGraph {
         ((from, to), None)
     }
 
-    fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData {
+    fn remove_node(&mut self, id: Self::NodeId<'_>) -> Self::NodeData {
         self.nodes
             .remove(&id)
             .map(|v| v.data)
             .expect("Invalid node ID")
     }
 
-    fn remove_edge(&mut self, (from, to): Self::EdgeId) -> Option<Self::EdgeData> {
+    fn remove_edge(&mut self, (from, to): Self::EdgeId<'_>) -> Option<Self::EdgeData> {
         let node = self.nodes.get_mut(&from)?;
         if let Some(pos) = node.edges_out.iter().position(|e| e.target == to) {
             let edge = node.edges_out.remove(pos);

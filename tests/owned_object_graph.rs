@@ -67,7 +67,7 @@ where
     type EdgeId = (NodeId<N>, NodeId<N>);
     type Directedness = Directed;
 
-    fn edges_from(&self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges_from(&self, from: Self::NodeId<'_>) -> impl Iterator<Item = Self::EdgeId<'_>> + '_ {
         let node_data: &Self::NodeData = self.node_data(from.clone());
         let items = (self.neighbors_fn)(node_data);
         items.into_iter().map(move |v| (from, NodeId(v)))
@@ -77,19 +77,19 @@ where
         unsafe { &*id.0 }
     }
 
-    fn edge_data(&self, _eid: Self::EdgeId) -> &Self::EdgeData {
+    fn edge_data(&self, _eid: Self::EdgeId<'_>) -> &Self::EdgeData {
         &()
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
+    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId<'_>> {
         self.bfs(self.root())
     }
 
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId<'_>> {
         self.node_ids().flat_map(|from| self.edges_from(from))
     }
 
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
+    fn edge_ends(&self, eid: Self::EdgeId<'_>) -> (Self::NodeId<'_>, Self::NodeId<'_>) {
         eid
     }
 }

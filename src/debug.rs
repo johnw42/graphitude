@@ -15,8 +15,8 @@ impl<'a> Debug for NodeTag<'a> {
 
 struct NodeDebug<'a, G: Graph> {
     graph: &'a G,
-    node_order: &'a [G::NodeId],
-    node_tags: &'a HashMap<G::NodeId, String>,
+    node_order: &'a [G::NodeId<'a>],
+    node_tags: &'a HashMap<G::NodeId<'a>, String>,
     show_data: bool,
 }
 
@@ -62,8 +62,8 @@ impl<'a> Debug for EdgeTag<'a> {
 
 struct EdgeDebug<'a, G: Graph> {
     graph: &'a G,
-    edge_order: &'a [G::EdgeId],
-    node_tags: &'a HashMap<G::NodeId, String>,
+    edge_order: &'a [G::EdgeId<'a>],
+    node_tags: &'a HashMap<G::NodeId<'a>, String>,
     show_data: bool,
 }
 
@@ -73,7 +73,7 @@ where
     G::EdgeData: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let make_edge_tag = |eid: &G::EdgeId| {
+        let make_edge_tag = |eid: &G::EdgeId<'a>| {
             let (from, to) = self.graph.edge_ends(eid.clone());
             EdgeTag(
                 &self.node_tags[&from],
@@ -123,7 +123,7 @@ pub fn format_debug_with<'g, G>(
     graph: &'g G,
     fmt: &mut Formatter<'_>,
     name: &str,
-    node_tag: &mut impl FnMut(&G::NodeId) -> String,
+    node_tag: &mut impl for<'a> FnMut(&G::NodeId<'a>) -> String,
     show_edge_data: bool,
     show_node_data: bool,
 ) -> std::fmt::Result
@@ -134,14 +134,14 @@ where
 {
     let node_tags: HashMap<_, _> = graph
         .node_ids()
-        .map(|nid: <G as Graph>::NodeId| (nid.clone(), node_tag(&nid)))
+        .map(|nid: <G as Graph>::NodeId<'g>| (nid.clone(), node_tag(&nid)))
         .collect();
     let mut node_order = node_tags.keys().cloned().collect::<Vec<_>>();
     node_order.sort_by_key(|nid| &node_tags[nid]);
 
     let edge_tags: HashMap<_, _> = graph
         .edge_ids()
-        .map(|eid: <G as Graph>::EdgeId| {
+        .map(|eid: <G as Graph>::EdgeId<'g>| {
             let (from, to) = graph.edge_ends(eid.clone());
             (eid.clone(), (&node_tags[&from], &node_tags[&to]))
         })

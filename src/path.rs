@@ -6,13 +6,13 @@ use crate::{Graph, GraphMut as _, LinkedGraph, debug::format_debug};
 /// connect them.
 pub struct Path<'g, G: Graph> {
     graph: &'g G,
-    edges: Vec<G::EdgeId>,
-    nodes: Vec<G::NodeId>,
+    edges: Vec<G::EdgeId<'g>>,
+    nodes: Vec<G::NodeId<'g>>,
 }
 
 impl<'g, G: Graph> Path<'g, G> {
     /// Creates a new path starting at the given node.
-    pub fn new(graph: &'g G, start: G::NodeId) -> Self {
+    pub fn new(graph: &'g G, start: G::NodeId<'g>) -> Self {
         Self {
             graph,
             edges: Vec::new(),
@@ -21,22 +21,22 @@ impl<'g, G: Graph> Path<'g, G> {
     }
 
     /// Returns the first node in the path.
-    pub fn first_node(&self) -> G::NodeId {
+    pub fn first_node(&self) -> G::NodeId<'g> {
         self.nodes.first().expect("Path has no nodes").clone()
     }
 
     /// Returns the last node in the path.
-    pub fn last_node(&self) -> G::NodeId {
+    pub fn last_node(&self) -> G::NodeId<'g> {
         self.nodes.last().expect("Path has no nodes").clone()
     }
 
     /// Returns an iterator over the edges in the path.
-    pub fn edges(&self) -> impl Iterator<Item = G::EdgeId> + '_ {
+    pub fn edges(&self) -> impl Iterator<Item = G::EdgeId<'g>> + '_ {
         self.edges.iter().cloned()
     }
 
     /// Returns an iterator over the nodes in the path.
-    pub fn nodes(&self) -> impl Iterator<Item = G::NodeId> + '_ {
+    pub fn nodes(&self) -> impl Iterator<Item = G::NodeId<'g>> + '_ {
         self.nodes.iter().cloned()
     }
 
@@ -47,7 +47,7 @@ impl<'g, G: Graph> Path<'g, G> {
     /// node (no outgoing edge).
     pub fn nodes_with_edges(
         &self,
-    ) -> impl Iterator<Item = (Option<G::EdgeId>, G::NodeId, Option<G::EdgeId>)> + '_ {
+    ) -> impl Iterator<Item = (Option<G::EdgeId<'g>>, G::NodeId<'g>, Option<G::EdgeId<'g>>)> + '_ {
         let incoming = once(None).chain(self.edges.iter().cloned().map(Some));
         let outgoing = self.edges.iter().cloned().map(Some).chain(once(None));
         let nodes = self.nodes.iter().cloned();
@@ -68,7 +68,7 @@ impl<'g, G: Graph> Path<'g, G> {
     /// Adds an edge to the end of the path, extending it to the edge's target
     /// node. Panics if the edge's source node does not match the current
     /// last node of the path.
-    pub fn add_edge(&mut self, edge_id: G::EdgeId) {
+    pub fn add_edge(&mut self, edge_id: G::EdgeId<'g>) {
         assert_eq!(self.graph.edge_source(edge_id.clone()), self.last_node());
         self.edges.push(edge_id.clone());
         self.nodes.push(
@@ -146,11 +146,11 @@ where
     }
 }
 
-impl<G> Extend<G::EdgeId> for Path<'_, G>
+impl<'g, G> Extend<G::EdgeId<'g>> for Path<'g, G>
 where
     G: Graph,
 {
-    fn extend<T: IntoIterator<Item = G::EdgeId>>(&mut self, iter: T) {
+    fn extend<T: IntoIterator<Item = G::EdgeId<'g>>>(&mut self, iter: T) {
         for edge_id in iter {
             self.add_edge(edge_id);
         }
@@ -160,8 +160,8 @@ where
 impl<'g, G> Debug for Path<'g, G>
 where
     G: Graph,
-    G::NodeId: Debug + Clone,
-    G::EdgeId: Debug + Clone,
+    G::NodeId<'g>: Debug + Clone,
+    G::EdgeId<'g>: Debug + Clone,
     G::NodeData: Debug,
     G::EdgeData: Debug,
 {

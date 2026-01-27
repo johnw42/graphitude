@@ -37,9 +37,9 @@ use crate::search::{BfsIterator, DfsIterator};
 /// - [`Self::has_edge_into`]
 pub trait Graph: Sized {
     type EdgeData;
-    type EdgeId: Eq + Hash + Clone + Debug;
+    type EdgeId<'g>: Eq + Hash + Clone + Debug where Self: 'g;
     type NodeData;
-    type NodeId: Eq + Hash + Clone + Debug;
+    type NodeId<'g>: Eq + Hash + Clone + Debug where Self: 'g;
     type Directedness: Directedness;
 
     fn is_directed(&self) -> bool {
@@ -49,10 +49,10 @@ pub trait Graph: Sized {
     // Nodes
 
     /// Gets a vector of all NodeIds in the graph.
-    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId>;
+    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId<'_>>;
 
     /// Gets the data associated with a node.
-    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData;
+    fn node_data<'a>(&'a self, id: Self::NodeId<'a>) -> &'a Self::NodeData;
 
     /// Gets the number of nodes in the graph.
     fn num_nodes(&self) -> usize {
@@ -61,7 +61,7 @@ pub trait Graph: Sized {
 
     /// Checks if a NodeId is valid in the graph. This operation is
     /// potentially costly.
-    fn is_valid_node_id(&self, id: &Self::NodeId) -> bool {
+    fn is_valid_node_id<'a>(&'a self, id: &Self::NodeId<'a>) -> bool {
         self.node_ids().any(|nid| &nid == id)
     }
 
@@ -70,7 +70,7 @@ pub trait Graph: Sized {
     /// positives for some graph implementations.
     /// 
     /// By default, this method always returns true.
-    fn is_maybe_valid_node_id(&self, _id: &Self::NodeId) -> bool {
+    fn is_maybe_valid_node_id<'a>(&'a self, _id: &Self::NodeId<'a>) -> bool {
         true
     }
 
@@ -80,7 +80,7 @@ pub trait Graph: Sized {
     /// It is recommended to call this method from implementations of other methods
     /// that take NodeIds as parameters, to ensure that invalid NodeIds are
     /// caught early.
-    fn check_node_id(&self, id: &Self::NodeId) {
+    fn check_node_id<'a>(&'a self, id: &Self::NodeId<'a>) {
         assert!(
             self.is_maybe_valid_node_id(id),
             "Invalid NodeId: {:?}",
@@ -90,7 +90,7 @@ pub trait Graph: Sized {
 
     /// Panics if the given NodeId is not valid in the graph, accordinging to
     /// [`Self::is_maybe_valid_node_id`], but only in debug builds.
-    fn debug_check_node_id(&self, id: &Self::NodeId) {
+    fn debug_check_node_id<'a>(&'a self, id: &Self::NodeId<'a>) {
         debug_assert!(
             self.is_maybe_valid_node_id(id),
             "Invalid NodeId: {:?}",
@@ -100,7 +100,7 @@ pub trait Graph: Sized {
 
     /// Gets an iterator over the predacessors nodes of a given node, i.e.
     /// those nodes reachable by incoming edges.
-    fn predacessors(&self, node: Self::NodeId) -> impl Iterator<Item = Self::NodeId> + '_ {
+    fn predacessors<'a>(&'a self, node: Self::NodeId<'a>) -> impl Iterator<Item = Self::NodeId<'a>> + 'a {
         let mut visited = HashSet::new();
         self.edges_into(node).filter_map(move |eid| {
             let nid = self.edge_source(eid);
@@ -110,7 +110,7 @@ pub trait Graph: Sized {
 
     /// Gets an iterator over the successor nodes of a given node, i.e.
     /// those nodes reachable by outgoing edges.
-    fn successors(&self, node: Self::NodeId) -> impl Iterator<Item = Self::NodeId> + '_ {
+    fn successors<'a>(&'a self, node: Self::NodeId<'a>) -> impl Iterator<Item = Self::NodeId<'a>> + 'a {
         let mut visited = HashSet::new();
         self.edges_from(node.clone()).filter_map(move |eid| {
             let nid = if self.is_directed() {
@@ -126,14 +126,14 @@ pub trait Graph: Sized {
     // Edges
 
     /// Gets the data associated with an edge.
-    fn edge_data(&self, from: Self::EdgeId) -> &Self::EdgeData;
+    fn edge_data<'a>(&'a self, from: Self::EdgeId<'a>) -> &'a Self::EdgeData;
 
     /// Gets a vector of all edges in the graph.
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId<'_>> + '_;
 
     /// Checks if a EdgeId is valid in the graph. This operation is
     /// potentially costly.
-    fn is_valid_edge_id(&self, id: &Self::EdgeId) -> bool {
+    fn is_valid_edge_id(&self, id: &Self::EdgeId<'_>) -> bool {
         self.edge_ids().any(|eid| &eid == id)
     }
 
@@ -142,7 +142,7 @@ pub trait Graph: Sized {
     /// positives for some graph implementations.
     /// 
     /// By default, this method always returns true.
-    fn is_maybe_valid_edge_id(&self, _id: &Self::EdgeId) -> bool {
+    fn is_maybe_valid_edge_id(&self, _id: &Self::EdgeId<'_>) -> bool {
         true
     }
 
@@ -152,7 +152,7 @@ pub trait Graph: Sized {
     /// It is recommended to call this method from implementations of other methods
     /// that take EdgeIds as parameters, to ensure that invalid EdgeIds are
     /// caught early.
-    fn check_edge_id(&self, id: &Self::EdgeId) {
+    fn check_edge_id(&self, id: &Self::EdgeId<'_>) {
         assert!(
             self.is_maybe_valid_edge_id(id),
             "Invalid EdgeId: {:?}",
@@ -162,7 +162,7 @@ pub trait Graph: Sized {
 
     /// Panics if the given EdgeId is not valid in the graph, accordinging to
     /// [`Self::is_maybe_valid_edge_id`], but only in debug builds.
-    fn debug_check_edge_id(&self, id: &Self::EdgeId) {
+    fn debug_check_edge_id(&self, id: &Self::EdgeId<'_>) {
         debug_assert!(
             self.is_maybe_valid_edge_id(id),
             "Invalid EdgeId: {:?}",
@@ -170,7 +170,7 @@ pub trait Graph: Sized {
         );
     }
     /// Gets an iterator over the outgoing edges from a given node.
-    fn edges_from(&self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges_from<'a>(&'a self, from: Self::NodeId<'a>) -> impl Iterator<Item = Self::EdgeId<'a>> + 'a {
         self.edge_ids().filter(move |eid| {
             let (source, target) = self.edge_ends(eid.clone());
             source == from || !self.is_directed() && target == from
@@ -178,7 +178,7 @@ pub trait Graph: Sized {
     }
 
     /// Gets an iterator over the incoming edges to a given node.
-    fn edges_into(&self, into: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges_into<'a>(&'a self, into: Self::NodeId<'a>) -> impl Iterator<Item = Self::EdgeId<'a>> + 'a {
         self.edge_ids().filter(move |eid| {
             let (source, target) = self.edge_ends(eid.clone());
             target == into || !self.is_directed() && source == into
@@ -186,11 +186,11 @@ pub trait Graph: Sized {
     }
 
     /// Gets an iterator over the edges between two nodes.
-    fn edges_between(
-        &self,
-        from: Self::NodeId,
-        into: Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges_between<'a>(
+        &'a self,
+        from: Self::NodeId<'a>,
+        into: Self::NodeId<'a>,
+    ) -> impl Iterator<Item = Self::EdgeId<'a>> + 'a {
         self.edges_from(from.clone()).filter(move |eid| {
             let (edge_source, edge_target) = self.edge_ends(eid.clone());
             edge_source == from && edge_target == into
@@ -199,37 +199,37 @@ pub trait Graph: Sized {
     }
 
     /// Gets the number of edges from one node to another.
-    fn num_edges_between(&self, from: Self::NodeId, into: Self::NodeId) -> usize {
+    fn num_edges_between<'a>(&'a self, from: Self::NodeId<'a>, into: Self::NodeId<'a>) -> usize {
         self.edges_between(from, into).into_iter().count()
     }
 
-    fn has_edge(&self, from: Self::NodeId, into: Self::NodeId) -> bool {
+    fn has_edge<'a>(&'a self, from: Self::NodeId<'a>, into: Self::NodeId<'a>) -> bool {
         self.edges_between(from, into).next().is_some()
     }
 
     /// Gets the source and target nodes of an edge.
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId);
+    fn edge_ends<'a>(&'a self, eid: Self::EdgeId<'a>) -> (Self::NodeId<'a>, Self::NodeId<'a>);
 
     /// Gets the source node of an edge.
-    fn edge_source(&self, id: Self::EdgeId) -> Self::NodeId {
+    fn edge_source<'a>(&'a self, id: Self::EdgeId<'a>) -> Self::NodeId<'a> {
         self.edge_ends(id).0
     }
 
     /// Gets the target node of an edge.
-    fn edge_target(&self, id: Self::EdgeId) -> Self::NodeId {
+    fn edge_target<'a>(&'a self, id: Self::EdgeId<'a>) -> Self::NodeId<'a> {
         self.edge_ends(id).1
     }
 
-    fn has_edge_from(&self, from: Self::NodeId) -> bool {
+    fn has_edge_from<'a>(&'a self, from: Self::NodeId<'a>) -> bool {
         self.edges_from(from).next().is_some()
     }
 
-    fn has_edge_into(&self, into: Self::NodeId) -> bool {
+    fn has_edge_into<'a>(&'a self, into: Self::NodeId<'a>) -> bool {
         self.edges_into(into).next().is_some()
     }
 
     /// Checks if there is an edge between two nodes.
-    fn has_edge_between(&self, from: Self::NodeId, into: Self::NodeId) -> bool {
+    fn has_edge_between<'a>(&'a self, from: Self::NodeId<'a>, into: Self::NodeId<'a>) -> bool {
         self.edges_between(from, into).next().is_some()
     }
 
@@ -238,18 +238,18 @@ pub trait Graph: Sized {
         self.edge_ids().count()
     }
 
-    fn num_edges_into(&self, into: Self::NodeId) -> usize {
+    fn num_edges_into<'a>(&'a self, into: Self::NodeId<'a>) -> usize {
         self.edges_into(into).into_iter().count()
     }
 
-    fn num_edges_from(&self, from: Self::NodeId) -> usize {
+    fn num_edges_from<'a>(&'a self, from: Self::NodeId<'a>) -> usize {
         self.edges_from(from).into_iter().count()
     }
 
     /// Given an edge and one of its endpoint nodes, returns the other
     /// endpoint node.  Returns `None` if the edge is a self-loop.  Panics if
     /// the given node is not an endpoint of the edge.
-    fn other_end(&self, edge: Self::EdgeId, node: Self::NodeId) -> Option<Self::NodeId> {
+    fn other_end<'a>(&'a self, edge: Self::EdgeId<'a>, node: Self::NodeId<'a>) -> Option<Self::NodeId<'a>> {
         let (source, target) = self.edge_ends(edge);
         if source == node {
             Some(target)
@@ -264,22 +264,22 @@ pub trait Graph: Sized {
     // Searches
 
     /// Performs a breadth-first search starting from the given node.
-    fn bfs(&self, start: Self::NodeId) -> BfsIterator<'_, Self> {
+    fn bfs<'a>(&'a self, start: Self::NodeId<'a>) -> BfsIterator<'a, Self> {
         self.bfs_multi(vec![start])
     }
 
     /// Performs a breadth-first search starting from the given nodes.
-    fn bfs_multi(&self, start: Vec<Self::NodeId>) -> BfsIterator<'_, Self> {
+    fn bfs_multi<'a>(&'a self, start: Vec<Self::NodeId<'a>>) -> BfsIterator<'a, Self> {
         BfsIterator::new(self, start)
     }
 
     /// Performs a depth-first search starting from the given node.
-    fn dfs(&self, start: Self::NodeId) -> DfsIterator<'_, Self> {
+    fn dfs<'a>(&'a self, start: Self::NodeId<'a>) -> DfsIterator<'a, Self> {
         self.dfs_multi(vec![start])
     }
 
     /// Performs a depth-first search starting from the given node.
-    fn dfs_multi(&self, start: Vec<Self::NodeId>) -> DfsIterator<'_, Self> {
+    fn dfs_multi<'a>(&'a self, start: Vec<Self::NodeId<'a>>) -> DfsIterator<'a, Self> {
         DfsIterator::new(self, start)
     }
 
@@ -291,11 +291,11 @@ pub trait Graph: Sized {
     #[cfg(feature = "pathfinding")]
     fn shortest_paths<C: Zero + Ord + Copy>(
         &self,
-        start: Self::NodeId,
-        cost_fn: impl Fn(&Self::EdgeId) -> C,
-    ) -> HashMap<Self::NodeId, (Vec<Self::NodeId>, C)> {
-        let parents: HashMap<Self::NodeId, (Self::NodeId, C)> =
-            pathfinding::prelude::dijkstra_all(&start, |nid| -> Vec<(Self::NodeId, C)> {
+        start: Self::NodeId<'_>,
+        cost_fn: impl Fn(&Self::EdgeId<'_>) -> C,
+    ) -> HashMap<Self::NodeId<'_>, (Vec<Self::NodeId<'_>>, C)> {
+        let parents: HashMap<Self::NodeId<'_>, (Self::NodeId<'_>, C)> =
+            pathfinding::prelude::dijkstra_all(&start, |nid| -> Vec<(Self::NodeId<'_>, C)> {
                 let r: Vec<_> = self
                     .edges_from(nid.clone())
                     .map(|eid| {
@@ -309,7 +309,7 @@ pub trait Graph: Sized {
             .chain(
                 parents
                     .iter()
-                    .map(|(k, (_, cost)): (&Self::NodeId, &(_, C))| {
+                    .map(|(k, (_, cost)): (&Self::NodeId<'_>, &(_, C))| {
                         (
                             k.clone(),
                             (pathfinding::prelude::build_path(k, &parents), *cost),
@@ -325,7 +325,7 @@ pub trait Graph: Sized {
 pub trait GraphDirected: Graph {
     /// Finds the strongly connected component containing the given node.
     #[cfg(feature = "pathfinding")]
-    fn strongly_connected_component(&self, start: &Self::NodeId) -> Vec<Self::NodeId> {
+    fn strongly_connected_component<'a>(&'a self, start: &Self::NodeId<'a>) -> Vec<Self::NodeId<'a>> {
         pathfinding::prelude::strongly_connected_component(start, |nid| {
             self.successors(nid.clone())
         })
@@ -333,7 +333,7 @@ pub trait GraphDirected: Graph {
 
     /// Partitions the graph into strongly connected components.
     #[cfg(feature = "pathfinding")]
-    fn strongly_connected_components(&self) -> Vec<Vec<Self::NodeId>> {
+    fn strongly_connected_components(&self) -> Vec<Vec<Self::NodeId<'_>>> {
         pathfinding::prelude::strongly_connected_components(
             &self.node_ids().collect::<Vec<_>>(),
             |nid| self.successors(nid.clone()),
@@ -344,8 +344,8 @@ pub trait GraphDirected: Graph {
     #[cfg(feature = "pathfinding")]
     fn strongly_connected_components_from(
         &self,
-        start: &Self::NodeId,
-    ) -> Vec<Vec<Self::NodeId>> {
+        start: &Self::NodeId<'_>,
+    ) -> Vec<Vec<Self::NodeId<'_>>> {
         pathfinding::prelude::strongly_connected_components_from(start, |nid| {
             self.successors(nid.clone())
         })
@@ -358,7 +358,7 @@ impl<G> GraphDirected for G where G: Graph<Directedness = Directed> {}
 /// methods specific to undirected graphs.
 pub trait GraphUndirected: Graph {
     #[cfg(feature = "pathfinding")]
-    fn connected_components(&self) -> Vec<HashSet<Self::NodeId>> {
+    fn connected_components(&self) -> Vec<HashSet<Self::NodeId<'_>>> {
         pathfinding::prelude::connected_components(&self.node_ids().collect::<Vec<_>>(), |nid| {
             self.successors(nid.clone())
         })
@@ -376,22 +376,22 @@ pub trait GraphMut: Graph {
     }
 
     /// Adds a node with the given data to the graph, returning its `NodeId`.
-    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId;
+    fn add_node<'a>(&'a mut self, data: Self::NodeData) -> Self::NodeId<'a>;
 
     /// Removes a node from the graph, returning its data.  Any edges
     /// connected to the node are also be removed.
-    fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData;
+    fn remove_node<'a>(&'a mut self, id: Self::NodeId<'a>) -> Self::NodeData;
 
     /// Adds an edge with the given data between two nodes and returns the
     /// `EdgeId`.  If an edge already exists between the two nodes, and the
     /// graph does not support parallel edges, the old edge is replaced.
     /// Use [`Self::add_or_replace_edge`] to get the old edge data as well.
-    fn add_edge(
-        &mut self,
-        from: Self::NodeId,
-        to: Self::NodeId,
+    fn add_edge<'a>(
+        &'a mut self,
+        from: Self::NodeId<'a>,
+        to: Self::NodeId<'a>,
         data: Self::EdgeData,
-    ) -> Self::EdgeId {
+    ) -> Self::EdgeId<'a> {
         self.add_or_replace_edge(from, to, data).0
     }
 
@@ -399,18 +399,18 @@ pub trait GraphMut: Graph {
     /// `EdgeId`.  If an edge already exists between the two nodes, and the
     /// graph does not support parallel edges, the old edge is replaced and its
     /// data is returned as well.
-    fn add_or_replace_edge(
-        &mut self,
-        from: Self::NodeId,
-        to: Self::NodeId,
+    fn add_or_replace_edge<'a>(
+        &'a mut self,
+        from: Self::NodeId<'a>,
+        to: Self::NodeId<'a>,
         data: Self::EdgeData,
-    ) -> (Self::EdgeId, Option<Self::EdgeData>);
+    ) -> (Self::EdgeId<'a>, Option<Self::EdgeData>);
 
     /// Remove an edge between two nodes, returning its data if it existed.
-    fn remove_edge(&mut self, from: Self::EdgeId) -> Option<Self::EdgeData>;
+    fn remove_edge<'a>(&'a mut self, from: Self::EdgeId<'a>) -> Option<Self::EdgeData>;
 
     /// Copies all nodes and edges from another graph into this graph.
-    fn copy_from<S>(&mut self, source: &S) -> HashMap<S::NodeId, Self::NodeId>
+    fn copy_from<S>(&mut self, source: &S) -> HashMap<S::NodeId<'_>, Self::NodeId<'_>>
     where
         S: Graph<NodeData = Self::NodeData, EdgeData = Self::EdgeData>,
         Self::NodeData: Clone,
@@ -427,7 +427,7 @@ pub trait GraphMut: Graph {
         source: &S,
         mut map_node: F,
         mut map_edge: G,
-    ) -> HashMap<S::NodeId, Self::NodeId>
+    ) -> HashMap<S::NodeId<'_>, Self::NodeId<'_>>
     where
         S: Graph,
         Self::NodeData: Clone,
@@ -457,8 +457,8 @@ pub trait GraphMut: Graph {
     fn make_edge_map<S>(
         &self,
         source: &S,
-        node_map: &HashMap<S::NodeId, Self::NodeId>,
-    ) -> HashMap<S::EdgeId, Self::EdgeId>
+        node_map: &HashMap<S::NodeId<'_>, Self::NodeId<'_>>,
+    ) -> HashMap<S::EdgeId<'_>, Self::EdgeId<'_>>
     where
         S: Graph,
     {

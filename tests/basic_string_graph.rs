@@ -56,27 +56,27 @@ impl Graph for StringGraph {
     type EdgeId = EdgeId;
     type Directedness = Undirected;
 
-    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
+    fn node_data(&self, id: Self::NodeId<'_>) -> &Self::NodeData {
         self.nodes.get(&id).expect("Node does not exist")
     }
 
-    fn num_edges_between(&self, from: Self::NodeId, into: Self::NodeId) -> usize {
+    fn num_edges_between(&self, from: Self::NodeId<'_>, into: Self::NodeId<'_>) -> usize {
         self.edges.get(from, into).into_iter().count()
     }
 
-    fn edge_data(&self, id: Self::EdgeId) -> &Self::EdgeData {
+    fn edge_data(&self, id: Self::EdgeId<'_>) -> &Self::EdgeData {
         self.edges.get(id.0, id.1).expect("Edge does not exist")
     }
 
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
+    fn edge_ends(&self, eid: Self::EdgeId<'_>) -> (Self::NodeId<'_>, Self::NodeId<'_>) {
         (eid.0.clone(), eid.1.clone())
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
+    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId<'_>> {
         self.nodes.iter().cloned()
     }
 
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId<'_>> {
         self.edges
             .edges()
             .map(|(from, into, _)| EdgeId::new(from, into))
@@ -84,22 +84,22 @@ impl Graph for StringGraph {
 }
 
 impl GraphMut for StringGraph {
-    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
+    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId<'_> {
         self.nodes.insert(data.clone());
         data
     }
 
     fn add_or_replace_edge(
         &mut self,
-        from: Self::NodeId,
-        into: Self::NodeId,
+        from: Self::NodeId<'_>,
+        into: Self::NodeId<'_>,
         data: Self::EdgeData,
-    ) -> (Self::EdgeId, Option<Self::EdgeData>) {
+    ) -> (Self::EdgeId<'_>, Option<Self::EdgeData>) {
         let old_data = self.edges.insert(from.clone(), into.clone(), data);
         (self.edge_id(from.clone(), into.clone()), old_data)
     }
 
-    fn remove_node(&mut self, id: Self::NodeId) -> String {
+    fn remove_node(&mut self, id: Self::NodeId<'_>) -> String {
         let edges_from = self
             .edges
             .edges_from(id.clone())
@@ -112,7 +112,7 @@ impl GraphMut for StringGraph {
         id.clone()
     }
 
-    fn remove_edge(&mut self, id: Self::EdgeId) -> Option<Self::EdgeData> {
+    fn remove_edge(&mut self, id: Self::EdgeId<'_>) -> Option<Self::EdgeData> {
         self.edges.remove(id.0, id.1).map(|_| ())
     }
 }

@@ -105,46 +105,46 @@ where
     (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
 {
     type EdgeData = E;
-    type EdgeId = EdgeId<Self::NodeId, Self::Directedness>;
+    type EdgeId<'g> = EdgeId<IdVecIndex, D> where N: 'g, E: 'g, D: 'g, S: 'g;
     type NodeData = N;
-    type NodeId = IdVecIndex;
+    type NodeId<'g> = IdVecIndex where N: 'g, E: 'g, D: 'g, S: 'g;
     type Directedness = D;
 
-    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
+    fn node_data<'a>(&'a self, id: Self::NodeId<'a>) -> &Self::NodeData {
         &self.nodes[id]
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
+    fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId<'_>> {
         self.nodes.iter_indices()
     }
 
-    fn edge_data(&self, eid: Self::EdgeId) -> &Self::EdgeData {
+    fn edge_data<'a>(&'a self, eid: Self::EdgeId<'a>) -> &Self::EdgeData {
         let (from, to) = eid.into();
         &self.adjacency.get(from, to).expect("no such edge")
     }
 
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId<'_>> + '_ {
         self.adjacency
             .edges()
-            .map(|(from, to, _)| EdgeId::<Self::NodeId, Self::Directedness>::new(from, to))
+            .map(|(from, to, _)| EdgeId::<Self::NodeId<'_>, Self::Directedness>::new(from, to))
     }
 
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
+    fn edge_ends<'a>(&'a self, eid: Self::EdgeId<'a>) -> (Self::NodeId<'_>, Self::NodeId<'_>) {
         eid.into()
     }
 
-    fn edges_between(
-        &self,
-        from: Self::NodeId,
-        into: Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges_between<'a>(
+        &'a self,
+        from: Self::NodeId<'a>,
+        into: Self::NodeId<'a>,
+    ) -> impl Iterator<Item = Self::EdgeId<'a>> + 'a {
         self.adjacency
             .edge_between(from, into)
             .into_iter()
             .map(|(from, into, _)| Self::EdgeId::new(from, into))
     }
 
-    fn edges_into<'a>(&'a self, into: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_into<'a>(&'a self, into: Self::NodeId<'a>) -> impl Iterator<Item = Self::EdgeId<'a>> + 'a {
         self.adjacency
             .edges_into(into)
             .map(|(from, _)| Self::EdgeId::new(from, into))
@@ -152,7 +152,7 @@ where
             .into_iter()
     }
 
-    fn edges_from<'a>(&'a self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from<'a>(&'a self, from: Self::NodeId<'a>) -> impl Iterator<Item = Self::EdgeId<'a>> + 'a {
         self.adjacency
             .edges_from(from)
             .map(|(to, _)| Self::EdgeId::new(from, to))
@@ -167,21 +167,21 @@ where
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
 {
-    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
+    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId<'_> {
         self.nodes.insert(data)
     }
 
     fn add_or_replace_edge(
         &mut self,
-        from: Self::NodeId,
-        into: Self::NodeId,
+        from: Self::NodeId<'_>,
+        into: Self::NodeId<'_>,
         data: Self::EdgeData,
-    ) -> (Self::EdgeId, Option<Self::EdgeData>) {
+    ) -> (Self::EdgeId<'_>, Option<Self::EdgeData>) {
         let old_data = self.adjacency.insert(from.clone(), into.clone(), data);
         (Self::EdgeId::new(from, into), old_data)
     }
 
-    fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData {
+    fn remove_node(&mut self, id: Self::NodeId<'_>) -> Self::NodeData {
         for into in self
             .adjacency
             .edges_from(id)
@@ -193,7 +193,7 @@ where
         self.nodes.remove(id)
     }
 
-    fn remove_edge(&mut self, id: Self::EdgeId) -> Option<Self::EdgeData> {
+    fn remove_edge(&mut self, id: Self::EdgeId<'_>) -> Option<Self::EdgeData> {
         self.adjacency.remove(id.0, id.1)
     }
 }

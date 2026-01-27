@@ -80,7 +80,7 @@ where
         NodeId::from(v)
     }
 
-    fn neighbors(&self, id: NodeId<'a, N>) -> Vec<<Self as Graph>::NodeId> {
+    fn neighbors(&self, id: NodeId<'a, N>) -> Vec<<Self as Graph>::NodeId<'_>> {
         let v = self.node_data(id);
         (self.neighbors_fn)(v)
             .iter()
@@ -95,19 +95,19 @@ where
 
 impl<'a, N, F> Graph for ObjectGraph<'a, N, F>
 where
-    F: Fn(&'a N) -> Vec<&'a N>,
+    F: Fn(&'a N) -> Vec<&'a N> + 'a,
 {
-    type NodeId = NodeId<'a, N>;
+    type NodeId<'g> = NodeId<'a, N> where Self: 'g;
     type NodeData = &'a N;
-    type EdgeId = (Self::NodeId, Self::NodeId);
+    type EdgeId<'g> = EdgeId<'a, N> where Self: 'g;
     type EdgeData = ();
     type Directedness = Directed;
 
-    fn node_data(&self, id: NodeId<N>) -> &<Self as Graph>::NodeData {
+    fn node_data<'g>(&'g self, id: Self::NodeId<'g>) -> &'g <Self as Graph>::NodeData {
         unsafe { transmute::<&*const N, &&'a N>(&id.0) }
     }
 
-    fn edge_data(&self, (from, to): <Self as Graph>::EdgeId) -> &<Self as Graph>::EdgeData {
+    fn edge_data<'g>(&'g self, (from, to): <Self as Graph>::EdgeId<'g>) -> &'g <Self as Graph>::EdgeData {
         let neighbors = (self.neighbors_fn)(self.node_data(from));
         neighbors
             .iter()
@@ -116,21 +116,21 @@ where
             .expect("Edge does not exist")
     }
 
-    fn edges_from<'b>(&'b self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'b {
+    fn edges_from<'g>(&'g self, from: Self::NodeId<'g>) -> impl Iterator<Item = Self::EdgeId<'g>> + 'g {
         self.neighbors(from)
             .into_iter()
             .map(move |to| self.make_edge_id(from, to))
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
+    fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId<'_>> {
         self.bfs_multi(self.roots().collect())
     }
     
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId<'_>> + '_ {
         self.node_ids().flat_map(|from| self.edges_from(from))
     }
 
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
+    fn edge_ends(&self, eid: Self::EdgeId<'_>) -> (Self::NodeId<'_>, Self::NodeId<'_>) {
         eid
     }
 }
