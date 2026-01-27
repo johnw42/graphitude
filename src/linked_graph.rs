@@ -2,53 +2,53 @@ use std::{fmt::Debug, hash::Hash};
 
 use crate::{Graph, GraphMut, debug::format_debug, directedness::Directed};
 
-struct VertexNode<V, E> {
+struct NodeNode<V, E> {
     data: V,
     edges_out: Vec<Box<EdgeNode<V, E>>>,
     edges_in: Vec<EdgeId<V, E>>,
 }
 
 #[derive(PartialOrd, Ord)]
-pub struct VertexId<V, E>(*mut VertexNode<V, E>);
+pub struct NodeId<V, E>(*mut NodeNode<V, E>);
 
-impl<V, E> Debug for VertexId<V, E> {
+impl<V, E> Debug for NodeId<V, E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "VertexId({:?})", self.0)
+        write!(f, "NodeId({:?})", self.0)
     }
 }
 
-impl<V, E> Clone for VertexId<V, E> {
+impl<V, E> Clone for NodeId<V, E> {
     fn clone(&self) -> Self {
-        VertexId(self.0)
+        NodeId(self.0)
     }
 }
 
-impl<V, E> Copy for VertexId<V, E> {}
+impl<V, E> Copy for NodeId<V, E> {}
 
-impl<V, E> PartialEq for VertexId<V, E> {
+impl<V, E> PartialEq for NodeId<V, E> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<V, E> Eq for VertexId<V, E> {}
+impl<V, E> Eq for NodeId<V, E> {}
 
-impl<V, E> Hash for VertexId<V, E> {
+impl<V, E> Hash for NodeId<V, E> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         (self.0 as usize).hash(state);
     }
 }
 
-impl<V, E> From<&VertexNode<V, E>> for VertexId<V, E> {
-    fn from(ptr: &VertexNode<V, E>) -> Self {
-        VertexId(ptr as *const _ as *mut _)
+impl<V, E> From<&NodeNode<V, E>> for NodeId<V, E> {
+    fn from(ptr: &NodeNode<V, E>) -> Self {
+        NodeId(ptr as *const _ as *mut _)
     }
 }
 
 struct EdgeNode<V, E> {
     data: E,
-    from: VertexId<V, E>,
-    into: VertexId<V, E>,
+    from: NodeId<V, E>,
+    into: NodeId<V, E>,
 }
 
 #[derive(PartialOrd, Ord)]
@@ -94,34 +94,34 @@ impl<V, E> From<&Box<EdgeNode<V, E>>> for EdgeId<V, E> {
     }
 }
 
-/// A graph representation using linked vertex and edge nodes.
-/// Vertices and edges are stored in insertion order.
+/// A graph representation using linked node and edge nodes.
+/// Nodes and edges are stored in insertion order.
 pub struct LinkedGraph<V, E> {
-    vertices: Vec<Box<VertexNode<V, E>>>,
+    nodes: Vec<Box<NodeNode<V, E>>>,
 }
 
 impl<V, E> LinkedGraph<V, E> {
     pub fn new() -> Self {
         Self {
-            vertices: Vec::new(),
+            nodes: Vec::new(),
         }
     }
 }
 
 impl<V, E> Graph for LinkedGraph<V, E> {
-    type VertexId = VertexId<V, E>;
-    type VertexData = V;
+    type NodeId = NodeId<V, E>;
+    type NodeData = V;
     type EdgeId = EdgeId<V, E>;
     type EdgeData = E;
     type Directedness = Directed;
 
-    fn vertex_data(&self, id: Self::VertexId) -> &Self::VertexData {
+    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
         unsafe { &(*id.0).data }
     }
 
-    /// Gets an iterator over all vertex identifiers in the graph in insertion order.
-    fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId> {
-        self.vertices.iter().map(|node| VertexId::from(&**node))
+    /// Gets an iterator over all node identifiers in the graph in insertion order.
+    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
+        self.nodes.iter().map(|node| NodeId::from(&**node))
     }
 
     fn edge_data(&self, id: Self::EdgeId) -> &Self::EdgeData {
@@ -129,67 +129,67 @@ impl<V, E> Graph for LinkedGraph<V, E> {
     }
 
     /// Gets an iterator over all edge identifiers in the graph in insertion order of the
-    /// source vertices and the insertion order of the edges from each source vertex.
+    /// source nodes and the insertion order of the edges from each source node.
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
-        self.vertices
+        self.nodes
             .iter()
             .flat_map(|vnode| vnode.edges_out.iter().map(|enode| EdgeId::from(&**enode)))
     }
 
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
         self.check_edge_id(&eid);
         let edge_node = unsafe { &*eid.0 };
         (edge_node.from, edge_node.into)
     }
 
-    /// Gets an iterator over the edges outgoing from the given vertex in
-    /// insertion order of the edges outgoing from the given vertex.
-    fn edges_from(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
-        self.check_vertex_id(&from);
+    /// Gets an iterator over the edges outgoing from the given node in
+    /// insertion order of the edges outgoing from the given node.
+    fn edges_from(&self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> {
+        self.check_node_id(&from);
         unsafe { &*from.0 }
             .edges_out
             .iter()
             .map(|enode| EdgeId::from(&**enode))
     }
 
-    /// Gets an iterator over the edges incoming to the given vertex in
-    /// insertion order of the edges incoming to the given vertex.
-    fn edges_into(&self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
-        self.check_vertex_id(&into);
+    /// Gets an iterator over the edges incoming to the given node in
+    /// insertion order of the edges incoming to the given node.
+    fn edges_into(&self, into: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> {
+        self.check_node_id(&into);
         unsafe { &*into.0 }.edges_in.iter().cloned()
     }
 
-    fn num_edges_into(&self, into: Self::VertexId) -> usize {
-        self.check_vertex_id(&into);
+    fn num_edges_into(&self, into: Self::NodeId) -> usize {
+        self.check_node_id(&into);
         unsafe { &*into.0 }.edges_in.len()
     }
 
-    fn num_edges_from(&self, from: Self::VertexId) -> usize {
-        self.check_vertex_id(&from);
+    fn num_edges_from(&self, from: Self::NodeId) -> usize {
+        self.check_node_id(&from);
         unsafe { &*from.0 }.edges_out.len()
     }
 }
 
 impl<V, E> GraphMut for LinkedGraph<V, E> {
     fn clear(&mut self) {
-        self.vertices.clear();
+        self.nodes.clear();
     }
 
-    fn add_vertex(&mut self, data: Self::VertexData) -> Self::VertexId {
-        let vnode = Box::new(VertexNode {
+    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
+        let vnode = Box::new(NodeNode {
             data,
             edges_out: Vec::new(),
             edges_in: Vec::new(),
         });
-        let vid = VertexId::from(&*vnode);
-        self.vertices.push(vnode);
+        let vid = NodeId::from(&*vnode);
+        self.nodes.push(vnode);
         vid
     }
 
     fn add_or_replace_edge(
         &mut self,
-        from: Self::VertexId,
-        into: Self::VertexId,
+        from: Self::NodeId,
+        into: Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
         let enode = Box::new(EdgeNode { data, from, into });
@@ -203,13 +203,13 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
         (eid, None)
     }
 
-    fn remove_vertex(&mut self, vid: Self::VertexId) -> V {
+    fn remove_node(&mut self, vid: Self::NodeId) -> V {
         let index = self
-            .vertices
+            .nodes
             .iter()
-            .position(|vnode| VertexId::from(&**vnode) == vid)
-            .expect("Vertex does not exist");
-        let vnode = self.vertices.remove(index);
+            .position(|vnode| NodeId::from(&**vnode) == vid)
+            .expect("Node does not exist");
+        let vnode = self.nodes.remove(index);
         for enode in &vnode.edges_out {
             let to_vid = enode.into;
             let to_vnode = unsafe { &mut *to_vid.0 };
@@ -269,7 +269,7 @@ mod tests {
             format!("e{}", i)
         }
 
-        fn new_vertex_data(i: usize) -> i32 {
+        fn new_node_data(i: usize) -> i32 {
             i as i32
         }
     }

@@ -6,15 +6,15 @@ const DEFAULT_HASH_SET_CAPACITY: usize = 64;
 
 pub struct BfsIterator<'g, G: Graph> {
     graph: &'g G,
-    visited: HashSet<G::VertexId>,
-    queue: VecDeque<G::VertexId>,
+    visited: HashSet<G::NodeId>,
+    queue: VecDeque<G::NodeId>,
 }
 
 impl<'g, G> BfsIterator<'g, G>
 where
     G: Graph,
 {
-    pub fn new(graph: &'g G, start: Vec<G::VertexId>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
         Self {
             graph,
             visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
@@ -27,7 +27,7 @@ impl<'g, G> Iterator for BfsIterator<'g, G>
 where
     G: Graph,
 {
-    type Item = G::VertexId;
+    type Item = G::NodeId;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(vid) = self.queue.pop_front() {
@@ -49,15 +49,15 @@ where
 
 pub struct BfsIteratorWithPaths<'g, G: Graph> {
     graph: &'g G,
-    visited: HashSet<G::VertexId>,
-    queue: VecDeque<Vec<G::VertexId>>,
+    visited: HashSet<G::NodeId>,
+    queue: VecDeque<Vec<G::NodeId>>,
 }
 
 impl<'g, G> BfsIteratorWithPaths<'g, G>
 where
     G: Graph,
 {
-    pub fn new(graph: &'g G, start: Vec<G::VertexId>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
         Self {
             graph,
             visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
@@ -70,7 +70,7 @@ impl<'g, G> Iterator for BfsIteratorWithPaths<'g, G>
 where
     G: Graph,
 {
-    type Item = Vec<G::VertexId>;
+    type Item = Vec<G::NodeId>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(path) = self.queue.pop_front() {
@@ -93,15 +93,15 @@ where
 
 pub struct DfsIterator<'g, G: Graph> {
     graph: &'g G,
-    visited: HashSet<G::VertexId>,
-    stack: Vec<G::VertexId>,
+    visited: HashSet<G::NodeId>,
+    stack: Vec<G::NodeId>,
 }
 
 impl<'g, G> DfsIterator<'g, G>
 where
     G: Graph,
 {
-    pub fn new(graph: &'g G, start: Vec<G::VertexId>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
         let mut stack = start;
         stack.reverse();
         Self {
@@ -116,7 +116,7 @@ impl<'g, G> Iterator for DfsIterator<'g, G>
 where
     G: Graph,
 {
-    type Item = G::VertexId;
+    type Item = G::NodeId;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(vid) = self.stack.pop() {
@@ -133,15 +133,15 @@ where
 
 pub struct DfsIteratorWithPaths<'g, G: Graph> {
     graph: &'g G,
-    visited: HashSet<G::VertexId>,
-    stack: Vec<Vec<G::VertexId>>,
+    visited: HashSet<G::NodeId>,
+    stack: Vec<Vec<G::NodeId>>,
 }
 
 impl<'g, G> DfsIteratorWithPaths<'g, G>
 where
     G: Graph,
 {
-    pub fn new(graph: &'g G, start: Vec<G::VertexId>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
         let mut stack = start.into_iter().map(|v| vec![v]).collect::<Vec<_>>();
         stack.reverse();
         Self {
@@ -156,7 +156,7 @@ impl<'g, G> Iterator for DfsIteratorWithPaths<'g, G>
 where
     G: Graph,
 {
-    type Item = Vec<G::VertexId>;
+    type Item = Vec<G::NodeId>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(path) = self.stack.pop() {
@@ -183,10 +183,10 @@ mod tests {
 
     fn create_simple_graph() -> LinkedGraph<usize, ()> {
         let mut graph = LinkedGraph::new();
-        let v0 = graph.add_vertex(0);
-        let v1 = graph.add_vertex(1);
-        let v2 = graph.add_vertex(2);
-        let v3 = graph.add_vertex(3);
+        let v0 = graph.add_node(0);
+        let v1 = graph.add_node(1);
+        let v2 = graph.add_node(2);
+        let v3 = graph.add_node(3);
         graph.add_edge(v0, v1, ());
         graph.add_edge(v0, v2, ());
         graph.add_edge(v1, v3, ());
@@ -196,9 +196,9 @@ mod tests {
 
     fn create_cyclic_graph() -> LinkedGraph<usize, ()> {
         let mut graph = LinkedGraph::new();
-        let v0 = graph.add_vertex(0);
-        let v1 = graph.add_vertex(1);
-        let v2 = graph.add_vertex(2);
+        let v0 = graph.add_node(0);
+        let v1 = graph.add_node(1);
+        let v2 = graph.add_node(2);
         graph.add_edge(v0, v1, ());
         graph.add_edge(v1, v2, ());
         graph.add_edge(v2, v0, ());
@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn test_bfs_simple_graph() {
         let graph = create_simple_graph();
-        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let vertices: Vec<_> = graph.node_ids().collect();
         let visited: Vec<_> = BfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 4);
         assert_eq!(
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn test_bfs_visits_all_reachable() {
         let graph = create_simple_graph();
-        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let vertices: Vec<_> = graph.node_ids().collect();
         let visited: HashSet<_> = BfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 4);
         assert!(visited.contains(&vertices[0]));
@@ -239,7 +239,7 @@ mod tests {
     #[test]
     fn test_bfs_multiple_start_vertices() {
         let graph = create_simple_graph();
-        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let vertices: Vec<_> = graph.node_ids().collect();
         let visited: HashSet<_> =
             BfsIterator::new(&graph, vec![vertices[0], vertices[1]]).collect();
         assert_eq!(visited.len(), 4);
@@ -248,7 +248,7 @@ mod tests {
     #[test]
     fn test_bfs_handles_cycles() {
         let graph = create_cyclic_graph();
-        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let vertices: Vec<_> = graph.node_ids().collect();
         let visited: Vec<_> = BfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 3);
     }
@@ -256,7 +256,7 @@ mod tests {
     #[test]
     fn test_dfs_simple_graph() {
         let graph = create_simple_graph();
-        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let vertices: Vec<_> = graph.node_ids().collect();
         let visited: Vec<_> = DfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 4);
         assert_eq!(
@@ -268,7 +268,7 @@ mod tests {
     #[test]
     fn test_dfs_visits_all_reachable() {
         let graph = create_simple_graph();
-        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let vertices: Vec<_> = graph.node_ids().collect();
         let visited: HashSet<_> = DfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 4);
         assert!(visited.contains(&vertices[0]));
@@ -287,7 +287,7 @@ mod tests {
     #[test]
     fn test_dfs_multiple_start_vertices() {
         let graph = create_simple_graph();
-        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let vertices: Vec<_> = graph.node_ids().collect();
         let visited: HashSet<_> =
             DfsIterator::new(&graph, vec![vertices[0], vertices[1]]).collect();
         assert_eq!(visited.len(), 4);
@@ -296,7 +296,7 @@ mod tests {
     #[test]
     fn test_dfs_handles_cycles() {
         let graph = create_cyclic_graph();
-        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let vertices: Vec<_> = graph.node_ids().collect();
         let visited: Vec<_> = DfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 3);
     }
@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn test_bfs_dfs_visit_same_vertices() {
         let graph = create_simple_graph();
-        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let vertices: Vec<_> = graph.node_ids().collect();
         let bfs_visited: HashSet<_> = BfsIterator::new(&graph, vec![vertices[0]]).collect();
         let dfs_visited: HashSet<_> = DfsIterator::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(bfs_visited, dfs_visited);
@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn test_bfs_wth_paths() {
         let graph = create_simple_graph();
-        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let vertices: Vec<_> = graph.node_ids().collect();
         let visited: Vec<_> = BfsIteratorWithPaths::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 4);
         assert_eq!(
@@ -330,7 +330,7 @@ mod tests {
     #[test]
     fn test_dfs_wth_paths() {
         let graph = create_simple_graph();
-        let vertices: Vec<_> = graph.vertex_ids().collect();
+        let vertices: Vec<_> = graph.node_ids().collect();
         let visited: Vec<_> = DfsIteratorWithPaths::new(&graph, vec![vertices[0]]).collect();
         assert_eq!(visited.len(), 4);
         assert_eq!(

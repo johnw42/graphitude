@@ -2,31 +2,31 @@ use std::{fmt::Debug, hash::Hash};
 
 use jrw_graph::{Graph, directedness::Directed};
 
-struct VertexId<V>(*const V);
+struct NodeId<V>(*const V);
 
-impl<V> Debug for VertexId<V> {
+impl<V> Debug for NodeId<V> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "VertexId({:?})", self.0)
+        write!(f, "NodeId({:?})", self.0)
     }
 }
 
-impl<V> PartialEq for VertexId<V> {
+impl<V> PartialEq for NodeId<V> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.0, other.0)
     }
 }
 
-impl<V> Eq for VertexId<V> {}
+impl<V> Eq for NodeId<V> {}
 
-impl<V> Clone for VertexId<V> {
+impl<V> Clone for NodeId<V> {
     fn clone(&self) -> Self {
-        VertexId(self.0)
+        NodeId(self.0)
     }
 }
 
-impl<V> Copy for VertexId<V> {}
+impl<V> Copy for NodeId<V> {}
 
-impl<V> Hash for VertexId<V> {
+impl<V> Hash for NodeId<V> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
@@ -47,13 +47,13 @@ where
         Self { neighbors_fn, root }
     }
 
-    fn root(&self) -> VertexId<V> {
-        VertexId(&self.root)
+    fn root(&self) -> NodeId<V> {
+        NodeId(&self.root)
     }
 
     #[cfg(feature = "pathfinding")]
-    fn vertex_id(&self, v: &V) -> VertexId<V> {
-        VertexId(v)
+    fn node_id(&self, v: &V) -> NodeId<V> {
+        NodeId(v)
     }
 }
 
@@ -61,19 +61,19 @@ impl<V, F> Graph for OwnedObjectGraph<V, F>
 where
     F: for<'a> Fn(&'a V) -> Vec<&'a V>,
 {
-    type VertexId = VertexId<V>;
-    type VertexData = V;
+    type NodeId = NodeId<V>;
+    type NodeData = V;
     type EdgeData = ();
-    type EdgeId = (VertexId<V>, VertexId<V>);
+    type EdgeId = (NodeId<V>, NodeId<V>);
     type Directedness = Directed;
 
-    fn edges_from(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        let vertex_data: &Self::VertexData = self.vertex_data(from.clone());
-        let items = (self.neighbors_fn)(vertex_data);
-        items.into_iter().map(move |v| (from, VertexId(v)))
+    fn edges_from(&self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + '_ {
+        let node_data: &Self::NodeData = self.node_data(from.clone());
+        let items = (self.neighbors_fn)(node_data);
+        items.into_iter().map(move |v| (from, NodeId(v)))
     }
 
-    fn vertex_data(&self, id: VertexId<V>) -> &Self::VertexData {
+    fn node_data(&self, id: NodeId<V>) -> &Self::NodeData {
         unsafe { &*id.0 }
     }
 
@@ -81,15 +81,15 @@ where
         &()
     }
 
-    fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId> {
+    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
         self.bfs(self.root())
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
-        self.vertex_ids().flat_map(|from| self.edges_from(from))
+        self.node_ids().flat_map(|from| self.edges_from(from))
     }
 
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
         eid
     }
 }
@@ -117,17 +117,17 @@ fn test_object_graph() {
     let graph = OwnedObjectGraph::new(node1, |node: &Node| node.neighbors.iter().collect());
 
     let root_id = graph.root();
-    assert_eq!(graph.vertex_data(root_id.clone()).value, 1);
+    assert_eq!(graph.node_data(root_id.clone()).value, 1);
 
     let successors: Vec<_> = graph.successors(root_id.clone()).into_iter().collect();
     assert_eq!(successors.len(), 1);
-    assert_eq!(graph.vertex_data(successors[0].clone()).value, 2);
+    assert_eq!(graph.node_data(successors[0].clone()).value, 2);
     let second_successors: Vec<_> = graph
         .successors(successors[0].clone())
         .into_iter()
         .collect();
     assert_eq!(second_successors.len(), 1);
-    assert_eq!(graph.vertex_data(second_successors[0].clone()).value, 3);
+    assert_eq!(graph.node_data(second_successors[0].clone()).value, 3);
 
     assert!(graph.has_edge(root_id.clone(), successors[0].clone()));
     assert!(!graph.has_edge(root_id.clone(), second_successors[0].clone()));
@@ -165,19 +165,19 @@ fn test_shortest_paths() {
 
     fn values<'a, F: for<'b> Fn(&'b Node<'a>) -> Vec<&'b Node<'a>>>(
         graph: &OwnedObjectGraph<Node<'a>, F>,
-        path: &Vec<VertexId<Node<'a>>>,
+        path: &Vec<NodeId<Node<'a>>>,
     ) -> Vec<i32> {
         path.iter()
-            .map(|vid| graph.vertex_data(vid.clone()).value)
+            .map(|vid| graph.node_data(vid.clone()).value)
             .collect()
     }
 
     let graph = OwnedObjectGraph::new(node1, |node: &Node| node.neighbors.clone());
 
     let id1 = graph.root();
-    let id2 = graph.vertex_id(&node2);
-    let id3 = graph.vertex_id(&node3);
-    let id4 = graph.vertex_id(&node4);
+    let id2 = graph.node_id(&node2);
+    let id3 = graph.node_id(&node3);
+    let id4 = graph.node_id(&node4);
 
     let paths = graph.shortest_paths(id1.clone(), |_| 1);
     assert_eq!(paths.len(), 4);
