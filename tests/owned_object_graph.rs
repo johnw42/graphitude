@@ -2,69 +2,69 @@ use std::{fmt::Debug, hash::Hash};
 
 use jrw_graph::{Graph, directedness::Directed};
 
-struct NodeId<V>(*const V);
+struct NodeId<N>(*const N);
 
-impl<V> Debug for NodeId<V> {
+impl<N> Debug for NodeId<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "NodeId({:?})", self.0)
     }
 }
 
-impl<V> PartialEq for NodeId<V> {
+impl<N> PartialEq for NodeId<N> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.0, other.0)
     }
 }
 
-impl<V> Eq for NodeId<V> {}
+impl<N> Eq for NodeId<N> {}
 
-impl<V> Clone for NodeId<V> {
+impl<N> Clone for NodeId<N> {
     fn clone(&self) -> Self {
         NodeId(self.0)
     }
 }
 
-impl<V> Copy for NodeId<V> {}
+impl<N> Copy for NodeId<N> {}
 
-impl<V> Hash for NodeId<V> {
+impl<N> Hash for NodeId<N> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
 // A graph representation for traversing object graphs using a user-provided neighbor function.
-struct OwnedObjectGraph<V, F> {
+struct OwnedObjectGraph<N, F> {
     neighbors_fn: F,
-    root: V,
+    root: N,
 }
 
-impl<V, F> OwnedObjectGraph<V, F>
+impl<N, F> OwnedObjectGraph<N, F>
 where
-    F: for<'a> Fn(&'a V) -> Vec<&'a V>,
+    F: for<'a> Fn(&'a N) -> Vec<&'a N>,
 {
     // Create a new ObjectGraph given an object and a function to get its neighbors.
-    fn new(root: V, neighbors_fn: F) -> Self {
+    fn new(root: N, neighbors_fn: F) -> Self {
         Self { neighbors_fn, root }
     }
 
-    fn root(&self) -> NodeId<V> {
+    fn root(&self) -> NodeId<N> {
         NodeId(&self.root)
     }
 
     #[cfg(feature = "pathfinding")]
-    fn node_id(&self, v: &V) -> NodeId<V> {
+    fn node_id(&self, v: &N) -> NodeId<N> {
         NodeId(v)
     }
 }
 
-impl<V, F> Graph for OwnedObjectGraph<V, F>
+impl<N, F> Graph for OwnedObjectGraph<N, F>
 where
-    F: for<'a> Fn(&'a V) -> Vec<&'a V>,
+    F: for<'a> Fn(&'a N) -> Vec<&'a N>,
 {
-    type NodeId = NodeId<V>;
-    type NodeData = V;
+    type NodeId = NodeId<N>;
+    type NodeData = N;
     type EdgeData = ();
-    type EdgeId = (NodeId<V>, NodeId<V>);
+    type EdgeId = (NodeId<N>, NodeId<N>);
     type Directedness = Directed;
 
     fn edges_from(&self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + '_ {
@@ -73,7 +73,7 @@ where
         items.into_iter().map(move |v| (from, NodeId(v)))
     }
 
-    fn node_data(&self, id: NodeId<V>) -> &Self::NodeData {
+    fn node_data(&self, id: NodeId<N>) -> &Self::NodeData {
         unsafe { &*id.0 }
     }
 

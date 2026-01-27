@@ -6,19 +6,19 @@ use crate::util::sort_pair;
 use crate::adjacency_matrix::{AdjacencyMatrix, HashStorage, Symmetric};
 
 #[derive(Clone, Debug)]
-pub struct SymmetricHashAdjacencyMatrix<K, V>
+pub struct SymmetricHashAdjacencyMatrix<K, N>
 where
     K: Hash + Eq + Clone + Ord + Debug,
 {
-    edges: HashMap<K, HashMap<K, *mut V>>,
+    edges: HashMap<K, HashMap<K, *mut N>>,
 }
 
-impl<K, V> AdjacencyMatrix for SymmetricHashAdjacencyMatrix<K, V>
+impl<K, N> AdjacencyMatrix for SymmetricHashAdjacencyMatrix<K, N>
 where
     K: Hash + Eq + Clone + Ord + Debug,
 {
     type Key = K;
-    type Value = V;
+    type Value = N;
     type Symmetry = Symmetric;
     type Storage = HashStorage;
 
@@ -28,8 +28,8 @@ where
         }
     }
 
-    fn insert(&mut self, k1: K, k2: K, data: V) -> Option<V> {
-        let to_insert = Box::leak(Box::new(data)) as *mut V;
+    fn insert(&mut self, k1: K, k2: K, data: N) -> Option<N> {
+        let to_insert = Box::leak(Box::new(data)) as *mut N;
         let old_data = self
             .edges
             .entry(k1.clone())
@@ -40,7 +40,7 @@ where
         old_data.map(|d| unsafe { std::ptr::read(d) })
     }
 
-    fn get(&self, from: K, into: K) -> Option<&V> {
+    fn get(&self, from: K, into: K) -> Option<&N> {
         let (k1, k2) = sort_pair(from, into);
         self.edges
             .get(&k1)
@@ -48,7 +48,7 @@ where
             .map(|ptr| unsafe { &**ptr })
     }
 
-    fn remove(&mut self, from: K, into: K) -> Option<V> {
+    fn remove(&mut self, from: K, into: K) -> Option<N> {
         let (k1, k2) = sort_pair(from, into);
         self.edges
             .get_mut(&k1)
@@ -56,9 +56,9 @@ where
             .map(|v| unsafe { std::ptr::read(v) })
     }
 
-    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a N)>
     where
-        V: 'a,
+        N: 'a,
     {
         self.edges.iter().flat_map(|(k1, targets)| {
             targets.iter().filter_map(|(k2, v)| {
@@ -72,9 +72,9 @@ where
         sort_pair(k1, k2)
     }
 
-    fn edges_from<'a>(&'a self, k1: K) -> impl Iterator<Item = (K, &'a V)>
+    fn edges_from<'a>(&'a self, k1: K) -> impl Iterator<Item = (K, &'a N)>
     where
-        V: 'a,
+        N: 'a,
     {
         self.edges
             .get(&k1)
@@ -82,15 +82,15 @@ where
             .flat_map(|targets| targets.iter().map(|(k2, v)| (k2.clone(), unsafe { &**v })))
     }
 
-    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a V)>
+    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a N)>
     where
-        V: 'a,
+        N: 'a,
     {
         self.edges_from(into)
     }
 }
 
-impl<K, V> Drop for SymmetricHashAdjacencyMatrix<K, V>
+impl<K, N> Drop for SymmetricHashAdjacencyMatrix<K, N>
 where
     K: Hash + Eq + Clone + Ord + Debug,
 {

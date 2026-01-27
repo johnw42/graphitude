@@ -7,28 +7,28 @@ pub trait Directedness {
     type EdgeData;
 }
 
-struct Directed<V, E>(PhantomData<(V, E)>);
+struct Directed<N, E>(PhantomData<(N, E)>);
 
-impl<V, E> Directedness for Directed<V, E> {
-    type NodeData = V;
+impl<N, E> Directedness for Directed<N, E> {
+    type NodeData = N;
     type EdgeData = E;
 }
 
-struct Undirected<V, E>(PhantomData<(V, E)>);
+struct Undirected<N, E>(PhantomData<(N, E)>);
 
-impl<V, E> Directedness for Undirected<V, E> {
-    type NodeData = V;
+impl<N, E> Directedness for Undirected<N, E> {
+    type NodeData = N;
     type EdgeData = E;
 }
 
 pub trait EdgeStorage {
     type Adjacency;
-    type Neighbors<V, E, T>;
+    type Neighbors<N, E, T>;
 }
 
 struct NeighborList;
 
 impl EdgeStorage for NeighborList {
     type Adjacency = ();
-    type Neighbors<V, E, T> = HashMap<NodeId<V, E>, T>;
+    type Neighbors<N, E, T> = HashMap<NodeId<N, E>, T>;
 }

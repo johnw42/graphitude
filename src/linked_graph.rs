@@ -2,105 +2,105 @@ use std::{fmt::Debug, hash::Hash};
 
 use crate::{Graph, GraphMut, debug::format_debug, directedness::Directed};
 
-struct NodeNode<V, E> {
-    data: V,
-    edges_out: Vec<Box<EdgeNode<V, E>>>,
-    edges_in: Vec<EdgeId<V, E>>,
+struct NodeNode<N, E> {
+    data: N,
+    edges_out: Vec<Box<EdgeNode<N, E>>>,
+    edges_in: Vec<EdgeId<N, E>>,
 }
 
 #[derive(PartialOrd, Ord)]
-pub struct NodeId<V, E>(*mut NodeNode<V, E>);
+pub struct NodeId<N, E>(*mut NodeNode<N, E>);
 
-impl<V, E> Debug for NodeId<V, E> {
+impl<N, E> Debug for NodeId<N, E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "NodeId({:?})", self.0)
     }
 }
 
-impl<V, E> Clone for NodeId<V, E> {
+impl<N, E> Clone for NodeId<N, E> {
     fn clone(&self) -> Self {
         NodeId(self.0)
     }
 }
 
-impl<V, E> Copy for NodeId<V, E> {}
+impl<N, E> Copy for NodeId<N, E> {}
 
-impl<V, E> PartialEq for NodeId<V, E> {
+impl<N, E> PartialEq for NodeId<N, E> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<V, E> Eq for NodeId<V, E> {}
+impl<N, E> Eq for NodeId<N, E> {}
 
-impl<V, E> Hash for NodeId<V, E> {
+impl<N, E> Hash for NodeId<N, E> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         (self.0 as usize).hash(state);
     }
 }
 
-impl<V, E> From<&NodeNode<V, E>> for NodeId<V, E> {
-    fn from(ptr: &NodeNode<V, E>) -> Self {
+impl<N, E> From<&NodeNode<N, E>> for NodeId<N, E> {
+    fn from(ptr: &NodeNode<N, E>) -> Self {
         NodeId(ptr as *const _ as *mut _)
     }
 }
 
-struct EdgeNode<V, E> {
+struct EdgeNode<N, E> {
     data: E,
-    from: NodeId<V, E>,
-    into: NodeId<V, E>,
+    from: NodeId<N, E>,
+    into: NodeId<N, E>,
 }
 
 #[derive(PartialOrd, Ord)]
-pub struct EdgeId<V, E>(*mut EdgeNode<V, E>);
+pub struct EdgeId<N, E>(*mut EdgeNode<N, E>);
 
-impl<V, E> Debug for EdgeId<V, E> {
+impl<N, E> Debug for EdgeId<N, E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "EdgeId({:?})", self.0)
     }
 }
 
-impl<V, E> Clone for EdgeId<V, E> {
+impl<N, E> Clone for EdgeId<N, E> {
     fn clone(&self) -> Self {
         EdgeId(self.0)
     }
 }
 
-impl<V, E> Copy for EdgeId<V, E> {}
+impl<N, E> Copy for EdgeId<N, E> {}
 
-impl<V, E> PartialEq for EdgeId<V, E> {
+impl<N, E> PartialEq for EdgeId<N, E> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<V, E> Eq for EdgeId<V, E> {}
+impl<N, E> Eq for EdgeId<N, E> {}
 
-impl<V, E> Hash for EdgeId<V, E> {
+impl<N, E> Hash for EdgeId<N, E> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         (self.0 as usize).hash(state);
     }
 }
 
-impl<V, E> From<&EdgeNode<V, E>> for EdgeId<V, E> {
-    fn from(ptr: &EdgeNode<V, E>) -> Self {
+impl<N, E> From<&EdgeNode<N, E>> for EdgeId<N, E> {
+    fn from(ptr: &EdgeNode<N, E>) -> Self {
         EdgeId(ptr as *const _ as *mut _)
     }
 }
 
-impl<V, E> From<&Box<EdgeNode<V, E>>> for EdgeId<V, E> {
-    fn from(ebox: &Box<EdgeNode<V, E>>) -> Self {
+impl<N, E> From<&Box<EdgeNode<N, E>>> for EdgeId<N, E> {
+    fn from(ebox: &Box<EdgeNode<N, E>>) -> Self {
         EdgeId::from(&**ebox)
     }
 }
 
 /// A graph representation using linked node and edge nodes.
 /// Nodes and edges are stored in insertion order.
-pub struct LinkedGraph<V, E> {
-    nodes: Vec<Box<NodeNode<V, E>>>,
+pub struct LinkedGraph<N, E> {
+    nodes: Vec<Box<NodeNode<N, E>>>,
 }
 
-impl<V, E> LinkedGraph<V, E> {
+impl<N, E> LinkedGraph<N, E> {
     pub fn new() -> Self {
         Self {
             nodes: Vec::new(),
@@ -108,10 +108,10 @@ impl<V, E> LinkedGraph<V, E> {
     }
 }
 
-impl<V, E> Graph for LinkedGraph<V, E> {
-    type NodeId = NodeId<V, E>;
-    type NodeData = V;
-    type EdgeId = EdgeId<V, E>;
+impl<N, E> Graph for LinkedGraph<N, E> {
+    type NodeId = NodeId<N, E>;
+    type NodeData = N;
+    type EdgeId = EdgeId<N, E>;
     type EdgeData = E;
     type Directedness = Directed;
 
@@ -170,7 +170,7 @@ impl<V, E> Graph for LinkedGraph<V, E> {
     }
 }
 
-impl<V, E> GraphMut for LinkedGraph<V, E> {
+impl<N, E> GraphMut for LinkedGraph<N, E> {
     fn clear(&mut self) {
         self.nodes.clear();
     }
@@ -203,7 +203,7 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
         (eid, None)
     }
 
-    fn remove_node(&mut self, nid: Self::NodeId) -> V {
+    fn remove_node(&mut self, nid: Self::NodeId) -> N {
         let index = self
             .nodes
             .iter()
@@ -243,9 +243,9 @@ impl<V, E> GraphMut for LinkedGraph<V, E> {
     }
 }
 
-impl<V, E> Debug for LinkedGraph<V, E>
+impl<N, E> Debug for LinkedGraph<N, E>
 where
-    V: Debug,
+    N: Debug,
     E: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

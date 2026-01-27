@@ -4,15 +4,15 @@ use bitvec::vec::BitVec;
 
 use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, BitvecStorage};
 
-pub struct AsymmetricBitvecAdjacencyMatrix<K, V> {
-    data: Vec<MaybeUninit<V>>,
+pub struct AsymmetricBitvecAdjacencyMatrix<K, N> {
+    data: Vec<MaybeUninit<N>>,
     matrix: BitVec,
     size: usize,
     log2_size: u32,
     key: PhantomData<K>,
 }
 
-impl<K, V> AsymmetricBitvecAdjacencyMatrix<K, V>
+impl<K, N> AsymmetricBitvecAdjacencyMatrix<K, N>
 where
     K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash,
 {
@@ -40,22 +40,22 @@ where
         self.matrix[index]
     }
 
-    fn get_data_read(&self, index: usize) -> Option<V> {
+    fn get_data_read(&self, index: usize) -> Option<N> {
         self.is_live(index)
             .then(|| self.unchecked_get_data_read(index))
     }
 
-    fn get_data_ref(&self, index: usize) -> Option<&V> {
+    fn get_data_ref(&self, index: usize) -> Option<&N> {
         self.is_live(index)
             .then(|| self.unchecked_get_data_ref(index))
     }
 
-    fn unchecked_get_data_read(&self, index: usize) -> V {
+    fn unchecked_get_data_read(&self, index: usize) -> N {
         // SAFETY: Caller must ensure that the index is live.
         unsafe { self.data[index].assume_init_read() }
     }
 
-    fn unchecked_get_data_ref(&self, index: usize) -> &V {
+    fn unchecked_get_data_ref(&self, index: usize) -> &N {
         // SAFETY: Caller must ensure that the index is live.
         unsafe { self.data[index].assume_init_ref() }
     }
@@ -72,12 +72,12 @@ where
     }
 }
 
-impl<K, V> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<K, V>
+impl<K, N> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<K, N>
 where
     K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash,
 {
     type Key = K;
-    type Value = V;
+    type Value = N;
     type Symmetry = Asymmetric;
     type Storage = BitvecStorage;
 
@@ -91,7 +91,7 @@ where
         }
     }
 
-    fn insert(&mut self, from: K, into: K, data: V) -> Option<V> {
+    fn insert(&mut self, from: K, into: K, data: N) -> Option<N> {
         if self.index(from, into).is_none() {
             let required_size = usize::max(from.into(), into.into()) + 1;
             if self.size < required_size {
@@ -118,20 +118,20 @@ where
         old_data
     }
 
-    fn get(&self, from: K, into: K) -> Option<&V> {
+    fn get(&self, from: K, into: K) -> Option<&N> {
         self.get_data_ref(self.index(from, into)?)
     }
 
-    fn remove(&mut self, from: K, into: K) -> Option<V> {
+    fn remove(&mut self, from: K, into: K) -> Option<N> {
         let index = self.index(from, into)?;
         let was_live = self.is_live(index);
         self.matrix.set(index, false);
         was_live.then(|| self.unchecked_get_data_read(index))
     }
 
-    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a N)>
     where
-        V: 'a,
+        N: 'a,
     {
         self.matrix.iter_ones().map(|index| {
             let (from, into) = self.coordinates(index);
@@ -139,9 +139,9 @@ where
         })
     }
 
-    fn edges_from<'a>(&'a self, from: K) -> impl Iterator<Item = (K, &'a V)>
+    fn edges_from<'a>(&'a self, from: K) -> impl Iterator<Item = (K, &'a N)>
     where
-        V: 'a,
+        N: 'a,
     {
         let row_start = self.index(from, 0.into()).expect("Invalid 'from' index");
         let row_end = row_start + self.size;
@@ -150,9 +150,9 @@ where
             .map(|index| (index.into(), self.unchecked_get_data_ref(index.into())))
     }
 
-    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a V)>
+    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a N)>
     where
-        V: 'a,
+        N: 'a,
     {
         let (_, into_col) = self.coordinates(into.into());
         (0..self.size)

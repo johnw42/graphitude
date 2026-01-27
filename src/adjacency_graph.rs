@@ -8,42 +8,42 @@ use crate::{
     directedness::Directedness, id_vec::{IdVec, IdVecIndex},
 };
 
-pub struct EdgeId<V, D>(V, V, PhantomData<D>);
+pub struct EdgeId<N, D>(N, N, PhantomData<D>);
 
-impl<V, D> EdgeId<V, D>
+impl<N, D> EdgeId<N, D>
 where
     D: Directedness,
-    V: Ord,
+    N: Ord,
 {
-    pub fn new(from: V, into: V) -> Self {
+    pub fn new(from: N, into: N) -> Self {
         let (n1, n2) = D::maybe_sort(from, into);
         EdgeId(n1, n2, PhantomData)
     }
 }
 
-impl<V, D> Clone for EdgeId<V, D>
+impl<N, D> Clone for EdgeId<N, D>
 where
-    V: Clone,
+    N: Clone,
 {
     fn clone(&self) -> Self {
         EdgeId(self.0.clone(), self.1.clone(), PhantomData)
     }
 }
 
-impl<V, D> PartialEq for EdgeId<V, D>
+impl<N, D> PartialEq for EdgeId<N, D>
 where
-    V: PartialEq,
+    N: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1
     }
 }
 
-impl<V, D> Eq for EdgeId<V, D> where V: Eq {}
+impl<N, D> Eq for EdgeId<N, D> where N: Eq {}
 
-impl<V, D> Hash for EdgeId<V, D>
+impl<N, D> Hash for EdgeId<N, D>
 where
-    V: Hash,
+    N: Hash,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
@@ -51,39 +51,39 @@ where
     }
 }
 
-impl<V, D> Into<(V, V)> for EdgeId<V, D> {
-    fn into(self) -> (V, V) {
+impl<N, D> Into<(N, N)> for EdgeId<N, D> {
+    fn into(self) -> (N, N) {
         (self.0, self.1)
     }
 }
 
-impl<'a, V, D> Into<(&'a V, &'a V)> for &'a EdgeId<V, D> {
-    fn into(self) -> (&'a V, &'a V) {
+impl<'a, N, D> Into<(&'a N, &'a N)> for &'a EdgeId<N, D> {
+    fn into(self) -> (&'a N, &'a N) {
         (&self.0, &self.1)
     }
 }
 
-impl<V, D> Debug for EdgeId<V, D>
+impl<N, D> Debug for EdgeId<N, D>
 where
-    V: Debug,
+    N: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "EdgeId({:?}, {:?})", self.0, self.1)
     }
 }
 
-pub struct AdjacencyGraph<V, E, D, S = HashStorage>
+pub struct AdjacencyGraph<N, E, D, S = HashStorage>
 where
     D: Directedness,
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
 {
-    nodes: IdVec<V>,
+    nodes: IdVec<N>,
     adjacency: <(D::Symmetry, S) as AdjacencyMatrixSelector<IdVecIndex, E>>::Matrix,
     directedness: PhantomData<D>,
 }
 
-impl<V, E, D, S> AdjacencyGraph<V, E, D, S>
+impl<N, E, D, S> AdjacencyGraph<N, E, D, S>
 where
     D: Directedness,
     S: Storage,
@@ -98,7 +98,7 @@ where
     }
 }
 
-impl<V, E, D, S> Graph for AdjacencyGraph<V, E, D, S>
+impl<N, E, D, S> Graph for AdjacencyGraph<N, E, D, S>
 where
     D: Directedness,
     S: Storage,
@@ -106,7 +106,7 @@ where
 {
     type EdgeData = E;
     type EdgeId = EdgeId<Self::NodeId, Self::Directedness>;
-    type NodeData = V;
+    type NodeData = N;
     type NodeId = IdVecIndex;
     type Directedness = D;
 
@@ -161,7 +161,7 @@ where
     }
 }
 
-impl<V, E, D, S> GraphMut for AdjacencyGraph<V, E, D, S>
+impl<N, E, D, S> GraphMut for AdjacencyGraph<N, E, D, S>
 where
     D: Directedness,
     S: Storage,
@@ -198,9 +198,9 @@ where
     }
 }
 
-impl<V, E, D, S> Debug for AdjacencyGraph<V, E, D, S>
+impl<N, E, D, S> Debug for AdjacencyGraph<N, E, D, S>
 where
-    V: Debug,
+    N: Debug,
     E: Debug,
     D: Directedness,
     S: Storage,

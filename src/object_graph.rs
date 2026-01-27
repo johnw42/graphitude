@@ -4,61 +4,61 @@ use crate::directedness::Directed;
 
 use super::Graph;
 
-pub struct NodeId<'g, V>(*const V, PhantomData<&'g V>);
+pub struct NodeId<'g, N>(*const N, PhantomData<&'g N>);
 
-impl<'g, V> PartialEq for NodeId<'g, V> {
+impl<'g, N> PartialEq for NodeId<'g, N> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.0, other.0)
     }
 }
 
-impl<'g, V> Eq for NodeId<'g, V> {}
+impl<'g, N> Eq for NodeId<'g, N> {}
 
-impl<'g, V> Clone for NodeId<'g, V> {
+impl<'g, N> Clone for NodeId<'g, N> {
     fn clone(&self) -> Self {
         NodeId(self.0, self.1)
     }
 }
 
-impl<'g, V> Copy for NodeId<'g, V> {}
+impl<'g, N> Copy for NodeId<'g, N> {}
 
-impl<'g, V> Hash for NodeId<'g, V> {
+impl<'g, N> Hash for NodeId<'g, N> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
-impl<'g, V> Debug for NodeId<'g, V> {
+impl<'g, N> Debug for NodeId<'g, N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "NodeId({:?})", self.0)
     }
 }
 
-impl<'a, V> From<&'a V> for NodeId<'a, V> {
-    fn from(v: &'a V) -> Self {
-        NodeId(v as *const V, PhantomData)
+impl<'a, N> From<&'a N> for NodeId<'a, N> {
+    fn from(v: &'a N) -> Self {
+        NodeId(v as *const N, PhantomData)
     }
 }
 
-pub type EdgeId<'g, V> = (NodeId<'g, V>, NodeId<'g, V>);
+pub type EdgeId<'g, N> = (NodeId<'g, N>, NodeId<'g, N>);
 
 /// A graph representation for traversing object graphs using a user-provided neighbor function.
-pub struct ObjectGraph<'a, V, F> {
+pub struct ObjectGraph<'a, N, F> {
     neighbors_fn: F,
-    roots: Vec<&'a V>,
+    roots: Vec<&'a N>,
 }
 
-impl<'a, V, F> ObjectGraph<'a, V, F>
+impl<'a, N, F> ObjectGraph<'a, N, F>
 where
-    F: Fn(&'a V) -> Vec<&'a V>,
+    F: Fn(&'a N) -> Vec<&'a N>,
 {
     /// Create a new ObjectGraph given an object and a function to get its neighbors.
-    pub fn new(root: &'a V, neighbors_fn: F) -> Self {
+    pub fn new(root: &'a N, neighbors_fn: F) -> Self {
         Self::new_multi(vec![root], neighbors_fn)
     }
 
     /// Create a new ObjectGraph given an object and a function to get its neighbors.
-    pub fn new_multi(roots: Vec<&'a V>, neighbors_fn: F) -> Self {
+    pub fn new_multi(roots: Vec<&'a N>, neighbors_fn: F) -> Self {
         Self {
             neighbors_fn,
             roots,
@@ -66,7 +66,7 @@ where
     }
 
     /// Get the NodeId of the root node.
-    pub fn roots(&self) -> impl Iterator<Item = NodeId<'a, V>> {
+    pub fn roots(&self) -> impl Iterator<Item = NodeId<'a, N>> {
         self.roots.iter().cloned().map(NodeId::from)
     }
 
@@ -76,11 +76,11 @@ where
     /// This function is unsafe because it creates a NodeId from a reference.
     /// The caller must ensure that the reference is to a valid node in the
     /// graph.
-    pub unsafe fn node_id(&self, v: &'a V) -> NodeId<'a, V> {
+    pub unsafe fn node_id(&self, v: &'a N) -> NodeId<'a, N> {
         NodeId::from(v)
     }
 
-    fn neighbors(&self, id: NodeId<'a, V>) -> Vec<<Self as Graph>::NodeId> {
+    fn neighbors(&self, id: NodeId<'a, N>) -> Vec<<Self as Graph>::NodeId> {
         let v = self.node_data(id);
         (self.neighbors_fn)(v)
             .iter()
@@ -88,23 +88,23 @@ where
             .collect()
     }
 
-    fn make_edge_id(&self, from: NodeId<'a, V>, to: NodeId<'a, V>) -> EdgeId<'a, V> {
+    fn make_edge_id(&self, from: NodeId<'a, N>, to: NodeId<'a, N>) -> EdgeId<'a, N> {
         (from, to)
     }
 }
 
-impl<'a, V, F> Graph for ObjectGraph<'a, V, F>
+impl<'a, N, F> Graph for ObjectGraph<'a, N, F>
 where
-    F: Fn(&'a V) -> Vec<&'a V>,
+    F: Fn(&'a N) -> Vec<&'a N>,
 {
-    type NodeId = NodeId<'a, V>;
-    type NodeData = &'a V;
+    type NodeId = NodeId<'a, N>;
+    type NodeData = &'a N;
     type EdgeId = (Self::NodeId, Self::NodeId);
     type EdgeData = ();
     type Directedness = Directed;
 
-    fn node_data(&self, id: NodeId<V>) -> &<Self as Graph>::NodeData {
-        unsafe { transmute::<&*const V, &&'a V>(&id.0) }
+    fn node_data(&self, id: NodeId<N>) -> &<Self as Graph>::NodeData {
+        unsafe { transmute::<&*const N, &&'a N>(&id.0) }
     }
 
     fn edge_data(&self, (from, to): <Self as Graph>::EdgeId) -> &<Self as Graph>::EdgeData {
