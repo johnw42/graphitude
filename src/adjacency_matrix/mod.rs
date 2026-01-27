@@ -91,42 +91,42 @@ where
 }
 
 /// Trait for selecting an adjacency matrix implementation based on symmetry and storage.
-pub trait AdjacencyMatrixSelector<K, N>
+pub trait AdjacencyMatrixSelector<K, V>
 where
     K: Hash + Eq + Clone,
 {
-    type Matrix: AdjacencyMatrix<Key = K, Value = N>;
+    type Matrix: AdjacencyMatrix<Key = K, Value = V>;
 }
 
 #[cfg(feature = "bitvec")]
-impl<K, N> AdjacencyMatrixSelector<K, N> for (Asymmetric, BitvecStorage)
+impl<K, V> AdjacencyMatrixSelector<K, V> for (Asymmetric, BitvecStorage)
 where
     K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash,
 {
-    type Matrix = AsymmetricBitvecAdjacencyMatrix<K, N>;
+    type Matrix = AsymmetricBitvecAdjacencyMatrix<K, V>;
 }
 
 #[cfg(feature = "bitvec")]
-impl<K, N> AdjacencyMatrixSelector<K, N> for (Symmetric, BitvecStorage)
+impl<K, V> AdjacencyMatrixSelector<K, V> for (Symmetric, BitvecStorage)
 where
     K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord,
 {
-    type Matrix = SymmetricBitvecAdjacencyMatrix<K, N>;
+    type Matrix = SymmetricBitvecAdjacencyMatrix<K, V>;
 }
 
-impl<K, N> AdjacencyMatrixSelector<K, N> for (Symmetric, HashStorage)
+impl<K, V> AdjacencyMatrixSelector<K, V> for (Symmetric, HashStorage)
 where
     K: Hash + Eq + Clone + Ord + Debug,
 {
-    type Matrix = SymmetricHashAdjacencyMatrix<K, N>;
+    type Matrix = SymmetricHashAdjacencyMatrix<K, V>;
 }
 
-impl<K, N> AdjacencyMatrixSelector<K, N> for (Asymmetric, HashStorage)
+impl<K, V> AdjacencyMatrixSelector<K, V> for (Asymmetric, HashStorage)
 where
     K: Hash + Eq + Clone,
 {
-    type Matrix = AsymmetricHashAdjacencyMatrix<K, N>;
+    type Matrix = AsymmetricHashAdjacencyMatrix<K, V>;
 }
 
 // Helper type alias for convenient usage
-pub type SelectMatrix<Sym, Stor, K, N> = <(Sym, Stor) as AdjacencyMatrixSelector<K, N>>::Matrix;
+pub type SelectMatrix<Sym, Stor, K, V> = <(Sym, Stor) as AdjacencyMatrixSelector<K, V>>::Matrix;

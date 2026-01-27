@@ -11,14 +11,14 @@ use crate::util::sort_pair;
 
 use crate::adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric};
 
-pub struct SymmetricBitvecAdjacencyMatrix<K, N> {
-    data: Vec<MaybeUninit<N>>,
+pub struct SymmetricBitvecAdjacencyMatrix<K, V> {
+    data: Vec<MaybeUninit<V>>,
     liveness: BitVec,
     indexing: SymmetricMatrixIndexing,
     key: PhantomData<K>,
 }
 
-impl<K, N> SymmetricBitvecAdjacencyMatrix<K, N>
+impl<K, V> SymmetricBitvecAdjacencyMatrix<K, V>
 where
     K: Into<usize> + From<usize> + Clone + Copy + Eq,
 {
@@ -38,33 +38,33 @@ where
         }
     }
 
-    fn get_data_read(&self, index: usize) -> Option<N> {
+    fn get_data_read(&self, index: usize) -> Option<V> {
         self.liveness[index]
             .then(|| self.unchecked_get_data_read(index))
     }
 
-    fn get_data_ref(&self, index: usize) -> Option<&N> {
+    fn get_data_ref(&self, index: usize) -> Option<&V> {
         self.liveness[index]
             .then(|| self.unchecked_get_data_ref(index))
     }
 
-    fn unchecked_get_data_read(&self, index: usize) -> N {
+    fn unchecked_get_data_read(&self, index: usize) -> V {
         // SAFETY: Caller must ensure that the index is live.
         unsafe { self.data[index].assume_init_read() }
     }
 
-    fn unchecked_get_data_ref(&self, index: usize) -> &N {
+    fn unchecked_get_data_ref(&self, index: usize) -> &V {
         // SAFETY: Caller must ensure that the index is live.
         unsafe { self.data[index].assume_init_ref() }
     }
 }
 
-impl<N, K> AdjacencyMatrix for SymmetricBitvecAdjacencyMatrix<K, N>
+impl<V, K> AdjacencyMatrix for SymmetricBitvecAdjacencyMatrix<K, V>
 where
     K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord,
 {
     type Key = K;
-    type Value = N;
+    type Value = V;
     type Symmetry = Symmetric;
     type Storage = BitvecStorage;
 
@@ -77,7 +77,7 @@ where
         }
     }
 
-    fn insert(&mut self, from: K, into: K, data: N) -> Option<N> {
+    fn insert(&mut self, from: K, into: K, data: V) -> Option<V> {
         let (k1, k2) = sort_pair(from.into(), into.into());
         if self.indexing.index(k1.into(), k2.into()).is_none() {
             let required_size = (k2 + 1).next_power_of_two();
@@ -95,20 +95,20 @@ where
         old_data
     }
 
-    fn get(&self, from: K, into: K) -> Option<&N> {
+    fn get(&self, from: K, into: K) -> Option<&V> {
         self.get_data_ref(self.indexing.index(from.into(), into.into())?)
     }
 
-    fn remove(&mut self, from: K, into: K) -> Option<N> {
+    fn remove(&mut self, from: K, into: K) -> Option<V> {
         let index = self.indexing.index(from.into(), into.into())?;
         let was_live = self.liveness[index];
         self.liveness.set(index, false);
         was_live.then(|| self.unchecked_get_data_read(index))
     }
 
-    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a N)>
+    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
     where
-        N: 'a,
+        V: 'a,
     {
         self.liveness.iter_ones().map(|index| {
             let (k1, k2) = self.indexing.coordinates(index);
@@ -120,9 +120,9 @@ where
         sort_pair(k1, k2)
     }
 
-    fn edges_from<'a>(&'a self, from: K) -> impl Iterator<Item = (K, &'a N)>
+    fn edges_from<'a>(&'a self, from: K) -> impl Iterator<Item = (K, &'a V)>
     where
-        N: 'a,
+        V: 'a,
     {
         let from = from.into();
         self.indexing.row(from).filter_map(move |index| {
@@ -139,15 +139,15 @@ where
         })
     }
 
-    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a N)>
+    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a V)>
     where
-        N: 'a,
+        V: 'a,
     {
         self.edges_from(into)
     }
 }
 
-impl<K, N> Debug for SymmetricBitvecAdjacencyMatrix<K, N>
+impl<K, V> Debug for SymmetricBitvecAdjacencyMatrix<K, V>
 where
     K: Into<usize>,
 {

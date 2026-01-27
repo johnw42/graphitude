@@ -6,17 +6,17 @@ use std::{
 use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, HashStorage};
 
 #[derive(Clone, Debug)]
-pub struct AsymmetricHashAdjacencyMatrix<K, N> {
-    edges: HashMap<K, HashMap<K, N>>,
+pub struct AsymmetricHashAdjacencyMatrix<K, V> {
+    edges: HashMap<K, HashMap<K, V>>,
     back_edges: HashMap<K, HashSet<K>>,
 }
 
-impl<K, N> AdjacencyMatrix for AsymmetricHashAdjacencyMatrix<K, N>
+impl<K, V> AdjacencyMatrix for AsymmetricHashAdjacencyMatrix<K, V>
 where
     K: Hash + Eq + Clone,
 {
     type Key = K;
-    type Value = N;
+    type Value = V;
     type Symmetry = Asymmetric;
     type Storage = HashStorage;
 
@@ -27,7 +27,7 @@ where
         }
     }
 
-    fn insert(&mut self, from: K, into: K, data: N) -> Option<N> {
+    fn insert(&mut self, from: K, into: K, data: V) -> Option<V> {
         self.back_edges
             .entry(into.clone())
             .or_default()
@@ -35,11 +35,11 @@ where
         self.edges.entry(from).or_default().insert(into, data)
     }
 
-    fn get(&self, from: K, into: K) -> Option<&N> {
+    fn get(&self, from: K, into: K) -> Option<&V> {
         self.edges.get(&from).and_then(|m| m.get(&into))
     }
 
-    fn remove(&mut self, from: K, into: K) -> Option<N> {
+    fn remove(&mut self, from: K, into: K) -> Option<V> {
         if let Some(value) = self.edges.get_mut(&from).and_then(|m| m.remove(&into)) {
             if let Some(back_edges) = self.back_edges.get_mut(&into) {
                 if back_edges.remove(&from) && back_edges.is_empty() {
@@ -52,9 +52,9 @@ where
         }
     }
 
-    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a N)>
+    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
     where
-        N: 'a,
+        V: 'a,
     {
         self.edges.iter().flat_map(|(from, targets)| {
             targets
@@ -63,9 +63,9 @@ where
         })
     }
 
-    fn edges_from<'a>(&'a self, from: K) -> impl Iterator<Item = (K, &'a N)>
+    fn edges_from<'a>(&'a self, from: K) -> impl Iterator<Item = (K, &'a V)>
     where
-        N: 'a,
+        V: 'a,
     {
         self.edges
             .get(&from)
@@ -73,9 +73,9 @@ where
             .flat_map(|targets| targets.iter().map(|(into, data)| (into.clone(), data)))
     }
 
-    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a N)>
+    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a V)>
     where
-        N: 'a,
+        V: 'a,
     {
         let sources = self
             .back_edges
