@@ -33,7 +33,8 @@ where
 
     /// Gets the linear index for the edge from `from` to `into`, if within bounds.
     fn index(&self, from: K, into: K) -> Option<usize> {
-        (from.into() < self.size && into.into() < self.size).then(|| self.unchecked_index(from, into))
+        (from.into() < self.size && into.into() < self.size)
+            .then(|| self.unchecked_index(from, into))
     }
 
     fn is_live(&self, index: usize) -> bool {
@@ -155,8 +156,10 @@ where
         V: 'a,
     {
         let (_, into_col) = self.coordinates(into.into());
-        (0..self.size)
-            .filter_map(move |from_row| self.get(from_row.into(), into_col).map(|data| (from_row.into(), data)))
+        (0..self.size).filter_map(move |from_row| {
+            self.get(from_row.into(), into_col)
+                .map(|data| (from_row.into(), data))
+        })
     }
 }
 

@@ -5,7 +5,7 @@ use std::mem::MaybeUninit;
 
 use bitvec::vec::BitVec;
 
-use crate::euler_sum::{euler_sum, euler_sum_inv_floor};
+use crate::euler_sum::euler_sum;
 use crate::symmetric_maxtrix_indexing::SymmetricMatrixIndexing;
 use crate::util::sort_pair;
 
@@ -39,13 +39,11 @@ where
     }
 
     fn get_data_read(&self, index: usize) -> Option<V> {
-        self.liveness[index]
-            .then(|| self.unchecked_get_data_read(index))
+        self.liveness[index].then(|| self.unchecked_get_data_read(index))
     }
 
     fn get_data_ref(&self, index: usize) -> Option<&V> {
-        self.liveness[index]
-            .then(|| self.unchecked_get_data_ref(index))
+        self.liveness[index].then(|| self.unchecked_get_data_ref(index))
     }
 
     fn unchecked_get_data_read(&self, index: usize) -> V {
@@ -82,10 +80,10 @@ where
         if self.indexing.index(k1.into(), k2.into()).is_none() {
             let required_size = (k2 + 1).next_power_of_two();
             if self.indexing.storage_size() < required_size {
-                let repr_size = euler_sum(required_size);
+                self.indexing = SymmetricMatrixIndexing::new(required_size);
+                let repr_size = self.indexing.unchecked_index(0, required_size);
                 self.liveness.resize(repr_size, false);
                 self.data.resize_with(repr_size, MaybeUninit::uninit);
-                self.indexing.resize(required_size);
             }
         }
         let index = self.indexing.unchecked_index(k1.into(), k2.into());

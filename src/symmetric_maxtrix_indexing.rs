@@ -2,20 +2,23 @@
 
 use std::ops::Range;
 
-use crate::{euler_sum::{euler_sum, euler_sum_inv_floor}, util::sort_pair};
+use crate::{
+    euler_sum::{euler_sum, euler_sum_inv_floor},
+    util::sort_pair,
+};
 
 /// Utilities for indexing into symmetric matrices stored in a flat array.  Only
 /// entries where `column <= row` are stored, so for, for example, for a 4×4
 /// symmetric matrix stored in a flat array, the entries are stored at the
 /// following indices in an array of length 10:
-/// 
+///
 /// ```text
 /// ⎛ 0 1 3 6 ⎞
 /// ⎟ 1 2 4 8 ⎟
 /// ⎟ 3 4 5 8 ⎟
 /// ⎝ 6 8 8 9 ⎠
 /// ```
-/// 
+///
 /// Note that the indices corresponding to row/column 0 for an n×n matrix are
 /// the triangular numbers: 0, 1, 3, 6, 10, 15, etc., and the indices of the
 /// diagonal are one less than a trigangular number.
@@ -39,11 +42,6 @@ impl SymmetricMatrixIndexing {
     /// Returns the storage size required for the symmetric matrix.
     pub fn storage_size(&self) -> usize {
         euler_sum(self.size)
-    }
-
-    /// Resizes the symmetric matrix to the new size.
-    pub fn resize(&mut self, new_size: usize) {
-        self.size = new_size;
     }
 
     /// Returns the linear index row `i` and column `j`, if within bounds.
@@ -96,34 +94,6 @@ mod tests {
     fn test_size() {
         let smi = SymmetricMatrixIndexing::new(7);
         assert_eq!(smi.size(), 7);
-    }
-
-    #[test]
-    fn test_resize() {
-        let mut smi = SymmetricMatrixIndexing::new(5);
-        assert_eq!(smi.size(), 5);
-
-        smi.resize(10);
-        assert_eq!(smi.size(), 10);
-
-        smi.resize(3);
-        assert_eq!(smi.size(), 3);
-    }
-
-    #[test]
-    fn test_resize_affects_index_bounds() {
-        let mut smi = SymmetricMatrixIndexing::new(3);
-        assert!(smi.index(2, 2).is_some());
-        assert!(smi.index(3, 3).is_none());
-
-        smi.resize(5);
-        assert!(smi.index(3, 3).is_some());
-        assert!(smi.index(4, 4).is_some());
-        assert!(smi.index(5, 5).is_none());
-
-        smi.resize(2);
-        assert!(smi.index(2, 2).is_none());
-        assert!(smi.index(1, 1).is_some());
     }
 
     #[test]
