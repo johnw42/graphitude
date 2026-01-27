@@ -13,7 +13,7 @@ use crate::adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric};
 
 pub struct SymmetricBitvecAdjacencyMatrix<K, V> {
     data: Vec<MaybeUninit<V>>,
-    matrix: BitVec,
+    liveness: BitVec,
     indexing: SymmetricMatrixIndexing,
     key: PhantomData<K>,
 }
@@ -26,29 +26,25 @@ where
         let capacity = size.next_power_of_two();
         let indexing = SymmetricMatrixIndexing::new(capacity);
         let storage_size = indexing.storage_size();
-        let mut matrix = BitVec::with_capacity(storage_size);
-        matrix.resize(storage_size, false);
+        let mut liveness = BitVec::with_capacity(storage_size);
+        liveness.resize(storage_size, false);
         let mut data = Vec::with_capacity(storage_size);
         data.resize_with(storage_size, MaybeUninit::uninit);
         Self {
             data,
-            matrix,
+            liveness,
             indexing,
             key: PhantomData,
         }
     }
 
-    fn is_live(&self, index: usize) -> bool {
-        self.matrix[index]
-    }
-
     fn get_data_read(&self, index: usize) -> Option<V> {
-        self.is_live(index)
+        self.liveness[index]
             .then(|| self.unchecked_get_data_read(index))
     }
 
     fn get_data_ref(&self, index: usize) -> Option<&V> {
-        self.is_live(index)
+        self.liveness[index]
             .then(|| self.unchecked_get_data_ref(index))
     }
 
@@ -74,7 +70,7 @@ where
 
     fn new() -> Self {
         Self {
-            matrix: BitVec::new(),
+            liveness: BitVec::new(),
             data: Vec::new(),
             indexing: SymmetricMatrixIndexing::new(0),
             key: PhantomData,
@@ -87,14 +83,14 @@ where
             let required_size = (k2 + 1).next_power_of_two();
             if self.indexing.storage_size() < required_size {
                 let repr_size = euler_sum(required_size);
-                self.matrix.resize(repr_size, false);
+                self.liveness.resize(repr_size, false);
                 self.data.resize_with(repr_size, MaybeUninit::uninit);
                 self.indexing.resize(required_size);
             }
         }
         let index = self.indexing.unchecked_index(k1.into(), k2.into());
         let old_data = self.get_data_read(index);
-        self.matrix.set(index, true);
+        self.liveness.set(index, true);
         self.data[index] = MaybeUninit::new(data);
         old_data
     }
@@ -105,8 +101,8 @@ where
 
     fn remove(&mut self, from: K, into: K) -> Option<V> {
         let index = self.indexing.index(from.into(), into.into())?;
-        let was_live = self.is_live(index);
-        self.matrix.set(index, false);
+        let was_live = self.liveness[index];
+        self.liveness.set(index, false);
         was_live.then(|| self.unchecked_get_data_read(index))
     }
 
@@ -114,7 +110,7 @@ where
     where
         V: 'a,
     {
-        self.matrix.iter_ones().map(|index| {
+        self.liveness.iter_ones().map(|index| {
             let (k1, k2) = self.indexing.coordinates(index);
             (k1.into(), k2.into(), self.unchecked_get_data_ref(index))
         })
@@ -130,7 +126,7 @@ where
     {
         let from = from.into();
         self.indexing.row(from).filter_map(move |index| {
-            if self.is_live(index) {
+            if self.liveness[index] {
                 let (i, j) = self.indexing.coordinates(index);
                 debug_assert!(i == from || j == from);
                 Some((
@@ -156,24 +152,46 @@ where
     K: Into<usize>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Adjacency Matrix: {{")?;
-        for i in 0..euler_sum_inv_floor(self.matrix.len()) {
-            write!(f, "  ")?;
-            if i > 20 {
-                writeln!(f, "...")?;
-                break;
+        write!(f, "SymmetricBitvecAdjacencyMatrix {{")?;
+        if f.alternate() {
+            writeln!(f)?;
+            for i in 0..euler_sum_inv_floor(self.indexing.size()) {
+                write!(f, "    ")?;
+                if i >= 20 {
+                    writeln!(f, "...")?;
+                    break;
+                }
+                for j in 0..=i {
+                    if j > 0 && j % 5 == 0 {
+                        write!(f, " ")?;
+                    }
+                    let index = euler_sum(i) + j;
+                    if self.liveness[index] {
+                        write!(f, "1")?;
+                    } else {
+                        write!(f, "0")?;
+                    }
+                }
+                writeln!(f)?;
             }
-            for j in 0..=i {
-                let index = euler_sum(i) + j;
-                if self.matrix[index] {
-                    write!(f, "1")?;
-                } else {
-                    write!(f, "0")?;
+            writeln!(f, "}}")?;
+        } else {
+            for i in 0..euler_sum_inv_floor(self.indexing.size()) {
+                write!(f, " ")?;
+                for j in 0..=i {
+                    if i >= 10 {
+                        write!(f, "...")?;
+                    }
+                    let index = euler_sum(i) + j;
+                    if self.liveness[index] {
+                        write!(f, "1")?;
+                    } else {
+                        write!(f, "0")?;
+                    }
                 }
             }
-            writeln!(f)?;
+            write!(f, " }}")?;
         }
-        writeln!(f, "}}")?;
         Ok(())
     }
 }
@@ -273,5 +291,62 @@ mod tests {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(5, 5, ());
         assert_eq!(matrix.get(5, 5), Some(&()));
+    }
+
+    #[test]
+    fn test_debug_empty() {
+        let matrix = SymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
+        assert_eq!(
+            format!("{:?}", matrix),
+            "SymmetricBitvecAdjacencyMatrix { }"
+        );
+    }
+
+    #[test]
+    fn test_debug_with_edges() {
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+        matrix.insert(0, 1, ());
+        matrix.insert(1, 2, ());
+        matrix.insert(0, 3, ());
+        assert_eq!(
+            format!("{:?}", matrix),
+            "SymmetricBitvecAdjacencyMatrix { 0 10 010 1000 }"
+        );
+    }
+
+    #[test]
+    fn test_debug_alternate() {
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+        matrix.insert(0, 1, ());
+        matrix.insert(2, 2, ());
+        matrix.insert(0, 3, ());
+        matrix.insert(0, 25, ());
+        assert_eq!(
+            format!("{:#?}", matrix),
+            r#"SymmetricBitvecAdjacencyMatrix {
+    0
+    10
+    001
+    1000
+    00000
+    00000 0
+    00000 00
+    00000 000
+    00000 0000
+    00000 00000
+    00000 00000 0
+    00000 00000 00
+    00000 00000 000
+    00000 00000 0000
+    00000 00000 00000
+    00000 00000 00000 0
+    00000 00000 00000 00
+    00000 00000 00000 000
+    00000 00000 00000 0000
+    00000 00000 00000 00000
+    ...
+}
+"#
+        );
     }
 }

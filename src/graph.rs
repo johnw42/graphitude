@@ -1,29 +1,3 @@
-//! `Graph` and `GraphMut` are the core traits for working with graphs in this
-//! library. `Graph` provides read-only access to the graph structure, while
-//! `GraphMut` extends `Graph` with methods for modifying the graph.
-//!
-//! Mutating the data stored in vertices and edges is not provided directly
-//! through these traits.  If you need to mutate the data, use interior
-//! mutability (e.g., `RefCell`, `Cell`, `Mutex`, etc.) in your vertex and edge
-//! data types.
-//!
-//! This module provides:
-//!
-//! - [`Graph`] trait: Core abstraction for graph data structures with support
-//!   for vertices and edges
-//! - [`GraphMut`] trait: Extension for mutable graph operations (add/remove
-//!   vertices and edges)
-//! - [`DfsIterator`]: Depth-first search iterator for graph traversal
-//! - [`BfsIterator`]: Breadth-first search iterator for graph traversal
-//!
-//! # Features
-//!
-//! - Flexible vertex and edge data storage through associated types
-//! - Support for both directed and undirected graphs
-//! - Graph traversal algorithms: DFS, BFS
-//! - Path finding utilities with Dijkstra's algorithm (requires `pathfinding`
-//!   feature)
-//! - Queries for vertices, edges, predecessors, and successors
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
@@ -35,11 +9,32 @@ use {pathfinding::num_traits::Zero, std::iter::once};
 
 use crate::directedness::{Directed, Directedness, Undirected};
 use crate::search::{BfsIterator, DfsIterator};
-use crate::{edge_ref::EdgeRef, vertex_ref::VertexRef};
 
-/// A trait representing a graph data structure.  Methods that return iterators
-/// over vertices or edges return them in an unspecified order unless otherwise
-/// noted.
+/// A trait representing a directed or undirected graph data structure.  Methods
+/// that return iterators over vertices or edges return them in an unspecified
+/// order unless otherwise noted.
+/// 
+/// For the sake of catching errors more reliably, it is recommended that
+/// implementations of this trait implement the following methods that have
+/// default implementions:
+///
+/// - [`Self::is_maybe_valid_vertex_id`]
+/// - [`Self::is_maybe_valid_edge_id`]
+// 
+/// For the sake of performance, it is recommended that implementations of this
+/// trait implement the following methods that have default implementions with a
+/// more efficient implementation that calls [`Self::check_vertex_id`] or
+/// [`Self::check_edge_id`], either directly or indirectly at the start of the
+/// method:
+///
+/// - [`Self::is_valid_vertex_id`]
+/// - [`Self::is_valid_edge_id`]
+/// - [`Self::edges_from`]
+/// - [`Self::edges_into`]
+/// - [`Self::num_edges_from`]
+/// - [`Self::num_edges_into`]
+/// - [`Self::has_edge_from`]
+/// - [`Self::has_edge_into`]
 pub trait Graph: Sized {
     type EdgeData;
     type EdgeId: Eq + Hash + Clone + Debug;
@@ -51,15 +46,7 @@ pub trait Graph: Sized {
         Self::Directedness::is_directed()
     }
 
-    /// # Vertices
-
-    fn vertex(&self, id: Self::VertexId) -> VertexRef<'_, Self> {
-        VertexRef::new(self, id)
-    }
-
-    fn verticies(&self) -> impl Iterator<Item = VertexRef<'_, Self>> + '_ {
-        self.vertex_ids().into_iter().map(|vid| self.vertex(vid))
-    }
+    // Vertices
 
     /// Gets a vector of all VertexIds in the graph.
     fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId>;
@@ -70,6 +57,45 @@ pub trait Graph: Sized {
     /// Gets the number of vertices in the graph.
     fn num_vertices(&self) -> usize {
         self.vertex_ids().count()
+    }
+
+    /// Checks if a VertexId is valid in the graph. This operation is
+    /// potentially costly.
+    fn is_valid_vertex_id(&self, id: &Self::VertexId) -> bool {
+        self.vertex_ids().any(|vid| &vid == id)
+    }
+
+    /// Checks if a VertexId is valid in the graph to the extent that can be
+    /// determined without iterating over all vertices.  This may return false
+    /// positives for some graph implementations.
+    /// 
+    /// By default, this method always returns true.
+    fn is_maybe_valid_vertex_id(&self, _id: &Self::VertexId) -> bool {
+        true
+    }
+
+    /// Panics if the given VertexId is not valid in the graph, accordinging to
+    /// [`Self::is_valid_vertex_id`].
+    /// 
+    /// It is recommended to call this method from implementations of other methods
+    /// that take VertexIds as parameters, to ensure that invalid VertexIds are
+    /// caught early.
+    fn check_vertex_id(&self, id: &Self::VertexId) {
+        assert!(
+            self.is_maybe_valid_vertex_id(id),
+            "Invalid VertexId: {:?}",
+            id
+        );
+    }
+
+    /// Panics if the given VertexId is not valid in the graph, accordinging to
+    /// [`Self::is_maybe_valid_vertex_id`], but only in debug builds.
+    fn debug_check_vertex_id(&self, id: &Self::VertexId) {
+        debug_assert!(
+            self.is_maybe_valid_vertex_id(id),
+            "Invalid VertexId: {:?}",
+            id
+        );
     }
 
     /// Gets an iterator over the predacessors vertices of a given vertex, i.e.
@@ -97,15 +123,7 @@ pub trait Graph: Sized {
         })
     }
 
-    /// # Edges
-
-    fn edge(&self, id: Self::EdgeId) -> EdgeRef<'_, Self> {
-        EdgeRef::new(self, id)
-    }
-
-    fn edges(&self) -> impl Iterator<Item = EdgeRef<'_, Self>> + '_ {
-        self.edge_ids().into_iter().map(|eid| self.edge(eid))
-    }
+    // Edges
 
     /// Gets the data associated with an edge.
     fn edge_data(&self, from: Self::EdgeId) -> &Self::EdgeData;
@@ -113,6 +131,44 @@ pub trait Graph: Sized {
     /// Gets a vector of all edges in the graph.
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
 
+    /// Checks if a EdgeId is valid in the graph. This operation is
+    /// potentially costly.
+    fn is_valid_edge_id(&self, id: &Self::EdgeId) -> bool {
+        self.edge_ids().any(|eid| &eid == id)
+    }
+
+    /// Checks if a EdgeId is valid in the graph to the extent that can be
+    /// determined without iterating over all vertices.  This may return false
+    /// positives for some graph implementations.
+    /// 
+    /// By default, this method always returns true.
+    fn is_maybe_valid_edge_id(&self, _id: &Self::EdgeId) -> bool {
+        true
+    }
+
+    /// Panics if the given EdgeId is not valid in the graph, accordinging to
+    /// [`Self::is_valid_edge_id`].
+    /// 
+    /// It is recommended to call this method from implementations of other methods
+    /// that take EdgeIds as parameters, to ensure that invalid EdgeIds are
+    /// caught early.
+    fn check_edge_id(&self, id: &Self::EdgeId) {
+        assert!(
+            self.is_maybe_valid_edge_id(id),
+            "Invalid EdgeId: {:?}",
+            id
+        );
+    }
+
+    /// Panics if the given EdgeId is not valid in the graph, accordinging to
+    /// [`Self::is_maybe_valid_edge_id`], but only in debug builds.
+    fn debug_check_edge_id(&self, id: &Self::EdgeId) {
+        debug_assert!(
+            self.is_maybe_valid_edge_id(id),
+            "Invalid EdgeId: {:?}",
+            id
+        );
+    }
     /// Gets an iterator over the outgoing edges from a given vertex.
     fn edges_from(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.edge_ids().filter(move |eid| {
@@ -136,8 +192,7 @@ pub trait Graph: Sized {
         into: Self::VertexId,
     ) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.edges_from(from.clone()).filter(move |eid| {
-            let edge_source = self.edge_source(eid.clone());
-            let edge_target = self.edge_target(eid.clone());
+            let (edge_source, edge_target) = self.edge_ends(eid.clone());
             edge_source == from && edge_target == into
                 || !self.is_directed() && edge_source == into && edge_target == from
         })
@@ -191,6 +246,23 @@ pub trait Graph: Sized {
         self.edges_from(from).into_iter().count()
     }
 
+    /// Given an edge and one of its endpoint vertices, returns the other
+    /// endpoint vertex.  Returns `None` if the edge is a self-loop.  Panics if
+    /// the given vertex is not an endpoint of the edge.
+    fn other_end(&self, edge: Self::EdgeId, vertex: Self::VertexId) -> Option<Self::VertexId> {
+        let (source, target) = self.edge_ends(edge);
+        if source == vertex {
+            Some(target)
+        } else if target == vertex {
+            Some(source)
+        } else {
+            assert_eq!(source, target); // self-loop
+            None
+        }
+    }
+
+    // Searches
+
     /// Performs a breadth-first search starting from the given vertex.
     fn bfs(&self, start: Self::VertexId) -> BfsIterator<'_, Self> {
         self.bfs_multi(vec![start])
@@ -211,6 +283,8 @@ pub trait Graph: Sized {
         DfsIterator::new(self, start)
     }
 
+    // Pathfinding
+
     /// Finds shortest paths from a starting vertex to all other vertices using
     /// Dijkstra's algorithm.  Returns a map from each reachable vertex to a
     /// tuple of the path taken and the total cost.
@@ -229,7 +303,6 @@ pub trait Graph: Sized {
                         (self.edge_target(eid), cost)
                     })
                     .collect();
-                dbg!(vid, r.iter().map(|(eid, _)| eid).collect::<Vec<_>>());
                 r
             });
         once((start.clone(), (vec![start], C::zero())))

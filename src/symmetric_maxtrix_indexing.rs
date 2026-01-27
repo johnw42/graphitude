@@ -4,7 +4,21 @@ use std::ops::Range;
 
 use crate::{euler_sum::{euler_sum, euler_sum_inv_floor}, util::sort_pair};
 
-/// Utilities for indexing into symmetric matrices stored in a flat array.
+/// Utilities for indexing into symmetric matrices stored in a flat array.  Only
+/// entries where `column <= row` are stored, so for, for example, for a 4×4
+/// symmetric matrix stored in a flat array, the entries are stored at the
+/// following indices in an array of length 10:
+/// 
+/// ```text
+/// ⎛ 0 1 3 6 ⎞
+/// ⎟ 1 2 4 8 ⎟
+/// ⎟ 3 4 5 8 ⎟
+/// ⎝ 6 8 8 9 ⎠
+/// ```
+/// 
+/// Note that the indices corresponding to row/column 0 for an n×n matrix are
+/// the triangular numbers: 0, 1, 3, 6, 10, 15, etc., and the indices of the
+/// diagonal are one less than a trigangular number.
 pub(crate) struct SymmetricMatrixIndexing {
     /// The size of one dimension of the symmetric matrix.
     size: usize,

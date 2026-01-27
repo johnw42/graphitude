@@ -21,15 +21,20 @@ impl BuilderState {
     }
 }
 
+/// Trait for building test data for graphs.  Graph implementations used in
+/// tests should implement this trait to provide consistent vertex and edge data.
 pub trait TestDataBuilder {
     type Graph: Graph;
 
-    fn new() -> BuilderState {
-        BuilderState { v: 0, e: 0 }
-    }
-
+    /// Creates a new, empty graph instance for testing.
     fn new_graph() -> Self::Graph;
+
+    /// Creates new edge data for testing, given an index.  Tests will call this
+    /// method with consecutive indices starting from zero.
     fn new_edge_data(i: usize) -> <Self::Graph as Graph>::EdgeData;
+
+    /// Creates new vertex data for testing, given an index.  Tests will call
+    /// this method with consecutive indices starting from zero.
     fn new_vertex_data(i: usize) -> <Self::Graph as Graph>::VertexData;
 }
 
@@ -42,7 +47,7 @@ where
     G::EdgeData: Clone + Eq,
 {
     pub fn new() -> Self {
-        Self(<G as TestDataBuilder>::new(), PhantomData)
+        Self(BuilderState { v: 0, e: 0 }, PhantomData)
     }
 
     pub fn new_graph(&self) -> G {
@@ -60,6 +65,7 @@ where
     }
 }
 
+/// Macro to generate standard graph tests for a given graph type.
 #[macro_export]
 macro_rules! graph_tests {
     ($type:ty) => {
@@ -447,6 +453,9 @@ macro_rules! graph_tests {
     };
 }
 
+/// Macro to generate a test for the `copy_from_with` method of a graph type.
+/// The arguments are the graph type, and two closures for transforming vertex
+/// and edge data respectively.
 #[macro_export]
 macro_rules! graph_test_copy_from_with {
     ($type:ty, $f:expr, $g:expr) => {

@@ -137,6 +137,7 @@ impl<V, E> Graph for LinkedGraph<V, E> {
     }
 
     fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+        self.check_edge_id(&eid);
         let edge_node = unsafe { &*eid.0 };
         (edge_node.from, edge_node.into)
     }
@@ -144,6 +145,7 @@ impl<V, E> Graph for LinkedGraph<V, E> {
     /// Gets an iterator over the edges outgoing from the given vertex in
     /// insertion order of the edges outgoing from the given vertex.
     fn edges_from(&self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
+        self.check_vertex_id(&from);
         unsafe { &*from.0 }
             .edges_out
             .iter()
@@ -153,28 +155,18 @@ impl<V, E> Graph for LinkedGraph<V, E> {
     /// Gets an iterator over the edges incoming to the given vertex in
     /// insertion order of the edges incoming to the given vertex.
     fn edges_into(&self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> {
+        self.check_vertex_id(&into);
         unsafe { &*into.0 }.edges_in.iter().cloned()
     }
 
     fn num_edges_into(&self, into: Self::VertexId) -> usize {
+        self.check_vertex_id(&into);
         unsafe { &*into.0 }.edges_in.len()
     }
 
     fn num_edges_from(&self, from: Self::VertexId) -> usize {
+        self.check_vertex_id(&from);
         unsafe { &*from.0 }.edges_out.len()
-    }
-
-    /// Gets an iterator over the edges between the given source and target vertices
-    /// in insertion order of the edges outgoing from the source vertex.
-    fn edges_between(
-        &self,
-        from: Self::VertexId,
-        into: Self::VertexId,
-    ) -> impl Iterator<Item = Self::EdgeId> {
-        self.edges_from(from).filter(move |eid| {
-            let (source, target) = self.edge_ends(*eid);
-            source == from && target == into
-        })
     }
 }
 
