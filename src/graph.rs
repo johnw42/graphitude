@@ -133,7 +133,7 @@ pub trait Graph: Sized {
 
     /// Checks if a EdgeId is valid in the graph. This operation is
     /// potentially costly.
-    fn is_valid_edge_id(&self, id: &Self::EdgeId<'_>) -> bool {
+    fn is_valid_edge_id<'a>(&'a self, id: &Self::EdgeId<'a>) -> bool {
         self.edge_ids().any(|eid| &eid == id)
     }
 
@@ -289,13 +289,13 @@ pub trait Graph: Sized {
     /// Dijkstra's algorithm.  Returns a map from each reachable node to a
     /// tuple of the path taken and the total cost.
     #[cfg(feature = "pathfinding")]
-    fn shortest_paths<C: Zero + Ord + Copy>(
-        &self,
-        start: Self::NodeId<'_>,
-        cost_fn: impl Fn(&Self::EdgeId<'_>) -> C,
-    ) -> HashMap<Self::NodeId<'_>, (Vec<Self::NodeId<'_>>, C)> {
-        let parents: HashMap<Self::NodeId<'_>, (Self::NodeId<'_>, C)> =
-            pathfinding::prelude::dijkstra_all(&start, |nid| -> Vec<(Self::NodeId<'_>, C)> {
+    fn shortest_paths<'a, C: Zero + Ord + Copy>(
+        &'a self,
+        start: Self::NodeId<'a>,
+        cost_fn: impl Fn(&Self::EdgeId<'a>) -> C,
+    ) -> HashMap<Self::NodeId<'a>, (Vec<Self::NodeId<'a>>, C)> {
+        let parents: HashMap<Self::NodeId<'a>, (Self::NodeId<'a>, C)> =
+            pathfinding::prelude::dijkstra_all(&start, |nid| -> Vec<(Self::NodeId<'a>, C)> {
                 let r: Vec<_> = self
                     .edges_from(nid.clone())
                     .map(|eid| {
@@ -342,10 +342,10 @@ pub trait GraphDirected: Graph {
 
     /// Partitions nodes reachable from a starting point into strongly connected components.
     #[cfg(feature = "pathfinding")]
-    fn strongly_connected_components_from(
-        &self,
-        start: &Self::NodeId<'_>,
-    ) -> Vec<Vec<Self::NodeId<'_>>> {
+    fn strongly_connected_components_from<'a>(
+        &'a self,
+        start: &Self::NodeId<'a>,
+    ) -> Vec<Vec<Self::NodeId<'a>>> {
         pathfinding::prelude::strongly_connected_components_from(start, |nid| {
             self.successors(nid.clone())
         })
@@ -410,7 +410,7 @@ pub trait GraphMut: Graph {
     fn remove_edge<'a>(&'a mut self, from: Self::EdgeId<'a>) -> Option<Self::EdgeData>;
 
     /// Copies all nodes and edges from another graph into this graph.
-    fn copy_from<S>(&mut self, source: &S) -> HashMap<S::NodeId<'_>, Self::NodeId<'_>>
+    fn copy_from<'a, 'b, S>(&'b mut self, source: &'a S) -> HashMap<S::NodeId<'a>, Self::NodeId<'b>>
     where
         S: Graph<NodeData = Self::NodeData, EdgeData = Self::EdgeData>,
         Self::NodeData: Clone,
@@ -422,12 +422,12 @@ pub trait GraphMut: Graph {
     /// Copies all nodes and edges from another graph into this graph,
     /// transforming the node and edge data using the provided mapping
     /// functions.
-    fn copy_from_with<S, F, G>(
-        &mut self,
-        source: &S,
+    fn copy_from_with<'a, 'b, S, F, G>(
+        &'b mut self,
+        source: &'a S,
         mut map_node: F,
         mut map_edge: G,
-    ) -> HashMap<S::NodeId<'_>, Self::NodeId<'_>>
+    ) -> HashMap<S::NodeId<'a>, Self::NodeId<'b>>
     where
         S: Graph,
         Self::NodeData: Clone,
@@ -454,11 +454,11 @@ pub trait GraphMut: Graph {
     /// Creates a mapping from edges in this graph to edges in another graph,
     /// based on a provided node mapping from [`Self::copy_from`] or
     /// [`Self::copy_from_with`].
-    fn make_edge_map<S>(
-        &self,
-        source: &S,
-        node_map: &HashMap<S::NodeId<'_>, Self::NodeId<'_>>,
-    ) -> HashMap<S::EdgeId<'_>, Self::EdgeId<'_>>
+    fn make_edge_map<'a, 'b, S>(
+        &'b self,
+        source: &'a S,
+        node_map: &HashMap<S::NodeId<'a>, Self::NodeId<'b>>,
+    ) -> HashMap<S::EdgeId<'a>, Self::EdgeId<'b>>
     where
         S: Graph,
     {
