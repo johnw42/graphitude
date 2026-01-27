@@ -1,23 +1,23 @@
 use std::{collections::HashMap, marker::PhantomData};
 
-use crate::id::VertexId;
+use crate::id::NodeId;
 
 pub trait Directedness {
-    type VertexData;
+    type NodeData;
     type EdgeData;
 }
 
 struct Directed<V, E>(PhantomData<(V, E)>);
 
 impl<V, E> Directedness for Directed<V, E> {
-    type VertexData = V;
+    type NodeData = V;
     type EdgeData = E;
 }
 
 struct Undirected<V, E>(PhantomData<(V, E)>);
 
 impl<V, E> Directedness for Undirected<V, E> {
-    type VertexData = V;
+    type NodeData = V;
     type EdgeData = E;
 }
 
@@ -30,5 +30,5 @@ struct NeighborList;
 
 impl EdgeStorage for NeighborList {
     type Adjacency = ();
-    type Neighbors<V, E, T> = HashMap<VertexId<V, E>, T>;
+    type Neighbors<V, E, T> = HashMap<NodeId<V, E>, T>;
 }

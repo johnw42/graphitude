@@ -5,37 +5,37 @@ use jrw_graph::{
 };
 
 struct StringGraph {
-    vertices: HashMap<VertexId, Vertex>,
-    next_vertex_id: usize,
+    nodes: HashMap<NodeId, Node>,
+    next_node_id: usize,
 }
 
-type VertexId = usize;
-type EdgeId = (VertexId, VertexId);
+type NodeId = usize;
+type EdgeId = (NodeId, NodeId);
 
-struct Vertex {
+struct Node {
     data: String,
     edges_out: Vec<Edge>,
 }
 
 struct Edge {
-    target: VertexId,
+    target: NodeId,
     data: String,
 }
 
 impl StringGraph {
     fn new() -> Self {
         StringGraph {
-            vertices: HashMap::new(),
-            next_vertex_id: 0,
+            nodes: HashMap::new(),
+            next_node_id: 0,
         }
     }
 
-    fn vertex(&self, id: &VertexId) -> &Vertex {
-        self.vertices.get(id).expect("Invalid vertex ID")
+    fn node(&self, id: &NodeId) -> &Node {
+        self.nodes.get(id).expect("Invalid node ID")
     }
 
     fn edge(&self, id: &EdgeId) -> &Edge {
-        self.vertices
+        self.nodes
             .get(&id.0)
             .expect("Invalid edge ID")
             .edges_out
@@ -46,53 +46,53 @@ impl StringGraph {
 }
 
 impl Graph for StringGraph {
-    type VertexData = String;
-    type VertexId = VertexId;
+    type NodeData = String;
+    type NodeId = NodeId;
     type EdgeData = String;
     type EdgeId = EdgeId;
     type Directedness = Directed;
 
-    fn vertex_data(&self, id: Self::VertexId) -> &Self::VertexData {
-        &self.vertex(&id).data
+    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
+        &self.node(&id).data
     }
 
     fn edge_data(&self, id: Self::EdgeId) -> &Self::EdgeData {
         &self.edge(&id).data
     }
 
-    fn edge_source(&self, id: Self::EdgeId) -> Self::VertexId {
+    fn edge_source(&self, id: Self::EdgeId) -> Self::NodeId {
         id.0
     }
 
-    fn edge_target(&self, id: Self::EdgeId) -> Self::VertexId {
+    fn edge_target(&self, id: Self::EdgeId) -> Self::NodeId {
         id.1
     }
 
-    fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId> {
-        self.vertices.keys().cloned()
+    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
+        self.nodes.keys().cloned()
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
-        self.vertices.iter().flat_map(|(from_id, vertex)| {
-            vertex
+        self.nodes.iter().flat_map(|(from_id, node)| {
+            node
                 .edges_out
                 .iter()
                 .map(move |edge| (from_id.clone(), edge.target.clone()))
         })
     }
 
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
         eid
     }
 }
 
 impl GraphMut for StringGraph {
-    fn add_vertex(&mut self, data: Self::VertexData) -> Self::VertexId {
-        let id = self.next_vertex_id;
-        self.next_vertex_id += 1;
-        self.vertices.insert(
+    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
+        let id = self.next_node_id;
+        self.next_node_id += 1;
+        self.nodes.insert(
             id,
-            Vertex {
+            Node {
                 data,
                 edges_out: Vec::new(),
             },
@@ -102,14 +102,14 @@ impl GraphMut for StringGraph {
 
     fn add_or_replace_edge(
         &mut self,
-        from: Self::VertexId,
-        to: Self::VertexId,
+        from: Self::NodeId,
+        to: Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
-        assert!(self.vertices.contains_key(&to), "Invalid 'to' vertex ID");
-        self.vertices
+        assert!(self.nodes.contains_key(&to), "Invalid 'to' node ID");
+        self.nodes
             .get_mut(&from)
-            .expect("Invalid 'from' vertex ID")
+            .expect("Invalid 'from' node ID")
             .edges_out
             .push(Edge {
                 target: to.clone(),
@@ -118,17 +118,17 @@ impl GraphMut for StringGraph {
         ((from, to), None)
     }
 
-    fn remove_vertex(&mut self, id: Self::VertexId) -> Self::VertexData {
-        self.vertices
+    fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData {
+        self.nodes
             .remove(&id)
             .map(|v| v.data)
-            .expect("Invalid vertex ID")
+            .expect("Invalid node ID")
     }
 
     fn remove_edge(&mut self, (from, to): Self::EdgeId) -> Option<Self::EdgeData> {
-        let vertex = self.vertices.get_mut(&from)?;
-        if let Some(pos) = vertex.edges_out.iter().position(|e| e.target == to) {
-            let edge = vertex.edges_out.remove(pos);
+        let node = self.nodes.get_mut(&from)?;
+        if let Some(pos) = node.edges_out.iter().position(|e| e.target == to) {
+            let edge = node.edges_out.remove(pos);
             Some(edge.data)
         } else {
             None
@@ -147,7 +147,7 @@ impl TestDataBuilder for StringGraph {
         format!("e{}", i)
     }
 
-    fn new_vertex_data(i: usize) -> String {
+    fn new_node_data(i: usize) -> String {
         format!("v{}", i)
     }
 }

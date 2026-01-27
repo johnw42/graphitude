@@ -6,22 +6,22 @@ use jrw_graph::{
     AdjacencyMatrix, Graph, GraphMut, SymmetricHashAdjacencyMatrix, debug::format_debug_with, directedness::Undirected, graph_test_copy_from_with, graph_tests, tests::TestDataBuilder
 };
 
-/// An undirected graph where vertices are identified by strings.  A vertex's ID
+/// An undirected graph where nodes are identified by strings.  A node's ID
 /// is the same as its data.  Edges have no data and are identified by the pair
-/// of vertex IDs they connect.
+/// of node IDs they connect.
 struct StringGraph {
-    vertices: HashSet<VertexId>,
-    edges: SymmetricHashAdjacencyMatrix<VertexId, ()>,
+    nodes: HashSet<NodeId>,
+    edges: SymmetricHashAdjacencyMatrix<NodeId, ()>,
 }
 
-type VertexId = String;
+type NodeId = String;
 
-// Invariant: `EdgeId` always has the smaller `VertexId` first.
+// Invariant: `EdgeId` always has the smaller `NodeId` first.
 #[derive(Eq, PartialEq, Hash, Clone, Debug)]
-struct EdgeId(VertexId, VertexId);
+struct EdgeId(NodeId, NodeId);
 
 impl EdgeId {
-    fn new(from: VertexId, into: VertexId) -> Self {
+    fn new(from: NodeId, into: NodeId) -> Self {
         if from <= into {
             EdgeId(from, into)
         } else {
@@ -33,34 +33,34 @@ impl EdgeId {
 impl StringGraph {
     fn new() -> Self {
         Self {
-            vertices: HashSet::new(),
+            nodes: HashSet::new(),
             edges: SymmetricHashAdjacencyMatrix::new(),
         }
     }
 
     fn edge_id(
         &self,
-        from: <StringGraph as Graph>::VertexId,
-        into: <StringGraph as Graph>::VertexId,
+        from: <StringGraph as Graph>::NodeId,
+        into: <StringGraph as Graph>::NodeId,
     ) -> <StringGraph as Graph>::EdgeId {
-        assert!(self.vertices.contains(&from));
-        debug_assert!(self.vertices.contains(&into));
+        assert!(self.nodes.contains(&from));
+        debug_assert!(self.nodes.contains(&into));
         EdgeId::new(from, into)
     }
 }
 
 impl Graph for StringGraph {
-    type VertexData = String;
-    type VertexId = VertexId;
+    type NodeData = String;
+    type NodeId = NodeId;
     type EdgeData = ();
     type EdgeId = EdgeId;
     type Directedness = Undirected;
 
-    fn vertex_data(&self, id: Self::VertexId) -> &Self::VertexData {
-        self.vertices.get(&id).expect("Vertex does not exist")
+    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
+        self.nodes.get(&id).expect("Node does not exist")
     }
 
-    fn num_edges_between(&self, from: Self::VertexId, into: Self::VertexId) -> usize {
+    fn num_edges_between(&self, from: Self::NodeId, into: Self::NodeId) -> usize {
         self.edges.get(from, into).into_iter().count()
     }
 
@@ -68,12 +68,12 @@ impl Graph for StringGraph {
         self.edges.get(id.0, id.1).expect("Edge does not exist")
     }
 
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
         (eid.0.clone(), eid.1.clone())
     }
 
-    fn vertex_ids(&self) -> impl Iterator<Item = Self::VertexId> {
-        self.vertices.iter().cloned()
+    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
+        self.nodes.iter().cloned()
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
@@ -84,22 +84,22 @@ impl Graph for StringGraph {
 }
 
 impl GraphMut for StringGraph {
-    fn add_vertex(&mut self, data: Self::VertexData) -> Self::VertexId {
-        self.vertices.insert(data.clone());
+    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
+        self.nodes.insert(data.clone());
         data
     }
 
     fn add_or_replace_edge(
         &mut self,
-        from: Self::VertexId,
-        into: Self::VertexId,
+        from: Self::NodeId,
+        into: Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
         let old_data = self.edges.insert(from.clone(), into.clone(), data);
         (self.edge_id(from.clone(), into.clone()), old_data)
     }
 
-    fn remove_vertex(&mut self, id: Self::VertexId) -> String {
+    fn remove_node(&mut self, id: Self::NodeId) -> String {
         let edges_from = self
             .edges
             .edges_from(id.clone())
@@ -108,7 +108,7 @@ impl GraphMut for StringGraph {
         for into in edges_from {
             self.edges.remove(id.clone(), into);
         }
-        self.vertices.remove(&id);
+        self.nodes.remove(&id);
         id.clone()
     }
 
@@ -141,7 +141,7 @@ impl TestDataBuilder for StringGraph {
         ()
     }
 
-    fn new_vertex_data(i: usize) -> String {
+    fn new_node_data(i: usize) -> String {
         format!("v{}", i)
     }
 }
@@ -155,20 +155,20 @@ graph_test_copy_from_with!(
 #[test]
 fn test_format_debug_with() {
     let mut graph = StringGraph::new();
-    // Add vertices in non-sorted order.
-    let v1 = graph.add_vertex("B".to_string());
-    let v2 = graph.add_vertex("A".to_string());
+    // Add nodes in non-sorted order.
+    let v1 = graph.add_node("B".to_string());
+    let v2 = graph.add_node("A".to_string());
     graph.add_edge(v1, v2, ());
 
     // Single-line output.
     let output = format!("{:?}", &graph);
-    let expected = r#"StringGraph { vertices: ["A", "B"], edges: ["A" -- "B"] }"#;
+    let expected = r#"StringGraph { nodes: ["A", "B"], edges: ["A" -- "B"] }"#;
     assert_eq!(output, expected);
 
     // Multi-line output.
     let output = format!("{:#?}", &graph);
     let expected = r#"StringGraph {
-    vertices: [
+    nodes: [
         "A",
         "B",
     ],

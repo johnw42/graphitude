@@ -1,5 +1,5 @@
 // Calculates the Euler sum of n, the sum of 1..n, also the number of edges in a
-// complete graph of n vertices.
+// complete graph of n nodes.
 pub fn euler_sum(n: usize) -> usize {
     (n * (n + 1)) / 2
 }

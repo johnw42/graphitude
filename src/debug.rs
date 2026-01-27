@@ -5,42 +5,42 @@ use std::{
 
 use crate::{Graph, util::sort_pair};
 
-struct VertexTag<'a>(&'a str);
+struct NodeTag<'a>(&'a str);
 
-impl<'a> Debug for VertexTag<'a> {
+impl<'a> Debug for NodeTag<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-struct VertexDebug<'a, G: Graph> {
+struct NodeDebug<'a, G: Graph> {
     graph: &'a G,
-    vertex_order: &'a [G::VertexId],
-    vertex_tags: &'a HashMap<G::VertexId, String>,
+    node_order: &'a [G::NodeId],
+    node_tags: &'a HashMap<G::NodeId, String>,
     show_data: bool,
 }
 
-impl<'a, G> Debug for VertexDebug<'a, G>
+impl<'a, G> Debug for NodeDebug<'a, G>
 where
     G: Graph,
-    G::VertexData: Debug,
+    G::NodeData: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if self.show_data {
             f.debug_map()
-                .entries(self.vertex_order.iter().map(|vid| {
+                .entries(self.node_order.iter().map(|vid| {
                     (
-                        VertexTag(&self.vertex_tags[vid]),
-                        self.graph.vertex_data(vid.clone()),
+                        NodeTag(&self.node_tags[vid]),
+                        self.graph.node_data(vid.clone()),
                     )
                 }))
                 .finish()
         } else {
             f.debug_list()
                 .entries(
-                    self.vertex_order
+                    self.node_order
                         .iter()
-                        .map(|vid| self.graph.vertex_data(vid.clone())),
+                        .map(|vid| self.graph.node_data(vid.clone())),
                 )
                 .finish()
         }
@@ -63,7 +63,7 @@ impl<'a> Debug for EdgeTag<'a> {
 struct EdgeDebug<'a, G: Graph> {
     graph: &'a G,
     edge_order: &'a [G::EdgeId],
-    vertex_tags: &'a HashMap<G::VertexId, String>,
+    node_tags: &'a HashMap<G::NodeId, String>,
     show_data: bool,
 }
 
@@ -76,8 +76,8 @@ where
         let make_edge_tag = |eid: &G::EdgeId| {
             let (from, to) = self.graph.edge_ends(eid.clone());
             EdgeTag(
-                &self.vertex_tags[&from],
-                &self.vertex_tags[&to],
+                &self.node_tags[&from],
+                &self.node_tags[&to],
                 self.graph.is_directed(),
             )
         };
@@ -101,11 +101,11 @@ where
 pub fn format_debug<'g, G>(graph: &'g G, fmt: &mut Formatter<'_>, name: &str) -> std::fmt::Result
 where
     G: Graph,
-    G::VertexData: Debug,
+    G::NodeData: Debug,
     G::EdgeData: Debug,
 {
-    let vertex_tags: HashMap<_, _> = graph
-        .vertex_ids()
+    let node_tags: HashMap<_, _> = graph
+        .node_ids()
         .enumerate()
         .map(|(i, vid)| (vid.clone(), i.to_string()))
         .collect();
@@ -113,7 +113,7 @@ where
         graph,
         fmt,
         name,
-        &mut |vid| vertex_tags[vid].clone(),
+        &mut |vid| node_tags[vid].clone(),
         true,
         true,
     )
@@ -123,27 +123,27 @@ pub fn format_debug_with<'g, G>(
     graph: &'g G,
     fmt: &mut Formatter<'_>,
     name: &str,
-    vertex_tag: &mut impl FnMut(&G::VertexId) -> String,
+    node_tag: &mut impl FnMut(&G::NodeId) -> String,
     show_edge_data: bool,
-    show_vertex_data: bool,
+    show_node_data: bool,
 ) -> std::fmt::Result
 where
     G: Graph,
-    G::VertexData: Debug,
+    G::NodeData: Debug,
     G::EdgeData: Debug,
 {
-    let vertex_tags: HashMap<_, _> = graph
-        .vertex_ids()
-        .map(|vid: <G as Graph>::VertexId| (vid.clone(), vertex_tag(&vid)))
+    let node_tags: HashMap<_, _> = graph
+        .node_ids()
+        .map(|vid: <G as Graph>::NodeId| (vid.clone(), node_tag(&vid)))
         .collect();
-    let mut vertex_order = vertex_tags.keys().cloned().collect::<Vec<_>>();
-    vertex_order.sort_by_key(|vid| &vertex_tags[vid]);
+    let mut node_order = node_tags.keys().cloned().collect::<Vec<_>>();
+    node_order.sort_by_key(|vid| &node_tags[vid]);
 
     let edge_tags: HashMap<_, _> = graph
         .edge_ids()
         .map(|eid: <G as Graph>::EdgeId| {
             let (from, to) = graph.edge_ends(eid.clone());
-            (eid.clone(), (&vertex_tags[&from], &vertex_tags[&to]))
+            (eid.clone(), (&node_tags[&from], &node_tags[&to]))
         })
         .collect();
     let mut edge_order = edge_tags.keys().cloned().collect::<Vec<_>>();
@@ -151,12 +151,12 @@ where
 
     fmt.debug_struct(name)
         .field(
-            "vertices",
-            &VertexDebug {
+            "nodes",
+            &NodeDebug {
                 graph,
-                vertex_order: &vertex_order,
-                vertex_tags: &vertex_tags,
-                show_data: show_vertex_data,
+                node_order: &node_order,
+                node_tags: &node_tags,
+                show_data: show_node_data,
             },
         )
         .field(
@@ -164,7 +164,7 @@ where
             &EdgeDebug {
                 graph,
                 edge_order: &edge_order,
-                vertex_tags: &vertex_tags,
+                node_tags: &node_tags,
                 show_data: show_edge_data,
             },
         )
@@ -178,19 +178,19 @@ mod tests {
     #[test]
     fn test_format_debug() {
         let mut graph = LinkedGraph::<&str, i32>::new();
-        let v1 = graph.add_vertex("A");
-        let v2 = graph.add_vertex("B");
+        let v1 = graph.add_node("A");
+        let v2 = graph.add_node("B");
         graph.add_edge(v1, v2, 10);
 
         // Single-line output.
         let output = format!("{:?}", &graph);
-        let expected = r#"LinkedGraph { vertices: {0: "A", 1: "B"}, edges: {0 -> 1: 10} }"#;
+        let expected = r#"LinkedGraph { nodes: {0: "A", 1: "B"}, edges: {0 -> 1: 10} }"#;
         assert_eq!(output, expected);
 
         // Multi-line output.
         let output = format!("{:#?}", &graph);
         let expected = r#"LinkedGraph {
-    vertices: {
+    nodes: {
         0: "A",
         1: "B",
     },

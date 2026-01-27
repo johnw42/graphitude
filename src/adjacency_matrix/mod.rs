@@ -61,7 +61,7 @@ where
         (k1, k2)
     }
 
-    /// Iterates over all edges between the given vertices `from` and `into`.
+    /// Iterates over all edges between the given nodes `from` and `into`.
     fn edge_between(
         &self,
         from: Self::Key,
@@ -73,7 +73,7 @@ where
         })
     }
 
-    /// Iterates over all edges originating from the given vertex `from`.
+    /// Iterates over all edges originating from the given node `from`.
     fn edges_from<'a>(
         &'a self,
         from: Self::Key,
@@ -81,7 +81,7 @@ where
     where
         Self::Value: 'a;
 
-    /// Iterates over all edges terminating at the given vertex `into`.
+    /// Iterates over all edges terminating at the given node `into`.
     fn edges_into<'a>(
         &'a self,
         into: Self::Key,

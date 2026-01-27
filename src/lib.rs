@@ -2,26 +2,26 @@
 //! library. `Graph` provides read-only access to the graph structure, while
 //! `GraphMut` extends `Graph` with methods for modifying the graph.
 //!
-//! Mutating the data stored in vertices and edges is not provided directly
+//! Mutating the data stored in nodes and edges is not provided directly
 //! through these traits.  If you need to mutate the data, use interior
-//! mutability (e.g., `RefCell`, `Cell`, `Mutex`, etc.) in your vertex and edge
+//! mutability (e.g., `RefCell`, `Cell`, `Mutex`, etc.) in your node and edge
 //! data types.
 //!
 //! This module provides:
 //!
 //! - [`Graph`] trait: Core abstraction for graph data structures with support
-//!   for vertices and edges
+//!   for nodes and edges
 //! - [`GraphMut`] trait: Extension for mutable graph operations (add/remove
-//!   vertices and edges)
+//!   nodes and edges)
 //!
 //! # Features
 //!
-//! - Flexible vertex and edge data storage through associated types
+//! - Flexible node and edge data storage through associated types
 //! - Support for both directed and undirected graphs
 //! - Graph traversal algorithms: DFS, BFS
 //! - Path finding utilities with Dijkstra's algorithm (requires `pathfinding`
 //!   feature)
-//! - Queries for vertices, edges, predecessors, and successors
+//! - Queries for nodes, edges, predecessors, and successors
 
 pub mod adjacency_graph;
 pub mod adjacency_matrix;

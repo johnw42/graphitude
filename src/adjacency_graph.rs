@@ -78,7 +78,7 @@ where
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
 {
-    vertices: IdVec<V>,
+    nodes: IdVec<V>,
     adjacency: <(D::Symmetry, S) as AdjacencyMatrixSelector<IdVecIndex, E>>::Matrix,
     directedness: PhantomData<D>,
 }
@@ -91,7 +91,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            vertices: IdVec::new(),
+            nodes: IdVec::new(),
             adjacency: SelectMatrix::<D::Symmetry, S, IdVecIndex, E>::new(),
             directedness: PhantomData,
         }
@@ -105,17 +105,17 @@ where
     (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
 {
     type EdgeData = E;
-    type EdgeId = EdgeId<Self::VertexId, Self::Directedness>;
-    type VertexData = V;
-    type VertexId = IdVecIndex;
+    type EdgeId = EdgeId<Self::NodeId, Self::Directedness>;
+    type NodeData = V;
+    type NodeId = IdVecIndex;
     type Directedness = D;
 
-    fn vertex_data(&self, id: Self::VertexId) -> &Self::VertexData {
-        &self.vertices[id]
+    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
+        &self.nodes[id]
     }
 
-    fn vertex_ids(&self) -> impl Iterator<Item = <Self as Graph>::VertexId> {
-        self.vertices.iter_indices()
+    fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
+        self.nodes.iter_indices()
     }
 
     fn edge_data(&self, eid: Self::EdgeId) -> &Self::EdgeData {
@@ -126,17 +126,17 @@ where
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.adjacency
             .edges()
-            .map(|(from, to, _)| EdgeId::<Self::VertexId, Self::Directedness>::new(from, to))
+            .map(|(from, to, _)| EdgeId::<Self::NodeId, Self::Directedness>::new(from, to))
     }
 
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::VertexId, Self::VertexId) {
+    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
         eid.into()
     }
 
     fn edges_between(
         &self,
-        from: Self::VertexId,
-        into: Self::VertexId,
+        from: Self::NodeId,
+        into: Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.adjacency
             .edge_between(from, into)
@@ -144,7 +144,7 @@ where
             .map(|(from, into, _)| Self::EdgeId::new(from, into))
     }
 
-    fn edges_into<'a>(&'a self, into: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_into<'a>(&'a self, into: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.adjacency
             .edges_into(into)
             .map(|(from, _)| Self::EdgeId::new(from, into))
@@ -152,7 +152,7 @@ where
             .into_iter()
     }
 
-    fn edges_from<'a>(&'a self, from: Self::VertexId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from<'a>(&'a self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.adjacency
             .edges_from(from)
             .map(|(to, _)| Self::EdgeId::new(from, to))
@@ -167,21 +167,21 @@ where
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
 {
-    fn add_vertex(&mut self, data: Self::VertexData) -> Self::VertexId {
-        self.vertices.insert(data)
+    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
+        self.nodes.insert(data)
     }
 
     fn add_or_replace_edge(
         &mut self,
-        from: Self::VertexId,
-        into: Self::VertexId,
+        from: Self::NodeId,
+        into: Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
         let old_data = self.adjacency.insert(from.clone(), into.clone(), data);
         (Self::EdgeId::new(from, into), old_data)
     }
 
-    fn remove_vertex(&mut self, id: Self::VertexId) -> Self::VertexData {
+    fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData {
         for into in self
             .adjacency
             .edges_from(id)
@@ -190,7 +190,7 @@ where
         {
             self.adjacency.remove(id, into);
         }
-        self.vertices.remove(id)
+        self.nodes.remove(id)
     }
 
     fn remove_edge(&mut self, id: Self::EdgeId) -> Option<Self::EdgeData> {
@@ -232,7 +232,7 @@ mod tests {
             format!("e{}", i)
         }
 
-        fn new_vertex_data(i: usize) -> i32 {
+        fn new_node_data(i: usize) -> i32 {
             i as i32
         }
     }
