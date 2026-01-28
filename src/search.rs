@@ -191,7 +191,6 @@ mod tests {
         graph.add_edge(n0, n1, ());
         graph.add_edge(n0, n2, ());
         graph.add_edge(n1, n3, ());
-        graph.add_edge(n2, n3, ());
         graph
     }
 
@@ -309,16 +308,16 @@ mod tests {
     fn test_bfs_wth_paths() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: Vec<_> = BfsIteratorWithPaths::new(&graph, vec![nodes[0]]).collect();
+        let visited: HashSet<_> = BfsIteratorWithPaths::new(&graph, vec![nodes[0]]).collect();
         assert_eq!(visited.len(), 4);
         assert_eq!(
             visited,
-            vec![
+            HashSet::from([
                 vec![nodes[0]],
                 vec![nodes[0], nodes[1]],
                 vec![nodes[0], nodes[2]],
                 vec![nodes[0], nodes[1], nodes[3]],
-            ]
+            ])
         );
     }
 
@@ -327,10 +326,14 @@ mod tests {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
         let visited: HashSet<_> = DfsIteratorWithPaths::new(&graph, vec![nodes[0]]).collect();
-        assert_eq!(visited.len(), 4);
-        assert!(visited.contains(&vec![nodes[0]]));
-        assert!(visited.contains(&vec![nodes[0], nodes[1]]));
-        assert!(visited.contains(&vec![nodes[0], nodes[2]]));
-        assert!(visited.contains(&vec![nodes[0], nodes[1], nodes[3]]));
+        assert_eq!(
+            visited,
+            HashSet::from([
+                vec![nodes[0]],
+                vec![nodes[0], nodes[2]],
+                vec![nodes[0], nodes[1]],
+                vec![nodes[0], nodes[1], nodes[3]],
+            ])
+        );
     }
 }

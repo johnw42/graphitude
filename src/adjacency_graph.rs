@@ -8,6 +8,7 @@ use crate::{
     directedness::Directedness,
     graph_id::GraphId,
     id_vec::{IdVec, IdVecIndex},
+    util::sort_pair,
 };
 
 #[derive(Clone, Copy)]
@@ -142,9 +143,14 @@ where
     }
 
     fn edge_id(&self, from: IdVecIndex, into: IdVecIndex) -> EdgeId {
+        let (i1, i2) = if self.is_directed() {
+            (from, into)
+        } else {
+            sort_pair(from, into)
+        };
         EdgeId {
-            from,
-            into,
+            from: i1,
+            into: i2,
             #[cfg(feature = "paranoia")]
             graph_id: self.id,
         }
