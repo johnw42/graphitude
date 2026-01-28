@@ -34,6 +34,7 @@ pub mod path;
 pub mod search;
 pub mod tests;
 
+mod graph_id;
 mod id_vec;
 mod symmetric_maxtrix_indexing;
 mod util;
@@ -44,7 +45,7 @@ mod euler_sum;
 pub use directedness::{Directed, Directedness, Undirected};
 pub use graph::{Graph, GraphDirected, GraphMut, GraphUndirected};
 pub use linked_graph::LinkedGraph;
-pub use tests::{TestDataBuilder};
+pub use tests::TestDataBuilder;
 
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{

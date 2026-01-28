@@ -1,15 +1,10 @@
 use std::{
     fmt::Debug,
     hash::Hash,
-    sync::{Arc, Weak, atomic::AtomicUsize},
+    sync::{Arc, Weak},
 };
 
-use crate::{Graph, GraphMut, debug::format_debug, directedness::Directed};
-
-/// A global graph identifier counter for paranoia mode. We assume no two graphs
-/// will have the same identifier, and though it is technically possible for
-/// this to overflow and wrap around, it is extremely unlikely in practice.
-static GRAPH_ID: AtomicUsize = AtomicUsize::new(0);
+use crate::{Graph, GraphMut, debug::format_debug, directedness::Directed, graph_id::GraphId};
 
 struct Node<N, E> {
     data: N,
@@ -20,7 +15,7 @@ struct Node<N, E> {
 pub struct NodeId<N, E> {
     ptr: Weak<Node<N, E>>,
     #[cfg(feature = "paranoia")]
-    graph_id: usize,
+    graph_id: GraphId,
 }
 
 impl<N, E> Debug for NodeId<N, E> {
@@ -76,7 +71,7 @@ struct Edge<N, E> {
 pub struct EdgeId<N, E> {
     ptr: Weak<Edge<N, E>>,
     #[cfg(feature = "paranoia")]
-    graph_id: usize,
+    graph_id: GraphId,
 }
 
 impl<N, E> Debug for EdgeId<N, E> {
@@ -126,14 +121,14 @@ impl<N, E> Ord for EdgeId<N, E> {
 /// node or edge is removed.
 pub struct LinkedGraph<N, E> {
     nodes: Vec<Arc<Node<N, E>>>,
-    id: usize,
+    id: GraphId,
 }
 
 impl<N, E> LinkedGraph<N, E> {
     pub fn new() -> Self {
         Self {
             nodes: Vec::new(),
-            id: GRAPH_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+            id: GraphId::new(),
         }
     }
 
