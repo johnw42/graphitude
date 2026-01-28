@@ -1,7 +1,10 @@
 #![allow(unused)]
 #![cfg(feature = "bitvec")]
 
+#[cfg(test)]
+use parking_lot::ReentrantMutex;
 use std::{
+    cell::RefCell,
     collections::HashMap,
     mem::MaybeUninit,
     ops::{Index, IndexMut, Range},
@@ -9,8 +12,8 @@ use std::{
 
 use bitvec::vec::BitVec;
 
-/// An index into an `IdVec`. Stable across insertions and removals, but not
-/// across shrink_to_fit operations.
+/// An key for an `IdVec`. Stable across insertions and removals, but not
+/// across `compact` or `shrink_to_fit` operations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct IdVecKey(usize);
 
@@ -290,17 +293,22 @@ impl<T> IdVec<T> {
     }
 }
 
+#[cfg(test)]
+static DROPPED_ENTRIES: ReentrantMutex<RefCell<Vec<usize>>> =
+    ReentrantMutex::new(RefCell::new(Vec::new()));
+
 impl<T> Drop for IdVec<T> {
     fn drop(&mut self) {
-        for (i, live) in self.liveness.iter().enumerate() {
-            if *live {
-                unsafe {
-                    self.vec[i].assume_init_drop();
-                }
+        for i in self.liveness.iter_ones() {
+            unsafe {
+                #[cfg(test)]
+                DROPPED_ENTRIES.lock().borrow_mut().push(i);
+                self.vec[i].assume_init_drop();
             }
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -750,5 +758,24 @@ mod tests {
         // Identity map should have entries for each key mapping to itself
         assert_eq!(hash_map.get(&id1), Some(&id1));
         assert_eq!(hash_map.get(&id2), Some(&id2));
+    }
+
+    #[test]
+    fn test_drop() {
+        // Lock for the entire test to prevent concurrent test interference
+        let dropped = DROPPED_ENTRIES.lock();
+        dropped.borrow_mut().clear();
+
+        let mut vec = IdVec::new();
+        vec.insert(1);
+        vec.insert(2);
+        let id3 = vec.insert(3);
+        vec.insert(4);
+        vec.remove(id3);
+        drop(vec);
+
+        let mut dropped_sorted = dropped.borrow().clone();
+        dropped_sorted.sort();
+        assert_eq!(dropped_sorted, vec![0, 1, 3]);
     }
 }
