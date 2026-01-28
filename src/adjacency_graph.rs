@@ -7,19 +7,19 @@ use crate::{
     debug::format_debug,
     directedness::Directedness,
     graph_id::GraphId,
-    id_vec::{IdVec, IdVecIndex},
-    util::sort_pair,
+    id_vec::{IdVec, IdVecKey},
+    util::maybe_sort_pair,
 };
 
 #[derive(Clone, Copy)]
 pub struct NodeId {
-    index: IdVecIndex,
+    index: IdVecKey,
     #[cfg(feature = "paranoia")]
     graph_id: GraphId,
 }
 
-impl Into<IdVecIndex> for NodeId {
-    fn into(self) -> IdVecIndex {
+impl Into<IdVecKey> for NodeId {
+    fn into(self) -> IdVecKey {
         self.index
     }
 }
@@ -60,8 +60,8 @@ impl Debug for NodeId {
 
 #[derive(Clone, Copy)]
 pub struct EdgeId {
-    from: IdVecIndex,
-    into: IdVecIndex,
+    from: IdVecKey,
+    into: IdVecKey,
     #[cfg(feature = "paranoia")]
     graph_id: GraphId,
 }
@@ -83,14 +83,14 @@ impl Hash for EdgeId {
     }
 }
 
-impl Into<(IdVecIndex, IdVecIndex)> for EdgeId {
-    fn into(self) -> (IdVecIndex, IdVecIndex) {
+impl Into<(IdVecKey, IdVecKey)> for EdgeId {
+    fn into(self) -> (IdVecKey, IdVecKey) {
         (self.from, self.into)
     }
 }
 
-impl<'a> Into<(&'a IdVecIndex, &'a IdVecIndex)> for &'a EdgeId {
-    fn into(self) -> (&'a IdVecIndex, &'a IdVecIndex) {
+impl<'a> Into<(&'a IdVecKey, &'a IdVecKey)> for &'a EdgeId {
+    fn into(self) -> (&'a IdVecKey, &'a IdVecKey) {
         (&self.from, &self.into)
     }
 }
@@ -105,10 +105,10 @@ pub struct AdjacencyGraph<N, E, D = Directed, S = HashStorage>
 where
     D: Directedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
+    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
 {
     nodes: IdVec<N>,
-    adjacency: <(D::Symmetry, S) as AdjacencyMatrixSelector<IdVecIndex, E>>::Matrix,
+    adjacency: <(D::Symmetry, S) as AdjacencyMatrixSelector<IdVecKey, E>>::Matrix,
     directedness: PhantomData<D>,
     #[cfg(feature = "paranoia")]
     id: GraphId,
@@ -118,23 +118,19 @@ impl<N, E, D, S> AdjacencyGraph<N, E, D, S>
 where
     D: Directedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
+    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
 {
     pub fn new() -> Self {
         Self {
             nodes: IdVec::new(),
-            adjacency: SelectMatrix::<D::Symmetry, S, IdVecIndex, E>::new(),
+            adjacency: SelectMatrix::<D::Symmetry, S, IdVecKey, E>::new(),
             directedness: PhantomData,
             #[cfg(feature = "paranoia")]
             id: GraphId::new(),
         }
     }
 
-    fn node(&self, id: IdVecIndex) -> &N {
-        &self.nodes[id]
-    }
-
-    fn node_id(&self, index: IdVecIndex) -> NodeId {
+    fn node_id(&self, index: IdVecKey) -> NodeId {
         NodeId {
             index,
             #[cfg(feature = "paranoia")]
@@ -142,12 +138,8 @@ where
         }
     }
 
-    fn edge_id(&self, from: IdVecIndex, into: IdVecIndex) -> EdgeId {
-        let (i1, i2) = if self.is_directed() {
-            (from, into)
-        } else {
-            sort_pair(from, into)
-        };
+    fn edge_id(&self, from: IdVecKey, into: IdVecKey) -> EdgeId {
+        let (i1, i2) = maybe_sort_pair(from, into, !self.is_directed());
         EdgeId {
             from: i1,
             into: i2,
@@ -161,7 +153,7 @@ impl<N, E, D, S> Graph for AdjacencyGraph<N, E, D, S>
 where
     D: Directedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
+    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
 {
     type EdgeData = E;
     type EdgeId = EdgeId;
@@ -170,11 +162,11 @@ where
     type Directedness = D;
 
     fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
-        &self.nodes[id.into()]
+        &self.nodes.get(id.into()).expect("no such node")
     }
 
     fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
-        self.nodes.iter_indices().map(|index| self.node_id(index))
+        self.nodes.iter_keys().map(|index| self.node_id(index))
     }
 
     fn edge_data(&self, eid: Self::EdgeId) -> &Self::EdgeData {
@@ -218,13 +210,57 @@ where
             .collect::<Vec<_>>()
             .into_iter()
     }
+
+    fn is_valid_node_id(&self, id: &Self::NodeId) -> bool {
+        #[cfg(feature = "paranoia")]
+        {
+            self.id == id.graph_id && self.nodes.get(id.index).is_some()
+        }
+        #[cfg(not(feature = "paranoia"))]
+        {
+            self.node_ids().any(|nid: NodeId<N, E>| &nid == id)
+        }
+    }
+
+    fn is_maybe_valid_node_id(&self, id: &Self::NodeId) -> bool {
+        #[cfg(feature = "paranoia")]
+        {
+            self.is_valid_node_id(id)
+        }
+        #[cfg(not(feature = "paranoia"))]
+        {
+            true
+        }
+    }
+
+    fn is_valid_edge_id(&self, id: &Self::EdgeId) -> bool {
+        #[cfg(feature = "paranoia")]
+        {
+            self.id == id.graph_id && self.adjacency.get(id.from, id.into).is_some()
+        }
+        #[cfg(not(feature = "paranoia"))]
+        {
+            self.edge_ids().any(|eid: EdgeId<N, E>| &eid == id)
+        }
+    }
+
+    fn is_maybe_valid_edge_id(&self, id: &Self::EdgeId) -> bool {
+        #[cfg(feature = "paranoia")]
+        {
+            self.is_valid_edge_id(id)
+        }
+        #[cfg(not(feature = "paranoia"))]
+        {
+            true
+        }
+    }
 }
 
 impl<N, E, D, S> GraphMut for AdjacencyGraph<N, E, D, S>
 where
     D: Directedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
+    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
 {
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
         let index = self.nodes.insert(data);
@@ -250,7 +286,7 @@ where
         {
             self.adjacency.remove(id.into(), into);
         }
-        self.nodes.remove(id.into())
+        self.nodes.remove(id.into()).expect("invalid node ID")
     }
 
     fn remove_edge(&mut self, id: Self::EdgeId) -> Self::EdgeData {
@@ -266,7 +302,7 @@ where
     E: Debug,
     D: Directedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, E>,
+    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "AdjacencyGraph")
@@ -282,7 +318,7 @@ mod tests {
     where
         D: Directedness,
         S: Storage,
-        (D::Symmetry, S): AdjacencyMatrixSelector<IdVecIndex, String>,
+        (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, String>,
     {
         type Graph = Self;
 

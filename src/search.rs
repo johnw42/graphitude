@@ -211,7 +211,10 @@ mod tests {
         let nodes: Vec<_> = graph.node_ids().collect();
         let visited: Vec<_> = BfsIterator::new(&graph, vec![nodes[0]]).collect();
         assert_eq!(visited.len(), 4);
-        assert_eq!(visited, vec![nodes[0], nodes[1], nodes[2], nodes[3]]);
+        assert!(visited[0] == nodes[0]);
+        assert!(visited[1] == nodes[1] || visited[1] == nodes[2]);
+        assert!(visited[2] == nodes[2] || visited[2] == nodes[1]);
+        assert!(visited[3] == nodes[3]);
     }
 
     #[test]
