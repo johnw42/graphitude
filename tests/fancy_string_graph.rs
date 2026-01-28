@@ -74,8 +74,7 @@ impl Graph for StringGraph {
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
         self.nodes.iter().flat_map(|(from_id, node)| {
-            node
-                .edges_out
+            node.edges_out
                 .iter()
                 .map(move |edge| (from_id.clone(), edge.target.clone()))
         })
@@ -125,14 +124,15 @@ impl GraphMut for StringGraph {
             .expect("Invalid node ID")
     }
 
-    fn remove_edge(&mut self, (from, to): Self::EdgeId) -> Option<Self::EdgeData> {
-        let node = self.nodes.get_mut(&from)?;
-        if let Some(pos) = node.edges_out.iter().position(|e| e.target == to) {
-            let edge = node.edges_out.remove(pos);
-            Some(edge.data)
-        } else {
-            None
-        }
+    fn remove_edge(&mut self, (from, to): Self::EdgeId) -> Self::EdgeData {
+        let node = self.nodes.get_mut(&from).expect("Invalid 'from' node ID");
+        let pos = node
+            .edges_out
+            .iter()
+            .position(|e| e.target == to)
+            .expect("Invalid 'to' node ID");
+        let edge = node.edges_out.remove(pos);
+        edge.data
     }
 }
 

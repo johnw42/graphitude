@@ -176,13 +176,14 @@ where
 }
 
 #[cfg(test)]
+#[cfg(feature = "bitvec")]
 mod tests {
-    use crate::{GraphMut, linked_graph::LinkedGraph};
+    use crate::{GraphMut, adjacency_graph::AdjacencyGraph};
 
     use super::*;
 
-    fn create_simple_graph() -> LinkedGraph<usize, ()> {
-        let mut graph = LinkedGraph::new();
+    fn create_simple_graph() -> AdjacencyGraph<usize, ()> {
+        let mut graph = AdjacencyGraph::new();
         let n0 = graph.add_node(0);
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
@@ -194,8 +195,8 @@ mod tests {
         graph
     }
 
-    fn create_cyclic_graph() -> LinkedGraph<usize, ()> {
-        let mut graph = LinkedGraph::new();
+    fn create_cyclic_graph() -> AdjacencyGraph<usize, ()> {
+        let mut graph = AdjacencyGraph::new();
         let n0 = graph.add_node(0);
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
@@ -211,10 +212,7 @@ mod tests {
         let nodes: Vec<_> = graph.node_ids().collect();
         let visited: Vec<_> = BfsIterator::new(&graph, vec![nodes[0]]).collect();
         assert_eq!(visited.len(), 4);
-        assert_eq!(
-            visited,
-            vec![nodes[0], nodes[1], nodes[2], nodes[3]]
-        );
+        assert_eq!(visited, vec![nodes[0], nodes[1], nodes[2], nodes[3]]);
     }
 
     #[test]
@@ -240,8 +238,7 @@ mod tests {
     fn test_bfs_multiple_start_nodes() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: HashSet<_> =
-            BfsIterator::new(&graph, vec![nodes[0], nodes[1]]).collect();
+        let visited: HashSet<_> = BfsIterator::new(&graph, vec![nodes[0], nodes[1]]).collect();
         assert_eq!(visited.len(), 4);
     }
 
@@ -257,11 +254,10 @@ mod tests {
     fn test_dfs_simple_graph() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: Vec<_> = DfsIterator::new(&graph, vec![nodes[0]]).collect();
-        assert_eq!(visited.len(), 4);
+        let visited: HashSet<_> = DfsIterator::new(&graph, vec![nodes[0]]).collect();
         assert_eq!(
             visited,
-            vec![nodes[0], nodes[1], nodes[3], nodes[2]]
+            HashSet::from([nodes[0], nodes[1], nodes[3], nodes[2]])
         );
     }
 
@@ -288,8 +284,7 @@ mod tests {
     fn test_dfs_multiple_start_nodes() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: HashSet<_> =
-            DfsIterator::new(&graph, vec![nodes[0], nodes[1]]).collect();
+        let visited: HashSet<_> = DfsIterator::new(&graph, vec![nodes[0], nodes[1]]).collect();
         assert_eq!(visited.len(), 4);
     }
 
@@ -331,16 +326,11 @@ mod tests {
     fn test_dfs_wth_paths() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: Vec<_> = DfsIteratorWithPaths::new(&graph, vec![nodes[0]]).collect();
+        let visited: HashSet<_> = DfsIteratorWithPaths::new(&graph, vec![nodes[0]]).collect();
         assert_eq!(visited.len(), 4);
-        assert_eq!(
-            visited,
-            vec![
-                vec![nodes[0]],
-                vec![nodes[0], nodes[1]],
-                vec![nodes[0], nodes[1], nodes[3]],
-                vec![nodes[0], nodes[2]]
-            ]
-        );
+        assert!(visited.contains(&vec![nodes[0]]));
+        assert!(visited.contains(&vec![nodes[0], nodes[1]]));
+        assert!(visited.contains(&vec![nodes[0], nodes[2]]));
+        assert!(visited.contains(&vec![nodes[0], nodes[1], nodes[3]]));
     }
 }

@@ -183,12 +183,15 @@ where
 }
 
 #[cfg(test)]
+#[cfg(feature = "bitvec")]
 mod tests {
+    use crate::adjacency_graph::AdjacencyGraph;
+
     use super::*;
 
     #[test]
     fn test_new_path() {
-        let mut graph = LinkedGraph::<i32, ()>::new();
+        let mut graph = AdjacencyGraph::<i32, ()>::new();
         let n1 = graph.add_node(1);
         let path = Path::new(&graph, n1);
         assert_eq!(path.first_node(), n1);
@@ -197,7 +200,7 @@ mod tests {
 
     #[test]
     fn test_add_edge() {
-        let mut graph = LinkedGraph::new();
+        let mut graph = AdjacencyGraph::<i32, ()>::new();
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
         let e1 = graph.add_edge(n1, n2, ());
@@ -212,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_nodes_with_edges() {
-        let mut graph = LinkedGraph::new();
+        let mut graph = AdjacencyGraph::<i32, ()>::new();
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
         let n3 = graph.add_node(3);
@@ -233,7 +236,7 @@ mod tests {
 
     #[test]
     fn test_extend_with() {
-        let mut graph = LinkedGraph::new();
+        let mut graph = AdjacencyGraph::<&str, &str>::new();
         let n1 = graph.add_node("n1");
         let n2 = graph.add_node("n2");
         let n3 = graph.add_node("n3");
@@ -254,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_extend() {
-        let mut graph = LinkedGraph::new();
+        let mut graph = AdjacencyGraph::<&str, &str>::new();
         let n1 = graph.add_node("n1");
         let n2 = graph.add_node("n2");
         let n3 = graph.add_node("n3");
@@ -270,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_debug() {
-        let mut graph = LinkedGraph::new();
+        let mut graph = AdjacencyGraph::<&str, &str>::new();
         let n1 = graph.add_node("n1");
         let n2 = graph.add_node("n2");
         let n3 = graph.add_node("n3");

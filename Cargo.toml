@@ -9,11 +9,15 @@ bitvec = { version = "1.0.1", optional = true }
 
 [features]
 default = [
-  "pathfinding", "bitvec",
+  "pathfinding",
+  "bitvec",
+  "paranoia",
 ]
 pathfinding = [
   "dep:pathfinding",
 ]
 bitvec = [
   "dep:bitvec",
+]
+paranoia = [
 ]

@@ -2,10 +2,11 @@
 use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use crate::{
-    AdjacencyMatrix, Graph, GraphMut,
+    AdjacencyMatrix, Directed, Graph, GraphMut,
     adjacency_matrix::{AdjacencyMatrixSelector, HashStorage, SelectMatrix, Storage},
     debug::format_debug,
-    directedness::Directedness, id_vec::{IdVec, IdVecIndex},
+    directedness::Directedness,
+    id_vec::{IdVec, IdVecIndex},
 };
 
 pub struct EdgeId<N, D>(N, N, PhantomData<D>);
@@ -23,12 +24,14 @@ where
 
 impl<N, D> Clone for EdgeId<N, D>
 where
-    N: Clone,
+    N: Copy,
 {
     fn clone(&self) -> Self {
-        EdgeId(self.0.clone(), self.1.clone(), PhantomData)
+        EdgeId(self.0, self.1, PhantomData)
     }
 }
+
+impl<N, D> Copy for EdgeId<N, D> where N: Copy {}
 
 impl<N, D> PartialEq for EdgeId<N, D>
 where
@@ -72,7 +75,7 @@ where
     }
 }
 
-pub struct AdjacencyGraph<N, E, D, S = HashStorage>
+pub struct AdjacencyGraph<N, E, D = Directed, S = HashStorage>
 where
     D: Directedness,
     S: Storage,
@@ -193,8 +196,8 @@ where
         self.nodes.remove(id)
     }
 
-    fn remove_edge(&mut self, id: Self::EdgeId) -> Option<Self::EdgeData> {
-        self.adjacency.remove(id.0, id.1)
+    fn remove_edge(&mut self, id: Self::EdgeId) -> Self::EdgeData {
+        self.adjacency.remove(id.0, id.1).expect("Invalid edge ID")
     }
 }
 

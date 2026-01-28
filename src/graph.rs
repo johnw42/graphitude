@@ -7,20 +7,23 @@ use std::{
 #[cfg(feature = "pathfinding")]
 use {pathfinding::num_traits::Zero, std::iter::once};
 
-use crate::directedness::{Directed, Directedness, Undirected};
 use crate::search::{BfsIterator, DfsIterator};
+use crate::{
+    LinkedGraph,
+    directedness::{Directed, Directedness, Undirected},
+};
 
 /// A trait representing a directed or undirected graph data structure.  Methods
 /// that return iterators over nodes or edges return them in an unspecified
 /// order unless otherwise noted.
-/// 
+///
 /// For the sake of catching errors more reliably, it is recommended that
 /// implementations of this trait implement the following methods that have
 /// default implementions:
 ///
 /// - [`Self::is_maybe_valid_node_id`]
 /// - [`Self::is_maybe_valid_edge_id`]
-// 
+//
 /// For the sake of performance, it is recommended that implementations of this
 /// trait implement the following methods that have default implementions with a
 /// more efficient implementation that calls [`Self::check_node_id`] or
@@ -42,8 +45,19 @@ pub trait Graph: Sized {
     type NodeId: Eq + Hash + Clone + Debug;
     type Directedness: Directedness;
 
+    /// Returns true if the graph is directed.
     fn is_directed(&self) -> bool {
         Self::Directedness::is_directed()
+    }
+
+    /// Creates a new graph with the same structure as this graph, but with
+    /// all node and edge data replaced with `()`.  This is intended for debugging
+    /// purposes, to allow inspection of the graph structure without when the
+    /// data does not implement `Debug`.
+    fn without_data(&self) -> impl Graph<NodeData = (), EdgeData = ()> + Debug {
+        let mut g = LinkedGraph::new();
+        g.copy_from_with(self, |_| (), |_| ());
+        g
     }
 
     // Nodes
@@ -68,7 +82,7 @@ pub trait Graph: Sized {
     /// Checks if a NodeId is valid in the graph to the extent that can be
     /// determined without iterating over all nodes.  This may return false
     /// positives for some graph implementations.
-    /// 
+    ///
     /// By default, this method always returns true.
     fn is_maybe_valid_node_id(&self, _id: &Self::NodeId) -> bool {
         true
@@ -76,26 +90,18 @@ pub trait Graph: Sized {
 
     /// Panics if the given NodeId is not valid in the graph, accordinging to
     /// [`Self::is_valid_node_id`].
-    /// 
+    ///
     /// It is recommended to call this method from implementations of other methods
     /// that take NodeIds as parameters, to ensure that invalid NodeIds are
     /// caught early.
     fn check_node_id(&self, id: &Self::NodeId) {
-        assert!(
-            self.is_maybe_valid_node_id(id),
-            "Invalid NodeId: {:?}",
-            id
-        );
+        assert!(self.is_maybe_valid_node_id(id), "Invalid NodeId: {:?}", id);
     }
 
     /// Panics if the given NodeId is not valid in the graph, accordinging to
     /// [`Self::is_maybe_valid_node_id`], but only in debug builds.
     fn debug_check_node_id(&self, id: &Self::NodeId) {
-        debug_assert!(
-            self.is_maybe_valid_node_id(id),
-            "Invalid NodeId: {:?}",
-            id
-        );
+        debug_assert!(self.is_maybe_valid_node_id(id), "Invalid NodeId: {:?}", id);
     }
 
     /// Gets an iterator over the predacessors nodes of a given node, i.e.
@@ -140,7 +146,7 @@ pub trait Graph: Sized {
     /// Checks if a EdgeId is valid in the graph to the extent that can be
     /// determined without iterating over all nodes.  This may return false
     /// positives for some graph implementations.
-    /// 
+    ///
     /// By default, this method always returns true.
     fn is_maybe_valid_edge_id(&self, _id: &Self::EdgeId) -> bool {
         true
@@ -148,26 +154,18 @@ pub trait Graph: Sized {
 
     /// Panics if the given EdgeId is not valid in the graph, accordinging to
     /// [`Self::is_valid_edge_id`].
-    /// 
+    ///
     /// It is recommended to call this method from implementations of other methods
     /// that take EdgeIds as parameters, to ensure that invalid EdgeIds are
     /// caught early.
     fn check_edge_id(&self, id: &Self::EdgeId) {
-        assert!(
-            self.is_maybe_valid_edge_id(id),
-            "Invalid EdgeId: {:?}",
-            id
-        );
+        assert!(self.is_maybe_valid_edge_id(id), "Invalid EdgeId: {:?}", id);
     }
 
     /// Panics if the given EdgeId is not valid in the graph, accordinging to
     /// [`Self::is_maybe_valid_edge_id`], but only in debug builds.
     fn debug_check_edge_id(&self, id: &Self::EdgeId) {
-        debug_assert!(
-            self.is_maybe_valid_edge_id(id),
-            "Invalid EdgeId: {:?}",
-            id
-        );
+        debug_assert!(self.is_maybe_valid_edge_id(id), "Invalid EdgeId: {:?}", id);
     }
     /// Gets an iterator over the outgoing edges from a given node.
     fn edges_from(&self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + '_ {
@@ -342,10 +340,7 @@ pub trait GraphDirected: Graph {
 
     /// Partitions nodes reachable from a starting point into strongly connected components.
     #[cfg(feature = "pathfinding")]
-    fn strongly_connected_components_from(
-        &self,
-        start: &Self::NodeId,
-    ) -> Vec<Vec<Self::NodeId>> {
+    fn strongly_connected_components_from(&self, start: &Self::NodeId) -> Vec<Vec<Self::NodeId>> {
         pathfinding::prelude::strongly_connected_components_from(start, |nid| {
             self.successors(nid.clone())
         })
@@ -406,8 +401,8 @@ pub trait GraphMut: Graph {
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>);
 
-    /// Remove an edge between two nodes, returning its data if it existed.
-    fn remove_edge(&mut self, from: Self::EdgeId) -> Option<Self::EdgeData>;
+    /// Remove an edge between two nodes, returning its data.
+    fn remove_edge(&mut self, from: Self::EdgeId) -> Self::EdgeData;
 
     /// Copies all nodes and edges from another graph into this graph.
     fn copy_from<S>(&mut self, source: &S) -> HashMap<S::NodeId, Self::NodeId>

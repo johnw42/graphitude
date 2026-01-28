@@ -3,7 +3,8 @@
 use std::{collections::HashSet, fmt::Debug};
 
 use jrw_graph::{
-    AdjacencyMatrix, Graph, GraphMut, SymmetricHashAdjacencyMatrix, debug::format_debug_with, directedness::Undirected, graph_test_copy_from_with, graph_tests, tests::TestDataBuilder
+    AdjacencyMatrix, Graph, GraphMut, SymmetricHashAdjacencyMatrix, debug::format_debug_with,
+    directedness::Undirected, graph_test_copy_from_with, graph_tests, tests::TestDataBuilder,
 };
 
 /// An undirected graph where nodes are identified by strings.  A node's ID
@@ -112,8 +113,8 @@ impl GraphMut for StringGraph {
         id.clone()
     }
 
-    fn remove_edge(&mut self, id: Self::EdgeId) -> Option<Self::EdgeData> {
-        self.edges.remove(id.0, id.1).map(|_| ())
+    fn remove_edge(&mut self, id: Self::EdgeId) -> Self::EdgeData {
+        self.edges.remove(id.0, id.1).expect("Edge does not exist")
     }
 }
 
@@ -147,10 +148,7 @@ impl TestDataBuilder for StringGraph {
 }
 
 graph_tests!(StringGraph);
-graph_test_copy_from_with!(
-    StringGraph,
-    |data| format!("{}-copied", data),
-    |_| ());
+graph_test_copy_from_with!(StringGraph, |data| format!("{}-copied", data), |_| ());
 
 #[test]
 fn test_format_debug_with() {
