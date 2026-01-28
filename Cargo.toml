@@ -14,7 +14,6 @@ parking_lot = "0.12"
 default = [
   "pathfinding",
   "bitvec",
-  "paranoia",
 ]
 pathfinding = [
   "dep:pathfinding",
@@ -22,5 +21,5 @@ pathfinding = [
 bitvec = [
   "dep:bitvec",
 ]
-paranoia = [
+unchecked = [
 ]

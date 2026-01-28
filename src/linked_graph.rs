@@ -14,7 +14,7 @@ struct Node<N, E> {
 
 pub struct NodeId<N, E> {
     ptr: Weak<Node<N, E>>,
-    #[cfg(feature = "paranoia")]
+    #[cfg(not(feature = "unchecked"))]
     graph_id: GraphId,
 }
 
@@ -28,7 +28,7 @@ impl<N, E> Clone for NodeId<N, E> {
     fn clone(&self) -> Self {
         NodeId {
             ptr: Weak::clone(&self.ptr),
-            #[cfg(feature = "paranoia")]
+            #[cfg(not(feature = "unchecked"))]
             graph_id: self.graph_id,
         }
     }
@@ -36,7 +36,7 @@ impl<N, E> Clone for NodeId<N, E> {
 
 impl<N, E> PartialEq for NodeId<N, E> {
     fn eq(&self, other: &Self) -> bool {
-        #[cfg(feature = "paranoia")]
+        #[cfg(not(feature = "unchecked"))]
         assert_eq!(self.graph_id, other.graph_id);
         self.ptr.as_ptr() == other.ptr.as_ptr()
     }
@@ -70,7 +70,7 @@ struct Edge<N, E> {
 
 pub struct EdgeId<N, E> {
     ptr: Weak<Edge<N, E>>,
-    #[cfg(feature = "paranoia")]
+    #[cfg(not(feature = "unchecked"))]
     graph_id: GraphId,
 }
 
@@ -84,7 +84,7 @@ impl<N, E> Clone for EdgeId<N, E> {
     fn clone(&self) -> Self {
         EdgeId {
             ptr: Weak::clone(&self.ptr),
-            #[cfg(feature = "paranoia")]
+            #[cfg(not(feature = "unchecked"))]
             graph_id: self.graph_id,
         }
     }
@@ -135,7 +135,7 @@ impl<N, E> LinkedGraph<N, E> {
     fn node_id(&self, ptr: &Arc<Node<N, E>>) -> NodeId<N, E> {
         NodeId {
             ptr: Arc::downgrade(ptr),
-            #[cfg(feature = "paranoia")]
+            #[cfg(not(feature = "unchecked"))]
             graph_id: self.id,
         }
     }
@@ -143,7 +143,7 @@ impl<N, E> LinkedGraph<N, E> {
     fn edge_id(&self, ptr: &Arc<Edge<N, E>>) -> EdgeId<N, E> {
         EdgeId {
             ptr: Arc::downgrade(ptr),
-            #[cfg(feature = "paranoia")]
+            #[cfg(not(feature = "unchecked"))]
             graph_id: self.id,
         }
     }
@@ -232,44 +232,44 @@ impl<N, E> Graph for LinkedGraph<N, E> {
     }
 
     fn is_valid_node_id(&self, id: &Self::NodeId) -> bool {
-        #[cfg(feature = "paranoia")]
+        #[cfg(not(feature = "unchecked"))]
         {
             self.id == id.graph_id && id.ptr.upgrade().is_some()
         }
-        #[cfg(not(feature = "paranoia"))]
+        #[cfg(feature = "unchecked")]
         {
             self.node_ids().any(|nid: NodeId<N, E>| &nid == id)
         }
     }
 
     fn is_maybe_valid_node_id(&self, id: &Self::NodeId) -> bool {
-        #[cfg(feature = "paranoia")]
+        #[cfg(not(feature = "unchecked"))]
         {
             self.is_valid_node_id(id)
         }
-        #[cfg(not(feature = "paranoia"))]
+        #[cfg(feature = "unchecked")]
         {
             true
         }
     }
 
     fn is_valid_edge_id(&self, id: &Self::EdgeId) -> bool {
-        #[cfg(feature = "paranoia")]
+        #[cfg(not(feature = "unchecked"))]
         {
             self.id == id.graph_id && id.ptr.upgrade().is_some()
         }
-        #[cfg(not(feature = "paranoia"))]
+        #[cfg(feature = "unchecked")]
         {
             self.edge_ids().any(|eid: EdgeId<N, E>| &eid == id)
         }
     }
 
     fn is_maybe_valid_edge_id(&self, id: &Self::EdgeId) -> bool {
-        #[cfg(feature = "paranoia")]
+        #[cfg(not(feature = "unchecked"))]
         {
             self.is_valid_edge_id(id)
         }
-        #[cfg(not(feature = "paranoia"))]
+        #[cfg(feature = "unchecked")]
         {
             true
         }

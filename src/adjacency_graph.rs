@@ -14,7 +14,7 @@ use crate::{
 #[derive(Clone, Copy)]
 pub struct NodeId {
     index: IdVecKey,
-    #[cfg(feature = "paranoia")]
+    #[cfg(not(feature = "unchecked"))]
     graph_id: GraphId,
 }
 
@@ -26,7 +26,7 @@ impl Into<IdVecKey> for NodeId {
 
 impl PartialEq for NodeId {
     fn eq(&self, other: &Self) -> bool {
-        #[cfg(feature = "paranoia")]
+        #[cfg(not(feature = "unchecked"))]
         assert_eq!(self.graph_id, other.graph_id);
         self.index == other.index
     }
@@ -62,13 +62,13 @@ impl Debug for NodeId {
 pub struct EdgeId {
     from: IdVecKey,
     into: IdVecKey,
-    #[cfg(feature = "paranoia")]
+    #[cfg(not(feature = "unchecked"))]
     graph_id: GraphId,
 }
 
 impl PartialEq for EdgeId {
     fn eq(&self, other: &Self) -> bool {
-        #[cfg(feature = "paranoia")]
+        #[cfg(not(feature = "unchecked"))]
         assert_eq!(self.graph_id, other.graph_id);
         self.from == other.from && self.into == other.into
     }
@@ -110,7 +110,7 @@ where
     nodes: IdVec<N>,
     adjacency: <(D::Symmetry, S) as AdjacencyMatrixSelector<IdVecKey, E>>::Matrix,
     directedness: PhantomData<D>,
-    #[cfg(feature = "paranoia")]
+    #[cfg(not(feature = "unchecked"))]
     id: GraphId,
 }
 
@@ -125,7 +125,7 @@ where
             nodes: IdVec::new(),
             adjacency: SelectMatrix::<D::Symmetry, S, IdVecKey, E>::new(),
             directedness: PhantomData,
-            #[cfg(feature = "paranoia")]
+            #[cfg(not(feature = "unchecked"))]
             id: GraphId::new(),
         }
     }
@@ -133,7 +133,7 @@ where
     fn node_id(&self, index: IdVecKey) -> NodeId {
         NodeId {
             index,
-            #[cfg(feature = "paranoia")]
+            #[cfg(not(feature = "unchecked"))]
             graph_id: self.id,
         }
     }
@@ -143,7 +143,7 @@ where
         EdgeId {
             from: i1,
             into: i2,
-            #[cfg(feature = "paranoia")]
+            #[cfg(not(feature = "unchecked"))]
             graph_id: self.id,
         }
     }
@@ -212,44 +212,44 @@ where
     }
 
     fn is_valid_node_id(&self, id: &Self::NodeId) -> bool {
-        #[cfg(feature = "paranoia")]
+        #[cfg(not(feature = "unchecked"))]
         {
             self.id == id.graph_id && self.nodes.get(id.index).is_some()
         }
-        #[cfg(not(feature = "paranoia"))]
+        #[cfg(feature = "unchecked")]
         {
             self.node_ids().any(|nid: NodeId<N, E>| &nid == id)
         }
     }
 
     fn is_maybe_valid_node_id(&self, id: &Self::NodeId) -> bool {
-        #[cfg(feature = "paranoia")]
+        #[cfg(not(feature = "unchecked"))]
         {
             self.is_valid_node_id(id)
         }
-        #[cfg(not(feature = "paranoia"))]
+        #[cfg(feature = "unchecked")]
         {
             true
         }
     }
 
     fn is_valid_edge_id(&self, id: &Self::EdgeId) -> bool {
-        #[cfg(feature = "paranoia")]
+        #[cfg(not(feature = "unchecked"))]
         {
             self.id == id.graph_id && self.adjacency.get(id.from, id.into).is_some()
         }
-        #[cfg(not(feature = "paranoia"))]
+        #[cfg(feature = "unchecked")]
         {
             self.edge_ids().any(|eid: EdgeId<N, E>| &eid == id)
         }
     }
 
     fn is_maybe_valid_edge_id(&self, id: &Self::EdgeId) -> bool {
-        #[cfg(feature = "paranoia")]
+        #[cfg(not(feature = "unchecked"))]
         {
             self.is_valid_edge_id(id)
         }
-        #[cfg(not(feature = "paranoia"))]
+        #[cfg(feature = "unchecked")]
         {
             true
         }
