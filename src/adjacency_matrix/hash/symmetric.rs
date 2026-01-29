@@ -88,6 +88,20 @@ where
     {
         self.edges_from(into)
     }
+
+    fn clear(&mut self) {
+        // First, free all the leaked boxes (only once per unique pointer)
+        let mut freed = std::collections::HashSet::new();
+        for inner_map in self.edges.values() {
+            for &ptr in inner_map.values() {
+                if freed.insert(ptr) {
+                    unsafe { drop(Box::from_raw(ptr)) };
+                }
+            }
+        }
+        // Then clear the hash map
+        self.edges.clear();
+    }
 }
 
 impl<K, V> Drop for SymmetricHashAdjacencyMatrix<K, V>

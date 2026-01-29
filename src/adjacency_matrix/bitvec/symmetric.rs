@@ -143,6 +143,10 @@ where
     {
         self.edges_from(into)
     }
+
+    fn clear(&mut self) {
+        self.liveness.fill(false);
+    }
 }
 
 impl<K, V> Debug for SymmetricBitvecAdjacencyMatrix<K, V>

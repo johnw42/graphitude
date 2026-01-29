@@ -31,57 +31,6 @@ impl From<usize> for IdVecKey {
     }
 }
 
-/// A mapping from old `IdVecKey`s to new `IdVecKey`s after a compaction
-/// operation.  Can represent either a full mapping with possible removals,
-/// or an identity mapping where keys map to themselves.
-pub enum IdVecKeyMap {
-    Mapping {
-        data: Vec<Option<IdVecKey>>,
-        index_offset: usize,
-    },
-    Identity {
-        range: Range<usize>,
-    },
-}
-
-impl IdVecKeyMap {
-    pub fn get(&self, old_key: IdVecKey) -> Option<IdVecKey> {
-        match self {
-            IdVecKeyMap::Mapping { data, index_offset } => {
-                data.get(old_key.0 - *index_offset).copied().flatten()
-            }
-            IdVecKeyMap::Identity { .. } => Some(old_key),
-        }
-    }
-
-    fn insert(&mut self, old_key: IdVecKey, new_key: Option<IdVecKey>) {
-        match self {
-            IdVecKeyMap::Mapping { data, index_offset } => {
-                debug_assert_eq!(old_key.0 - *index_offset, data.len());
-                data.push(new_key);
-            }
-            IdVecKeyMap::Identity { .. } => {
-                panic!("Cannot push to Identity key map")
-            }
-        }
-    }
-}
-
-impl Into<HashMap<IdVecKey, IdVecKey>> for IdVecKeyMap {
-    fn into(self) -> HashMap<IdVecKey, IdVecKey> {
-        match self {
-            IdVecKeyMap::Mapping { data, index_offset } => data
-                .into_iter()
-                .enumerate()
-                .flat_map(|(old_index, new_key)| {
-                    new_key.map(|new_key| (IdVecKey(old_index + index_offset), new_key))
-                })
-                .collect(),
-            IdVecKeyMap::Identity { range } => range.map(|i| (IdVecKey(i), IdVecKey(i))).collect(),
-        }
-    }
-}
-
 /// A map-like structure that assigns stable keys to inserted values.  Keys
 /// remain valid across insertions and removals, but not across `compact` or
 /// `shrink_to_fit` operations.  Internally uses a `Vec<MaybeUninit<T>>` to
@@ -115,6 +64,12 @@ impl<T> IdVec<T> {
     /// Gets the capacity of the `IdVec`.
     pub fn capacity(&self) -> usize {
         self.vec.capacity()
+    }
+
+    /// Clears the `IdVec`, removing all entries.
+    pub fn clear(&mut self) {
+        self.vec.clear();
+        self.liveness.clear();
     }
 
     /// Reserves capacity for at least `additional` more elements to be inserted.
@@ -173,54 +128,47 @@ impl<T> IdVec<T> {
     }
 
     /// Compacts the `IdVec` by removing all dead entries and shifting live
-    /// entries down to fill the gaps. This invalidates all existing keys.
-    /// No memory is reallocated.
+    /// entries down to fill the gaps. This invalidates all existing keys.  No
+    /// memory is reallocated.
     ///
-    /// Returns a mapping from old keys to new keys. Use `IdVecKeyMap::get(old_key)`
-    /// to retrieve the new key for a live entry, or `None` if the entry was removed.
-    /// Old keys cannot be used directly after compaction.
-    pub fn compact(&mut self) -> IdVecKeyMap {
+    /// Calls the provided callback with each (old_key, new_key) mapping as they
+    /// are created during compaction. For removed entries, the callback is called
+    /// with (old_key, None).
+    pub fn compact(&mut self, mut callback: impl FnMut(IdVecKey, Option<IdVecKey>)) {
         let new_key_offset = self.vec.len();
-        let mut key_map = IdVecKeyMap::Mapping {
-            data: Vec::with_capacity(self.vec.len()),
-            index_offset: self.key_offset,
-        };
         let mut di = 0;
         for si in self.key_offset..self.liveness.len() {
             let old_key = IdVecKey(si + self.key_offset);
             if self.liveness[si] {
-                key_map.insert(old_key, Some(IdVecKey(di + new_key_offset)));
+                let new_key = IdVecKey(di + new_key_offset);
+                callback(old_key, Some(new_key));
                 self.vec[di] = MaybeUninit::new(unsafe { self.vec[si].assume_init_read() });
                 self.liveness.set(di, true);
                 di += 1;
             } else {
-                key_map.insert(old_key, None);
+                callback(old_key, None);
             }
         }
         self.vec.truncate(di);
         self.liveness.truncate(di);
         self.key_offset = new_key_offset;
-        key_map
     }
 
     /// Compacts the `IdVec` by removing all dead entries without shifting live entries.
     /// This invalidates all existing keys. Memory is reallocated to fit exactly.
     ///
-    /// Returns a mapping from old keys to new keys. Use `IdVecKeyMap::get(old_key)`
-    /// to retrieve the new key for a live entry, or `None` if the entry was removed.
-    /// If no entries were removed, returns an `Identity` mapping where keys map to themselves.
-    /// Old keys cannot be used directly after compaction.
-    pub fn shrink_to_fit(&mut self) -> IdVecKeyMap {
+    /// Calls the provided callback with each (old_key, new_key) mapping as they
+    /// are created during compaction. For removed entries, the callback is called
+    /// with (old_key, None). If no entries were removed, all keys map to themselves.
+    pub fn shrink_to_fit(&mut self, mut callback: impl FnMut(IdVecKey, Option<IdVecKey>)) {
         if self.len() == self.vec.len() + self.key_offset {
-            return IdVecKeyMap::Identity {
-                range: self.key_offset..(self.vec.len() + self.key_offset),
-            };
+            // Identity mapping - all keys map to themselves
+            for i in self.key_offset..(self.vec.len() + self.key_offset) {
+                let key = IdVecKey(i);
+                callback(key, Some(key));
+            }
+            return;
         }
-
-        let mut key_map = IdVecKeyMap::Mapping {
-            data: Vec::with_capacity(self.vec.len()),
-            index_offset: self.key_offset,
-        };
 
         let new_key_offset = self.vec.len();
         let mut new_vec: Vec<MaybeUninit<T>> = Vec::with_capacity(self.vec.len());
@@ -230,19 +178,18 @@ impl<T> IdVec<T> {
             let old_key = IdVecKey(si + self.key_offset);
             if *live {
                 let di = new_vec.len();
-                key_map.insert(old_key, Some(IdVecKey(di + new_key_offset)));
+                let new_key = IdVecKey(di + new_key_offset);
+                callback(old_key, Some(new_key));
                 new_vec.push(unsafe { MaybeUninit::new(self.vec[si].assume_init_read()) });
                 new_liveness.push(true);
             } else {
-                key_map.insert(old_key, None);
+                callback(old_key, None);
             }
         }
 
         self.vec = new_vec;
         self.liveness = new_liveness;
         self.key_offset = new_key_offset;
-
-        key_map
     }
 
     /// Iterates over all live indices in the `IdVec`.
@@ -312,6 +259,7 @@ impl<T> Drop for IdVec<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_new() {
@@ -364,6 +312,31 @@ mod tests {
     }
 
     #[test]
+    fn test_clear() {
+        let mut vec = IdVec::new();
+        let id1 = vec.insert(1);
+        let id2 = vec.insert(2);
+        let id3 = vec.insert(3);
+
+        vec.remove(id2);
+        assert_eq!(vec.len(), 2);
+        assert!(!vec.is_empty());
+
+        vec.clear();
+
+        assert_eq!(vec.len(), 0);
+        assert!(vec.is_empty());
+        // Capacity is preserved after clear (like Vec::clear())
+        assert!(vec.get(id1).is_none());
+        assert!(vec.get(id3).is_none());
+
+        // Should be able to insert after clearing
+        let id4 = vec.insert(4);
+        assert_eq!(vec.len(), 1);
+        assert_eq!(vec.get(id4), Some(&4));
+    }
+
+    #[test]
     fn test_iter() {
         let mut vec = IdVec::new();
         vec.insert(1);
@@ -399,16 +372,28 @@ mod tests {
         assert_eq!(id3.0, 2);
 
         vec.remove(id2);
-        let key_map = vec.compact();
+        let mut key_map = HashMap::new();
+
+        vec.compact(|old_key, new_key_opt| {
+            if let Some(new_key) = new_key_opt {
+                key_map.insert(old_key, new_key);
+            }
+        });
 
         assert_eq!(vec.len(), 2);
         assert_eq!(vec.iter().sum::<i32>(), 4);
 
         // Test the key mapping
-        let new_id1 = key_map.get(id1).expect("id1 should have a mapping");
-        let new_id3 = key_map.get(id3).expect("id3 should have a mapping");
+        let new_id1 = key_map
+            .get(&id1)
+            .copied()
+            .expect("id1 should have a mapping");
+        let new_id3 = key_map
+            .get(&id3)
+            .copied()
+            .expect("id3 should have a mapping");
         assert!(
-            key_map.get(id2).is_none(),
+            key_map.get(&id2).copied().is_none(),
             "id2 was removed, should map to None"
         );
 
@@ -438,18 +423,27 @@ mod tests {
 
         vec.remove(id1);
         vec.remove(id3);
-        let key_map = vec.shrink_to_fit();
+        let mut key_map = HashMap::new();
+
+        vec.shrink_to_fit(|old_key, new_key_opt| {
+            if let Some(new_key) = new_key_opt {
+                key_map.insert(old_key, new_key);
+            }
+        });
 
         assert_eq!(vec.len(), 1);
 
         // Test the key mapping
         assert!(
-            key_map.get(id1).is_none(),
+            key_map.get(&id1).copied().is_none(),
             "id1 was removed, should map to None"
         );
-        let new_id2 = key_map.get(id2).expect("id2 should have a mapping");
+        let new_id2 = key_map
+            .get(&id2)
+            .copied()
+            .expect("id2 should have a mapping");
         assert!(
-            key_map.get(id3).is_none(),
+            key_map.get(&id3).copied().is_none(),
             "id3 was removed, should map to None"
         );
 
@@ -610,7 +604,7 @@ mod tests {
         let id2 = vec.insert(2);
 
         vec.remove(id1);
-        vec.compact();
+        vec.compact(|_, _| {});
 
         let _ = vec.get(id2);
     }
@@ -700,14 +694,20 @@ mod tests {
         let id3 = vec.insert(3);
 
         vec.remove(id2);
-        let key_map = vec.compact();
+        let mut key_map = HashMap::new();
+
+        vec.compact(|old_key, new_key_opt| {
+            if let Some(new_key) = new_key_opt {
+                key_map.insert(old_key, new_key);
+            }
+        });
 
         // Old id1 should map to a new key
-        assert!(key_map.get(id1).is_some());
+        assert!(key_map.get(&id1).copied().is_some());
         // Old id2 (removed) should map to None
-        assert!(key_map.get(id2).is_none());
+        assert!(key_map.get(&id2).copied().is_none());
         // Old id3 should map to a new key
-        assert!(key_map.get(id3).is_some());
+        assert!(key_map.get(&id3).copied().is_some());
     }
 
     #[test]
@@ -718,10 +718,16 @@ mod tests {
         vec.insert(3);
 
         // shrink_to_fit with no removals returns Identity map
-        let key_map = vec.shrink_to_fit();
+        let mut key_map = HashMap::new();
+
+        vec.shrink_to_fit(|old_key, new_key_opt| {
+            if let Some(new_key) = new_key_opt {
+                key_map.insert(old_key, new_key);
+            }
+        });
 
         let key = IdVecKey(1);
-        assert_eq!(key_map.get(key), Some(key));
+        assert_eq!(key_map.get(&key).copied(), Some(key));
     }
 
     #[test]
@@ -732,7 +738,13 @@ mod tests {
         let id3 = vec.insert(3);
 
         vec.remove(id2);
-        let key_map = vec.compact();
+        let mut key_map = HashMap::new();
+
+        vec.compact(|old_key, new_key_opt| {
+            if let Some(new_key) = new_key_opt {
+                key_map.insert(old_key, new_key);
+            }
+        });
 
         let hash_map: HashMap<IdVecKey, IdVecKey> = key_map.into();
 
@@ -752,7 +764,13 @@ mod tests {
         let id1 = vec.insert(1);
         let id2 = vec.insert(2);
 
-        let key_map = vec.shrink_to_fit();
+        let mut key_map = HashMap::new();
+
+        vec.shrink_to_fit(|old_key, new_key_opt| {
+            if let Some(new_key) = new_key_opt {
+                key_map.insert(old_key, new_key);
+            }
+        });
         let hash_map: HashMap<IdVecKey, IdVecKey> = key_map.into();
 
         // Identity map should have entries for each key mapping to itself

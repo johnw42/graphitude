@@ -161,6 +161,10 @@ where
                 .map(|data| (from_row.into(), data))
         })
     }
+
+    fn clear(&mut self) {
+        self.matrix.fill(false);
+    }
 }
 
 #[cfg(test)]

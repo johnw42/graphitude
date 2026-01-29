@@ -1,5 +1,5 @@
 #![cfg(feature = "bitvec")]
-use std::{fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{collections::HashMap, fmt::Debug, hash::Hash, marker::PhantomData};
 
 use crate::{
     AdjacencyMatrix, Directed, Graph, GraphMut,
@@ -147,6 +147,45 @@ where
             graph_id: self.id,
         }
     }
+
+    fn compact_nodes<F>(
+        &mut self,
+        mut compact_fn: F,
+        mut node_id_callback: impl FnMut(NodeId, NodeId),
+        mut edge_id_callback: impl FnMut(EdgeId, EdgeId),
+    ) where
+        F: FnMut(&mut IdVec<N>, &mut dyn FnMut(IdVecKey, Option<IdVecKey>)),
+    {
+        let mut id_vec_map: HashMap<IdVecKey, IdVecKey> = HashMap::new();
+
+        compact_fn(&mut self.nodes, &mut |old_key, new_key_opt| {
+            if let Some(new_key) = new_key_opt {
+                id_vec_map.insert(old_key, new_key);
+            }
+        });
+
+        // Call node_id_callback for each node ID mapping
+        for (&old_index, &new_index) in &id_vec_map {
+            let old_node_id = self.node_id(old_index);
+            let new_node_id = self.node_id(new_index);
+            node_id_callback(old_node_id, new_node_id);
+        }
+
+        // Call edge_id_callback for each edge ID mapping
+        for id in self.edge_ids() {
+            let (from, into) = id.into();
+            let new_from = id_vec_map
+                .get(&from)
+                .copied()
+                .expect("invalid from node ID");
+            let new_into = id_vec_map
+                .get(&into)
+                .copied()
+                .expect("invalid into node ID");
+            let new_edge_id = self.edge_id(new_from, new_into);
+            edge_id_callback(id, new_edge_id);
+        }
+    }
 }
 
 impl<N, E, D, S> Graph for AdjacencyGraph<N, E, D, S>
@@ -162,6 +201,7 @@ where
     type Directedness = D;
 
     fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
+        self.check_node_id(&id);
         &self.nodes.get(id.into()).expect("no such node")
     }
 
@@ -170,6 +210,7 @@ where
     }
 
     fn edge_data(&self, eid: Self::EdgeId) -> &Self::EdgeData {
+        self.check_edge_id(&eid);
         let (from, to) = eid.into();
         &self.adjacency.get(from, to).expect("no such edge")
     }
@@ -181,6 +222,7 @@ where
     }
 
     fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
+        self.check_edge_id(&eid);
         (self.node_id(eid.from), self.node_id(eid.into))
     }
 
@@ -189,6 +231,8 @@ where
         from: Self::NodeId,
         into: Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + '_ {
+        self.check_node_id(&from);
+        self.check_node_id(&into);
         self.adjacency
             .edge_between(from.into(), into.into())
             .into_iter()
@@ -196,6 +240,7 @@ where
     }
 
     fn edges_into<'a>(&'a self, into: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        self.check_node_id(&into);
         self.adjacency
             .edges_into(into.into())
             .map(|(from, _)| self.edge_id(from, into.into()))
@@ -204,6 +249,7 @@ where
     }
 
     fn edges_from<'a>(&'a self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        self.check_node_id(&from);
         self.adjacency
             .edges_from(from.into())
             .map(|(into, _)| self.edge_id(from.into(), into))
@@ -293,6 +339,56 @@ where
         self.adjacency
             .remove(id.from, id.into)
             .expect("Invalid edge ID")
+    }
+
+    fn clear(&mut self) {
+        self.nodes.clear();
+        self.adjacency.clear();
+    }
+
+    fn add_edge(
+        &mut self,
+        from: Self::NodeId,
+        to: Self::NodeId,
+        data: Self::EdgeData,
+    ) -> Self::EdgeId {
+        self.add_or_replace_edge(from, to, data).0
+    }
+
+    fn reserve(&mut self, additional_nodes: usize, additional_vertices: usize) {
+        self.nodes.reserve(additional_nodes);
+        self.adjacency.reserve(additional_vertices);
+    }
+
+    fn reserve_exact(&mut self, additional_nodes: usize, additional_vertices: usize) {
+        self.nodes.reserve_exact(additional_nodes);
+        self.adjacency.reserve_exact(additional_vertices);
+    }
+
+    fn compact(
+        &mut self,
+        node_id_callback: impl FnMut(Self::NodeId, Self::NodeId),
+        edge_id_callback: impl FnMut(Self::EdgeId, Self::EdgeId),
+    ) {
+        self.compact_nodes(
+            |vec, cb| vec.compact(cb),
+            node_id_callback,
+            edge_id_callback,
+        );
+        self.adjacency.compact();
+    }
+
+    fn shrink_to_fit(
+        &mut self,
+        node_id_callback: impl FnMut(Self::NodeId, Self::NodeId),
+        edge_id_callback: impl FnMut(Self::EdgeId, Self::EdgeId),
+    ) {
+        self.compact_nodes(
+            |vec, cb| vec.shrink_to_fit(cb),
+            node_id_callback,
+            edge_id_callback,
+        );
+        self.adjacency.shrink_to_fit();
     }
 }
 

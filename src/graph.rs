@@ -472,4 +472,44 @@ pub trait GraphMut: Graph {
         }
         edge_map
     }
+
+    /// Reserves capacity for at least the given number of additional nodes
+    /// and edges.  Does nothing by default.
+    fn reserve(&mut self, additional_nodes: usize, additional_edges: usize) {
+        let _ = additional_nodes;
+        let _ = additional_edges;
+    }
+
+    /// Reserves the exact capacity for the given number of additional nodes
+    /// and edges.  Does nothing by default.
+    fn reserve_exact(&mut self, additional_nodes: usize, additional_edges: usize) {
+        let _ = additional_nodes;
+        let _ = additional_edges;
+    }
+
+    /// Compacts internal storage used by the graph to minimize memory usage
+    /// without reallocation.  Does nothing by default.  May invalidate existing
+    /// NodeIds and EdgeIds.  Optionally calls a closure for each node ID mapping
+    /// (old_id, new_id) and edge ID mapping (old_id, new_id) as they are created.
+    fn compact(
+        &mut self,
+        mut node_id_callback: impl FnMut(Self::NodeId, Self::NodeId),
+        mut edge_id_callback: impl FnMut(Self::EdgeId, Self::EdgeId),
+    ) {
+        let _ = &mut node_id_callback;
+        let _ = &mut edge_id_callback;
+    }
+
+    /// Shrinks internal storage used by the graph to fit its current size.  May
+    /// invalidate existing NodeIds and EdgeIds.  Does nothing by default.
+    /// Optionally calls a closure for each node ID mapping (old_id, new_id)
+    /// and edge ID mapping (old_id, new_id) as they are created.
+    fn shrink_to_fit(
+        &mut self,
+        mut node_id_callback: impl FnMut(Self::NodeId, Self::NodeId),
+        mut edge_id_callback: impl FnMut(Self::EdgeId, Self::EdgeId),
+    ) {
+        let _ = &mut node_id_callback;
+        let _ = &mut edge_id_callback;
+    }
 }

@@ -24,6 +24,7 @@ impl Symmetry for Asymmetric {}
 
 pub trait AdjacencyMatrix
 where
+    Self: Sized,
     Self::Key: Hash + Eq + Clone,
 {
     type Key;
@@ -88,6 +89,26 @@ where
     ) -> impl Iterator<Item = (Self::Key, &'a Self::Value)>
     where
         Self::Value: 'a;
+
+    fn clear(&mut self) {
+        todo!()
+    }
+
+    fn reserve(&mut self, _additional: usize) {
+        todo!()
+    }
+
+    fn reserve_exact(&mut self, _additional: usize) {
+        todo!()
+    }
+
+    fn compact(&mut self) {
+        todo!()
+    }
+
+    fn shrink_to_fit(&mut self) {
+        todo!()
+    }
 }
 
 /// Trait for selecting an adjacency matrix implementation based on symmetry and storage.

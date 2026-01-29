@@ -89,6 +89,11 @@ where
                 .map(|data| (from.clone(), data))
         })
     }
+
+    fn clear(&mut self) {
+        self.edges.clear();
+        self.back_edges.clear();
+    }
 }
 
 #[cfg(test)]
