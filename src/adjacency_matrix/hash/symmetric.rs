@@ -28,7 +28,8 @@ where
         }
     }
 
-    fn insert(&mut self, k1: K, k2: K, data: V) -> Option<V> {
+    fn insert(&mut self, row: K, col: K, data: V) -> Option<V> {
+        let (k1, k2) = (row, col);
         let to_insert = Box::leak(Box::new(data)) as *mut V;
         let old_data = self
             .edges
@@ -40,23 +41,23 @@ where
         old_data.map(|d| unsafe { std::ptr::read(d) })
     }
 
-    fn get(&self, from: K, into: K) -> Option<&V> {
-        let (k1, k2) = sort_pair(from, into);
+    fn get(&self, row: K, col: K) -> Option<&V> {
+        let (k1, k2) = sort_pair(row, col);
         self.edges
             .get(&k1)
             .and_then(|m| m.get(&k2))
             .map(|ptr| unsafe { &**ptr })
     }
 
-    fn remove(&mut self, from: K, into: K) -> Option<V> {
-        let (k1, k2) = sort_pair(from, into);
+    fn remove(&mut self, row: K, col: K) -> Option<V> {
+        let (k1, k2) = sort_pair(row, col);
         self.edges
             .get_mut(&k1)
             .and_then(|m| m.remove(&k2))
             .map(|v| unsafe { std::ptr::read(v) })
     }
 
-    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn entries<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
     where
         V: 'a,
     {
@@ -68,25 +69,25 @@ where
     }
 
 
-    fn edge_ends(k1: Self::Key, k2: Self::Key) -> (Self::Key, Self::Key) {
+    fn entry_indices(k1: Self::Key, k2: Self::Key) -> (Self::Key, Self::Key) {
         sort_pair(k1, k2)
     }
 
-    fn edges_from<'a>(&'a self, k1: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_row<'a>(&'a self, row: K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
         self.edges
-            .get(&k1)
+            .get(&row)
             .into_iter()
             .flat_map(|targets| targets.iter().map(|(k2, v)| (k2.clone(), unsafe { &**v })))
     }
 
-    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_col<'a>(&'a self, col: K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
-        self.edges_from(into)
+        self.entries_in_row(col)
     }
 
     fn clear(&mut self) {
@@ -155,44 +156,44 @@ mod tests {
     }
 
     #[test]
-    fn test_edge_between() {
+    fn test_entry_at() {
         let mut matrix = SymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "edge");
-        let edge = matrix.edge_between(0, 0);
-        assert_eq!(edge, None);
-        let edge = matrix.edge_between(0, 1);
-        assert_eq!(edge, Some((0, 1, &"edge")));
-        let edge_rev = matrix.edge_between(1, 0);
-        assert_eq!(edge_rev, Some((0, 1, &"edge")));
+        let entry = matrix.entry_at(0, 0);
+        assert_eq!(entry, None);
+        let entry = matrix.entry_at(0, 1);
+        assert_eq!(entry, Some((0, 1, &"edge")));
+        let entry_rev = matrix.entry_at(1, 0);
+        assert_eq!(entry_rev, Some((0, 1, &"edge")));
     }
 
     #[test]
-    fn test_edges_from() {
+    fn test_entries_in_row() {
         let mut matrix = SymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "a");
         matrix.insert(0, 2, "b");
         matrix.insert(1, 2, "c");
         dbg!(&matrix);
-        let edges: Vec<_> = matrix.edges_from(0).collect();
-        assert_eq!(edges.len(), 2);
-        assert!(edges.iter().any(|(to, _)| *to == 1));
-        assert!(edges.iter().any(|(to, _)| *to == 2));
-        let edges: Vec<_> = matrix.edges_from(1).collect();
-        assert_eq!(edges.len(), 2);
-        assert!(edges.iter().any(|(to, _)| *to == 0));
-        assert!(edges.iter().any(|(to, _)| *to == 2));
-        let edges: Vec<_> = matrix.edges_from(2).collect();
-        assert_eq!(edges.len(), 2);
-        assert!(edges.iter().any(|(to, _)| *to == 0));
-        assert!(edges.iter().any(|(to, _)| *to == 1));
+        let entries: Vec<_> = matrix.entries_in_row(0).collect();
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().any(|(to, _)| *to == 1));
+        assert!(entries.iter().any(|(to, _)| *to == 2));
+        let entries: Vec<_> = matrix.entries_in_row(1).collect();
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().any(|(to, _)| *to == 0));
+        assert!(entries.iter().any(|(to, _)| *to == 2));
+        let entries: Vec<_> = matrix.entries_in_row(2).collect();
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().any(|(to, _)| *to == 0));
+        assert!(entries.iter().any(|(to, _)| *to == 1));
     }
 
     #[test]
-    fn test_edges_into() {
+    fn test_entries_in_col() {
         let mut matrix = SymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "a");
         matrix.insert(2, 0, "b");
-        let edges: Vec<_> = matrix.edges_into(0).collect();
-        assert_eq!(edges.len(), 2);
+        let entries: Vec<_> = matrix.entries_in_col(0).collect();
+        assert_eq!(entries.len(), 2);
     }
 }

@@ -125,13 +125,6 @@ pub struct LinkedGraph<N, E> {
 }
 
 impl<N, E> LinkedGraph<N, E> {
-    pub fn new() -> Self {
-        Self {
-            nodes: Vec::new(),
-            id: GraphId::new(),
-        }
-    }
-
     fn node_id(&self, ptr: &Arc<Node<N, E>>) -> NodeId<N, E> {
         NodeId {
             ptr: Arc::downgrade(ptr),
@@ -277,6 +270,13 @@ impl<N, E> Graph for LinkedGraph<N, E> {
 }
 
 impl<N, E> GraphMut for LinkedGraph<N, E> {
+    fn new() -> Self {
+        Self {
+            nodes: Vec::new(),
+            id: GraphId::new(),
+        }
+    }
+
     fn clear(&mut self) {
         self.nodes.clear();
     }

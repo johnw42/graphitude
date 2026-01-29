@@ -27,23 +27,23 @@ where
         }
     }
 
-    fn insert(&mut self, from: K, into: K, data: V) -> Option<V> {
+    fn insert(&mut self, row: K, col: K, data: V) -> Option<V> {
         self.back_edges
-            .entry(into.clone())
+            .entry(col.clone())
             .or_default()
-            .insert(from.clone());
-        self.edges.entry(from).or_default().insert(into, data)
+            .insert(row.clone());
+        self.edges.entry(row).or_default().insert(col, data)
     }
 
-    fn get(&self, from: K, into: K) -> Option<&V> {
-        self.edges.get(&from).and_then(|m| m.get(&into))
+    fn get(&self, row: K, col: K) -> Option<&V> {
+        self.edges.get(&row).and_then(|m| m.get(&col))
     }
 
-    fn remove(&mut self, from: K, into: K) -> Option<V> {
-        if let Some(value) = self.edges.get_mut(&from).and_then(|m| m.remove(&into)) {
-            if let Some(back_edges) = self.back_edges.get_mut(&into) {
-                if back_edges.remove(&from) && back_edges.is_empty() {
-                    self.back_edges.remove(&into);
+    fn remove(&mut self, row: K, col: K) -> Option<V> {
+        if let Some(value) = self.edges.get_mut(&row).and_then(|m| m.remove(&col)) {
+            if let Some(back_edges) = self.back_edges.get_mut(&col) {
+                if back_edges.remove(&row) && back_edges.is_empty() {
+                    self.back_edges.remove(&col);
                 }
             }
             Some(value)
@@ -52,41 +52,41 @@ where
         }
     }
 
-    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn entries<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
     where
         V: 'a,
     {
-        self.edges.iter().flat_map(|(from, targets)| {
+        self.edges.iter().flat_map(|(row, targets)| {
             targets
                 .iter()
-                .map(|(into, data)| (from.clone(), into.clone(), data))
+                .map(|(col, data)| (row.clone(), col.clone(), data))
         })
     }
 
-    fn edges_from<'a>(&'a self, from: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_row<'a>(&'a self, row: K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
         self.edges
-            .get(&from)
+            .get(&row)
             .into_iter()
-            .flat_map(|targets| targets.iter().map(|(into, data)| (into.clone(), data)))
+            .flat_map(|targets| targets.iter().map(|(col, data)| (col.clone(), data)))
     }
 
-    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_col<'a>(&'a self, col: K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
         let sources = self
             .back_edges
-            .get(&into)
+            .get(&col)
             .cloned()
             .unwrap_or_else(|| HashSet::new());
-        sources.into_iter().filter_map(move |from| {
+        sources.into_iter().filter_map(move |row| {
             self.edges
-                .get(&from)
-                .and_then(|targets| targets.get(&into))
-                .map(|data| (from.clone(), data))
+                .get(&row)
+                .and_then(|targets| targets.get(&col))
+                .map(|data| (row.clone(), data))
         })
     }
 
@@ -124,28 +124,28 @@ mod tests {
     }
 
     #[test]
-    fn test_edges() {
+    fn test_entries() {
         let mut matrix = AsymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "a");
         matrix.insert(1, 0, "b");
-        let edges: Vec<_> = matrix.edges().collect();
-        assert_eq!(edges.len(), 2);
+        let entries: Vec<_> = matrix.entries().collect();
+        assert_eq!(entries.len(), 2);
     }
 
     #[test]
-    fn test_edges_from() {
+    fn test_entries_in_row() {
         let mut matrix = AsymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "a");
         matrix.insert(0, 2, "b");
         matrix.insert(1, 2, "c");
-        let edges: Vec<_> = matrix.edges_from(0).collect();
-        assert_eq!(edges.len(), 2);
-        assert!(edges.iter().any(|(to, _)| *to == 1));
-        assert!(edges.iter().any(|(to, _)| *to == 2));
+        let entries: Vec<_> = matrix.entries_in_row(0).collect();
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().any(|(to, _)| *to == 1));
+        assert!(entries.iter().any(|(to, _)| *to == 2));
     }
 
     #[test]
-    fn test_edges_into() {
+    fn test_entries_in_col() {
         let mut matrix = AsymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 0, "a");
         assert_eq!(matrix.get(0, 0), Some(&"a"));
@@ -153,10 +153,10 @@ mod tests {
         assert_eq!(matrix.get(1, 0), Some(&"b"));
         matrix.insert(2, 0, "c");
         assert_eq!(matrix.get(2, 0), Some(&"c"));
-        let edges: Vec<_> = matrix.edges_into(0).collect();
-        assert_eq!(edges.len(), 3);
-        assert!(edges.iter().any(|(from, _)| *from == 0));
-        assert!(edges.iter().any(|(from, _)| *from == 1));
-        assert!(edges.iter().any(|(from, _)| *from == 2));
+        let entries: Vec<_> = matrix.entries_in_col(0).collect();
+        assert_eq!(entries.len(), 3);
+        assert!(entries.iter().any(|(row, _)| *row == 0));
+        assert!(entries.iter().any(|(row, _)| *row == 1));
+        assert!(entries.iter().any(|(row, _)| *row == 2));
     }
 }

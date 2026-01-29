@@ -32,13 +32,6 @@ impl EdgeId {
 }
 
 impl StringGraph {
-    fn new() -> Self {
-        Self {
-            nodes: HashSet::new(),
-            edges: SymmetricHashAdjacencyMatrix::new(),
-        }
-    }
-
     fn edge_id(
         &self,
         from: <StringGraph as Graph>::NodeId,
@@ -79,12 +72,19 @@ impl Graph for StringGraph {
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
         self.edges
-            .edges()
+            .entries()
             .map(|(from, into, _)| EdgeId::new(from, into))
     }
 }
 
 impl GraphMut for StringGraph {
+    fn new() -> Self {
+        Self {
+            nodes: HashSet::new(),
+            edges: SymmetricHashAdjacencyMatrix::new(),
+        }
+    }
+
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
         self.nodes.insert(data.clone());
         data
@@ -103,7 +103,7 @@ impl GraphMut for StringGraph {
     fn remove_node(&mut self, id: Self::NodeId) -> String {
         let edges_from = self
             .edges
-            .edges_from(id.clone())
+            .entries_in_row(id.clone())
             .map(|(into, _)| into)
             .collect::<Vec<_>>();
         for into in edges_from {

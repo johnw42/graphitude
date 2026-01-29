@@ -120,16 +120,6 @@ where
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
 {
-    pub fn new() -> Self {
-        Self {
-            nodes: IdVec::new(),
-            adjacency: SelectMatrix::<D::Symmetry, S, IdVecKey, E>::new(),
-            directedness: PhantomData,
-            #[cfg(not(feature = "unchecked"))]
-            id: GraphId::new(),
-        }
-    }
-
     fn node_id(&self, index: IdVecKey) -> NodeId {
         NodeId {
             index,
@@ -226,7 +216,7 @@ where
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.adjacency
-            .edges()
+            .entries()
             .map(|(from, into, _)| self.edge_id(from, into))
     }
 
@@ -243,7 +233,7 @@ where
         self.check_node_id(&from);
         self.check_node_id(&into);
         self.adjacency
-            .edge_between(from.into(), into.into())
+            .entry_at(from.into(), into.into())
             .into_iter()
             .map(|(from, into, _)| self.edge_id(from, into))
     }
@@ -251,7 +241,7 @@ where
     fn edges_into<'a>(&'a self, into: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.check_node_id(&into);
         self.adjacency
-            .edges_into(into.into())
+            .entries_in_col(into.into())
             .map(|(from, _)| self.edge_id(from, into.into()))
             .collect::<Vec<_>>()
             .into_iter()
@@ -260,7 +250,7 @@ where
     fn edges_from<'a>(&'a self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.check_node_id(&from);
         self.adjacency
-            .edges_from(from.into())
+            .entries_in_row(from.into())
             .map(|(into, _)| self.edge_id(from.into(), into))
             .collect::<Vec<_>>()
             .into_iter()
@@ -317,6 +307,16 @@ where
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
 {
+    fn new() -> Self {
+        Self {
+            nodes: IdVec::new(),
+            adjacency: SelectMatrix::<D::Symmetry, S, IdVecKey, E>::new(),
+            directedness: PhantomData,
+            #[cfg(not(feature = "unchecked"))]
+            id: GraphId::new(),
+        }
+    }
+
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
         let index = self.nodes.insert(data);
         self.node_id(index)
@@ -335,7 +335,7 @@ where
     fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData {
         for into in self
             .adjacency
-            .edges_from(id.into())
+            .entries_in_row(id.into())
             .map(|(to, _)| to)
             .collect::<Vec<_>>()
         {
@@ -364,14 +364,14 @@ where
         self.add_or_replace_edge(from, to, data).0
     }
 
-    fn reserve(&mut self, additional_nodes: usize, additional_vertices: usize) {
+    fn reserve(&mut self, additional_nodes: usize, _additional_edges: usize) {
         self.nodes.reserve(additional_nodes);
-        self.adjacency.reserve(additional_vertices);
+        // self.adjacency.reserve(additional_edges);
     }
 
-    fn reserve_exact(&mut self, additional_nodes: usize, additional_vertices: usize) {
+    fn reserve_exact(&mut self, additional_nodes: usize, _additional_edges: usize) {
         self.nodes.reserve_exact(additional_nodes);
-        self.adjacency.reserve_exact(additional_vertices);
+        // self.adjacency.reserve_exact(additional_edges);
     }
 
     fn compact(&mut self) {
@@ -391,7 +391,7 @@ where
             node_id_callback,
             edge_id_callback,
         );
-        self.adjacency.compact();
+        // self.adjacency.compact();
     }
 
     fn shrink_to_fit(&mut self) {
@@ -411,7 +411,7 @@ where
             node_id_callback,
             edge_id_callback,
         );
-        self.adjacency.shrink_to_fit();
+        // self.adjacency.shrink_to_fit();
     }
 }
 

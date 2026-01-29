@@ -35,64 +35,58 @@ where
     /// Creates a new, empty adjacency matrix.
     fn new() -> Self;
 
-    /// Inserts an edge from `from` to `into` with associated data `data`.
-    /// Returns the previous data associated with the edge, if any.
-    fn insert(
-        &mut self,
-        from: Self::Key,
-        into: Self::Key,
-        data: Self::Value,
-    ) -> Option<Self::Value>;
+    /// Inserts an entry at `row` and `col` with associated data `data`.
+    /// Returns the previous data associated with the entry, if any.
+    fn insert(&mut self, row: Self::Key, col: Self::Key, data: Self::Value) -> Option<Self::Value>;
 
-    /// Gets a reference to the data associated with the edge from `from` to `into`, if it exists.
-    fn get(&self, from: Self::Key, into: Self::Key) -> Option<&Self::Value>;
+    /// Clears all entries from the adjacency matrix.
+    fn clear(&mut self);
 
-    /// Removes the edge from `from` to `into`, returning the associated data if it existed.
-    fn remove(&mut self, from: Self::Key, into: Self::Key) -> Option<Self::Value>;
+    /// Gets a reference to the data associated with the entry at `row` and `col`, if it exists.
+    fn get(&self, row: Self::Key, col: Self::Key) -> Option<&Self::Value>;
 
-    /// Iterates over all edges in the adjacency matrix.
-    fn edges<'a>(&'a self) -> impl Iterator<Item = (Self::Key, Self::Key, &'a Self::Value)>
+    /// Removes the entry at `row` and `col`, returning the associated data if it existed.
+    fn remove(&mut self, row: Self::Key, col: Self::Key) -> Option<Self::Value>;
+
+    /// Iterates over all entries in the adjacency matrix.
+    fn entries<'a>(&'a self) -> impl Iterator<Item = (Self::Key, Self::Key, &'a Self::Value)>
     where
         Self::Value: 'a;
 
-    fn edge_ends(k1: Self::Key, k2: Self::Key) -> (Self::Key, Self::Key)
-    where
-        Self::Symmetry: Symmetry,
-    {
+    /// For internal use.  Gets the canonical indices for the given keys.  This will return a pair
+    /// `(k1, k2)` such that for symmetric matrices, `k1 <= k2`.
+    #[doc(hidden)]
+    fn entry_indices(k1: Self::Key, k2: Self::Key) -> (Self::Key, Self::Key) {
         (k1, k2)
     }
 
-    /// Iterates over all edges between the given nodes `from` and `into`.
-    fn edge_between(
+    /// Gets the entry at the given row and col.
+    fn entry_at(
         &self,
-        from: Self::Key,
-        into: Self::Key,
+        row: Self::Key,
+        col: Self::Key,
     ) -> Option<(Self::Key, Self::Key, &'_ Self::Value)> {
-        self.get(from.clone(), into.clone()).map(|data| {
-            let (k1, k2) = Self::edge_ends(from.clone(), into.clone());
+        self.get(row.clone(), col.clone()).map(|data| {
+            let (k1, k2) = Self::entry_indices(row.clone(), col.clone());
             (k1, k2, data)
         })
     }
 
-    /// Iterates over all edges originating from the given node `from`.
-    fn edges_from<'a>(
+    /// Iterates over all entries in the given row.
+    fn entries_in_row<'a>(
         &'a self,
-        from: Self::Key,
+        row: Self::Key,
     ) -> impl Iterator<Item = (Self::Key, &'a Self::Value)>
     where
         Self::Value: 'a;
 
-    /// Iterates over all edges terminating at the given node `into`.
-    fn edges_into<'a>(
+    /// Iterates over all entries in the given col.
+    fn entries_in_col<'a>(
         &'a self,
-        into: Self::Key,
+        col: Self::Key,
     ) -> impl Iterator<Item = (Self::Key, &'a Self::Value)>
     where
         Self::Value: 'a;
-
-    fn clear(&mut self) {
-        todo!()
-    }
 
     fn reserve(&mut self, _additional: usize) {
         todo!()

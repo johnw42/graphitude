@@ -363,6 +363,9 @@ pub trait GraphUndirected: Graph {
 impl<G> GraphUndirected for G where G: Graph<Directedness = Undirected> {}
 
 pub trait GraphMut: Graph {
+    /// Creates a new, empty graph.
+    fn new() -> Self;
+
     /// Removes all nodes and edges from the graph.
     fn clear(&mut self) {
         for nid in self.node_ids().collect::<Vec<_>>() {

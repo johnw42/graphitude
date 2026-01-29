@@ -23,13 +23,6 @@ struct Edge {
 }
 
 impl StringGraph {
-    fn new() -> Self {
-        StringGraph {
-            nodes: HashMap::new(),
-            next_node_id: 0,
-        }
-    }
-
     fn node(&self, id: &NodeId) -> &Node {
         self.nodes.get(id).expect("Invalid node ID")
     }
@@ -86,6 +79,13 @@ impl Graph for StringGraph {
 }
 
 impl GraphMut for StringGraph {
+    fn new() -> Self {
+        StringGraph {
+            nodes: HashMap::new(),
+            next_node_id: 0,
+        }
+    }
+
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
         let id = self.next_node_id;
         self.next_node_id += 1;

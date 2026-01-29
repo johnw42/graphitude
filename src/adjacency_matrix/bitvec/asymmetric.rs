@@ -31,10 +31,9 @@ where
         }
     }
 
-    /// Gets the linear index for the edge from `from` to `into`, if within bounds.
-    fn index(&self, from: K, into: K) -> Option<usize> {
-        (from.into() < self.size && into.into() < self.size)
-            .then(|| self.unchecked_index(from, into))
+    /// Gets the linear index for the entry at `row` and `col`, if within bounds.
+    fn index(&self, row: K, col: K) -> Option<usize> {
+        (row.into() < self.size && col.into() < self.size).then(|| self.unchecked_index(row, col))
     }
 
     fn is_live(&self, index: usize) -> bool {
@@ -61,15 +60,15 @@ where
         unsafe { self.data[index].assume_init_ref() }
     }
 
-    /// Gets the linear index for the edge from `from` to `into` without bounds checking.
-    fn unchecked_index(&self, from: K, into: K) -> usize {
-        (from.into() << self.log2_size) + into.into()
+    /// Gets the linear index for the entry at `row` and `col` without bounds checking.
+    fn unchecked_index(&self, row: K, col: K) -> usize {
+        (row.into() << self.log2_size) + col.into()
     }
 
     fn coordinates(&self, index: usize) -> (K, K) {
-        let from = index >> self.log2_size;
-        let into = index & (self.size - 1);
-        (from.into(), into.into())
+        let row = index >> self.log2_size;
+        let col = index & (self.size - 1);
+        (row.into(), col.into())
     }
 }
 
@@ -92,73 +91,73 @@ where
         }
     }
 
-    fn insert(&mut self, from: K, into: K, data: V) -> Option<V> {
-        if self.index(from, into).is_none() {
-            let required_size = usize::max(from.into(), into.into()) + 1;
+    fn insert(&mut self, row: K, col: K, data: V) -> Option<V> {
+        if self.index(row, col).is_none() {
+            let required_size = usize::max(row.into(), col.into()) + 1;
             if self.size < required_size {
                 let mut new_self = Self::with_size(required_size);
-                for row in 0..self.size {
-                    let old_start = self.unchecked_index(row.into(), 0.into());
-                    let new_start = new_self.unchecked_index(row.into(), 0.into());
+                for old_row in 0..self.size {
+                    let old_start = self.unchecked_index(old_row.into(), 0.into());
+                    let new_start = new_self.unchecked_index(old_row.into(), 0.into());
                     new_self.matrix[new_start..new_start + self.size]
                         .copy_from_bitslice(&self.matrix[old_start..old_start + self.size]);
-                    for (col, old_datum) in self.data[old_start..old_start + self.size]
+                    for (old_col, old_datum) in self.data[old_start..old_start + self.size]
                         .iter_mut()
                         .enumerate()
                     {
-                        std::mem::swap(old_datum, &mut new_self.data[new_start + col]);
+                        std::mem::swap(old_datum, &mut new_self.data[new_start + old_col]);
                     }
                 }
                 *self = new_self;
             }
         }
-        let index = self.unchecked_index(from, into);
+        let index = self.unchecked_index(row, col);
         let old_data = self.get_data_read(index);
         self.matrix.set(index, true);
         self.data[index] = MaybeUninit::new(data);
         old_data
     }
 
-    fn get(&self, from: K, into: K) -> Option<&V> {
-        self.get_data_ref(self.index(from, into)?)
+    fn get(&self, row: K, col: K) -> Option<&V> {
+        self.get_data_ref(self.index(row, col)?)
     }
 
-    fn remove(&mut self, from: K, into: K) -> Option<V> {
-        let index = self.index(from, into)?;
+    fn remove(&mut self, row: K, col: K) -> Option<V> {
+        let index = self.index(row, col)?;
         let was_live = self.is_live(index);
         self.matrix.set(index, false);
         was_live.then(|| self.unchecked_get_data_read(index))
     }
 
-    fn edges<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn entries<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
     where
         V: 'a,
     {
         self.matrix.iter_ones().map(|index| {
-            let (from, into) = self.coordinates(index);
-            (from, into, self.unchecked_get_data_ref(index))
+            let (row, col) = self.coordinates(index);
+            (row, col, self.unchecked_get_data_ref(index))
         })
     }
 
-    fn edges_from<'a>(&'a self, from: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_row<'a>(&'a self, row: K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
-        let row_start = self.index(from, 0.into()).expect("Invalid 'from' index");
+        let row_start = self.index(row, 0.into()).expect("Invalid row index");
         let row_end = row_start + self.size;
         self.matrix[row_start..row_end]
             .iter_ones()
             .map(|index| (index.into(), self.unchecked_get_data_ref(index.into())))
     }
 
-    fn edges_into<'a>(&'a self, into: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_col<'a>(&'a self, col: K) -> impl Iterator<Item = (K, &'a V)>
     where
         V: 'a,
     {
-        let (_, into_col) = self.coordinates(into.into());
-        (0..self.size).filter_map(move |from_row| {
-            self.get(from_row.into(), into_col)
-                .map(|data| (from_row.into(), data))
+        let (_, target_col) = self.coordinates(col.into());
+        (0..self.size).filter_map(move |target_row| {
+            self.get(target_row.into(), target_col)
+                .map(|data| (target_row.into(), data))
         })
     }
 
@@ -199,7 +198,7 @@ mod tests {
         let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
         matrix.insert(2, 3, ());
-        let edges: Vec<_> = matrix.edges().collect();
+        let edges: Vec<_> = matrix.entries().collect();
         assert_eq!(edges.len(), 2);
     }
 
@@ -208,7 +207,7 @@ mod tests {
         let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
         matrix.insert(0, 3, ());
-        let edges: Vec<_> = matrix.edges_from(0).collect();
+        let edges: Vec<_> = matrix.entries_in_row(0).collect();
         assert_eq!(edges.len(), 2);
         assert!(edges.iter().any(|(to, _)| *to == 1));
         assert!(edges.iter().any(|(to, _)| *to == 3));
@@ -223,7 +222,7 @@ mod tests {
         assert_eq!(matrix.get(1, 1), Some(&"B"));
         matrix.insert(3, 1, "C");
         assert_eq!(matrix.get(3, 1), Some(&"C"));
-        let edges: Vec<_> = matrix.edges_into(1).collect();
+        let edges: Vec<_> = matrix.entries_in_col(1).collect();
         assert_eq!(edges.len(), 3);
         assert!(edges.iter().any(|(from, _)| *from == 0));
         assert!(edges.iter().any(|(from, _)| *from == 1));
