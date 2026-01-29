@@ -3,9 +3,9 @@
 use std::{collections::HashSet, fmt::Debug};
 
 use jrw_graph::{
-    AdjacencyMatrix, EdgeId as EdgeIdTrait, Graph, GraphMut, SymmetricHashAdjacencyMatrix,
-    debug::format_debug_with, directedness::Undirected, graph_test_copy_from_with, graph_tests,
-    tests::TestDataBuilder,
+    AdjacencyMatrix, EdgeId as EdgeIdTrait, Graph, GraphMut, NodeId as NodeIdTrait,
+    SymmetricHashAdjacencyMatrix, debug::format_debug_with, directedness::Undirected,
+    graph_test_copy_from_with, graph_tests, tests::TestDataBuilder,
 };
 
 /// An undirected graph where nodes are identified by strings.  A node's ID
@@ -16,7 +16,10 @@ struct StringGraph {
     edges: SymmetricHashAdjacencyMatrix<NodeId, ()>,
 }
 
-type NodeId = String;
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+struct NodeId(String);
+
+impl NodeIdTrait for NodeId {}
 
 // Invariant: `EdgeId` always has the smaller `NodeId` first.
 #[derive(Eq, PartialEq, Hash, Clone, Debug)]
@@ -62,7 +65,7 @@ impl Graph for StringGraph {
     type Directedness = Undirected;
 
     fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
-        self.nodes.get(&id).expect("Node does not exist")
+        &self.nodes.get(&id).expect("Node does not exist").0
     }
 
     fn num_edges_between(&self, from: Self::NodeId, into: Self::NodeId) -> usize {
@@ -93,8 +96,9 @@ impl GraphMut for StringGraph {
     }
 
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
-        self.nodes.insert(data.clone());
-        data
+        let id = NodeId(data);
+        self.nodes.insert(id.clone());
+        id
     }
 
     fn add_or_replace_edge(
@@ -117,7 +121,7 @@ impl GraphMut for StringGraph {
             self.edges.remove(id.clone(), into);
         }
         self.nodes.remove(&id);
-        id.clone()
+        id.0
     }
 
     fn remove_edge(&mut self, id: Self::EdgeId) -> Self::EdgeData {
@@ -131,7 +135,7 @@ impl Debug for StringGraph {
             self,
             f,
             "StringGraph",
-            &mut |nid| format!("{:?}", nid),
+            &mut |nid| format!("{:?}", nid.0),
             false,
             false,
         )
@@ -182,8 +186,8 @@ fn test_format_debug_with() {
 
 #[test]
 fn test_edge_id_ordering() {
-    let edge1 = EdgeId::new("Z".to_string(), "A".to_string());
-    let edge2 = EdgeId::new("A".to_string(), "Z".to_string());
+    let edge1 = EdgeId::new(NodeId("Z".to_string()), NodeId("A".to_string()));
+    let edge2 = EdgeId::new(NodeId("A".to_string()), NodeId("Z".to_string()));
     assert_eq!(edge1, edge2);
-    assert_eq!(edge1.0, "A".to_string());
+    assert_eq!(edge1.0, NodeId("A".to_string()));
 }

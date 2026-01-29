@@ -16,6 +16,8 @@ use crate::{
     search::{BfsIterator, DfsIterator},
 };
 
+pub trait NodeId: Eq + Hash + Clone + Debug {}
+
 pub trait EdgeId<N>: Eq + Hash + Clone + Debug
 where
     N: Eq + Debug,
@@ -74,7 +76,7 @@ where
 /// - [`Self::has_edge_into`]
 pub trait Graph: Sized {
     type NodeData;
-    type NodeId: Eq + Hash + Clone + Debug;
+    type NodeId: NodeId;
     type EdgeData;
     type EdgeId: EdgeId<Self::NodeId>;
     type Directedness: Directedness;

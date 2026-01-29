@@ -59,6 +59,8 @@ impl<N, E> Ord for NodeId<N, E> {
     }
 }
 
+impl<N, E> crate::graph::NodeId for NodeId<N, E> {}
+
 struct Edge<N, E> {
     data: E,
     from: NodeId<N, E>,

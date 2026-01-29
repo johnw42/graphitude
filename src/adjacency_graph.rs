@@ -82,6 +82,8 @@ mod ids {
     pub type NodeId<S> = NodeIdOrEdgeId<S, IdVecKey>;
     pub type EdgeId<S> = NodeIdOrEdgeId<S, (IdVecKey, IdVecKey)>;
 
+    impl<S: Storage> crate::graph::NodeId for NodeId<S> {}
+
     impl<S: Storage> NodeId<S> {
         pub fn key(&self) -> IdVecKey {
             self.payload

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use jrw_graph::{
-    Directed, EdgeId as EdgeIdTrait, Graph, GraphMut, graph_test_copy_from_with, graph_tests,
-    tests::TestDataBuilder,
+    Directed, EdgeId as EdgeIdTrait, Graph, GraphMut, NodeId as NodeIdTrait,
+    graph_test_copy_from_with, graph_tests, tests::TestDataBuilder,
 };
 
 struct StringGraph {
@@ -10,7 +10,10 @@ struct StringGraph {
     next_node_id: usize,
 }
 
-type NodeId = usize;
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+struct NodeId(usize);
+
+impl NodeIdTrait for NodeId {}
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 struct EdgeId(NodeId, NodeId);
@@ -88,7 +91,7 @@ impl GraphMut for StringGraph {
     }
 
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
-        let id = self.next_node_id;
+        let id = NodeId(self.next_node_id);
         self.next_node_id += 1;
         self.nodes.insert(
             id,

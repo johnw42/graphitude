@@ -34,6 +34,8 @@ impl<'g, N> Debug for NodeId<'g, N> {
     }
 }
 
+impl<'a, N> crate::graph::NodeId for NodeId<'a, N> {}
+
 impl<'a, N> From<&'a N> for NodeId<'a, N> {
     fn from(v: &'a N) -> Self {
         NodeId(v as *const N, PhantomData)

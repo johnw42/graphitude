@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once};
 
-use crate::{EdgeId, Graph};
+use crate::EdgeId;
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
@@ -200,10 +200,9 @@ where
 #[cfg(test)]
 #[cfg(feature = "bitvec")]
 mod tests {
+    use crate::Graph as _;
     use crate::GraphMut as _;
     use crate::adjacency_graph::AdjacencyGraph;
-
-    use super::*;
 
     type TestGraph = AdjacencyGraph<&'static str, &'static str>;
 

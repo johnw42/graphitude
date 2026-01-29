@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash};
 
-use jrw_graph::{EdgeId as EdgeIdTrait, Graph, directedness::Directed};
+use jrw_graph::{EdgeId as EdgeIdTrait, Graph, NodeId as NodeIdTrait, directedness::Directed};
 
 struct NodeId<N>(*const N);
 
@@ -31,6 +31,8 @@ impl<N> Hash for NodeId<N> {
         self.0.hash(state);
     }
 }
+
+impl<N> NodeIdTrait for NodeId<N> {}
 
 struct EdgeId<N>(NodeId<N>, NodeId<N>);
 
