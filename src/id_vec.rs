@@ -2,9 +2,9 @@
 #![cfg(feature = "bitvec")]
 
 #[cfg(test)]
-use parking_lot::ReentrantMutex;
+use std::cell::RefCell;
+
 use std::{
-    cell::RefCell,
     collections::HashMap,
     fmt::Debug,
     mem::MaybeUninit,
@@ -29,6 +29,27 @@ impl Into<usize> for IdVecKey {
 impl From<usize> for IdVecKey {
     fn from(value: usize) -> Self {
         IdVecKey(value)
+    }
+}
+
+pub struct IdVecIndexing {
+    key_offset: usize,
+}
+
+impl IdVecIndexing {
+    /// Decodes an `IdVecKey` into an index smaller than the size of the `IdVec`.
+    ///
+    /// This is used internally to map from the stable key to the internal vector
+    /// index.
+    pub fn zero_based_index(&self, index: IdVecKey) -> usize {
+        index.0 - self.key_offset
+    }
+
+    /// Encodes an index returned by `zero_based_index` back into an `IdVecKey`.
+    /// Use with caution, because there is no guarantee that the index is valid
+    /// unless it came directly from `zero_based_index`.
+    pub fn key_from_index(&self, index: usize) -> IdVecKey {
+        IdVecKey(index + self.key_offset)
     }
 }
 
@@ -97,7 +118,7 @@ impl<T> IdVec<T> {
     /// Removes the value at the given key from the `IdVec`, returning it if it exists.
     pub fn remove(&mut self, key: IdVecKey) -> Option<T> {
         debug_assert_eq!(self.vec.len(), self.liveness.len());
-        let index = self.decode_key(key);
+        let index = self.zero_based_index(key);
         if index < self.vec.len() && self.liveness[index] {
             self.liveness.set(index, false);
             Some(unsafe { self.vec[index].assume_init_read() })
@@ -109,7 +130,7 @@ impl<T> IdVec<T> {
     /// Gets a reference to the item at the given key, if it exists.
     pub fn get(&self, key: IdVecKey) -> Option<&T> {
         debug_assert_eq!(self.vec.len(), self.liveness.len());
-        let index = self.decode_key(key);
+        let index = self.zero_based_index(key);
         if index < self.liveness.len() && self.liveness[index] {
             Some(unsafe { &*self.vec[index].as_ptr() })
         } else {
@@ -120,7 +141,7 @@ impl<T> IdVec<T> {
     /// Gets a reference to the item at the given key, if it exists.
     pub fn get_mut(&mut self, key: IdVecKey) -> Option<&mut T> {
         debug_assert_eq!(self.vec.len(), self.liveness.len());
-        let index = self.decode_key(key);
+        let index = self.zero_based_index(key);
         if index < self.liveness.len() && self.liveness[index] {
             Some(unsafe { &mut *self.vec[index].as_mut_ptr() })
         } else {
@@ -252,9 +273,20 @@ impl<T> IdVec<T> {
         })
     }
 
-    /// Decodes an `IdVecKey` into its internal index.
-    fn decode_key(&self, index: IdVecKey) -> usize {
-        index.0 - self.key_offset
+    pub fn indexing(&self) -> IdVecIndexing {
+        IdVecIndexing {
+            key_offset: self.key_offset,
+        }
+    }
+
+    /// Proxy to `IdVecIndexing::zero_based_index`.
+    pub fn zero_based_index(&self, index: IdVecKey) -> usize {
+        self.indexing().zero_based_index(index)
+    }
+
+    /// Proxy to `IdVecIndexing::key_from_index`.
+    pub fn key_from_index(&self, index: usize) -> IdVecKey {
+        self.indexing().key_from_index(index)
     }
 
     /// Helper function to iterate over live indices in the BitVec.  Needs to be
@@ -288,15 +320,19 @@ where
 }
 
 #[cfg(test)]
-static DROPPED_ENTRIES: ReentrantMutex<RefCell<Vec<usize>>> =
-    ReentrantMutex::new(RefCell::new(Vec::new()));
+thread_local! {
+static DROPPED_ENTRIES: RefCell<Vec<usize>> =
+    RefCell::new(Vec::new());
+}
 
 impl<T> Drop for IdVec<T> {
     fn drop(&mut self) {
         for i in self.liveness.iter_ones() {
             unsafe {
                 #[cfg(test)]
-                DROPPED_ENTRIES.lock().borrow_mut().push(i);
+                DROPPED_ENTRIES.with(|dropped_entries| {
+                    dropped_entries.borrow_mut().push(i);
+                });
                 self.vec[i].assume_init_drop();
             }
         }
@@ -815,9 +851,9 @@ mod tests {
 
     #[test]
     fn test_drop() {
-        // Lock for the entire test to prevent concurrent test interference
-        let dropped = DROPPED_ENTRIES.lock();
-        dropped.borrow_mut().clear();
+        DROPPED_ENTRIES.with_borrow_mut(|dropped_entries| {
+            dropped_entries.clear();
+        });
 
         let mut vec = IdVec::new();
         vec.insert(1);
@@ -827,8 +863,9 @@ mod tests {
         vec.remove(id3);
         drop(vec);
 
-        let mut dropped_sorted = dropped.borrow().clone();
-        dropped_sorted.sort();
-        assert_eq!(dropped_sorted, vec![0, 1, 3]);
+        DROPPED_ENTRIES.with_borrow_mut(|dropped_entries| {
+            dropped_entries.sort();
+            assert_eq!(*dropped_entries, vec![0, 1, 3]);
+        });
     }
 }

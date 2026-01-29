@@ -61,7 +61,7 @@ impl<V, K> AdjacencyMatrix for SymmetricBitvecAdjacencyMatrix<K, V>
 where
     K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord,
 {
-    type Key = K;
+    type Index = K;
     type Value = V;
     type Symmetry = Symmetric;
     type Storage = BitvecStorage;
@@ -104,7 +104,7 @@ where
         was_live.then(|| self.unchecked_get_data_read(index))
     }
 
-    fn entries<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
     where
         V: 'a,
     {
@@ -114,7 +114,29 @@ where
         })
     }
 
-    fn entry_indices(k1: Self::Key, k2: Self::Key) -> (Self::Key, Self::Key) {
+    fn into_iter(self) -> impl Iterator<Item = (Self::Index, Self::Index, Self::Value)> {
+        let Self {
+            data,
+            liveness,
+            indexing,
+            ..
+        } = self;
+        liveness
+            .into_iter()
+            .enumerate()
+            .filter_map(move |(index, bit)| {
+                if bit {
+                    let (k1, k2) = indexing.coordinates(index);
+                    Some((k1.into(), k2.into(), unsafe {
+                        data[index].assume_init_read()
+                    }))
+                } else {
+                    None
+                }
+            })
+    }
+
+    fn entry_indices(k1: Self::Index, k2: Self::Index) -> (Self::Index, Self::Index) {
         sort_pair(k1, k2)
     }
 
@@ -275,7 +297,7 @@ mod tests {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, "a");
         matrix.insert(3, 2, "b");
-        let mut entries: Vec<_> = matrix.entries().collect();
+        let mut entries: Vec<_> = matrix.iter().collect();
         entries.sort();
         assert_eq!(entries, vec![(0, 1, &"a"), (2, 3, &"b")]);
     }

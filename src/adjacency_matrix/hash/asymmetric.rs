@@ -15,7 +15,7 @@ impl<K, V> AdjacencyMatrix for AsymmetricHashAdjacencyMatrix<K, V>
 where
     K: Hash + Eq + Clone,
 {
-    type Key = K;
+    type Index = K;
     type Value = V;
     type Symmetry = Asymmetric;
     type Storage = HashStorage;
@@ -52,7 +52,7 @@ where
         }
     }
 
-    fn entries<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
     where
         V: 'a,
     {
@@ -60,6 +60,14 @@ where
             targets
                 .iter()
                 .map(|(col, data)| (row.clone(), col.clone(), data))
+        })
+    }
+
+    fn into_iter(self) -> impl Iterator<Item = (Self::Index, Self::Index, Self::Value)> {
+        self.edges.into_iter().flat_map(|(row, targets)| {
+            targets
+                .into_iter()
+                .map(move |(col, data)| (row.clone(), col, data))
         })
     }
 
@@ -128,7 +136,7 @@ mod tests {
         let mut matrix = AsymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "a");
         matrix.insert(1, 0, "b");
-        let entries: Vec<_> = matrix.entries().collect();
+        let entries: Vec<_> = matrix.iter().collect();
         assert_eq!(entries.len(), 2);
     }
 

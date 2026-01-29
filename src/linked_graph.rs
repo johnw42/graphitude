@@ -14,7 +14,6 @@ struct Node<N, E> {
 
 pub struct NodeId<N, E> {
     ptr: Weak<Node<N, E>>,
-    #[cfg(not(feature = "unchecked"))]
     graph_id: GraphId,
 }
 
@@ -28,7 +27,6 @@ impl<N, E> Clone for NodeId<N, E> {
     fn clone(&self) -> Self {
         NodeId {
             ptr: Weak::clone(&self.ptr),
-            #[cfg(not(feature = "unchecked"))]
             graph_id: self.graph_id,
         }
     }
@@ -36,7 +34,6 @@ impl<N, E> Clone for NodeId<N, E> {
 
 impl<N, E> PartialEq for NodeId<N, E> {
     fn eq(&self, other: &Self) -> bool {
-        #[cfg(not(feature = "unchecked"))]
         assert_eq!(self.graph_id, other.graph_id);
         self.ptr.as_ptr() == other.ptr.as_ptr()
     }
@@ -70,7 +67,6 @@ struct Edge<N, E> {
 
 pub struct EdgeId<N, E> {
     ptr: Weak<Edge<N, E>>,
-    #[cfg(not(feature = "unchecked"))]
     graph_id: GraphId,
 }
 
@@ -84,7 +80,6 @@ impl<N, E> Clone for EdgeId<N, E> {
     fn clone(&self) -> Self {
         EdgeId {
             ptr: Weak::clone(&self.ptr),
-            #[cfg(not(feature = "unchecked"))]
             graph_id: self.graph_id,
         }
     }
@@ -128,7 +123,6 @@ impl<N, E> LinkedGraph<N, E> {
     fn node_id(&self, ptr: &Arc<Node<N, E>>) -> NodeId<N, E> {
         NodeId {
             ptr: Arc::downgrade(ptr),
-            #[cfg(not(feature = "unchecked"))]
             graph_id: self.id,
         }
     }
@@ -136,7 +130,6 @@ impl<N, E> LinkedGraph<N, E> {
     fn edge_id(&self, ptr: &Arc<Edge<N, E>>) -> EdgeId<N, E> {
         EdgeId {
             ptr: Arc::downgrade(ptr),
-            #[cfg(not(feature = "unchecked"))]
             graph_id: self.id,
         }
     }
@@ -225,20 +218,11 @@ impl<N, E> Graph for LinkedGraph<N, E> {
     }
 
     fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
-        #[cfg(not(feature = "unchecked"))]
-        {
-            if self.id != id.graph_id {
-                return Err("NodeId graph_id does not match graph");
-            }
-            if id.ptr.upgrade().is_none() {
-                return Err("NodeId is dangling");
-            }
+        if self.id != id.graph_id {
+            return Err("NodeId graph_id does not match graph");
         }
-        #[cfg(feature = "unchecked")]
-        {
-            if !self.node_ids().any(|nid: NodeId<N, E>| &nid == id) {
-                return Err("NodeId not found in graph");
-            }
+        if id.ptr.upgrade().is_none() {
+            return Err("NodeId is dangling");
         }
         Ok(())
     }
@@ -255,14 +239,11 @@ impl<N, E> Graph for LinkedGraph<N, E> {
     }
 
     fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
-        #[cfg(not(feature = "unchecked"))]
-        {
-            if self.id != id.graph_id {
-                return Err("EdgeId graph_id does not match graph");
-            }
-            if id.ptr.upgrade().is_none() {
-                return Err("EdgeId is dangling");
-            }
+        if self.id != id.graph_id {
+            return Err("EdgeId graph_id does not match graph");
+        }
+        if id.ptr.upgrade().is_none() {
+            return Err("EdgeId is dangling");
         }
         Ok(())
     }

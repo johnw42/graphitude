@@ -118,10 +118,10 @@ impl GraphMut for StringGraph {
     }
 
     fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData {
-        self.nodes
-            .remove(&id)
-            .map(|v| v.data)
-            .expect("Invalid node ID")
+        for node in self.nodes.values_mut() {
+            node.edges_out.retain(|e| e.target != id);
+        }
+        self.nodes.remove(&id).expect("Invalid node ID").data
     }
 
     fn remove_edge(&mut self, (from, to): Self::EdgeId) -> Self::EdgeData {
@@ -131,8 +131,8 @@ impl GraphMut for StringGraph {
             .iter()
             .position(|e| e.target == to)
             .expect("Invalid 'to' node ID");
-        let edge = node.edges_out.remove(pos);
-        edge.data
+        let data = node.edges_out.remove(pos).data;
+        data
     }
 }
 

@@ -16,7 +16,7 @@ pub trait Directedness {
     #[cfg(feature = "bitvec")]
     type Symmetry: Symmetry;
     #[cfg(feature = "bitvec")]
-    type AdjacencyMatrix<K, N>: AdjacencyMatrix<Key = K, Value = N>
+    type AdjacencyMatrix<K, N>: AdjacencyMatrix<Index = K, Value = N>
     where
         K: Eq + Hash + Clone + Ord + Debug;
 

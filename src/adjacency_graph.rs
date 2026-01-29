@@ -1,9 +1,12 @@
 #![cfg(feature = "bitvec")]
-use std::{collections::HashMap, fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
+pub use self::ids::{EdgeId, NodeId};
 use crate::{
     AdjacencyMatrix, Directed, Graph, GraphMut,
-    adjacency_matrix::{AdjacencyMatrixSelector, HashStorage, SelectMatrix, Storage},
+    adjacency_matrix::{
+        AdjacencyMatrixSelector, CompactionCount as _, HashStorage, SelectMatrix, Storage,
+    },
     debug::format_debug,
     directedness::Directedness,
     graph_id::GraphId,
@@ -11,124 +14,96 @@ use crate::{
     util::sort_pair_if,
 };
 
-pub struct NodeId<S: Storage> {
-    index: IdVecKey,
-    #[cfg(not(feature = "unchecked"))]
-    compaction_counter: S::CompactionCounter,
-    #[cfg(not(feature = "unchecked"))]
-    graph_id: GraphId,
-}
+mod ids {
+    use std::{fmt::Debug, hash::Hash};
 
-impl<S: Storage> Clone for NodeId<S> {
-    fn clone(&self) -> Self {
-        Self {
-            index: self.index,
-            #[cfg(not(feature = "unchecked"))]
-            compaction_counter: self.compaction_counter,
-            #[cfg(not(feature = "unchecked"))]
-            graph_id: self.graph_id,
+    use crate::{Storage, graph_id::GraphId, id_vec::IdVecKey};
+
+    pub struct NodeIdOrEdgeId<S: Storage, T: Copy> {
+        payload: T,
+        pub compaction_count: S::CompactionCount,
+        pub graph_id: GraphId,
+    }
+
+    impl<S: Storage, T: Copy> NodeIdOrEdgeId<S, T> {
+        pub fn new(payload: T, graph_id: GraphId, compaction_count: S::CompactionCount) -> Self {
+            Self {
+                payload,
+                compaction_count,
+                graph_id,
+            }
+        }
+
+        pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
+            self.compaction_count = compaction_count;
+            self
         }
     }
-}
 
-impl<S: Storage> Copy for NodeId<S> {}
-
-impl<S: Storage> Into<IdVecKey> for NodeId<S> {
-    fn into(self) -> IdVecKey {
-        self.index
-    }
-}
-
-impl<S: Storage> PartialEq for NodeId<S> {
-    fn eq(&self, other: &Self) -> bool {
-        #[cfg(not(feature = "unchecked"))]
-        assert_eq!(self.graph_id, other.graph_id);
-        self.index == other.index
-    }
-}
-
-impl<S: Storage> Eq for NodeId<S> {}
-
-impl<S: Storage> Hash for NodeId<S> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.index.hash(state);
-    }
-}
-
-impl<S: Storage> PartialOrd for NodeId<S> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.index.cmp(&other.index))
-    }
-}
-
-impl<S: Storage> Ord for NodeId<S> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.index.cmp(&other.index)
-    }
-}
-
-impl<S: Storage> Debug for NodeId<S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NodeId({:?})", self.index)
-    }
-}
-
-pub struct EdgeId<S: Storage> {
-    from: IdVecKey,
-    into: IdVecKey,
-    #[cfg(not(feature = "unchecked"))]
-    compaction_counter: S::CompactionCounter,
-    #[cfg(not(feature = "unchecked"))]
-    graph_id: GraphId,
-}
-
-impl<S: Storage> Clone for EdgeId<S> {
-    fn clone(&self) -> Self {
-        Self {
-            from: self.from,
-            into: self.into,
-            #[cfg(not(feature = "unchecked"))]
-            compaction_counter: self.compaction_counter,
-            #[cfg(not(feature = "unchecked"))]
-            graph_id: self.graph_id,
+    impl<S: Storage, T: Copy> Clone for NodeIdOrEdgeId<S, T> {
+        fn clone(&self) -> Self {
+            Self {
+                payload: self.payload,
+                compaction_count: self.compaction_count,
+                graph_id: self.graph_id,
+            }
         }
     }
-}
 
-impl<S: Storage> Copy for EdgeId<S> {}
+    impl<S: Storage, T: Copy> Copy for NodeIdOrEdgeId<S, T> {}
 
-impl<S: Storage> PartialEq for EdgeId<S> {
-    fn eq(&self, other: &Self) -> bool {
-        #[cfg(not(feature = "unchecked"))]
-        assert_eq!(self.graph_id, other.graph_id);
-        self.from == other.from && self.into == other.into
+    impl<S: Storage, T: Copy + Eq> PartialEq for NodeIdOrEdgeId<S, T> {
+        fn eq(&self, other: &Self) -> bool {
+            assert_eq!(self.graph_id, other.graph_id);
+            self.payload == other.payload
+        }
     }
-}
 
-impl<S: Storage> Eq for EdgeId<S> {}
+    impl<S: Storage, T: Copy + Eq> Eq for NodeIdOrEdgeId<S, T> {}
 
-impl<S: Storage> Hash for EdgeId<S> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.from.hash(state);
-        self.into.hash(state);
+    impl<S: Storage, T: Copy + Hash> Hash for NodeIdOrEdgeId<S, T> {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.payload.hash(state);
+        }
     }
-}
 
-impl<S: Storage> Into<(IdVecKey, IdVecKey)> for EdgeId<S> {
-    fn into(self) -> (IdVecKey, IdVecKey) {
-        (self.from, self.into)
+    impl<S: Storage, T: Copy + Ord> PartialOrd for NodeIdOrEdgeId<S, T> {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            Some(self.payload.cmp(&other.payload))
+        }
     }
-}
 
-impl<'a, S: Storage> Into<(&'a IdVecKey, &'a IdVecKey)> for &'a EdgeId<S> {
-    fn into(self) -> (&'a IdVecKey, &'a IdVecKey) {
-        (&self.from, &self.into)
+    impl<S: Storage, T: Copy + Ord> Ord for NodeIdOrEdgeId<S, T> {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.payload.cmp(&other.payload)
+        }
     }
-}
 
-impl<S: Storage> Debug for EdgeId<S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EdgeId({:?}, {:?})", self.from, self.into)
+    pub type NodeId<S> = NodeIdOrEdgeId<S, IdVecKey>;
+    pub type EdgeId<S> = NodeIdOrEdgeId<S, (IdVecKey, IdVecKey)>;
+
+    impl<S: Storage> NodeId<S> {
+        pub fn key(&self) -> IdVecKey {
+            self.payload
+        }
+    }
+
+    impl<S: Storage> EdgeId<S> {
+        pub fn keys(&self) -> (IdVecKey, IdVecKey) {
+            self.payload
+        }
+    }
+
+    impl<S: Storage> Debug for NodeId<S> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "NodeId({:?})", self.payload)
+        }
+    }
+
+    impl<S: Storage> Debug for EdgeId<S> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "EdgeId{:?}", self.payload)
+        }
     }
 }
 
@@ -136,46 +111,31 @@ pub struct AdjacencyGraph<N, E, D = Directed, S = HashStorage>
 where
     D: Directedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
+    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
     nodes: IdVec<N>,
-    adjacency: <(D::Symmetry, S) as AdjacencyMatrixSelector<IdVecKey, E>>::Matrix,
+    adjacency: <(D::Symmetry, S) as AdjacencyMatrixSelector<usize, E>>::Matrix,
     directedness: PhantomData<D>,
-    #[cfg(not(feature = "unchecked"))]
-    compaction_counter: S::CompactionCounter,
-    #[cfg(not(feature = "unchecked"))]
     id: GraphId,
+    compaction_count: S::CompactionCount,
 }
 
 impl<N, E, D, S> AdjacencyGraph<N, E, D, S>
 where
     D: Directedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
+    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
-    fn node_id(&self, index: IdVecKey) -> NodeId<S> {
-        NodeId {
-            index,
-            #[cfg(not(feature = "unchecked"))]
-            compaction_counter: self.compaction_counter,
-            #[cfg(not(feature = "unchecked"))]
-            graph_id: self.id,
-        }
+    fn node_id(&self, key: IdVecKey) -> NodeId<S> {
+        NodeId::new(key, self.id, self.compaction_count)
     }
 
     fn edge_id(&self, from: IdVecKey, into: IdVecKey) -> EdgeId<S> {
-        let (i1, i2) = sort_pair_if(from, into, !D::is_directed());
-        EdgeId {
-            from: i1,
-            into: i2,
-            #[cfg(not(feature = "unchecked"))]
-            compaction_counter: self.compaction_counter,
-            #[cfg(not(feature = "unchecked"))]
-            graph_id: self.id,
-        }
+        let (k1, k2) = sort_pair_if(!D::is_directed(), from, into);
+        EdgeId::new((k1, k2), self.id, self.compaction_count)
     }
 
-    fn compact_nodes<F>(
+    fn do_compact<F>(
         &mut self,
         mut compact_fn: F,
         mut node_id_callback: Option<impl FnMut(NodeId<S>, NodeId<S>)>,
@@ -183,46 +143,64 @@ where
     ) where
         F: FnMut(&mut IdVec<N>, Option<&mut dyn FnMut(IdVecKey, Option<IdVecKey>)>),
     {
-        let mut id_vec_map: HashMap<IdVecKey, IdVecKey> = HashMap::new();
+        let old_compaction_count = self.compaction_count;
+        let new_compaction_count = self.compaction_count.increment();
 
-        let new_compaction_counter = S::increment_compaction_counter(self.compaction_counter);
-
+        // Compact nodes and build ID mapping.
+        let mut id_vec_map: HashMap<IdVecKey, IdVecKey> = HashMap::with_capacity(self.nodes.len());
+        let old_indexing = self.nodes.indexing();
         compact_fn(
             &mut self.nodes,
             Some(&mut |old_key, new_key_opt| {
-                if (node_id_callback.is_some() || edge_id_callback.is_some())
-                    && let Some(new_key) = new_key_opt
-                {
-                    dbg!(&old_key, &new_key);
+                if let Some(new_key) = new_key_opt {
                     id_vec_map.insert(old_key, new_key);
                 }
             }),
         );
+        let new_indexing = self.nodes.indexing();
 
         // Call node_id_callback for each node ID mapping
         if let Some(ref mut cb) = node_id_callback {
             for (&old_index, &new_index) in &id_vec_map {
-                let old_node_id = self.node_id(old_index);
-                let mut new_node_id = self.node_id(new_index);
-                new_node_id.compaction_counter = new_compaction_counter;
+                let old_node_id = self
+                    .node_id(old_index)
+                    .with_compaction_count(old_compaction_count);
+                let new_node_id = self
+                    .node_id(new_index)
+                    .with_compaction_count(new_compaction_count);
                 cb(old_node_id, new_node_id);
             }
         }
 
-        // Call edge_id_callback for each edge ID mapping
-        if let Some(ref mut cb) = edge_id_callback {
-            for id in self.edge_ids() {
-                let (from, into) = id.into();
-                // If a node index isn't in the map, it means it wasn't moved (identity mapping)
-                let new_from = id_vec_map.get(&from).copied().unwrap_or(from);
-                let new_into = id_vec_map.get(&into).copied().unwrap_or(into);
-                let mut new_edge_id = self.edge_id(new_from, new_into);
-                new_edge_id.compaction_counter = new_compaction_counter;
-                cb(id, new_edge_id);
+        // Update adjacency matrix with new node indices.
+        if !id_vec_map.is_empty() {
+            let mut old_adjacency = self.adjacency.clone_empty();
+            std::mem::swap(&mut self.adjacency, &mut old_adjacency);
+            self.adjacency.reserve(self.nodes.len());
+            for (old_from_index, old_into_index, data) in old_adjacency.into_iter() {
+                let old_from = old_indexing.key_from_index(old_from_index);
+                let new_from = id_vec_map.get(&old_from).copied().unwrap_or(old_from);
+                let old_into = old_indexing.key_from_index(old_into_index);
+                let new_into = id_vec_map.get(&old_into).copied().unwrap_or(old_into);
+                dbg!(old_from, new_from, old_into, new_into);
+                self.adjacency.insert(
+                    new_indexing.zero_based_index(new_from),
+                    new_indexing.zero_based_index(new_into),
+                    data,
+                );
+                if let Some(ref mut cb) = edge_id_callback {
+                    let old_edge_id = self
+                        .edge_id(old_from, old_into)
+                        .with_compaction_count(old_compaction_count);
+                    let new_edge_id = self
+                        .edge_id(new_from, new_into)
+                        .with_compaction_count(new_compaction_count);
+                    cb(old_edge_id, new_edge_id);
+                }
             }
         }
 
-        self.compaction_counter = new_compaction_counter;
+        self.compaction_count = new_compaction_count;
     }
 }
 
@@ -230,7 +208,7 @@ impl<N, E, D, S> Graph for AdjacencyGraph<N, E, D, S>
 where
     D: Directedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
+    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
     type EdgeData = E;
     type EdgeId = EdgeId<S>;
@@ -240,28 +218,37 @@ where
 
     fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
         self.assert_valid_node_id(&id);
-        &self.nodes.get(id.into()).expect("no such node")
+        &self.nodes.get(id.key()).expect("no such node")
     }
 
     fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
-        self.nodes.iter_keys().map(|index| self.node_id(index))
+        self.nodes.iter_keys().map(|key| self.node_id(key))
     }
 
     fn edge_data(&self, eid: Self::EdgeId) -> &Self::EdgeData {
         self.assert_valid_edge_id(&eid);
-        let (from, to) = eid.into();
-        &self.adjacency.get(from, to).expect("no such edge")
+        let (from, to) = eid.keys();
+        &self
+            .adjacency
+            .get(
+                self.nodes.zero_based_index(from),
+                self.nodes.zero_based_index(to),
+            )
+            .expect("no such edge")
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        self.adjacency
-            .entries()
-            .map(|(from, into, _)| self.edge_id(from, into))
+        self.adjacency.iter().map(|(from, into, _)| {
+            self.edge_id(
+                self.nodes.key_from_index(from),
+                self.nodes.key_from_index(into),
+            )
+        })
     }
 
     fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
         self.assert_valid_edge_id(&eid);
-        (self.node_id(eid.from), self.node_id(eid.into))
+        (self.node_id(eid.keys().0), self.node_id(eid.keys().1))
     }
 
     fn edges_between(
@@ -272,16 +259,24 @@ where
         self.assert_valid_node_id(&from);
         self.assert_valid_node_id(&into);
         self.adjacency
-            .entry_at(from.into(), into.into())
+            .entry_at(
+                self.nodes.zero_based_index(from.key()),
+                self.nodes.zero_based_index(into.key()),
+            )
             .into_iter()
-            .map(|(from, into, _)| self.edge_id(from, into))
+            .map(|(from, into, _)| {
+                self.edge_id(
+                    self.nodes.key_from_index(from),
+                    self.nodes.key_from_index(into),
+                )
+            })
     }
 
     fn edges_into<'a>(&'a self, into: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.assert_valid_node_id(&into);
         self.adjacency
-            .entries_in_col(into.into())
-            .map(|(from, _)| self.edge_id(from, into.into()))
+            .entries_in_col(self.nodes.zero_based_index(into.key()))
+            .map(|(from, _)| self.edge_id(self.nodes.key_from_index(from), into.key()))
             .collect::<Vec<_>>()
             .into_iter()
     }
@@ -289,30 +284,21 @@ where
     fn edges_from<'a>(&'a self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.assert_valid_node_id(&from);
         self.adjacency
-            .entries_in_row(from.into())
-            .map(|(into, _)| self.edge_id(from.into(), into))
+            .entries_in_row(self.nodes.zero_based_index(from.key()))
+            .map(|(into, _)| self.edge_id(from.key(), self.nodes.key_from_index(into)))
             .collect::<Vec<_>>()
             .into_iter()
     }
 
     fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
-        #[cfg(not(feature = "unchecked"))]
-        {
-            if self.id != id.graph_id {
-                return Err("NodeId graph ID does not match");
-            }
-            if self.compaction_counter != id.compaction_counter {
-                return Err("NodeId compaction counter does not match");
-            }
-            if self.nodes.get(id.index).is_none() {
-                return Err("NodeId index not found in nodes");
-            }
+        if self.id != id.graph_id {
+            return Err("NodeId graph ID does not match");
         }
-        #[cfg(feature = "unchecked")]
-        {
-            if !self.node_ids().any(|nid: NodeId<N, E>| &nid == id) {
-                return Err("NodeId not found in graph");
-            }
+        if self.compaction_count != id.compaction_count {
+            return Err("NodeId compaction counter does not match");
+        }
+        if self.nodes.get(id.key()).is_none() {
+            return Err("NodeId index not found in nodes");
         }
         Ok(())
     }
@@ -329,23 +315,21 @@ where
     }
 
     fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
-        #[cfg(not(feature = "unchecked"))]
-        {
-            if self.id != id.graph_id {
-                return Err("EdgeId graph ID does not match");
-            }
-            if self.compaction_counter != id.compaction_counter {
-                return Err("EdgeId compaction counter does not match");
-            }
-            if self.adjacency.get(id.from, id.into).is_none() {
-                return Err("EdgeId not found in adjacency matrix");
-            }
+        if self.id != id.graph_id {
+            return Err("EdgeId graph ID does not match");
         }
-        #[cfg(feature = "unchecked")]
+        if self.compaction_count != id.compaction_count {
+            return Err("EdgeId compaction counter does not match");
+        }
+        if self
+            .adjacency
+            .get(
+                self.nodes.zero_based_index(id.keys().0),
+                self.nodes.zero_based_index(id.keys().1),
+            )
+            .is_none()
         {
-            if !self.edge_ids().any(|eid: EdgeId<N, E>| &eid == id) {
-                return Err("EdgeId not found in graph");
-            }
+            return Err("EdgeId not found in adjacency matrix");
         }
         Ok(())
     }
@@ -366,15 +350,14 @@ impl<N, E, D, S> GraphMut for AdjacencyGraph<N, E, D, S>
 where
     D: Directedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
+    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
     fn new() -> Self {
         Self {
             nodes: IdVec::new(),
-            adjacency: SelectMatrix::<D::Symmetry, S, IdVecKey, E>::new(),
+            adjacency: SelectMatrix::<D::Symmetry, S, usize, E>::new(),
             directedness: PhantomData,
-            compaction_counter: S::CompactionCounter::default(),
-            #[cfg(not(feature = "unchecked"))]
+            compaction_count: S::CompactionCount::default(),
             id: GraphId::new(),
         }
     }
@@ -390,25 +373,44 @@ where
         into: Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
-        let old_data = self.adjacency.insert(from.into(), into.into(), data);
-        (self.edge_id(from.into(), into.into()), old_data)
+        let old_data = self.adjacency.insert(
+            self.nodes.zero_based_index(from.key()),
+            self.nodes.zero_based_index(into.key()),
+            data,
+        );
+        (self.edge_id(from.key(), into.key()), old_data)
     }
 
     fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData {
         for into in self
             .adjacency
-            .entries_in_row(id.into())
+            .entries_in_row(self.nodes.zero_based_index(id.key()))
             .map(|(to, _)| to)
             .collect::<Vec<_>>()
         {
-            self.adjacency.remove(id.into(), into);
+            self.adjacency
+                .remove(self.nodes.zero_based_index(id.key()), into);
         }
-        self.nodes.remove(id.into()).expect("invalid node ID")
+        if self.is_directed() {
+            for from in self
+                .adjacency
+                .entries_in_col(self.nodes.zero_based_index(id.key()))
+                .map(|(to, _)| to)
+                .collect::<Vec<_>>()
+            {
+                self.adjacency
+                    .remove(from, self.nodes.zero_based_index(id.key()));
+            }
+        }
+        self.nodes.remove(id.key()).expect("invalid node ID")
     }
 
     fn remove_edge(&mut self, id: Self::EdgeId) -> Self::EdgeData {
         self.adjacency
-            .remove(id.from, id.into)
+            .remove(
+                self.nodes.zero_based_index(id.keys().0),
+                self.nodes.zero_based_index(id.keys().1),
+            )
             .expect("Invalid edge ID")
     }
 
@@ -447,12 +449,11 @@ where
         F1: FnMut(Self::NodeId, Self::NodeId),
         F2: FnMut(Self::EdgeId, Self::EdgeId),
     {
-        self.compact_nodes(
+        self.do_compact(
             |vec, cb| vec.compact_with(cb),
             node_id_callback,
             edge_id_callback,
         );
-        // self.adjacency.compact();
     }
 
     fn shrink_to_fit(&mut self) {
@@ -469,12 +470,11 @@ where
         F1: FnMut(Self::NodeId, Self::NodeId),
         F2: FnMut(Self::EdgeId, Self::EdgeId),
     {
-        self.compact_nodes(
+        self.do_compact(
             |vec, cb| vec.shrink_to_fit_with(cb),
             node_id_callback,
             edge_id_callback,
         );
-        // self.adjacency.shrink_to_fit();
     }
 }
 
@@ -484,7 +484,7 @@ where
     E: Debug,
     D: Directedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, E>,
+    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "AdjacencyGraph")
@@ -500,7 +500,7 @@ mod tests {
     where
         D: Directedness,
         S: Storage,
-        (D::Symmetry, S): AdjacencyMatrixSelector<IdVecKey, String>,
+        (D::Symmetry, S): AdjacencyMatrixSelector<usize, String>,
     {
         type Graph = Self;
 

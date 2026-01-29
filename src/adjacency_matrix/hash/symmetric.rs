@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::{collections::HashMap, hash::Hash};
 
@@ -10,66 +11,66 @@ pub struct SymmetricHashAdjacencyMatrix<K, V>
 where
     K: Hash + Eq + Clone + Ord + Debug,
 {
-    edges: HashMap<K, HashMap<K, *mut V>>,
+    // Invariant: for any (row, col) in entries, row <= col.
+    entries: HashMap<K, HashMap<K, V>>,
+    // Invariant: for any (col, row) in reverse_entries, col >= row, and entries contains (row, col).
+    reverse_entries: HashMap<K, HashSet<K>>,
 }
 
 impl<K, V> AdjacencyMatrix for SymmetricHashAdjacencyMatrix<K, V>
 where
     K: Hash + Eq + Clone + Ord + Debug,
 {
-    type Key = K;
+    type Index = K;
     type Value = V;
     type Symmetry = Symmetric;
     type Storage = HashStorage;
 
     fn new() -> Self {
         Self {
-            edges: HashMap::new(),
+            entries: HashMap::new(),
+            reverse_entries: HashMap::new(),
         }
     }
 
     fn insert(&mut self, row: K, col: K, data: V) -> Option<V> {
-        let (k1, k2) = (row, col);
-        let to_insert = Box::leak(Box::new(data)) as *mut V;
-        let old_data = self
-            .edges
-            .entry(k1.clone())
+        let (i1, i2) = sort_pair(row, col);
+        self.reverse_entries
+            .entry(i2.clone())
             .or_default()
-            .insert(k2.clone(), to_insert);
-        self.edges.entry(k2).or_default().insert(k1, to_insert);
-        //dbg!(self.edges.iter().flat_map(|(k1, v)| v.keys().map(|k2| (k1,k2)).collect::<Vec<_>>()).collect::<Vec<_>>());
-        old_data.map(|d| unsafe { std::ptr::read(d) })
+            .insert(i1.clone());
+        self.entries.entry(i1).or_default().insert(i2, data)
     }
 
     fn get(&self, row: K, col: K) -> Option<&V> {
-        let (k1, k2) = sort_pair(row, col);
-        self.edges
-            .get(&k1)
-            .and_then(|m| m.get(&k2))
-            .map(|ptr| unsafe { &**ptr })
+        let (i1, i2) = sort_pair(row, col);
+        self.entries.get(&i1).and_then(|m| m.get(&i2))
     }
 
     fn remove(&mut self, row: K, col: K) -> Option<V> {
-        let (k1, k2) = sort_pair(row, col);
-        self.edges
-            .get_mut(&k1)
-            .and_then(|m| m.remove(&k2))
-            .map(|v| unsafe { std::ptr::read(v) })
+        let (i1, i2) = sort_pair(row, col);
+        self.entries.get_mut(&i1).and_then(|m| m.remove(&i2))
     }
 
-    fn entries<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
     where
         V: 'a,
     {
-        self.edges.iter().flat_map(|(k1, targets)| {
-            targets.iter().filter_map(|(k2, v)| {
-                (*k1 <= *k2).then(|| (k1.clone(), k2.clone(), unsafe { &**v }))
+        self.entries
+            .iter()
+            .flat_map(|(i1, targets)| targets.iter().map(|(i2, v)| (i1.clone(), i2.clone(), v)))
+    }
+
+    fn into_iter(self) -> impl Iterator<Item = (Self::Index, Self::Index, Self::Value)> {
+        self.entries.into_iter().flat_map(|(i1, targets)| {
+            targets.into_iter().map(move |(i2, v)| {
+                debug_assert!(i1 <= i2);
+                (i1.clone(), i2, v)
             })
         })
     }
 
-
-    fn entry_indices(k1: Self::Key, k2: Self::Key) -> (Self::Key, Self::Key) {
+    fn entry_indices(k1: Self::Index, k2: Self::Index) -> (Self::Index, Self::Index) {
         sort_pair(k1, k2)
     }
 
@@ -77,10 +78,25 @@ where
     where
         V: 'a,
     {
-        self.edges
+        let forward_entries = self
+            .entries
             .get(&row)
             .into_iter()
-            .flat_map(|targets| targets.iter().map(|(k2, v)| (k2.clone(), unsafe { &**v })))
+            .flat_map(|targets| targets.iter().map(|(k2, v)| (k2.clone(), v)));
+        let backward_entries =
+            self.reverse_entries
+                .get(&row)
+                .into_iter()
+                .flat_map(move |sources| {
+                    let row = row.clone();
+                    sources.iter().filter_map(move |k1| {
+                        self.entries
+                            .get(k1)
+                            .and_then(|targets| targets.get(&row))
+                            .map(|v| (k1.clone(), v))
+                    })
+                });
+        forward_entries.chain(backward_entries)
     }
 
     fn entries_in_col<'a>(&'a self, col: K) -> impl Iterator<Item = (K, &'a V)>
@@ -91,34 +107,7 @@ where
     }
 
     fn clear(&mut self) {
-        // First, free all the leaked boxes (only once per unique pointer)
-        let mut freed = std::collections::HashSet::new();
-        for inner_map in self.edges.values() {
-            for &ptr in inner_map.values() {
-                if freed.insert(ptr) {
-                    unsafe { drop(Box::from_raw(ptr)) };
-                }
-            }
-        }
-        // Then clear the hash map
-        self.edges.clear();
-    }
-}
-
-impl<K, V> Drop for SymmetricHashAdjacencyMatrix<K, V>
-where
-    K: Hash + Eq + Clone + Ord + Debug,
-{
-    fn drop(&mut self) {
-        for (k1, inner_map) in self.edges.iter() {
-            for (k2, data_ptr) in inner_map {
-                if k1 <= k2 {
-                    unsafe {
-                        drop(Box::from_raw(*data_ptr));
-                    }
-                }
-            }
-        }
+        self.entries.clear();
     }
 }
 

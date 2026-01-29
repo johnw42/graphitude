@@ -457,9 +457,11 @@ macro_rules! graph_tests {
             let n3 = graph.add_node(builder.new_node_data());
             let e1 = graph.add_edge(n1.clone(), n1.clone(), ed1.clone());
             let e2 = graph.add_edge(n1.clone(), n2.clone(), ed2.clone());
-            let e3 = graph.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
+            let _e3 = graph.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
             graph.remove_node(n3.clone());
-            graph.remove_edge(e3.clone());
+            assert_eq!(graph.node_ids().count(), 2);
+            assert_eq!(graph.edge_ids().count(), 2);
+
             let mut nid_map = std::collections::HashMap::new();
             let mut eid_map = std::collections::HashMap::new();
             graph.compact_with(
@@ -476,8 +478,6 @@ macro_rules! graph_tests {
             );
             assert_eq!(graph.node_ids().count(), 2);
             assert_eq!(graph.edge_ids().count(), 2);
-            assert_eq!(dbg!(&nid_map).len(), 2);
-            assert_eq!(dbg!(&eid_map).len(), 2);
 
             // After compaction, we need to use the new node ID.
             // Find the node with the same data

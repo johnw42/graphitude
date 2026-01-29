@@ -72,7 +72,7 @@ impl Graph for StringGraph {
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
         self.edges
-            .entries()
+            .iter()
             .map(|(from, into, _)| EdgeId::new(from, into))
     }
 }
