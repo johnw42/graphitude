@@ -11,9 +11,25 @@ pub mod hash;
 
 pub struct BitvecStorage;
 pub struct HashStorage;
-pub trait Storage {}
-impl Storage for BitvecStorage {}
-impl Storage for HashStorage {}
+
+pub trait Storage {
+    type CompactionCounter: Eq + Clone + Copy + Default;
+    fn increment_compaction_counter(counter: Self::CompactionCounter) -> Self::CompactionCounter;
+}
+
+impl Storage for BitvecStorage {
+    type CompactionCounter = usize;
+    fn increment_compaction_counter(counter: Self::CompactionCounter) -> Self::CompactionCounter {
+        counter.wrapping_add(1)
+    }
+}
+
+impl Storage for HashStorage {
+    type CompactionCounter = ();
+    fn increment_compaction_counter(counter: Self::CompactionCounter) -> Self::CompactionCounter {
+        counter
+    }
+}
 
 pub struct Symmetric;
 pub struct Asymmetric;

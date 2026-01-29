@@ -6,6 +6,7 @@ use parking_lot::ReentrantMutex;
 use std::{
     cell::RefCell,
     collections::HashMap,
+    fmt::Debug,
     mem::MaybeUninit,
     ops::{Index, IndexMut, Range},
 };
@@ -263,6 +264,26 @@ impl<T> IdVec<T> {
             .iter()
             .enumerate()
             .filter_map(move |(i, live)| if *live { Some(i) } else { None })
+    }
+}
+
+impl<T> Debug for IdVec<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("IdVec");
+        for (index, value) in self.vec.iter().enumerate() {
+            builder.field(
+                &(index + self.key_offset).to_string(),
+                &Box::new(if self.liveness[index] {
+                    unsafe { value.assume_init_ref() as &dyn Debug }
+                } else {
+                    &None::<()> as &dyn Debug
+                }),
+            );
+        }
+        builder.finish()
     }
 }
 
@@ -713,31 +734,47 @@ mod tests {
     }
 
     #[test]
-    fn test_idveckeymap_get_mapping() {
+    fn test_compact_with_callback_after_removals() {
         let mut vec = IdVec::new();
         let id1 = vec.insert(1);
         let id2 = vec.insert(2);
         let id3 = vec.insert(3);
 
         vec.remove(id2);
-        let mut key_map = HashMap::new();
 
+        let mut key_map = HashMap::new();
         vec.compact_with(Some(|old_key, new_key_opt| {
             if let Some(new_key) = new_key_opt {
                 key_map.insert(old_key, new_key);
             }
         }));
 
-        // Old id1 should map to a new key
-        assert!(key_map.get(&id1).copied().is_some());
-        // Old id2 (removed) should map to None
-        assert!(key_map.get(&id2).copied().is_none());
-        // Old id3 should map to a new key
-        assert!(key_map.get(&id3).copied().is_some());
+        assert_eq!(vec.get(key_map[&id1]), Some(&1));
+        assert_eq!(vec.get(key_map[&id3]), Some(&3));
     }
 
     #[test]
-    fn test_idveckeymap_get_identity() {
+    fn test_compact_with_callback_no_removals() {
+        let mut vec = IdVec::new();
+        let id1 = vec.insert(1);
+        vec.insert(2);
+        vec.insert(3);
+
+        // shrink_to_fit with no removals does nothing, callback not called
+        let mut callback_called = false;
+
+        vec.compact_with(Some(|_old_key, _new_key_opt| {
+            callback_called = true;
+        }));
+
+        // Callback should not be called for identity case
+        assert!(!callback_called);
+        // Old keys should still work
+        assert_eq!(vec.get(id1), Some(&1));
+    }
+
+    #[test]
+    fn test_shrink_to_fit_with_callback_no_removals() {
         let mut vec = IdVec::new();
         let id1 = vec.insert(1);
         vec.insert(2);
@@ -757,35 +794,7 @@ mod tests {
     }
 
     #[test]
-    fn test_idveckeymap_into_hashmap_mapping() {
-        let mut vec = IdVec::new();
-        let id1 = vec.insert(1);
-        let id2 = vec.insert(2);
-        let id3 = vec.insert(3);
-
-        vec.remove(id2);
-        let mut key_map = HashMap::new();
-
-        vec.compact_with(Some(|old_key, new_key_opt| {
-            if let Some(new_key) = new_key_opt {
-                key_map.insert(old_key, new_key);
-            }
-        }));
-
-        let hash_map: HashMap<IdVecKey, IdVecKey> = key_map.into();
-
-        // Should only have entries for keys that still exist (not removed)
-        assert!(hash_map.contains_key(&id1));
-        assert!(!hash_map.contains_key(&id2)); // id2 was removed, so it won't be in the HashMap
-        assert!(hash_map.contains_key(&id3));
-
-        // Verify the mappings exist
-        assert!(hash_map.get(&id1).is_some());
-        assert!(hash_map.get(&id3).is_some());
-    }
-
-    #[test]
-    fn test_idveckeymap_into_hashmap_identity() {
+    fn test_shrink_to_fit_with_callback_identity_case() {
         let mut vec = IdVec::new();
         let id1 = vec.insert(1);
         let id2 = vec.insert(2);

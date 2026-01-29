@@ -73,19 +73,23 @@ pub trait Graph: Sized {
         self.node_ids().count()
     }
 
-    /// Checks if a NodeId is valid in the graph. This operation is
-    /// potentially costly.
-    fn is_valid_node_id(&self, id: &Self::NodeId) -> bool {
-        self.node_ids().any(|nid| &nid == id)
+    /// Checks if a NodeId is valid in the graph, returning a reason if it is
+    /// not. This operation is potentially costly.
+    fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
+        if self.node_ids().any(|nid| &nid == id) {
+            Ok(())
+        } else {
+            Err("NodeId not found in graph")
+        }
     }
 
     /// Checks if a NodeId is valid in the graph to the extent that can be
-    /// determined without iterating over all nodes.  This may return false
-    /// positives for some graph implementations.
+    /// determined without iterating over all nodes, returning a reason if it is
+    /// not.  This may return false positives for some graph implementations.
     ///
-    /// By default, this method always returns true.
-    fn is_maybe_valid_node_id(&self, _id: &Self::NodeId) -> bool {
-        true
+    /// By default, this method always returns Ok(()).
+    fn maybe_check_valid_node_id(&self, _id: &Self::NodeId) -> Result<(), &'static str> {
+        Ok(())
     }
 
     /// Panics if the given NodeId is not valid in the graph, accordinging to
@@ -94,14 +98,19 @@ pub trait Graph: Sized {
     /// It is recommended to call this method from implementations of other methods
     /// that take NodeIds as parameters, to ensure that invalid NodeIds are
     /// caught early.
-    fn check_node_id(&self, id: &Self::NodeId) {
-        assert!(self.is_maybe_valid_node_id(id), "Invalid NodeId: {:?}", id);
+    fn assert_valid_node_id(&self, id: &Self::NodeId) {
+        if let Err(reason) = self.maybe_check_valid_node_id(id) {
+            panic!("Invalid NodeId: {:?}: {}", id, reason);
+        }
     }
 
     /// Panics if the given NodeId is not valid in the graph, accordinging to
     /// [`Self::is_maybe_valid_node_id`], but only in debug builds.
-    fn debug_check_node_id(&self, id: &Self::NodeId) {
-        debug_assert!(self.is_maybe_valid_node_id(id), "Invalid NodeId: {:?}", id);
+    fn debug_assert_valid_node_id(&self, id: &Self::NodeId) {
+        #[cfg(debug_assertions)]
+        if let Err(reason) = self.maybe_check_valid_node_id(id) {
+            panic!("Invalid NodeId: {:?}: {}", id, reason);
+        }
     }
 
     /// Gets an iterator over the predacessors nodes of a given node, i.e.
@@ -137,19 +146,24 @@ pub trait Graph: Sized {
     /// Gets a vector of all edges in the graph.
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
 
-    /// Checks if a EdgeId is valid in the graph. This operation is
-    /// potentially costly.
-    fn is_valid_edge_id(&self, id: &Self::EdgeId) -> bool {
-        self.edge_ids().any(|eid| &eid == id)
+    /// Checks if a EdgeId is valid in the graph to the extent that can be
+    /// determined without iterating over all edges, returning a reason if it is
+    /// not.  This may return false positives for some graph implementations.
+    fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
+        if self.edge_ids().any(|eid| &eid == id) {
+            Ok(())
+        } else {
+            Err("EdgeId not found in graph")
+        }
     }
 
     /// Checks if a EdgeId is valid in the graph to the extent that can be
-    /// determined without iterating over all nodes.  This may return false
-    /// positives for some graph implementations.
+    /// determined without iterating over all edges, returning a reason if it is
+    /// not.  May return false positives for some graph implementations.
     ///
-    /// By default, this method always returns true.
-    fn is_maybe_valid_edge_id(&self, _id: &Self::EdgeId) -> bool {
-        true
+    /// By default, this method always returns Ok(()).
+    fn maybe_check_valid_edge_id(&self, _id: &Self::EdgeId) -> Result<(), &'static str> {
+        Ok(())
     }
 
     /// Panics if the given EdgeId is not valid in the graph, accordinging to
@@ -158,15 +172,21 @@ pub trait Graph: Sized {
     /// It is recommended to call this method from implementations of other methods
     /// that take EdgeIds as parameters, to ensure that invalid EdgeIds are
     /// caught early.
-    fn check_edge_id(&self, id: &Self::EdgeId) {
-        assert!(self.is_maybe_valid_edge_id(id), "Invalid EdgeId: {:?}", id);
+    fn assert_valid_edge_id(&self, id: &Self::EdgeId) {
+        if let Err(reason) = self.maybe_check_valid_edge_id(id) {
+            panic!("Invalid EdgeId: {:?}: {}", id, reason);
+        }
     }
 
     /// Panics if the given EdgeId is not valid in the graph, accordinging to
     /// [`Self::is_maybe_valid_edge_id`], but only in debug builds.
-    fn debug_check_edge_id(&self, id: &Self::EdgeId) {
-        debug_assert!(self.is_maybe_valid_edge_id(id), "Invalid EdgeId: {:?}", id);
+    fn debug_assert_valid_edge_id(&self, id: &Self::EdgeId) {
+        #[cfg(debug_assertions)]
+        if let Err(reason) = self.maybe_check_valid_edge_id(id) {
+            panic!("Invalid EdgeId: {:?}: {}", id, reason);
+        }
     }
+
     /// Gets an iterator over the outgoing edges from a given node.
     fn edges_from(&self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.edge_ids().filter(move |eid| {
@@ -504,11 +524,14 @@ pub trait GraphMut: Graph {
     /// without reallocation.  Does nothing by default.  May invalidate existing
     /// NodeIds and EdgeIds.  Calls a closure for each node ID mapping
     /// (old_id, new_id) and edge ID mapping (old_id, new_id) as they are created.
-    fn compact_with(
+    fn compact_with<F1, F2>(
         &mut self,
-        mut node_id_callback: Option<impl FnMut(Self::NodeId, Self::NodeId)>,
-        mut edge_id_callback: Option<impl FnMut(Self::EdgeId, Self::EdgeId)>,
-    ) {
+        mut node_id_callback: Option<F1>,
+        mut edge_id_callback: Option<F2>,
+    ) where
+        F1: FnMut(Self::NodeId, Self::NodeId),
+        F2: FnMut(Self::EdgeId, Self::EdgeId),
+    {
         let _ = &mut node_id_callback;
         let _ = &mut edge_id_callback;
     }
@@ -516,9 +539,8 @@ pub trait GraphMut: Graph {
     /// Shrinks internal storage used by the graph to fit its current size.  May
     /// invalidate existing NodeIds and EdgeIds.  Does nothing by default.
     fn shrink_to_fit(&mut self) {
-        self.shrink_to_fit_with(
-            None::<fn(Self::NodeId, Self::NodeId)>,
-            None::<fn(Self::EdgeId, Self::EdgeId)>,
+        self.shrink_to_fit_with::<fn(Self::NodeId, Self::NodeId), fn(Self::EdgeId, Self::EdgeId)>(
+            None, None,
         );
     }
 
@@ -526,11 +548,14 @@ pub trait GraphMut: Graph {
     /// invalidate existing NodeIds and EdgeIds.  Does nothing by default.
     /// Calls a closure for each node ID mapping (old_id, new_id)
     /// and edge ID mapping (old_id, new_id) as they are created.
-    fn shrink_to_fit_with(
+    fn shrink_to_fit_with<F1, F2>(
         &mut self,
-        mut node_id_callback: Option<impl FnMut(Self::NodeId, Self::NodeId)>,
-        mut edge_id_callback: Option<impl FnMut(Self::EdgeId, Self::EdgeId)>,
-    ) {
+        mut node_id_callback: Option<F1>,
+        mut edge_id_callback: Option<F2>,
+    ) where
+        F1: FnMut(Self::NodeId, Self::NodeId),
+        F2: FnMut(Self::EdgeId, Self::EdgeId),
+    {
         let _ = &mut node_id_callback;
         let _ = &mut edge_id_callback;
     }

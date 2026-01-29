@@ -139,10 +139,6 @@ impl GraphMut for StringGraph {
 impl TestDataBuilder for StringGraph {
     type Graph = Self;
 
-    fn new_graph() -> Self::Graph {
-        Self::new()
-    }
-
     fn new_edge_data(i: usize) -> String {
         format!("e{}", i)
     }

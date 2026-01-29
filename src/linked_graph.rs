@@ -142,7 +142,7 @@ impl<N, E> LinkedGraph<N, E> {
     }
 
     fn node(&self, id: NodeId<N, E>) -> &Node<N, E> {
-        self.check_node_id(&id);
+        self.assert_valid_node_id(&id);
         let id = id.ptr.upgrade().expect("NodeId is dangling");
         // SAFETY: We have checked that the NodeId is valid, and the graph
         // contains all strong references to its nodes.
@@ -154,13 +154,13 @@ impl<N, E> LinkedGraph<N, E> {
     /// SAFETY: Caller must ensure that no other references to the node exist,
     /// and the graph outlives the returned reference.
     unsafe fn node_mut<'a>(&mut self, id: NodeId<N, E>) -> &'a mut Node<N, E> {
-        self.check_node_id(&id);
+        self.assert_valid_node_id(&id);
         let id = id.ptr.upgrade().expect("NodeId is dangling");
         unsafe { &mut *(Arc::as_ptr(&id) as *mut _) }
     }
 
     fn edge(&self, id: EdgeId<N, E>) -> &Edge<N, E> {
-        self.check_edge_id(&id);
+        self.assert_valid_edge_id(&id);
         let id = id.ptr.upgrade().expect("EdgeId is dangling");
         // SAFETY: We have checked that the EdgeId is valid, and the graph
         // contains all strong references to its edges.
@@ -224,47 +224,57 @@ impl<N, E> Graph for LinkedGraph<N, E> {
         self.node(from).edges_out.len()
     }
 
-    fn is_valid_node_id(&self, id: &Self::NodeId) -> bool {
+    fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
         #[cfg(not(feature = "unchecked"))]
         {
-            self.id == id.graph_id && id.ptr.upgrade().is_some()
+            if self.id != id.graph_id {
+                return Err("NodeId graph_id does not match graph");
+            }
+            if id.ptr.upgrade().is_none() {
+                return Err("NodeId is dangling");
+            }
         }
         #[cfg(feature = "unchecked")]
         {
-            self.node_ids().any(|nid: NodeId<N, E>| &nid == id)
+            if !self.node_ids().any(|nid: NodeId<N, E>| &nid == id) {
+                return Err("NodeId not found in graph");
+            }
+        }
+        Ok(())
+    }
+
+    fn maybe_check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
+        #[cfg(not(feature = "unchecked"))]
+        {
+            self.check_valid_node_id(id)
+        }
+        #[cfg(feature = "unchecked")]
+        {
+            Ok(())
         }
     }
 
-    fn is_maybe_valid_node_id(&self, id: &Self::NodeId) -> bool {
+    fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
         #[cfg(not(feature = "unchecked"))]
         {
-            self.is_valid_node_id(id)
+            if self.id != id.graph_id {
+                return Err("EdgeId graph_id does not match graph");
+            }
+            if id.ptr.upgrade().is_none() {
+                return Err("EdgeId is dangling");
+            }
         }
-        #[cfg(feature = "unchecked")]
-        {
-            true
-        }
+        Ok(())
     }
 
-    fn is_valid_edge_id(&self, id: &Self::EdgeId) -> bool {
+    fn maybe_check_valid_edge_id(&self, _id: &Self::EdgeId) -> Result<(), &'static str> {
         #[cfg(not(feature = "unchecked"))]
         {
-            self.id == id.graph_id && id.ptr.upgrade().is_some()
+            self.check_valid_edge_id(_id)
         }
         #[cfg(feature = "unchecked")]
         {
-            self.edge_ids().any(|eid: EdgeId<N, E>| &eid == id)
-        }
-    }
-
-    fn is_maybe_valid_edge_id(&self, id: &Self::EdgeId) -> bool {
-        #[cfg(not(feature = "unchecked"))]
-        {
-            self.is_valid_edge_id(id)
-        }
-        #[cfg(feature = "unchecked")]
-        {
-            true
+            Ok(())
         }
     }
 }
@@ -339,7 +349,7 @@ impl<N, E> GraphMut for LinkedGraph<N, E> {
     }
 
     fn remove_edge(&mut self, eid: Self::EdgeId) -> Self::EdgeData {
-        self.check_edge_id(&eid);
+        self.assert_valid_edge_id(&eid);
         let edge = eid.ptr.upgrade().expect("EdgeId is dangling");
         let from_nid = edge.from.clone();
         let to_nid = edge.into.clone();
@@ -385,10 +395,6 @@ mod tests {
 
     impl TestDataBuilder for LinkedGraph<i32, String> {
         type Graph = Self;
-
-        fn new_graph() -> Self::Graph {
-            Self::new()
-        }
 
         fn new_edge_data(i: usize) -> String {
             format!("e{}", i)
