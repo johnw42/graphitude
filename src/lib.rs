@@ -40,7 +40,7 @@ mod symmetric_maxtrix_indexing;
 mod util;
 
 #[cfg(feature = "bitvec")]
-mod euler_sum;
+mod triangular;
 
 pub use directedness::{Directed, Directedness, Undirected};
 pub use graph::{Graph, GraphDirected, GraphMut, GraphUndirected};

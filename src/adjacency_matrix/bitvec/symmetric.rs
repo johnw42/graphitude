@@ -5,8 +5,8 @@ use std::mem::MaybeUninit;
 
 use bitvec::vec::BitVec;
 
-use crate::euler_sum::euler_sum;
 use crate::symmetric_maxtrix_indexing::SymmetricMatrixIndexing;
+use crate::triangular::triangular;
 use crate::util::sort_pair;
 
 use crate::adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric};
@@ -163,7 +163,7 @@ where
                     if j > 0 && j % 5 == 0 {
                         write!(f, " ")?;
                     }
-                    let index = euler_sum(i) + j;
+                    let index = triangular(i) + j;
                     if self.liveness[index] {
                         write!(f, "1")?;
                     } else {
@@ -180,7 +180,7 @@ where
                     if i >= 10 {
                         write!(f, "...")?;
                     }
-                    let index = euler_sum(i) + j;
+                    let index = triangular(i) + j;
                     if self.liveness[index] {
                         write!(f, "1")?;
                     } else {

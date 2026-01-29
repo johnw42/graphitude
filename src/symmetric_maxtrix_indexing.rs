@@ -3,7 +3,7 @@
 use std::ops::Range;
 
 use crate::{
-    euler_sum::{euler_sum, euler_sum_inv_floor},
+    triangular::{triangular, triangular_inv_floor},
     util::sort_pair,
 };
 
@@ -41,7 +41,7 @@ impl SymmetricMatrixIndexing {
 
     /// Returns the storage size required for the symmetric matrix.
     pub fn storage_size(&self) -> usize {
-        euler_sum(self.size)
+        triangular(self.size)
     }
 
     /// Returns the linear index row `i` and column `j`, if within bounds.
@@ -52,14 +52,14 @@ impl SymmetricMatrixIndexing {
     /// Returns the linear index row `i` and column `j` without bounds checking.
     pub fn unchecked_index(&self, i: usize, j: usize) -> usize {
         let (k1, k2) = sort_pair(i, j);
-        euler_sum(k2) + k1
+        triangular(k2) + k1
     }
 
     /// Returns the `(column, row)` coordinates corresponding to the given
     /// index, where `column <= row`.
     pub fn coordinates(&self, index: usize) -> (usize, usize) {
-        let row = euler_sum_inv_floor(index);
-        let col = index - euler_sum(row);
+        let row = triangular_inv_floor(index);
+        let col = index - triangular(row);
         (col, row)
     }
 
