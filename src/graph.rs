@@ -7,10 +7,13 @@ use std::{
 #[cfg(feature = "pathfinding")]
 use {pathfinding::num_traits::Zero, std::iter::once};
 
-use crate::search::{BfsIterator, DfsIterator};
 use crate::{
     LinkedGraph,
     directedness::{Directed, Directedness, Undirected},
+};
+use crate::{
+    path::Path,
+    search::{BfsIterator, DfsIterator},
 };
 
 pub trait EdgeId<N>: Eq + Hash + Clone + Debug
@@ -89,6 +92,13 @@ pub trait Graph: Sized {
         let mut g = LinkedGraph::new();
         g.copy_from_with(self, |_| (), |_| ());
         g
+    }
+
+    /// Creates a new path starting from the given starting node.  This is a
+    /// convenience method to avoid having to import the `Path` type separately
+    /// and specify its type argument explicity.
+    fn new_path(&self, start: Self::NodeId) -> Path<Self::NodeId, Self::EdgeId> {
+        Path::new(start)
     }
 
     // Nodes
