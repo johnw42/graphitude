@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash};
 
-use jrw_graph::{Graph, directedness::Directed};
+use jrw_graph::{EdgeId as EdgeIdTrait, Graph, directedness::Directed};
 
 struct NodeId<N>(*const N);
 
@@ -29,6 +29,47 @@ impl<N> Copy for NodeId<N> {}
 impl<N> Hash for NodeId<N> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
+    }
+}
+
+struct EdgeId<N>(NodeId<N>, NodeId<N>);
+
+impl<N> Debug for EdgeId<N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "EdgeId({:?}, {:?})", self.0, self.1)
+    }
+}
+
+impl<N> Clone for EdgeId<N> {
+    fn clone(&self) -> Self {
+        EdgeId(self.0, self.1)
+    }
+}
+
+impl<N> Copy for EdgeId<N> {}
+
+impl<N> PartialEq for EdgeId<N> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1 == other.1
+    }
+}
+
+impl<N> Eq for EdgeId<N> {}
+
+impl<N> Hash for EdgeId<N> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+        self.1.hash(state);
+    }
+}
+
+impl<N> EdgeIdTrait<NodeId<N>> for EdgeId<N> {
+    fn source(&self) -> NodeId<N> {
+        self.0
+    }
+
+    fn target(&self) -> NodeId<N> {
+        self.1
     }
 }
 
@@ -64,13 +105,13 @@ where
     type NodeId = NodeId<N>;
     type NodeData = N;
     type EdgeData = ();
-    type EdgeId = (NodeId<N>, NodeId<N>);
+    type EdgeId = EdgeId<N>;
     type Directedness = Directed;
 
     fn edges_from(&self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + '_ {
         let node_data: &Self::NodeData = self.node_data(from.clone());
         let items = (self.neighbors_fn)(node_data);
-        items.into_iter().map(move |v| (from, NodeId(v)))
+        items.into_iter().map(move |v| EdgeId(from, NodeId(v)))
     }
 
     fn node_data(&self, id: NodeId<N>) -> &Self::NodeData {
@@ -87,10 +128,6 @@ where
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
         self.node_ids().flat_map(|from| self.edges_from(from))
-    }
-
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
-        eid
     }
 }
 

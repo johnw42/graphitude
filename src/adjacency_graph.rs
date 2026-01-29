@@ -100,6 +100,16 @@ mod ids {
         }
     }
 
+    impl<S: Storage> crate::graph::EdgeId<NodeId<S>> for EdgeId<S> {
+        fn source(&self) -> NodeId<S> {
+            NodeId::new(self.payload.0, self.graph_id, self.compaction_count)
+        }
+
+        fn target(&self) -> NodeId<S> {
+            NodeId::new(self.payload.1, self.graph_id, self.compaction_count)
+        }
+    }
+
     impl<S: Storage> Debug for EdgeId<S> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "EdgeId{:?}", self.payload)
@@ -244,11 +254,6 @@ where
                 self.nodes.key_from_index(into),
             )
         })
-    }
-
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
-        self.assert_valid_edge_id(&eid);
-        (self.node_id(eid.keys().0), self.node_id(eid.keys().1))
     }
 
     fn edges_between(

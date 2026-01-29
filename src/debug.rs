@@ -3,7 +3,7 @@ use std::{
     fmt::{Debug, Formatter},
 };
 
-use crate::{Graph, util::sort_pair};
+use crate::{EdgeId, Graph, util::sort_pair};
 
 struct NodeTag<'a>(&'a str);
 
@@ -74,7 +74,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let make_edge_tag = |eid: &G::EdgeId| {
-            let (from, to) = self.graph.edge_ends(eid.clone());
+            let (from, to) = (eid.source(), eid.target());
             EdgeTag(
                 &self.node_tags[&from],
                 &self.node_tags[&to],
@@ -142,7 +142,7 @@ where
     let edge_tags: HashMap<_, _> = graph
         .edge_ids()
         .map(|eid: <G as Graph>::EdgeId| {
-            let (from, to) = graph.edge_ends(eid.clone());
+            let (from, to) = (eid.source(), eid.target());
             (eid.clone(), (&node_tags[&from], &node_tags[&to]))
         })
         .collect();

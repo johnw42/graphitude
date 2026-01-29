@@ -1,6 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 
-use super::Graph;
+use super::{EdgeId, Graph};
 
 const DEFAULT_HASH_SET_CAPACITY: usize = 64;
 
@@ -36,7 +36,7 @@ where
             }
             self.visited.insert(nid.clone());
             for eid in self.graph.edges_from(nid.clone()) {
-                let neighbor = self.graph.edge_target(eid);
+                let neighbor = eid.target();
                 if !self.visited.contains(&neighbor) {
                     self.queue.push_back(neighbor);
                 }
@@ -77,7 +77,7 @@ where
             let nid = path.last().unwrap().clone();
             if self.visited.insert(nid.clone()) {
                 for eid in self.graph.edges_from(nid.clone()) {
-                    let neighbor = self.graph.edge_target(eid);
+                    let neighbor = eid.target();
                     if !self.visited.contains(&neighbor) {
                         let mut new_path = path.clone();
                         new_path.push(neighbor);

@@ -80,6 +80,7 @@ macro_rules! graph_tests {
 
         #[test]
         fn test_edge_creation() {
+            use crate::EdgeId;
             use std::collections::HashSet;
 
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
@@ -99,7 +100,7 @@ macro_rules! graph_tests {
                 graph
                     .edges_from(n1)
                     .into_iter()
-                    .map(|edge_id| graph.edge_target(edge_id))
+                    .map(|edge_id| edge_id.target())
                     .collect::<Vec<_>>(),
                 vec![n2.clone()]
             );
@@ -343,6 +344,7 @@ macro_rules! graph_tests {
 
         #[test]
         fn test_successors() {
+            use crate::EdgeId;
             use std::collections::HashSet;
 
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
@@ -358,11 +360,11 @@ macro_rules! graph_tests {
             let e3 = graph.add_edge(n1.clone(), n3.clone(), builder.new_edge_data());
             let e4 = graph.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
 
-            assert_eq!(graph.edge_ends(e0), (n0.clone(), n1.clone()));
-            assert_eq!(graph.edge_ends(e1), (n0.clone(), n2.clone()));
-            assert_eq!(graph.edge_ends(e2), (n1.clone(), n2.clone()));
-            assert_eq!(graph.edge_ends(e3), (n1.clone(), n3.clone()));
-            assert_eq!(graph.edge_ends(e4), (n2.clone(), n3.clone()));
+            assert_eq!((e0.source(), e0.target()), (n0.clone(), n1.clone()));
+            assert_eq!((e1.source(), e1.target()), (n0.clone(), n2.clone()));
+            assert_eq!((e2.source(), e2.target()), (n1.clone(), n2.clone()));
+            assert_eq!((e3.source(), e3.target()), (n1.clone(), n3.clone()));
+            assert_eq!((e4.source(), e4.target()), (n2.clone(), n3.clone()));
             assert_eq!(
                 graph.successors(n0.clone()).collect::<HashSet<_>>(),
                 HashSet::from([n1.clone(), n2.clone()])

@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use jrw_graph::{
-    Directed, Graph, GraphMut, graph_test_copy_from_with, graph_tests, tests::TestDataBuilder,
+    Directed, EdgeId as EdgeIdTrait, Graph, GraphMut, graph_test_copy_from_with, graph_tests,
+    tests::TestDataBuilder,
 };
 
 struct StringGraph {
@@ -10,7 +11,19 @@ struct StringGraph {
 }
 
 type NodeId = usize;
-type EdgeId = (NodeId, NodeId);
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+struct EdgeId(NodeId, NodeId);
+
+impl EdgeIdTrait<NodeId> for EdgeId {
+    fn source(&self) -> NodeId {
+        self.0
+    }
+
+    fn target(&self) -> NodeId {
+        self.1
+    }
+}
 
 struct Node {
     data: String,
@@ -53,14 +66,6 @@ impl Graph for StringGraph {
         &self.edge(&id).data
     }
 
-    fn edge_source(&self, id: Self::EdgeId) -> Self::NodeId {
-        id.0
-    }
-
-    fn edge_target(&self, id: Self::EdgeId) -> Self::NodeId {
-        id.1
-    }
-
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
         self.nodes.keys().cloned()
     }
@@ -69,12 +74,8 @@ impl Graph for StringGraph {
         self.nodes.iter().flat_map(|(from_id, node)| {
             node.edges_out
                 .iter()
-                .map(move |edge| (from_id.clone(), edge.target.clone()))
+                .map(move |edge| EdgeId(from_id.clone(), edge.target.clone()))
         })
-    }
-
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
-        eid
     }
 }
 
@@ -114,7 +115,7 @@ impl GraphMut for StringGraph {
                 target: to.clone(),
                 data: data,
             });
-        ((from, to), None)
+        (EdgeId(from, to), None)
     }
 
     fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData {
@@ -124,7 +125,7 @@ impl GraphMut for StringGraph {
         self.nodes.remove(&id).expect("Invalid node ID").data
     }
 
-    fn remove_edge(&mut self, (from, to): Self::EdgeId) -> Self::EdgeData {
+    fn remove_edge(&mut self, EdgeId(from, to): Self::EdgeId) -> Self::EdgeData {
         let node = self.nodes.get_mut(&from).expect("Invalid 'from' node ID");
         let pos = node
             .edges_out

@@ -111,6 +111,28 @@ impl<N, E> Ord for EdgeId<N, E> {
     }
 }
 
+impl<N: Debug, E> crate::graph::EdgeId<NodeId<N, E>> for EdgeId<N, E> {
+    fn source(&self) -> NodeId<N, E> {
+        self.ptr
+            .upgrade()
+            .map(|edge| NodeId {
+                ptr: Arc::downgrade(&edge.from.ptr.upgrade().expect("Source node dangling")),
+                graph_id: self.graph_id,
+            })
+            .expect("EdgeId is dangling")
+    }
+
+    fn target(&self) -> NodeId<N, E> {
+        self.ptr
+            .upgrade()
+            .map(|edge| NodeId {
+                ptr: Arc::downgrade(&edge.into.ptr.upgrade().expect("Target node dangling")),
+                graph_id: self.graph_id,
+            })
+            .expect("EdgeId is dangling")
+    }
+}
+
 /// A graph representation using linked node and edge nodes.  Nodes and edges
 /// are stored in insertion order.  Nodes and edge IDs remain valid until the
 /// node or edge is removed.
@@ -119,7 +141,7 @@ pub struct LinkedGraph<N, E> {
     id: GraphId,
 }
 
-impl<N, E> LinkedGraph<N, E> {
+impl<N: Debug, E> LinkedGraph<N, E> {
     fn node_id(&self, ptr: &Arc<Node<N, E>>) -> NodeId<N, E> {
         NodeId {
             ptr: Arc::downgrade(ptr),
@@ -161,7 +183,7 @@ impl<N, E> LinkedGraph<N, E> {
     }
 }
 
-impl<N, E> Graph for LinkedGraph<N, E> {
+impl<N: Debug, E> Graph for LinkedGraph<N, E> {
     type NodeId = NodeId<N, E>;
     type NodeData = N;
     type EdgeId = EdgeId<N, E>;
@@ -187,11 +209,6 @@ impl<N, E> Graph for LinkedGraph<N, E> {
         self.nodes
             .iter()
             .flat_map(|node| node.edges_out.iter().map(|edge| self.edge_id(edge)))
-    }
-
-    fn edge_ends(&self, id: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
-        let edge_node = self.edge(id);
-        (edge_node.from.clone(), edge_node.into.clone())
     }
 
     /// Gets an iterator over the edges outgoing from the given node in
@@ -261,7 +278,7 @@ impl<N, E> Graph for LinkedGraph<N, E> {
     }
 }
 
-impl<N, E> GraphMut for LinkedGraph<N, E> {
+impl<N: Debug, E> GraphMut for LinkedGraph<N, E> {
     fn new() -> Self {
         Self {
             nodes: Vec::new(),
@@ -350,7 +367,7 @@ impl<N, E> GraphMut for LinkedGraph<N, E> {
 
 impl<N, E> Clone for LinkedGraph<N, E>
 where
-    N: Clone,
+    N: Clone + Debug,
     E: Clone,
 {
     fn clone(&self) -> Self {

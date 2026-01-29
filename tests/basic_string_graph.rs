@@ -3,8 +3,9 @@
 use std::{collections::HashSet, fmt::Debug};
 
 use jrw_graph::{
-    AdjacencyMatrix, Graph, GraphMut, SymmetricHashAdjacencyMatrix, debug::format_debug_with,
-    directedness::Undirected, graph_test_copy_from_with, graph_tests, tests::TestDataBuilder,
+    AdjacencyMatrix, EdgeId as EdgeIdTrait, Graph, GraphMut, SymmetricHashAdjacencyMatrix,
+    debug::format_debug_with, directedness::Undirected, graph_test_copy_from_with, graph_tests,
+    tests::TestDataBuilder,
 };
 
 /// An undirected graph where nodes are identified by strings.  A node's ID
@@ -28,6 +29,16 @@ impl EdgeId {
         } else {
             EdgeId(into, from)
         }
+    }
+}
+
+impl EdgeIdTrait<NodeId> for EdgeId {
+    fn source(&self) -> NodeId {
+        self.0.clone()
+    }
+
+    fn target(&self) -> NodeId {
+        self.1.clone()
     }
 }
 
@@ -60,10 +71,6 @@ impl Graph for StringGraph {
 
     fn edge_data(&self, id: Self::EdgeId) -> &Self::EdgeData {
         self.edges.get(id.0, id.1).expect("Edge does not exist")
-    }
-
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
-        (eid.0.clone(), eid.1.clone())
     }
 
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {

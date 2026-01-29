@@ -43,7 +43,7 @@ mod util;
 mod triangular;
 
 pub use directedness::{Directed, Directedness, Undirected};
-pub use graph::{Graph, GraphDirected, GraphMut, GraphUndirected};
+pub use graph::{EdgeId, Graph, GraphDirected, GraphMut, GraphUndirected};
 pub use linked_graph::LinkedGraph;
 pub use tests::TestDataBuilder;
 

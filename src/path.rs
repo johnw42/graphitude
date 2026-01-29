@@ -1,23 +1,27 @@
 use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once};
 
-use crate::{Graph, GraphMut as _, LinkedGraph, debug::format_debug};
+use crate::{EdgeId, Graph};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
-pub struct Path<'g, G: Graph> {
-    graph: &'g G,
+pub struct Path<G: Graph> {
     edges: Vec<G::EdgeId>,
     nodes: Vec<G::NodeId>,
 }
 
-impl<'g, G: Graph> Path<'g, G> {
+impl<G: Graph> Path<G> {
     /// Creates a new path starting at the given node.
-    pub fn new(graph: &'g G, start: G::NodeId) -> Self {
+    pub fn new(start: G::NodeId) -> Self {
         Self {
-            graph,
             edges: Vec::new(),
             nodes: vec![start],
         }
+    }
+
+    pub fn from_edges(start: G::NodeId, edges: impl IntoIterator<Item = G::EdgeId>) -> Self {
+        let mut path = Self::new(start);
+        path.extend(edges);
+        path
     }
 
     /// Returns the first node in the path.
@@ -56,10 +60,10 @@ impl<'g, G: Graph> Path<'g, G> {
             .zip(nodes)
             .map(|((in_edge, out_edge), node)| {
                 if let Some(ref e) = in_edge {
-                    debug_assert!(self.graph.edge_target(e.clone()) == node);
+                    debug_assert!(e.target() == node);
                 }
                 if let Some(ref e) = out_edge {
-                    debug_assert!(self.graph.edge_source(e.clone()) == node);
+                    debug_assert!(e.source() == node);
                 }
                 (in_edge, node, out_edge)
             })
@@ -69,63 +73,70 @@ impl<'g, G: Graph> Path<'g, G> {
     /// node. Panics if the edge's source node does not match the current
     /// last node of the path.
     pub fn add_edge(&mut self, edge_id: G::EdgeId) {
-        assert_eq!(self.graph.edge_source(edge_id.clone()), self.last_node());
-        self.edges.push(edge_id.clone());
-        self.nodes.push(
-            self.graph
-                .other_end(edge_id, self.last_node())
-                .unwrap_or_else(|| self.last_node()),
+        assert_eq!(edge_id.source(), self.last_node());
+        let target = edge_id.target();
+        self.edges.push(edge_id);
+        self.nodes.push(target);
+    }
+
+    /// Adds an edge and its target node to the end of the path. Panics if
+    /// the edge's source node does not match the current last node of the
+    /// path, or if the provided node does not match the edge's target node.
+    pub fn add_edge_and_node(&mut self, edge_id: G::EdgeId, node_id: G::NodeId) {
+        assert_eq!(edge_id.source(), self.last_node());
+        assert_eq!(
+            edge_id.target(),
+            node_id,
+            "Edge target does not match provided node"
         );
+        self.edges.push(edge_id);
+        self.nodes.push(node_id);
     }
 
     /// Extends the path by appending all edges from another path. Panics if
     /// the first node of the other path does not match the current last
     /// node of this path.
-    pub fn extend_with(&mut self, other: &Path<'g, G>) {
+    pub fn extend_with(&mut self, other: &Path<G>) {
         for edge_id in other.edges() {
             self.add_edge(edge_id);
         }
     }
 }
 
-impl<'g, G> Clone for Path<'g, G>
+impl<G> Clone for Path<G>
 where
     G: Graph,
 {
     fn clone(&self) -> Self {
         Self {
-            graph: self.graph,
             edges: self.edges.clone(),
             nodes: self.nodes.clone(),
         }
     }
 }
 
-impl<'g, G> PartialEq for Path<'g, G>
+impl<G> PartialEq for Path<G>
 where
     G: Graph,
 {
     fn eq(&self, other: &Self) -> bool {
-        std::ptr::eq(self.graph, other.graph)
-            && self.edges == other.edges
-            && self.nodes == other.nodes
+        self.edges == other.edges && self.nodes == other.nodes
     }
 }
 
-impl<'g, G> Eq for Path<'g, G> where G: Graph {}
+impl<G> Eq for Path<G> where G: Graph {}
 
-impl<'g, G> Hash for Path<'g, G>
+impl<G> Hash for Path<G>
 where
     G: Graph,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (self.graph as *const G).hash(state);
         self.edges.hash(state);
         self.nodes.hash(state);
     }
 }
 
-impl<'g, G> PartialOrd for Path<'g, G>
+impl<G> PartialOrd for Path<G>
 where
     G: Graph,
 {
@@ -133,7 +144,7 @@ where
     /// other's first node, and "greater than" if its first node matches the
     /// other's last node. If neither condition is met and the paths are not
     /// equal, they are considered unordered.
-    fn partial_cmp(&self, other: &Path<'g, G>) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Path<G>) -> Option<std::cmp::Ordering> {
         if self == other {
             Some(Ordering::Equal)
         } else if self.last_node() == other.first_node() {
@@ -146,7 +157,7 @@ where
     }
 }
 
-impl<G> Extend<G::EdgeId> for Path<'_, G>
+impl<G> Extend<G::EdgeId> for Path<G>
 where
     G: Graph,
 {
@@ -157,55 +168,47 @@ where
     }
 }
 
-impl<'g, G> Debug for Path<'g, G>
+impl<G> Debug for Path<G>
 where
     G: Graph,
     G::NodeId: Debug + Clone,
     G::EdgeId: Debug + Clone,
-    G::NodeData: Debug,
-    G::EdgeData: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Create a temporary LinkedGraph to leverage `format_debug`.
-        let mut temp_graph = LinkedGraph::<&'g G::NodeData, &'g G::EdgeData>::new();
-        let mut prev_new_nid = None;
-        for (eid, nid, _) in self.nodes_with_edges() {
-            let n_data = self.graph.node_data(nid.clone());
-            let new_nid = temp_graph.add_node(n_data);
-            if let Some(eid) = eid {
-                let e_data = self.graph.edge_data(eid.clone());
-                temp_graph.add_edge(prev_new_nid.take().unwrap(), new_nid.clone(), e_data);
-            }
-            prev_new_nid = Some(new_nid);
-        }
-        format_debug(&temp_graph, f, "Path")
+        f.debug_struct("Path")
+            .field("nodes", &self.nodes)
+            .field("edges", &self.edges)
+            .finish()
     }
 }
 
 #[cfg(test)]
 #[cfg(feature = "bitvec")]
 mod tests {
+    use crate::GraphMut as _;
     use crate::adjacency_graph::AdjacencyGraph;
 
     use super::*;
 
+    type TestGraph = AdjacencyGraph<&'static str, &'static str>;
+
     #[test]
     fn test_new_path() {
-        let mut graph = AdjacencyGraph::<i32, ()>::new();
-        let n1 = graph.add_node(1);
-        let path = Path::new(&graph, n1);
+        let mut graph = TestGraph::new();
+        let n1 = graph.add_node("n1");
+        let path = Path::<TestGraph>::new(n1);
         assert_eq!(path.first_node(), n1);
         assert_eq!(path.last_node(), n1);
     }
 
     #[test]
     fn test_add_edge() {
-        let mut graph = AdjacencyGraph::<i32, ()>::new();
-        let n1 = graph.add_node(1);
-        let n2 = graph.add_node(2);
-        let e1 = graph.add_edge(n1, n2, ());
+        let mut graph = TestGraph::new();
+        let n1 = graph.add_node("n1");
+        let n2 = graph.add_node("n2");
+        let e1 = graph.add_edge(n1, n2, "e1");
 
-        let mut path = Path::new(&graph, n1);
+        let mut path = Path::<TestGraph>::new(n1);
         path.add_edge(e1);
 
         assert_eq!(path.last_node(), n2);
@@ -215,13 +218,13 @@ mod tests {
 
     #[test]
     fn test_nodes_with_edges() {
-        let mut graph = AdjacencyGraph::<i32, ()>::new();
-        let n1 = graph.add_node(1);
-        let n2 = graph.add_node(2);
-        let n3 = graph.add_node(3);
-        let e1 = graph.add_edge(n1.clone(), n2.clone(), ());
-        let e2 = graph.add_edge(n2.clone(), n3.clone(), ());
-        let mut path = Path::new(&graph, n1.clone());
+        let mut graph = TestGraph::new();
+        let n1 = graph.add_node("n1");
+        let n2 = graph.add_node("n2");
+        let n3 = graph.add_node("n3");
+        let e1 = graph.add_edge(n1.clone(), n2.clone(), "e1");
+        let e2 = graph.add_edge(n2.clone(), n3.clone(), "e2");
+        let mut path = Path::<TestGraph>::new(n1.clone());
         path.add_edge(e1);
         path.add_edge(e2);
         let mut iter = path.nodes_with_edges();
@@ -236,17 +239,17 @@ mod tests {
 
     #[test]
     fn test_extend_with() {
-        let mut graph = AdjacencyGraph::<&str, &str>::new();
+        let mut graph = TestGraph::new();
         let n1 = graph.add_node("n1");
         let n2 = graph.add_node("n2");
         let n3 = graph.add_node("n3");
         let e1 = graph.add_edge(n1, n2, "e12");
         let e2 = graph.add_edge(n2, n3, "e23");
 
-        let mut path1 = Path::new(&graph, n1);
+        let mut path1 = Path::<TestGraph>::new(n1);
         path1.add_edge(e1);
 
-        let mut path2 = Path::new(&graph, n2);
+        let mut path2 = Path::<TestGraph>::new(n2);
         path2.add_edge(e2);
 
         path1.extend_with(&path2);
@@ -264,7 +267,7 @@ mod tests {
         let e1 = graph.add_edge(n1, n2, "e12");
         let e2 = graph.add_edge(n2, n3, "e23");
 
-        let mut path = Path::new(&graph, n1);
+        let mut path = Path::<TestGraph>::new(n1);
         path.extend(vec![e1, e2]);
 
         assert_eq!(path.nodes().count(), 3);
@@ -281,11 +284,11 @@ mod tests {
         let e2 = graph.add_edge(n2, n3, "e23");
         let e3 = graph.add_edge(n3, n1, "e31");
 
-        let mut path = Path::new(&graph, n1);
+        let mut path = Path::<TestGraph>::new(n1);
         path.extend(vec![e1, e2, e3]);
-        assert_eq!(
-            format!("{:?}", path),
-            r#"Path { nodes: {0: "n1", 1: "n2", 2: "n3", 3: "n1"}, edges: {0 -> 1: "e12", 1 -> 2: "e23", 2 -> 3: "e31"} }"#
-        );
+        let debug_str = format!("{:?}", path);
+        assert!(debug_str.contains("Path"));
+        assert!(debug_str.contains("nodes"));
+        assert!(debug_str.contains("edges"));
     }
 }

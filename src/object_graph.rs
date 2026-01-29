@@ -48,7 +48,7 @@ pub struct ObjectGraph<'a, N, F> {
     roots: Vec<&'a N>,
 }
 
-impl<'a, N, F> ObjectGraph<'a, N, F>
+impl<'a, N: Debug, F> ObjectGraph<'a, N, F>
 where
     F: Fn(&'a N) -> Vec<&'a N>,
 {
@@ -93,7 +93,17 @@ where
     }
 }
 
-impl<'a, N, F> Graph for ObjectGraph<'a, N, F>
+impl<'a, N: Debug> crate::graph::EdgeId<NodeId<'a, N>> for (NodeId<'a, N>, NodeId<'a, N>) {
+    fn source(&self) -> NodeId<'a, N> {
+        self.0
+    }
+
+    fn target(&self) -> NodeId<'a, N> {
+        self.1
+    }
+}
+
+impl<'a, N: Debug, F> Graph for ObjectGraph<'a, N, F>
 where
     F: Fn(&'a N) -> Vec<&'a N>,
 {
@@ -125,13 +135,9 @@ where
     fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
         self.bfs_multi(self.roots().collect())
     }
-    
+
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.node_ids().flat_map(|from| self.edges_from(from))
-    }
-
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
-        eid
     }
 }
 
@@ -141,6 +147,7 @@ mod tests {
 
     #[test]
     fn test_object_graph() {
+        #[derive(Debug)]
         struct Node {
             value: i32,
             neighbors: Vec<Node>,
@@ -179,6 +186,7 @@ mod tests {
     #[cfg(feature = "pathfinding")]
     #[test]
     fn test_shortest_paths() {
+        #[derive(Debug)]
         struct Node<'a> {
             value: i32,
             neighbors: Vec<&'a Node<'a>>,

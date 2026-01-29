@@ -13,6 +13,37 @@ use crate::{
     directedness::{Directed, Directedness, Undirected},
 };
 
+pub trait EdgeId<N>: Eq + Hash + Clone + Debug
+where
+    N: Eq + Debug,
+{
+    /// Gets the source node of the edge.
+    fn source(&self) -> N;
+
+    /// Gets the target node of the edge.
+    fn target(&self) -> N;
+
+    /// Gets both ends of the edge as a tuple (source, target).
+    fn ends(&self) -> (N, N) {
+        (self.source(), self.target())
+    }
+
+    /// Given one end of the edge, returns the other end.  Returns `None` if the
+    /// edge is a self-loop.  Panics if the given node is not an endpoint of the
+    /// edge.
+    fn other_end(&self, node_id: N) -> Option<N> {
+        let (source, target) = self.ends();
+        if source == node_id {
+            Some(target)
+        } else if target == node_id {
+            Some(source)
+        } else {
+            assert_eq!(source, target); // self-loop
+            None
+        }
+    }
+}
+
 /// A trait representing a directed or undirected graph data structure.  Methods
 /// that return iterators over nodes or edges return them in an unspecified
 /// order unless otherwise noted.
@@ -39,10 +70,10 @@ use crate::{
 /// - [`Self::has_edge_from`]
 /// - [`Self::has_edge_into`]
 pub trait Graph: Sized {
-    type EdgeData;
-    type EdgeId: Eq + Hash + Clone + Debug;
     type NodeData;
     type NodeId: Eq + Hash + Clone + Debug;
+    type EdgeData;
+    type EdgeId: EdgeId<Self::NodeId>;
     type Directedness: Directedness;
 
     /// Returns true if the graph is directed.
@@ -118,7 +149,7 @@ pub trait Graph: Sized {
     fn predacessors(&self, node: Self::NodeId) -> impl Iterator<Item = Self::NodeId> + '_ {
         let mut visited = HashSet::new();
         self.edges_into(node).filter_map(move |eid| {
-            let nid = self.edge_source(eid);
+            let nid = eid.source();
             visited.insert(nid.clone()).then_some(nid)
         })
     }
@@ -129,9 +160,9 @@ pub trait Graph: Sized {
         let mut visited = HashSet::new();
         self.edges_from(node.clone()).filter_map(move |eid| {
             let nid = if self.is_directed() {
-                self.edge_target(eid)
+                eid.target()
             } else {
-                let (source, target) = self.edge_ends(eid);
+                let (source, target) = (eid.source(), eid.target());
                 if source == node { target } else { source }
             };
             visited.insert(nid.clone()).then_some(nid)
@@ -190,7 +221,7 @@ pub trait Graph: Sized {
     /// Gets an iterator over the outgoing edges from a given node.
     fn edges_from(&self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.edge_ids().filter(move |eid| {
-            let (source, target) = self.edge_ends(eid.clone());
+            let (source, target) = (eid.source(), eid.target());
             source == from || !self.is_directed() && target == from
         })
     }
@@ -198,7 +229,7 @@ pub trait Graph: Sized {
     /// Gets an iterator over the incoming edges to a given node.
     fn edges_into(&self, into: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.edge_ids().filter(move |eid| {
-            let (source, target) = self.edge_ends(eid.clone());
+            let (source, target) = (eid.source(), eid.target());
             target == into || !self.is_directed() && source == into
         })
     }
@@ -210,7 +241,7 @@ pub trait Graph: Sized {
         into: Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.edges_from(from.clone()).filter(move |eid| {
-            let (edge_source, edge_target) = self.edge_ends(eid.clone());
+            let (edge_source, edge_target) = (eid.source(), eid.target());
             edge_source == from && edge_target == into
                 || !self.is_directed() && edge_source == into && edge_target == from
         })
@@ -223,19 +254,6 @@ pub trait Graph: Sized {
 
     fn has_edge(&self, from: Self::NodeId, into: Self::NodeId) -> bool {
         self.edges_between(from, into).next().is_some()
-    }
-
-    /// Gets the source and target nodes of an edge.
-    fn edge_ends(&self, eid: Self::EdgeId) -> (Self::NodeId, Self::NodeId);
-
-    /// Gets the source node of an edge.
-    fn edge_source(&self, id: Self::EdgeId) -> Self::NodeId {
-        self.edge_ends(id).0
-    }
-
-    /// Gets the target node of an edge.
-    fn edge_target(&self, id: Self::EdgeId) -> Self::NodeId {
-        self.edge_ends(id).1
     }
 
     fn has_edge_from(&self, from: Self::NodeId) -> bool {
@@ -268,7 +286,7 @@ pub trait Graph: Sized {
     /// endpoint node.  Returns `None` if the edge is a self-loop.  Panics if
     /// the given node is not an endpoint of the edge.
     fn other_end(&self, edge: Self::EdgeId, node: Self::NodeId) -> Option<Self::NodeId> {
-        let (source, target) = self.edge_ends(edge);
+        let (source, target) = (edge.source(), edge.target());
         if source == node {
             Some(target)
         } else if target == node {
@@ -318,7 +336,7 @@ pub trait Graph: Sized {
                     .edges_from(nid.clone())
                     .map(|eid| {
                         let cost = cost_fn(&eid);
-                        (self.edge_target(eid), cost)
+                        (eid.target(), cost)
                     })
                     .collect();
                 r
@@ -460,7 +478,7 @@ pub trait GraphMut: Graph {
             node_map.insert(nid, new_nid);
         }
         for eid in source.edge_ids() {
-            let (from, to) = source.edge_ends(eid.clone());
+            let (from, to) = (eid.source(), eid.target());
             let edata = map_edge(source.edge_data(eid));
             let new_from = node_map.get(&from).expect("missing node");
             let new_to = node_map.get(&to).expect("missing node");
@@ -482,7 +500,7 @@ pub trait GraphMut: Graph {
     {
         let mut edge_map = HashMap::new();
         for eid in source.edge_ids() {
-            let (from1, to1) = source.edge_ends(eid.clone());
+            let (from1, to1) = (eid.source(), eid.target());
             if let Some(from2) = node_map.get(&from1)
                 && let Some(to2) = node_map.get(&to1)
             {
