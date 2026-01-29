@@ -310,6 +310,7 @@ where
         }
         #[cfg(feature = "unchecked")]
         {
+            let _ = id;
             Ok(())
         }
     }
@@ -515,6 +516,7 @@ mod tests {
 
     macro_rules! test_compaction {
         ($type:ty) => {
+            #[cfg(not(feature = "unchecked"))]
             #[test]
             #[should_panic]
             fn test_check_node_id_panics_after_compaction() {
@@ -524,6 +526,7 @@ mod tests {
                 graph.assert_valid_node_id(&n1);
             }
 
+            #[cfg(not(feature = "unchecked"))]
             #[test]
             #[should_panic]
             fn test_check_edge_id_panics_after_compaction() {
@@ -544,12 +547,14 @@ mod tests {
             graph_tests,
         };
 
-        graph_tests!(AdjacencyGraph<i32, String, Directed, BitvecStorage>);
-        graph_test_copy_from_with!(
-        AdjacencyGraph<i32, String, Directed, BitvecStorage>,
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data));
-        test_compaction!(AdjacencyGraph<i32, String, Directed, BitvecStorage>);
+        type TestGraph = AdjacencyGraph<i32, String, Directed, BitvecStorage>;
+
+        graph_tests!(TestGraph);
+        graph_test_copy_from_with!(TestGraph, |data| data * 2, |data: &String| format!(
+            "{}-copied",
+            data
+        ));
+        test_compaction!(TestGraph);
     }
 
     mod undirected_bitvec {
@@ -559,33 +564,39 @@ mod tests {
             graph_tests,
         };
 
-        graph_tests!(AdjacencyGraph<i32, String, Undirected, BitvecStorage>);
-        graph_test_copy_from_with!(
-        AdjacencyGraph<i32, String, Undirected, BitvecStorage>,
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data));
-        test_compaction!(AdjacencyGraph<i32, String, Undirected, BitvecStorage>);
+        type TestGraph = AdjacencyGraph<i32, String, Undirected, BitvecStorage>;
+
+        graph_tests!(TestGraph);
+        graph_test_copy_from_with!(TestGraph, |data| data * 2, |data: &String| format!(
+            "{}-copied",
+            data
+        ));
+        test_compaction!(TestGraph);
     }
 
     mod directed_hash {
         use super::*;
         use crate::{directedness::Directed, graph_test_copy_from_with, graph_tests};
 
-        graph_tests!(AdjacencyGraph<i32, String, Directed, HashStorage>);
-        graph_test_copy_from_with!(
-        AdjacencyGraph<i32, String, Directed>,
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data));
+        type TestGraph = AdjacencyGraph<i32, String, Directed, HashStorage>;
+
+        graph_tests!(TestGraph);
+        graph_test_copy_from_with!(TestGraph, |data| data * 2, |data: &String| format!(
+            "{}-copied",
+            data
+        ));
     }
 
     mod undirected_hash {
         use super::*;
         use crate::{directedness::Undirected, graph_test_copy_from_with, graph_tests};
 
-        graph_tests!(AdjacencyGraph<i32, String, Undirected, HashStorage>);
-        graph_test_copy_from_with!(
-        AdjacencyGraph<i32, String, Undirected, HashStorage>,
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data));
+        type TestGraph = AdjacencyGraph<i32, String, Undirected, HashStorage>;
+
+        graph_tests!(TestGraph);
+        graph_test_copy_from_with!(TestGraph, |data| data * 2, |data: &String| format!(
+            "{}-copied",
+            data
+        ));
     }
 }

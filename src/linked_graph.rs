@@ -234,6 +234,7 @@ impl<N, E> Graph for LinkedGraph<N, E> {
         }
         #[cfg(feature = "unchecked")]
         {
+            let _ = id;
             Ok(())
         }
     }

@@ -1,3 +1,4 @@
+#[cfg(not(feature = "unchecked"))]
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// A global graph identifier counter for paranoia mode. We assume no two graphs
