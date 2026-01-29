@@ -151,39 +151,48 @@ where
     fn compact_nodes<F>(
         &mut self,
         mut compact_fn: F,
-        mut node_id_callback: impl FnMut(NodeId, NodeId),
-        mut edge_id_callback: impl FnMut(EdgeId, EdgeId),
+        mut node_id_callback: Option<impl FnMut(NodeId, NodeId)>,
+        mut edge_id_callback: Option<impl FnMut(EdgeId, EdgeId)>,
     ) where
-        F: FnMut(&mut IdVec<N>, &mut dyn FnMut(IdVecKey, Option<IdVecKey>)),
+        F: FnMut(&mut IdVec<N>, Option<&mut dyn FnMut(IdVecKey, Option<IdVecKey>)>),
     {
         let mut id_vec_map: HashMap<IdVecKey, IdVecKey> = HashMap::new();
 
-        compact_fn(&mut self.nodes, &mut |old_key, new_key_opt| {
-            if let Some(new_key) = new_key_opt {
-                id_vec_map.insert(old_key, new_key);
-            }
-        });
+        compact_fn(
+            &mut self.nodes,
+            Some(&mut |old_key, new_key_opt| {
+                if (node_id_callback.is_some() || edge_id_callback.is_some())
+                    && let Some(new_key) = new_key_opt
+                {
+                    id_vec_map.insert(old_key, new_key);
+                }
+            }),
+        );
 
         // Call node_id_callback for each node ID mapping
-        for (&old_index, &new_index) in &id_vec_map {
-            let old_node_id = self.node_id(old_index);
-            let new_node_id = self.node_id(new_index);
-            node_id_callback(old_node_id, new_node_id);
+        if let Some(ref mut cb) = node_id_callback {
+            for (&old_index, &new_index) in &id_vec_map {
+                let old_node_id = self.node_id(old_index);
+                let new_node_id = self.node_id(new_index);
+                cb(old_node_id, new_node_id);
+            }
         }
 
         // Call edge_id_callback for each edge ID mapping
-        for id in self.edge_ids() {
-            let (from, into) = id.into();
-            let new_from = id_vec_map
-                .get(&from)
-                .copied()
-                .expect("invalid from node ID");
-            let new_into = id_vec_map
-                .get(&into)
-                .copied()
-                .expect("invalid into node ID");
-            let new_edge_id = self.edge_id(new_from, new_into);
-            edge_id_callback(id, new_edge_id);
+        if let Some(ref mut cb) = edge_id_callback {
+            for id in self.edge_ids() {
+                let (from, into) = id.into();
+                let new_from = id_vec_map
+                    .get(&from)
+                    .copied()
+                    .expect("invalid from node ID");
+                let new_into = id_vec_map
+                    .get(&into)
+                    .copied()
+                    .expect("invalid into node ID");
+                let new_edge_id = self.edge_id(new_from, new_into);
+                cb(id, new_edge_id);
+            }
         }
     }
 }
@@ -365,26 +374,40 @@ where
         self.adjacency.reserve_exact(additional_vertices);
     }
 
-    fn compact(
+    fn compact(&mut self) {
+        self.compact_with(
+            None::<fn(Self::NodeId, Self::NodeId)>,
+            None::<fn(Self::EdgeId, Self::EdgeId)>,
+        );
+    }
+
+    fn compact_with(
         &mut self,
-        node_id_callback: impl FnMut(Self::NodeId, Self::NodeId),
-        edge_id_callback: impl FnMut(Self::EdgeId, Self::EdgeId),
+        node_id_callback: Option<impl FnMut(Self::NodeId, Self::NodeId)>,
+        edge_id_callback: Option<impl FnMut(Self::EdgeId, Self::EdgeId)>,
     ) {
         self.compact_nodes(
-            |vec, cb| vec.compact(cb),
+            |vec, cb| vec.compact_with(cb),
             node_id_callback,
             edge_id_callback,
         );
         self.adjacency.compact();
     }
 
-    fn shrink_to_fit(
+    fn shrink_to_fit(&mut self) {
+        self.shrink_to_fit_with(
+            None::<fn(Self::NodeId, Self::NodeId)>,
+            None::<fn(Self::EdgeId, Self::EdgeId)>,
+        );
+    }
+
+    fn shrink_to_fit_with(
         &mut self,
-        node_id_callback: impl FnMut(Self::NodeId, Self::NodeId),
-        edge_id_callback: impl FnMut(Self::EdgeId, Self::EdgeId),
+        node_id_callback: Option<impl FnMut(Self::NodeId, Self::NodeId)>,
+        edge_id_callback: Option<impl FnMut(Self::EdgeId, Self::EdgeId)>,
     ) {
         self.compact_nodes(
-            |vec, cb| vec.shrink_to_fit(cb),
+            |vec, cb| vec.shrink_to_fit_with(cb),
             node_id_callback,
             edge_id_callback,
         );

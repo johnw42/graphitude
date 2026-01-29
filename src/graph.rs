@@ -489,12 +489,22 @@ pub trait GraphMut: Graph {
 
     /// Compacts internal storage used by the graph to minimize memory usage
     /// without reallocation.  Does nothing by default.  May invalidate existing
-    /// NodeIds and EdgeIds.  Optionally calls a closure for each node ID mapping
+    /// NodeIds and EdgeIds.
+    fn compact(&mut self) {
+        self.compact_with(
+            None::<fn(Self::NodeId, Self::NodeId)>,
+            None::<fn(Self::EdgeId, Self::EdgeId)>,
+        );
+    }
+
+    /// Compacts internal storage used by the graph to minimize memory usage
+    /// without reallocation.  Does nothing by default.  May invalidate existing
+    /// NodeIds and EdgeIds.  Calls a closure for each node ID mapping
     /// (old_id, new_id) and edge ID mapping (old_id, new_id) as they are created.
-    fn compact(
+    fn compact_with(
         &mut self,
-        mut node_id_callback: impl FnMut(Self::NodeId, Self::NodeId),
-        mut edge_id_callback: impl FnMut(Self::EdgeId, Self::EdgeId),
+        mut node_id_callback: Option<impl FnMut(Self::NodeId, Self::NodeId)>,
+        mut edge_id_callback: Option<impl FnMut(Self::EdgeId, Self::EdgeId)>,
     ) {
         let _ = &mut node_id_callback;
         let _ = &mut edge_id_callback;
@@ -502,12 +512,21 @@ pub trait GraphMut: Graph {
 
     /// Shrinks internal storage used by the graph to fit its current size.  May
     /// invalidate existing NodeIds and EdgeIds.  Does nothing by default.
-    /// Optionally calls a closure for each node ID mapping (old_id, new_id)
+    fn shrink_to_fit(&mut self) {
+        self.shrink_to_fit_with(
+            None::<fn(Self::NodeId, Self::NodeId)>,
+            None::<fn(Self::EdgeId, Self::EdgeId)>,
+        );
+    }
+
+    /// Shrinks internal storage used by the graph to fit its current size.  May
+    /// invalidate existing NodeIds and EdgeIds.  Does nothing by default.
+    /// Calls a closure for each node ID mapping (old_id, new_id)
     /// and edge ID mapping (old_id, new_id) as they are created.
-    fn shrink_to_fit(
+    fn shrink_to_fit_with(
         &mut self,
-        mut node_id_callback: impl FnMut(Self::NodeId, Self::NodeId),
-        mut edge_id_callback: impl FnMut(Self::EdgeId, Self::EdgeId),
+        mut node_id_callback: Option<impl FnMut(Self::NodeId, Self::NodeId)>,
+        mut edge_id_callback: Option<impl FnMut(Self::EdgeId, Self::EdgeId)>,
     ) {
         let _ = &mut node_id_callback;
         let _ = &mut edge_id_callback;
