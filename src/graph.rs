@@ -1,4 +1,3 @@
-#[cfg(feature = "pathfinding")]
 use std::ops::Add;
 use std::{
     collections::{HashMap, HashSet},
@@ -332,33 +331,78 @@ pub trait Graph: Sized {
     /// tuple of the path taken and the total cost.
     #[cfg(feature = "pathfinding")]
     fn shortest_paths<C: Default + Ord + Copy + Add<Output = C>>(
+    fn shortest_paths<C: Default + Ord + Copy + Add<Output = C>>(
         &self,
         start: Self::NodeId,
-        cost_fn: impl Fn(&Self::EdgeId) -> C,
-    ) -> HashMap<Self::NodeId, (Vec<Self::NodeId>, C)> {
-        let parents: HashMap<Self::NodeId, (Self::NodeId, C)> =
-            pathfinding::prelude::dijkstra_all(&start, |nid| -> Vec<(Self::NodeId, C)> {
-                let r: Vec<_> = self
-                    .edges_from(nid.clone())
-                    .map(|eid| {
-                        let cost = cost_fn(&eid);
-                        (eid.target(), cost)
-                    })
-                    .collect();
-                r
-            });
-        once((start.clone(), (vec![start], C::default())))
-            .chain(
-                parents
-                    .iter()
-                    .map(|(k, (_, cost)): (&Self::NodeId, &(_, C))| {
-                        (
-                            k.clone(),
-                            (pathfinding::prelude::build_path(k, &parents), *cost),
-                        )
-                    }),
-            )
-            .collect()
+        distance_fn: impl Fn(&Self::EdgeId) -> C,
+    ) -> HashMap<Self::NodeId, (Path<'_, Self>, C)> {
+        // Find shortest paths using Dijkstra's algorithm.
+        let mut distances: HashMap<Self::NodeId, C> = HashMap::new();
+        let mut predecessors: HashMap<Self::NodeId, (Self::EdgeId, Self::NodeId)> = HashMap::new();
+        let mut unvisited: HashSet<Self::NodeId> = self.node_ids().collect();
+
+        distances.insert(start.clone(), C::default());
+
+        while !unvisited.is_empty() {
+            // Find unvisited node with minimum distance
+            let current = unvisited
+                .iter()
+                .filter_map(|node| distances.get(node).map(|&dist| (node.clone(), dist)))
+                .min_by_key(|(_, dist)| *dist);
+
+            let (current_node, current_dist) = match current {
+                Some(pair) => pair,
+                None => break, // No more reachable nodes
+            };
+
+            unvisited.remove(&current_node);
+
+            // Update distances to neighbors
+            for edge_id in self.edges_from(current_node.clone()) {
+                let neighbor = self.edge_target(edge_id.clone());
+                if unvisited.contains(&neighbor) {
+                    let edge_distance = distance_fn(&edge_id);
+                    let new_dist = current_dist + edge_distance;
+
+                    let should_update = distances
+                        .get(&neighbor)
+                        .map_or(true, |&old_dist| new_dist < old_dist);
+
+                    if should_update {
+                        distances.insert(neighbor.clone(), new_dist);
+                        predecessors.insert(neighbor, (edge_id, current_node.clone()));
+                    }
+                }
+            }
+        }
+
+        // Build paths from predecessors
+        let mut result: HashMap<<Self as Graph>::NodeId, (Path<'_, Self>, C)> = HashMap::new();
+        for (node, &dist) in &distances {
+            if node == &start {
+                result.insert(
+                    start.clone(),
+                    (Path::new(self, start.clone()), C::default()),
+                );
+            } else {
+                let mut current = node.clone();
+
+                let mut path_data = Vec::new();
+                while let Some(pred) = predecessors.get(&current) {
+                    path_data.push(pred.clone());
+                    current = pred.1.clone();
+                }
+
+                let mut path = Path::new(self, start.clone());
+                for (edge_id, node_id) in path_data.iter().rev() {
+                    path.add_edge_and_node(edge_id.clone(), node_id.clone());
+                }
+
+                result.insert(node.clone(), (path, dist));
+            }
+        }
+
+        result
     }
 }
 

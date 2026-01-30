@@ -102,6 +102,34 @@ where
         self.nodes.push(node_id);
     }
 
+    /// Adds an edge and its target node to the end of the path. Panics if
+    /// the edge's source node does not match the current last node of the
+    /// path, or if the provided node does not match the edge's target node.
+    pub fn add_edge_and_node(&mut self, edge_id: G::EdgeId, node_id: G::NodeId) {
+        assert_eq!(self.graph.edge_source(edge_id.clone()), self.last_node());
+        assert_eq!(
+            self.graph.edge_target(edge_id.clone()),
+            node_id,
+            "Edge target does not match provided node"
+        );
+        self.edges.push(edge_id);
+        self.nodes.push(node_id);
+    }
+
+    /// Adds an edge and its target node to the end of the path. Panics if
+    /// the edge's source node does not match the current last node of the
+    /// path, or if the provided node does not match the edge's target node.
+    pub fn add_edge_and_node(&mut self, edge_id: G::EdgeId, node_id: G::NodeId) {
+        assert_eq!(self.graph.edge_source(edge_id.clone()), self.last_node());
+        assert_eq!(
+            self.graph.edge_target(edge_id.clone()),
+            node_id,
+            "Edge target does not match provided node"
+        );
+        self.edges.push(edge_id);
+        self.nodes.push(node_id);
+    }
+
     /// Extends the path by appending all edges from another path. Panics if
     /// the first node of the other path does not match the current last
     /// node of this path.
