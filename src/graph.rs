@@ -5,14 +5,9 @@ use std::{
     hash::Hash,
 };
 
-#[cfg(feature = "pathfinding")]
-use {pathfinding::num_traits::Zero, std::iter::once};
-
 use crate::{
     LinkedGraph,
     directedness::{Directed, Directedness, Undirected},
-};
-use crate::{
     path::Path,
     search::{BfsIterator, DfsIterator},
 };
@@ -102,7 +97,10 @@ pub trait Graph: Sized {
     /// Creates a new path starting from the given starting node.  This is a
     /// convenience method to avoid having to import the `Path` type separately
     /// and specify its type argument explicity.
-    fn new_path(&self, start: Self::NodeId) -> Path<Self::NodeId, Self::EdgeId> {
+    fn new_path(
+        &self,
+        start: Self::NodeId,
+    ) -> Path<Self::NodeId, Self::EdgeId, Self::Directedness> {
         Path::new(start)
     }
 
@@ -331,11 +329,10 @@ pub trait Graph: Sized {
     /// tuple of the path taken and the total cost.
     #[cfg(feature = "pathfinding")]
     fn shortest_paths<C: Default + Ord + Copy + Add<Output = C>>(
-    fn shortest_paths<C: Default + Ord + Copy + Add<Output = C>>(
         &self,
         start: Self::NodeId,
         distance_fn: impl Fn(&Self::EdgeId) -> C,
-    ) -> HashMap<Self::NodeId, (Path<'_, Self>, C)> {
+    ) -> HashMap<Self::NodeId, (Path<Self::NodeId, Self::EdgeId, Self::Directedness>, C)> {
         // Find shortest paths using Dijkstra's algorithm.
         let mut distances: HashMap<Self::NodeId, C> = HashMap::new();
         let mut predecessors: HashMap<Self::NodeId, (Self::EdgeId, Self::NodeId)> = HashMap::new();
@@ -359,7 +356,7 @@ pub trait Graph: Sized {
 
             // Update distances to neighbors
             for edge_id in self.edges_from(current_node.clone()) {
-                let neighbor = self.edge_target(edge_id.clone());
+                let neighbor = edge_id.target();
                 if unvisited.contains(&neighbor) {
                     let edge_distance = distance_fn(&edge_id);
                     let new_dist = current_dist + edge_distance;
@@ -377,25 +374,25 @@ pub trait Graph: Sized {
         }
 
         // Build paths from predecessors
-        let mut result: HashMap<<Self as Graph>::NodeId, (Path<'_, Self>, C)> = HashMap::new();
+        let mut result: HashMap<
+            <Self as Graph>::NodeId,
+            (Path<Self::NodeId, Self::EdgeId, Self::Directedness>, C),
+        > = HashMap::new();
         for (node, &dist) in &distances {
             if node == &start {
-                result.insert(
-                    start.clone(),
-                    (Path::new(self, start.clone()), C::default()),
-                );
+                result.insert(start.clone(), (Path::new(start.clone()), C::default()));
             } else {
                 let mut current = node.clone();
 
-                let mut path_data = Vec::new();
+                let mut path_edges = Vec::new();
                 while let Some(pred) = predecessors.get(&current) {
-                    path_data.push(pred.clone());
+                    path_edges.push(pred.0.clone());
                     current = pred.1.clone();
                 }
 
-                let mut path = Path::new(self, start.clone());
-                for (edge_id, node_id) in path_data.iter().rev() {
-                    path.add_edge_and_node(edge_id.clone(), node_id.clone());
+                let mut path = Path::new(start.clone());
+                for edge_id in path_edges.iter().rev() {
+                    path.add_edge(edge_id.clone());
                 }
 
                 result.insert(node.clone(), (path, dist));

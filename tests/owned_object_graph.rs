@@ -204,11 +204,9 @@ fn test_shortest_paths() {
 
     fn values<'a, F: for<'b> Fn(&'b Node<'a>) -> Vec<&'b Node<'a>>>(
         graph: &OwnedObjectGraph<Node<'a>, F>,
-        path: &Vec<NodeId<Node<'a>>>,
+        path: &jrw_graph::path::Path<NodeId<Node<'a>>, EdgeId<Node<'a>>, Directed>,
     ) -> Vec<i32> {
-        path.iter()
-            .map(|nid| graph.node_data(nid.clone()).value)
-            .collect()
+        path.nodes().map(|nid| graph.node_data(nid).value).collect()
     }
 
     let graph = OwnedObjectGraph::new(node1, |node: &Node| node.neighbors.clone());

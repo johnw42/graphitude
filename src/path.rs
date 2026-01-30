@@ -1,28 +1,27 @@
-use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once};
+use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once, marker::PhantomData};
 
-use crate::{EdgeId, NodeId};
+use crate::{Directedness, EdgeId, NodeId};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
-pub struct Path<N, E>
-where
-    N: NodeId,
-    E: EdgeId<N>,
-{
+pub struct Path<N, E, D> {
     edges: Vec<E>,
     nodes: Vec<N>,
+    directedness: PhantomData<D>,
 }
 
-impl<N, E> Path<N, E>
+impl<N, E, D> Path<N, E, D>
 where
     N: NodeId,
     E: EdgeId<N>,
+    D: Directedness,
 {
     /// Creates a new path starting at the given node.
     pub fn new(start: N) -> Self {
         Self {
             edges: Vec::new(),
             nodes: vec![start],
+            directedness: PhantomData,
         }
     }
 
@@ -30,7 +29,7 @@ where
     /// if the edges do not form a valid path, the edges are empty, or if the
     /// starting node does not match the one end of the first edge.
     pub fn from_edges(start: N, edges: impl IntoIterator<Item = E>) -> Self {
-        let mut path = Path::new(start);
+        let mut path = Path::<N, E, D>::new(start);
         path.extend(edges);
         path
     }
@@ -82,50 +81,39 @@ where
     /// node. Panics if the edge's source node does not match the current
     /// last node of the path.
     pub fn add_edge(&mut self, edge_id: E) {
-        assert_eq!(edge_id.source(), self.last_node());
-        let target = edge_id.target();
+        let last = self.last_node();
+        let (source, target) = edge_id.ends();
+
+        let next_node = if source == last {
+            target
+        } else if !D::is_directed() && target == last {
+            // For undirected graphs, edge can be traversed in either direction
+            source
+        } else {
+            panic!("Edge source does not match the last node of the path");
+        };
+
         self.edges.push(edge_id);
-        self.nodes.push(target);
+        self.nodes.push(next_node);
     }
 
     /// Adds an edge and its target node to the end of the path. Panics if
     /// the edge's source node does not match the current last node of the
     /// path, or if the provided node does not match the edge's target node.
     pub fn add_edge_and_node(&mut self, edge_id: E, node_id: N) {
-        assert_eq!(edge_id.source(), self.last_node());
-        assert_eq!(
-            edge_id.target(),
-            node_id,
-            "Edge target does not match provided node"
-        );
-        self.edges.push(edge_id);
-        self.nodes.push(node_id);
-    }
+        let last = self.last_node();
+        let (source, target) = edge_id.ends();
 
-    /// Adds an edge and its target node to the end of the path. Panics if
-    /// the edge's source node does not match the current last node of the
-    /// path, or if the provided node does not match the edge's target node.
-    pub fn add_edge_and_node(&mut self, edge_id: G::EdgeId, node_id: G::NodeId) {
-        assert_eq!(self.graph.edge_source(edge_id.clone()), self.last_node());
-        assert_eq!(
-            self.graph.edge_target(edge_id.clone()),
-            node_id,
-            "Edge target does not match provided node"
-        );
-        self.edges.push(edge_id);
-        self.nodes.push(node_id);
-    }
+        // For directed graphs, source must be last and target must be node_id
+        // For undirected graphs, we're more flexible
+        let valid = if D::is_directed() {
+            source == last && target == node_id
+        } else {
+            (source == last && target == node_id) || (target == last && source == node_id)
+        };
 
-    /// Adds an edge and its target node to the end of the path. Panics if
-    /// the edge's source node does not match the current last node of the
-    /// path, or if the provided node does not match the edge's target node.
-    pub fn add_edge_and_node(&mut self, edge_id: G::EdgeId, node_id: G::NodeId) {
-        assert_eq!(self.graph.edge_source(edge_id.clone()), self.last_node());
-        assert_eq!(
-            self.graph.edge_target(edge_id.clone()),
-            node_id,
-            "Edge target does not match provided node"
-        );
+        assert!(valid, "Edge does not connect last node to provided node");
+
         self.edges.push(edge_id);
         self.nodes.push(node_id);
     }
@@ -133,47 +121,49 @@ where
     /// Extends the path by appending all edges from another path. Panics if
     /// the first node of the other path does not match the current last
     /// node of this path.
-    pub fn extend_with(&mut self, other: &Path<N, E>) {
+    pub fn extend_with(&mut self, other: &Path<N, E, D>) {
         for edge_id in other.edges() {
             self.add_edge(edge_id);
         }
     }
 }
 
-impl<N, E> Clone for Path<N, E>
+impl<N, E, D> Clone for Path<N, E, D>
 where
     N: NodeId,
     E: EdgeId<N> + Clone,
+    D: Directedness,
 {
     fn clone(&self) -> Self {
         Self {
             edges: self.edges.clone(),
             nodes: self.nodes.clone(),
+            directedness: PhantomData,
         }
     }
 }
 
-impl<N, E> PartialEq for Path<N, E>
+impl<N, E, D> PartialEq for Path<N, E, D>
 where
-    N: NodeId,
-    E: EdgeId<N> + PartialEq,
+    N: PartialEq,
+    E: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.edges == other.edges && self.nodes == other.nodes
     }
 }
 
-impl<N, E> Eq for Path<N, E>
+impl<N, E, D> Eq for Path<N, E, D>
 where
-    N: NodeId,
-    E: EdgeId<N> + Eq,
+    N: PartialEq,
+    E: PartialEq,
 {
 }
 
-impl<N, E> Hash for Path<N, E>
+impl<N, E, D> Hash for Path<N, E, D>
 where
-    N: NodeId + Hash,
-    E: EdgeId<N> + Hash,
+    N: Hash,
+    E: Hash,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.edges.hash(state);
@@ -181,16 +171,17 @@ where
     }
 }
 
-impl<N, E> PartialOrd for Path<N, E>
+impl<N, E, D> PartialOrd for Path<N, E, D>
 where
     N: NodeId,
-    E: EdgeId<N> + PartialEq,
+    E: EdgeId<N>,
+    D: Directedness,
 {
     /// A path is "less than" another path if its last node matches the
     /// other's first node, and "greater than" if its first node matches the
     /// other's last node. If neither condition is met and the paths are not
     /// equal, they are considered unordered.
-    fn partial_cmp(&self, other: &Path<N, E>) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Path<N, E, D>) -> Option<std::cmp::Ordering> {
         if self == other {
             Some(Ordering::Equal)
         } else if self.last_node() == other.first_node() {
@@ -203,10 +194,11 @@ where
     }
 }
 
-impl<N, E> Extend<E> for Path<N, E>
+impl<N, E, D> Extend<E> for Path<N, E, D>
 where
     N: NodeId,
     E: EdgeId<N>,
+    D: Directedness,
 {
     fn extend<T: IntoIterator<Item = E>>(&mut self, iter: T) {
         for edge_id in iter {
@@ -215,10 +207,10 @@ where
     }
 }
 
-impl<N, E> Debug for Path<N, E>
+impl<N, E, D> Debug for Path<N, E, D>
 where
-    N: NodeId,
-    E: EdgeId<N> + Debug,
+    N: Debug,
+    E: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Path")

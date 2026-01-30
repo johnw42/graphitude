@@ -425,12 +425,20 @@ macro_rules! graph_tests {
             graph.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
 
             let paths = graph.shortest_paths(n0.clone(), |_| 1);
-            assert_eq!(paths[&n0], (vec![n0.clone()], 0));
-            assert_eq!(paths[&n1], (vec![n0.clone(), n1.clone()], 1));
-            assert_eq!(paths[&n2], (vec![n0.clone(), n2.clone()], 1));
+            assert_eq!(paths[&n0].0.nodes().collect::<Vec<_>>(), vec![n0.clone()]);
+            assert_eq!(
+                paths[&n1].0.nodes().collect::<Vec<_>>(),
+                vec![n0.clone(), n1.clone()]
+            );
+            assert_eq!(
+                paths[&n2].0.nodes().collect::<Vec<_>>(),
+                vec![n0.clone(), n2.clone()]
+            );
             assert!(
-                paths[&n3].0 == vec![n0.clone(), n1.clone(), n3.clone()]
-                    || paths[&n3].0 == vec![n0.clone(), n2.clone(), n3.clone()]
+                paths[&n3].0.nodes().collect::<Vec<_>>()
+                    == vec![n0.clone(), n1.clone(), n3.clone()]
+                    || paths[&n3].0.nodes().collect::<Vec<_>>()
+                        == vec![n0.clone(), n2.clone(), n3.clone()]
             );
             assert_eq!(paths[&n3].1, 2);
         }
