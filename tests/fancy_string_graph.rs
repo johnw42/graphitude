@@ -20,6 +20,7 @@ struct EdgeId(NodeId, NodeId);
 
 impl EdgeIdTrait for EdgeId {
     type NodeId = NodeId;
+    type Directedness = Directed;
 
     fn source(&self) -> NodeId {
         self.0

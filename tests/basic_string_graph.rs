@@ -37,6 +37,7 @@ impl EdgeId {
 
 impl EdgeIdTrait for EdgeId {
     type NodeId = NodeId;
+    type Directedness = Undirected;
 
     fn source(&self) -> NodeId {
         self.0.clone()

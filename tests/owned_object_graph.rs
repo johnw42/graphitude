@@ -67,6 +67,7 @@ impl<N> Hash for EdgeId<N> {
 
 impl<N> EdgeIdTrait for EdgeId<N> {
     type NodeId = NodeId<N>;
+    type Directedness = Directed;
 
     fn source(&self) -> NodeId<N> {
         self.0

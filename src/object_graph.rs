@@ -101,8 +101,11 @@ where
     }
 }
 
-impl<'a, N: Debug> crate::graph::EdgeId for (NodeId<'a, N>, NodeId<'a, N>) {
+impl<'a, N: Debug> crate::graph::EdgeId
+    for (NodeId<'a, N>, NodeId<'a, N>)
+{
     type NodeId = NodeId<'a, N>;
+    type Directedness = Directed;
 
     fn source(&self) -> NodeId<'a, N> {
         self.0

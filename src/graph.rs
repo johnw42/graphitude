@@ -18,6 +18,7 @@ pub trait NodeId: Eq + Hash + Clone + Debug {}
 /// A trait representing an edge identifier in a graph.
 pub trait EdgeId: Eq + Hash + Clone + Debug {
     type NodeId: NodeId;
+    type Directedness: Directedness;
 
     /// Gets the source node of the edge.
     fn source(&self) -> Self::NodeId;
@@ -72,11 +73,11 @@ pub trait EdgeId: Eq + Hash + Clone + Debug {
 /// - [`Self::has_edge_from`]
 /// - [`Self::has_edge_into`]
 pub trait Graph: Sized {
+    type Directedness: Directedness;
     type NodeData;
     type NodeId: NodeId;
     type EdgeData;
-    type EdgeId: EdgeId<NodeId = Self::NodeId>;
-    type Directedness: Directedness;
+    type EdgeId: EdgeId<NodeId = Self::NodeId, Directedness = Self::Directedness>;
 
     /// Returns true if the graph is directed.
     fn is_directed(&self) -> bool {

@@ -16,9 +16,9 @@ use crate::{
 };
 
 mod ids {
-    use std::{fmt::Debug, hash::Hash};
+    use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
-    use crate::{Storage, graph_id::GraphId, id_vec::IdVecKey};
+    use crate::{Directedness, Storage, graph_id::GraphId, id_vec::IdVecKey};
 
     pub struct NodeIdOrEdgeId<S: Storage, T: Copy> {
         payload: T,
@@ -81,7 +81,84 @@ mod ids {
     }
 
     pub type NodeId<S> = NodeIdOrEdgeId<S, IdVecKey>;
-    pub type EdgeId<S> = NodeIdOrEdgeId<S, (IdVecKey, IdVecKey)>;
+
+    pub struct EdgeId<S: Storage, D: Directedness> {
+        inner: NodeIdOrEdgeId<S, (IdVecKey, IdVecKey)>,
+        _directedness: PhantomData<D>,
+    }
+
+    impl<S: Storage, D: Directedness> EdgeId<S, D> {
+        pub fn new(
+            payload: (IdVecKey, IdVecKey),
+            graph_id: GraphId,
+            compaction_count: S::CompactionCount,
+        ) -> Self {
+            Self {
+                inner: NodeIdOrEdgeId::new(payload, graph_id, compaction_count),
+                _directedness: PhantomData,
+            }
+        }
+
+        pub fn keys(&self) -> (IdVecKey, IdVecKey) {
+            self.inner.payload
+        }
+
+        pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
+            self.inner = self.inner.with_compaction_count(compaction_count);
+            self
+        }
+
+        pub fn compaction_count(&self) -> S::CompactionCount {
+            self.inner.compaction_count
+        }
+
+        pub fn graph_id(&self) -> GraphId {
+            self.inner.graph_id
+        }
+    }
+
+    impl<S: Storage, D: Directedness> Clone for EdgeId<S, D> {
+        fn clone(&self) -> Self {
+            Self {
+                inner: self.inner,
+                _directedness: PhantomData,
+            }
+        }
+    }
+
+    impl<S: Storage, D: Directedness> Copy for EdgeId<S, D> {}
+
+    impl<S: Storage, D: Directedness> PartialEq for EdgeId<S, D> {
+        fn eq(&self, other: &Self) -> bool {
+            self.inner == other.inner
+        }
+    }
+
+    impl<S: Storage, D: Directedness> Eq for EdgeId<S, D> {}
+
+    impl<S: Storage, D: Directedness> Hash for EdgeId<S, D> {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.inner.hash(state);
+        }
+    }
+
+    impl<S: Storage, D: Directedness> PartialOrd for EdgeId<S, D> {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            self.inner.partial_cmp(&other.inner)
+        }
+    }
+
+    impl<S: Storage, D: Directedness> Ord for EdgeId<S, D> {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.inner.cmp(&other.inner)
+        }
+    }
+
+    impl<S: Storage, D: Directedness> Debug for EdgeId<S, D> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "EdgeId{:?}", self.inner.payload)
+        }
+    }
 
     impl<S: Storage> crate::graph::NodeId for NodeId<S> {}
 
@@ -91,33 +168,30 @@ mod ids {
         }
     }
 
-    impl<S: Storage> EdgeId<S> {
-        pub fn keys(&self) -> (IdVecKey, IdVecKey) {
-            self.payload
+    impl<S: Storage, D: Directedness> crate::graph::EdgeId for EdgeId<S, D> {
+        type NodeId = NodeId<S>;
+        type Directedness = D;
+
+        fn source(&self) -> NodeId<S> {
+            NodeId::new(
+                self.inner.payload.0,
+                self.inner.graph_id,
+                self.inner.compaction_count,
+            )
+        }
+
+        fn target(&self) -> NodeId<S> {
+            NodeId::new(
+                self.inner.payload.1,
+                self.inner.graph_id,
+                self.inner.compaction_count,
+            )
         }
     }
 
     impl<S: Storage> Debug for NodeId<S> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "NodeId({:?})", self.payload)
-        }
-    }
-
-    impl<S: Storage> crate::graph::EdgeId for EdgeId<S> {
-        type NodeId = NodeId<S>;
-
-        fn source(&self) -> NodeId<S> {
-            NodeId::new(self.payload.0, self.graph_id, self.compaction_count)
-        }
-
-        fn target(&self) -> NodeId<S> {
-            NodeId::new(self.payload.1, self.graph_id, self.compaction_count)
-        }
-    }
-
-    impl<S: Storage> Debug for EdgeId<S> {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "EdgeId{:?}", self.payload)
         }
     }
 }
@@ -159,7 +233,7 @@ where
         NodeId::new(key, self.id, self.compaction_count)
     }
 
-    fn edge_id(&self, from: IdVecKey, into: IdVecKey) -> EdgeId<S> {
+    fn edge_id(&self, from: IdVecKey, into: IdVecKey) -> EdgeId<S, D> {
         let (k1, k2) = sort_pair_if(!D::is_directed(), from, into);
         EdgeId::new((k1, k2), self.id, self.compaction_count)
     }
@@ -168,7 +242,7 @@ where
         &mut self,
         mut compact_fn: F,
         mut node_id_callback: Option<impl FnMut(NodeId<S>, NodeId<S>)>,
-        mut edge_id_callback: Option<impl FnMut(EdgeId<S>, EdgeId<S>)>,
+        mut edge_id_callback: Option<impl FnMut(EdgeId<S, D>, EdgeId<S, D>)>,
     ) where
         F: FnMut(&mut IdVec<N>, Option<&mut dyn FnMut(IdVecKey, Option<IdVecKey>)>),
     {
@@ -240,7 +314,7 @@ where
     (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
     type EdgeData = E;
-    type EdgeId = EdgeId<S>;
+    type EdgeId = EdgeId<S, D>;
     type NodeData = N;
     type NodeId = NodeId<S>;
     type Directedness = D;
@@ -340,10 +414,10 @@ where
     }
 
     fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
-        if self.id != id.graph_id {
+        if self.id != id.graph_id() {
             return Err("EdgeId graph ID does not match");
         }
-        if self.compaction_count != id.compaction_count {
+        if self.compaction_count != id.compaction_count() {
             return Err("EdgeId compaction counter does not match");
         }
         if self

@@ -121,6 +121,7 @@ impl<N, E> Ord for EdgeId<N, E> {
 
 impl<N: Debug, E> crate::graph::EdgeId for EdgeId<N, E> {
     type NodeId = NodeId<N, E>;
+    type Directedness = Directed;
 
     fn source(&self) -> NodeId<N, E> {
         self.ptr
