@@ -8,18 +8,18 @@ use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, BitvecStorage};
 ///
 /// Uses a dense square matrix representation with a bitvec to track which entries exist.
 /// Automatically resizes to the next power of two for efficient indexing.
-/// Requires keys that can be converted to/from usize indices.
-pub struct AsymmetricBitvecAdjacencyMatrix<K, V> {
+/// Requires indices that can be converted to/from usize.
+pub struct AsymmetricBitvecAdjacencyMatrix<I, V> {
     data: Vec<MaybeUninit<V>>,
     matrix: BitVec,
     size: usize,
     log2_size: u32,
-    key: PhantomData<K>,
+    index_type: PhantomData<I>,
 }
 
-impl<K, V> AsymmetricBitvecAdjacencyMatrix<K, V>
+impl<I, V> AsymmetricBitvecAdjacencyMatrix<I, V>
 where
-    K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash,
+    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash,
 {
     fn with_size(size: usize) -> Self {
         let capacity = size.next_power_of_two();
@@ -32,12 +32,12 @@ where
             matrix,
             size: capacity,
             log2_size: capacity.trailing_zeros(),
-            key: PhantomData,
+            index_type: PhantomData,
         }
     }
 
-    /// Gets the linear index for the entry at `row` and `col`, if within bounds.
-    fn index(&self, row: K, col: K) -> Option<usize> {
+    /// Gets the linear storage index for the entry at `row` and `col`, if within bounds.
+    fn index(&self, row: I, col: I) -> Option<usize> {
         (row.into() < self.size && col.into() < self.size).then(|| self.unchecked_index(row, col))
     }
 
@@ -66,26 +66,26 @@ where
     }
 
     /// Gets the linear index for the entry at `row` and `col` without bounds checking.
-    fn unchecked_index(&self, row: K, col: K) -> usize {
+    fn unchecked_index(&self, row: I, col: I) -> usize {
         (row.into() << self.log2_size) + col.into()
     }
 
-    fn coordinates(&self, index: usize) -> (K, K) {
+    fn coordinates(&self, index: usize) -> (I, I) {
         Self::coordinates_with(self.log2_size, self.size, index)
     }
 
-    fn coordinates_with(log2_size: u32, size: usize, index: usize) -> (K, K) {
+    fn coordinates_with(log2_size: u32, size: usize, index: usize) -> (I, I) {
         let row = index >> log2_size;
         let col = index & (size - 1);
         (row.into(), col.into())
     }
 }
 
-impl<K, V> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<K, V>
+impl<I, V> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<I, V>
 where
-    K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash,
+    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash,
 {
-    type Index = K;
+    type Index = I;
     type Value = V;
     type Symmetry = Asymmetric;
     type Storage = BitvecStorage;
@@ -96,11 +96,11 @@ where
             size: 0,
             log2_size: 0,
             data: Vec::new(),
-            key: PhantomData,
+            index_type: PhantomData,
         }
     }
 
-    fn insert(&mut self, row: K, col: K, data: V) -> Option<V> {
+    fn insert(&mut self, row: I, col: I, data: V) -> Option<V> {
         if self.index(row, col).is_none() {
             let required_size = usize::max(row.into(), col.into()) + 1;
             if self.size < required_size {
@@ -127,18 +127,18 @@ where
         old_data
     }
 
-    fn get(&self, row: K, col: K) -> Option<&V> {
+    fn get(&self, row: I, col: I) -> Option<&V> {
         self.get_data_ref(self.index(row, col)?)
     }
 
-    fn remove(&mut self, row: K, col: K) -> Option<V> {
+    fn remove(&mut self, row: I, col: I) -> Option<V> {
         let index = self.index(row, col)?;
         let was_live = self.is_live(index);
         self.matrix.set(index, false);
         was_live.then(|| self.unchecked_get_data_read(index))
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (I, I, &'a V)>
     where
         V: 'a,
     {
@@ -169,7 +169,7 @@ where
             })
     }
 
-    fn entries_in_row<'a>(&'a self, row: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_row<'a>(&'a self, row: I) -> impl Iterator<Item = (I, &'a V)>
     where
         V: 'a,
     {
@@ -180,7 +180,7 @@ where
             .map(|index| (index.into(), self.unchecked_get_data_ref(index.into())))
     }
 
-    fn entries_in_col<'a>(&'a self, col: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_col<'a>(&'a self, col: I) -> impl Iterator<Item = (I, &'a V)>
     where
         V: 'a,
     {
@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_insert_and_get() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, i32>::new();
         assert_eq!(matrix.insert(0, 1, 42), None);
         assert_eq!(matrix.get(0, 1), Some(&42));
         assert_eq!(matrix.get(1, 0), None);
@@ -210,14 +210,14 @@ mod tests {
 
     #[test]
     fn test_insert_duplicate() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
         assert_eq!(matrix.insert(0, 1, ()), None);
         assert_eq!(matrix.insert(0, 1, ()), Some(()));
     }
 
     #[test]
     fn test_remove() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
         matrix.insert(0, 1, ());
         assert_eq!(matrix.remove(0, 1), Some(()));
         assert_eq!(matrix.get(0, 1), None);
@@ -225,7 +225,7 @@ mod tests {
 
     #[test]
     fn test_edges() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
         matrix.insert(0, 1, ());
         matrix.insert(2, 3, ());
         let edges: Vec<_> = matrix.iter().collect();
@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_edges_from() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
         matrix.insert(0, 1, ());
         matrix.insert(0, 3, ());
         let edges: Vec<_> = matrix.entries_in_row(0).collect();
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_edges_into() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, &str>::new();
         matrix.insert(0, 1, "A");
         assert_eq!(matrix.get(0, 1), Some(&"A"));
         matrix.insert(1, 1, "B");

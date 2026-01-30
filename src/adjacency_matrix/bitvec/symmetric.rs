@@ -15,17 +15,17 @@ use crate::adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric};
 ///
 /// Uses a packed triangular matrix representation where only the upper triangle
 /// is stored, providing memory-efficient storage for undirected graphs.
-/// Requires keys that can be converted to/from usize indices.
-pub struct SymmetricBitvecAdjacencyMatrix<K, V> {
+/// Requires indices that can be converted to/from usize.
+pub struct SymmetricBitvecAdjacencyMatrix<I, V> {
     data: Vec<MaybeUninit<V>>,
     liveness: BitVec,
     indexing: SymmetricMatrixIndexing,
-    key: PhantomData<K>,
+    index_type: PhantomData<I>,
 }
 
-impl<K, V> SymmetricBitvecAdjacencyMatrix<K, V>
+impl<I, V> SymmetricBitvecAdjacencyMatrix<I, V>
 where
-    K: Into<usize> + From<usize> + Clone + Copy + Eq,
+    I: Into<usize> + From<usize> + Clone + Copy + Eq,
 {
     pub fn with_size(size: usize) -> Self {
         let capacity = size.next_power_of_two();
@@ -39,7 +39,7 @@ where
             data,
             liveness,
             indexing,
-            key: PhantomData,
+            index_type: PhantomData,
         }
     }
 
@@ -62,11 +62,11 @@ where
     }
 }
 
-impl<V, K> AdjacencyMatrix for SymmetricBitvecAdjacencyMatrix<K, V>
+impl<I, V> AdjacencyMatrix for SymmetricBitvecAdjacencyMatrix<I, V>
 where
-    K: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord,
+    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord,
 {
-    type Index = K;
+    type Index = I;
     type Value = V;
     type Symmetry = Symmetric;
     type Storage = BitvecStorage;
@@ -76,14 +76,14 @@ where
             liveness: BitVec::new(),
             data: Vec::new(),
             indexing: SymmetricMatrixIndexing::new(0),
-            key: PhantomData,
+            index_type: PhantomData,
         }
     }
 
-    fn insert(&mut self, row: K, col: K, data: V) -> Option<V> {
-        let (k1, k2) = sort_pair(row.into(), col.into());
-        if self.indexing.index(k1.into(), k2.into()).is_none() {
-            let required_size = (k2 + 1).next_power_of_two();
+    fn insert(&mut self, row: I, col: I, data: V) -> Option<V> {
+        let (i1, i2) = sort_pair(row.into(), col.into());
+        if self.indexing.index(i1.into(), i2.into()).is_none() {
+            let required_size = (i2 + 1).next_power_of_two();
             if self.indexing.storage_size() < required_size {
                 self.indexing = SymmetricMatrixIndexing::new(required_size);
                 let repr_size = self.indexing.unchecked_index(0, required_size);
@@ -91,31 +91,31 @@ where
                 self.data.resize_with(repr_size, MaybeUninit::uninit);
             }
         }
-        let index = self.indexing.unchecked_index(k1.into(), k2.into());
+        let index = self.indexing.unchecked_index(i1.into(), i2.into());
         let old_data = self.get_data_read(index);
         self.liveness.set(index, true);
         self.data[index] = MaybeUninit::new(data);
         old_data
     }
 
-    fn get(&self, row: K, col: K) -> Option<&V> {
+    fn get(&self, row: I, col: I) -> Option<&V> {
         self.get_data_ref(self.indexing.index(row.into(), col.into())?)
     }
 
-    fn remove(&mut self, row: K, col: K) -> Option<V> {
+    fn remove(&mut self, row: I, col: I) -> Option<V> {
         let index = self.indexing.index(row.into(), col.into())?;
         let was_live = self.liveness[index];
         self.liveness.set(index, false);
         was_live.then(|| self.unchecked_get_data_read(index))
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (I, I, &'a V)>
     where
         V: 'a,
     {
         self.liveness.iter_ones().map(|index| {
-            let (k1, k2) = self.indexing.coordinates(index);
-            (k1.into(), k2.into(), self.unchecked_get_data_ref(index))
+            let (i1, i2) = self.indexing.coordinates(index);
+            (i1.into(), i2.into(), self.unchecked_get_data_ref(index))
         })
     }
 
@@ -131,8 +131,8 @@ where
             .enumerate()
             .filter_map(move |(index, bit)| {
                 if bit {
-                    let (k1, k2) = indexing.coordinates(index);
-                    Some((k1.into(), k2.into(), unsafe {
+                    let (i1, i2) = indexing.coordinates(index);
+                    Some((i1.into(), i2.into(), unsafe {
                         data[index].assume_init_read()
                     }))
                 } else {
@@ -141,11 +141,11 @@ where
             })
     }
 
-    fn entry_indices(k1: Self::Index, k2: Self::Index) -> (Self::Index, Self::Index) {
-        sort_pair(k1, k2)
+    fn entry_indices(i1: Self::Index, i2: Self::Index) -> (Self::Index, Self::Index) {
+        sort_pair(i1, i2)
     }
 
-    fn entries_in_row<'a>(&'a self, row: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_row<'a>(&'a self, row: I) -> impl Iterator<Item = (I, &'a V)>
     where
         V: 'a,
     {
@@ -164,7 +164,7 @@ where
         })
     }
 
-    fn entries_in_col<'a>(&'a self, col: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_col<'a>(&'a self, col: I) -> impl Iterator<Item = (I, &'a V)>
     where
         V: 'a,
     {
@@ -176,9 +176,9 @@ where
     }
 }
 
-impl<K, V> Debug for SymmetricBitvecAdjacencyMatrix<K, V>
+impl<I, V> Debug for SymmetricBitvecAdjacencyMatrix<I, V>
 where
-    K: Into<usize>,
+    I: Into<usize>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "SymmetricBitvecAdjacencyMatrix {{")?;
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn test_entries_in_col() {
-        let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
         matrix.insert(0, 2, ());
         matrix.insert(1, 2, ());
         matrix.insert(3, 3, ());

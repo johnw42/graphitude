@@ -11,21 +11,21 @@ use crate::adjacency_matrix::{AdjacencyMatrix, HashStorage, Symmetric};
 /// Stores only one entry per edge pair (row, col) where row <= col, saving memory
 /// for undirected graphs. Lookups work for both (row, col) and (col, row).
 #[derive(Clone, Debug)]
-pub struct SymmetricHashAdjacencyMatrix<K, V>
+pub struct SymmetricHashAdjacencyMatrix<I, V>
 where
-    K: Hash + Eq + Clone + Ord + Debug,
+    I: Hash + Eq + Clone + Ord + Debug,
 {
     // Invariant: for any (row, col) in entries, row <= col.
-    entries: HashMap<K, HashMap<K, V>>,
+    entries: HashMap<I, HashMap<I, V>>,
     // Invariant: for any (col, row) in reverse_entries, col >= row, and entries contains (row, col).
-    reverse_entries: HashMap<K, HashSet<K>>,
+    reverse_entries: HashMap<I, HashSet<I>>,
 }
 
-impl<K, V> AdjacencyMatrix for SymmetricHashAdjacencyMatrix<K, V>
+impl<I, V> AdjacencyMatrix for SymmetricHashAdjacencyMatrix<I, V>
 where
-    K: Hash + Eq + Clone + Ord + Debug,
+    I: Hash + Eq + Clone + Ord + Debug,
 {
-    type Index = K;
+    type Index = I;
     type Value = V;
     type Symmetry = Symmetric;
     type Storage = HashStorage;
@@ -37,7 +37,7 @@ where
         }
     }
 
-    fn insert(&mut self, row: K, col: K, data: V) -> Option<V> {
+    fn insert(&mut self, row: I, col: I, data: V) -> Option<V> {
         let (i1, i2) = sort_pair(row, col);
         self.reverse_entries
             .entry(i2.clone())
@@ -46,17 +46,17 @@ where
         self.entries.entry(i1).or_default().insert(i2, data)
     }
 
-    fn get(&self, row: K, col: K) -> Option<&V> {
+    fn get(&self, row: I, col: I) -> Option<&V> {
         let (i1, i2) = sort_pair(row, col);
         self.entries.get(&i1).and_then(|m| m.get(&i2))
     }
 
-    fn remove(&mut self, row: K, col: K) -> Option<V> {
+    fn remove(&mut self, row: I, col: I) -> Option<V> {
         let (i1, i2) = sort_pair(row, col);
         self.entries.get_mut(&i1).and_then(|m| m.remove(&i2))
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (I, I, &'a V)>
     where
         V: 'a,
     {
@@ -74,11 +74,11 @@ where
         })
     }
 
-    fn entry_indices(k1: Self::Index, k2: Self::Index) -> (Self::Index, Self::Index) {
-        sort_pair(k1, k2)
+    fn entry_indices(i1: Self::Index, i2: Self::Index) -> (Self::Index, Self::Index) {
+        sort_pair(i1, i2)
     }
 
-    fn entries_in_row<'a>(&'a self, row: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_row<'a>(&'a self, row: I) -> impl Iterator<Item = (I, &'a V)>
     where
         V: 'a,
     {
@@ -86,24 +86,24 @@ where
             .entries
             .get(&row)
             .into_iter()
-            .flat_map(|targets| targets.iter().map(|(k2, v)| (k2.clone(), v)));
+            .flat_map(|targets| targets.iter().map(|(i2, v)| (i2.clone(), v)));
         let backward_entries =
             self.reverse_entries
                 .get(&row)
                 .into_iter()
                 .flat_map(move |sources| {
                     let row = row.clone();
-                    sources.iter().filter_map(move |k1| {
+                    sources.iter().filter_map(move |i1| {
                         self.entries
-                            .get(k1)
+                            .get(i1)
                             .and_then(|targets| targets.get(&row))
-                            .map(|v| (k1.clone(), v))
+                            .map(|v| (i1.clone(), v))
                     })
                 });
         forward_entries.chain(backward_entries)
     }
 
-    fn entries_in_col<'a>(&'a self, col: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_col<'a>(&'a self, col: I) -> impl Iterator<Item = (I, &'a V)>
     where
         V: 'a,
     {
@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_matrix_insert_and_get() {
-        let mut matrix = SymmetricHashAdjacencyMatrix::new();
+        let mut matrix = SymmetricHashAdjacencyMatrix::<i32, &str>::new();
         matrix.insert(0, 0, "a");
         assert_eq!(matrix.get(0, 0), Some(&"a"));
         matrix.insert(1, 0, "b");
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_insert_and_get() {
-        let mut matrix = SymmetricHashAdjacencyMatrix::new();
+        let mut matrix = SymmetricHashAdjacencyMatrix::<i32, &str>::new();
         matrix.insert(0, 1, "edge");
         assert_eq!(matrix.get(0, 1), Some(&"edge"));
         assert_eq!(matrix.get(1, 0), Some(&"edge"));
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut matrix = SymmetricHashAdjacencyMatrix::new();
+        let mut matrix = SymmetricHashAdjacencyMatrix::<i32, &str>::new();
         matrix.insert(0, 1, "edge");
         assert_eq!(matrix.remove(1, 0), Some("edge"));
         assert_eq!(matrix.get(0, 1), None);
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_entry_at() {
-        let mut matrix = SymmetricHashAdjacencyMatrix::new();
+        let mut matrix = SymmetricHashAdjacencyMatrix::<i32, &str>::new();
         matrix.insert(0, 1, "edge");
         let entry = matrix.entry_at(0, 0);
         assert_eq!(entry, None);
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn test_entries_in_row() {
-        let mut matrix = SymmetricHashAdjacencyMatrix::new();
+        let mut matrix = SymmetricHashAdjacencyMatrix::<i32, &str>::new();
         matrix.insert(0, 1, "a");
         matrix.insert(0, 2, "b");
         matrix.insert(1, 2, "c");
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_entries_in_col() {
-        let mut matrix = SymmetricHashAdjacencyMatrix::new();
+        let mut matrix = SymmetricHashAdjacencyMatrix::<i32, &str>::new();
         matrix.insert(0, 1, "a");
         matrix.insert(2, 0, "b");
         let entries: Vec<_> = matrix.entries_in_col(0).collect();

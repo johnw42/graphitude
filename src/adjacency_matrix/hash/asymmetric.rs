@@ -10,16 +10,16 @@ use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, HashStorage};
 /// Stores separate forward and backward edge indices for efficient traversal
 /// in both directions.
 #[derive(Clone, Debug)]
-pub struct AsymmetricHashAdjacencyMatrix<K, V> {
-    edges: HashMap<K, HashMap<K, V>>,
-    back_edges: HashMap<K, HashSet<K>>,
+pub struct AsymmetricHashAdjacencyMatrix<I, V> {
+    edges: HashMap<I, HashMap<I, V>>,
+    back_edges: HashMap<I, HashSet<I>>,
 }
 
-impl<K, V> AdjacencyMatrix for AsymmetricHashAdjacencyMatrix<K, V>
+impl<I, V> AdjacencyMatrix for AsymmetricHashAdjacencyMatrix<I, V>
 where
-    K: Hash + Eq + Clone,
+    I: Hash + Eq + Clone,
 {
-    type Index = K;
+    type Index = I;
     type Value = V;
     type Symmetry = Asymmetric;
     type Storage = HashStorage;
@@ -31,7 +31,7 @@ where
         }
     }
 
-    fn insert(&mut self, row: K, col: K, data: V) -> Option<V> {
+    fn insert(&mut self, row: I, col: I, data: V) -> Option<V> {
         self.back_edges
             .entry(col.clone())
             .or_default()
@@ -39,11 +39,11 @@ where
         self.edges.entry(row).or_default().insert(col, data)
     }
 
-    fn get(&self, row: K, col: K) -> Option<&V> {
+    fn get(&self, row: I, col: I) -> Option<&V> {
         self.edges.get(&row).and_then(|m| m.get(&col))
     }
 
-    fn remove(&mut self, row: K, col: K) -> Option<V> {
+    fn remove(&mut self, row: I, col: I) -> Option<V> {
         if let Some(value) = self.edges.get_mut(&row).and_then(|m| m.remove(&col)) {
             if let Some(back_edges) = self.back_edges.get_mut(&col) {
                 if back_edges.remove(&row) && back_edges.is_empty() {
@@ -56,7 +56,7 @@ where
         }
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (K, K, &'a V)>
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (I, I, &'a V)>
     where
         V: 'a,
     {
@@ -75,7 +75,7 @@ where
         })
     }
 
-    fn entries_in_row<'a>(&'a self, row: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_row<'a>(&'a self, row: I) -> impl Iterator<Item = (I, &'a V)>
     where
         V: 'a,
     {
@@ -85,7 +85,7 @@ where
             .flat_map(|targets| targets.iter().map(|(col, data)| (col.clone(), data)))
     }
 
-    fn entries_in_col<'a>(&'a self, col: K) -> impl Iterator<Item = (K, &'a V)>
+    fn entries_in_col<'a>(&'a self, col: I) -> impl Iterator<Item = (I, &'a V)>
     where
         V: 'a,
     {
@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut matrix = AsymmetricHashAdjacencyMatrix::new();
+        let mut matrix = AsymmetricHashAdjacencyMatrix::<i32, &str>::new();
         matrix.insert(0, 1, "edge");
         assert_eq!(matrix.remove(0, 1), Some("edge"));
         assert_eq!(matrix.get(0, 1), None);
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_entries() {
-        let mut matrix = AsymmetricHashAdjacencyMatrix::new();
+        let mut matrix = AsymmetricHashAdjacencyMatrix::<i32, &str>::new();
         matrix.insert(0, 1, "a");
         matrix.insert(1, 0, "b");
         let entries: Vec<_> = matrix.iter().collect();
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_entries_in_row() {
-        let mut matrix = AsymmetricHashAdjacencyMatrix::new();
+        let mut matrix = AsymmetricHashAdjacencyMatrix::<i32, &str>::new();
         matrix.insert(0, 1, "a");
         matrix.insert(0, 2, "b");
         matrix.insert(1, 2, "c");
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_entries_in_col() {
-        let mut matrix = AsymmetricHashAdjacencyMatrix::new();
+        let mut matrix = AsymmetricHashAdjacencyMatrix::<i32, &str>::new();
         matrix.insert(0, 0, "a");
         assert_eq!(matrix.get(0, 0), Some(&"a"));
         matrix.insert(1, 0, "b");
