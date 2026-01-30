@@ -59,17 +59,17 @@ where
 /// implementations of this trait implement the following methods that have
 /// default implementions:
 ///
-/// - [`Self::is_maybe_valid_node_id`]
-/// - [`Self::is_maybe_valid_edge_id`]
+/// - [`Self::maybe_check_valid_node_id`]
+/// - [`Self::maybe_check_valid_edge_id`]
 //
 /// For the sake of performance, it is recommended that implementations of this
 /// trait implement the following methods that have default implementions with a
-/// more efficient implementation that calls [`Self::check_node_id`] or
-/// [`Self::check_edge_id`], either directly or indirectly at the start of the
+/// more efficient implementation that calls [`Self::maybe_check_valid_node_id`] or
+/// [`Self::maybe_check_valid_edge_id`], either directly or indirectly at the start of the
 /// method:
 ///
-/// - [`Self::is_valid_node_id`]
-/// - [`Self::is_valid_edge_id`]
+/// - [`Self::check_valid_node_id`]
+/// - [`Self::check_valid_edge_id`]
 /// - [`Self::edges_from`]
 /// - [`Self::edges_into`]
 /// - [`Self::num_edges_from`]
@@ -137,8 +137,8 @@ pub trait Graph: Sized {
         Ok(())
     }
 
-    /// Panics if the given NodeId is not valid in the graph, accordinging to
-    /// [`Self::is_valid_node_id`].
+    /// Panics if the given NodeId is not valid in the graph, according to
+    /// [`Self::maybe_check_valid_node_id`].
     ///
     /// It is recommended to call this method from implementations of other methods
     /// that take NodeIds as parameters, to ensure that invalid NodeIds are
@@ -149,8 +149,8 @@ pub trait Graph: Sized {
         }
     }
 
-    /// Panics if the given NodeId is not valid in the graph, accordinging to
-    /// [`Self::is_maybe_valid_node_id`], but only in debug builds.
+    /// Panics if the given NodeId is not valid in the graph, according to
+    /// [`Self::maybe_check_valid_node_id`], but only in debug builds.
     fn debug_assert_valid_node_id(&self, id: &Self::NodeId) {
         #[cfg(debug_assertions)]
         if let Err(reason) = self.maybe_check_valid_node_id(id) {
@@ -211,8 +211,8 @@ pub trait Graph: Sized {
         Ok(())
     }
 
-    /// Panics if the given EdgeId is not valid in the graph, accordinging to
-    /// [`Self::is_valid_edge_id`].
+    /// Panics if the given EdgeId is not valid in the graph, according to
+    /// [`Self::maybe_check_valid_edge_id`].
     ///
     /// It is recommended to call this method from implementations of other methods
     /// that take EdgeIds as parameters, to ensure that invalid EdgeIds are
@@ -223,8 +223,8 @@ pub trait Graph: Sized {
         }
     }
 
-    /// Panics if the given EdgeId is not valid in the graph, accordinging to
-    /// [`Self::is_maybe_valid_edge_id`], but only in debug builds.
+    /// Panics if the given EdgeId is not valid in the graph, according to
+    /// [`Self::maybe_check_valid_edge_id`], but only in debug builds.
     fn debug_assert_valid_edge_id(&self, id: &Self::EdgeId) {
         #[cfg(debug_assertions)]
         if let Err(reason) = self.maybe_check_valid_edge_id(id) {

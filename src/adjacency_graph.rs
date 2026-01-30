@@ -132,8 +132,8 @@ mod ids {
 /// # Type Parameters
 /// * `N` - The type of data stored in nodes
 /// * `E` - The type of data stored in edges
-/// * `D` - The directedness ([`Directed`](crate::Directed) or [`Undirected`](crate::Undirected))
-/// * `S` - The storage type ([`HashStorage`](crate::adjacency_matrix::HashStorage) or [`BitvecStorage`](crate::adjacency_matrix::BitvecStorage))
+/// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
+/// * `S` - The storage type ([`HashStorage`] or [`BitvecStorage`](crate::adjacency_matrix::BitvecStorage))
 pub struct AdjacencyGraph<N, E, D = Directed, S = HashStorage>
 where
     D: Directedness,
