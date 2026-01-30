@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut matrix = AsymmetricHashAdjacencyMatrix::<i32, &str>::new();
+        let mut matrix = AsymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "edge");
         assert_eq!(matrix.remove(0, 1), Some("edge"));
         assert_eq!(matrix.get(0, 1), None);
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_entries() {
-        let mut matrix = AsymmetricHashAdjacencyMatrix::<i32, &str>::new();
+        let mut matrix = AsymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "a");
         matrix.insert(1, 0, "b");
         let entries: Vec<_> = matrix.iter().collect();
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_entries_in_row() {
-        let mut matrix = AsymmetricHashAdjacencyMatrix::<i32, &str>::new();
+        let mut matrix = AsymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "a");
         matrix.insert(0, 2, "b");
         matrix.insert(1, 2, "c");
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_entries_in_col() {
-        let mut matrix = AsymmetricHashAdjacencyMatrix::<i32, &str>::new();
+        let mut matrix = AsymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 0, "a");
         assert_eq!(matrix.get(0, 0), Some(&"a"));
         matrix.insert(1, 0, "b");

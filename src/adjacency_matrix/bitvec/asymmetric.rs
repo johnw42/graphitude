@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_insert_and_get() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, i32>::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         assert_eq!(matrix.insert(0, 1, 42), None);
         assert_eq!(matrix.get(0, 1), Some(&42));
         assert_eq!(matrix.get(1, 0), None);
@@ -210,14 +210,14 @@ mod tests {
 
     #[test]
     fn test_insert_duplicate() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         assert_eq!(matrix.insert(0, 1, ()), None);
         assert_eq!(matrix.insert(0, 1, ()), Some(()));
     }
 
     #[test]
     fn test_remove() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
         assert_eq!(matrix.remove(0, 1), Some(()));
         assert_eq!(matrix.get(0, 1), None);
@@ -225,7 +225,7 @@ mod tests {
 
     #[test]
     fn test_edges() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
         matrix.insert(2, 3, ());
         let edges: Vec<_> = matrix.iter().collect();
@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_edges_from() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, ());
         matrix.insert(0, 3, ());
         let edges: Vec<_> = matrix.entries_in_row(0).collect();
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_edges_into() {
-        let mut matrix = AsymmetricBitvecAdjacencyMatrix::<usize, &str>::new();
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 1, "A");
         assert_eq!(matrix.get(0, 1), Some(&"A"));
         matrix.insert(1, 1, "B");

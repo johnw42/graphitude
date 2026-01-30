@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_matrix_insert_and_get() {
-        let mut matrix = SymmetricHashAdjacencyMatrix::<i32, &str>::new();
+        let mut matrix = SymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 0, "a");
         assert_eq!(matrix.get(0, 0), Some(&"a"));
         matrix.insert(1, 0, "b");
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut matrix = SymmetricHashAdjacencyMatrix::<i32, &str>::new();
+        let mut matrix = SymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "edge");
         assert_eq!(matrix.remove(1, 0), Some("edge"));
         assert_eq!(matrix.get(0, 1), None);
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_entry_at() {
-        let mut matrix = SymmetricHashAdjacencyMatrix::<i32, &str>::new();
+        let mut matrix = SymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "edge");
         let entry = matrix.entry_at(0, 0);
         assert_eq!(entry, None);
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn test_entries_in_row() {
-        let mut matrix = SymmetricHashAdjacencyMatrix::<i32, &str>::new();
+        let mut matrix = SymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "a");
         matrix.insert(0, 2, "b");
         matrix.insert(1, 2, "c");
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_entries_in_col() {
-        let mut matrix = SymmetricHashAdjacencyMatrix::<i32, &str>::new();
+        let mut matrix = SymmetricHashAdjacencyMatrix::new();
         matrix.insert(0, 1, "a");
         matrix.insert(2, 0, "b");
         let entries: Vec<_> = matrix.entries_in_col(0).collect();

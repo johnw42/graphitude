@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn test_entries_in_col() {
-        let mut matrix = SymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
         matrix.insert(0, 2, ());
         matrix.insert(1, 2, ());
         matrix.insert(3, 3, ());
@@ -293,7 +293,7 @@ mod tests {
 
     #[test]
     fn test_remove_nonexistent() {
-        let mut matrix = SymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::<_, ()>::new();
         assert_eq!(matrix.remove(0, 1), None);
     }
 
