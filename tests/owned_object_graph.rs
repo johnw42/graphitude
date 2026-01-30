@@ -207,7 +207,7 @@ fn test_shortest_paths() {
 
     fn values<'a, F: for<'b> Fn(&'b Node<'a>) -> Vec<&'b Node<'a>>>(
         graph: &OwnedObjectGraph<Node<'a>, F>,
-        path: &jrw_graph::path::Path<NodeId<Node<'a>>, EdgeId<Node<'a>>, Directed>,
+        path: &jrw_graph::path::Path<EdgeId<Node<'a>>>,
     ) -> Vec<i32> {
         path.nodes().map(|nid| graph.node_data(nid).value).collect()
     }

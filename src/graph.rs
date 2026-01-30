@@ -97,10 +97,7 @@ pub trait Graph: Sized {
     /// Creates a new path starting from the given starting node.  This is a
     /// convenience method to avoid having to import the `Path` type separately
     /// and specify its type argument explicity.
-    fn new_path(
-        &self,
-        start: Self::NodeId,
-    ) -> Path<Self::NodeId, Self::EdgeId, Self::Directedness> {
+    fn new_path(&self, start: Self::NodeId) -> Path<Self::EdgeId> {
         Path::new(start)
     }
 
@@ -332,7 +329,7 @@ pub trait Graph: Sized {
         &self,
         start: Self::NodeId,
         distance_fn: impl Fn(&Self::EdgeId) -> C,
-    ) -> HashMap<Self::NodeId, (Path<Self::NodeId, Self::EdgeId, Self::Directedness>, C)> {
+    ) -> HashMap<Self::NodeId, (Path<Self::EdgeId>, C)> {
         // Find shortest paths using Dijkstra's algorithm.
         let mut distances: HashMap<Self::NodeId, C> = HashMap::new();
         let mut predecessors: HashMap<Self::NodeId, (Self::EdgeId, Self::NodeId)> = HashMap::new();
@@ -374,10 +371,7 @@ pub trait Graph: Sized {
         }
 
         // Build paths from predecessors
-        let mut result: HashMap<
-            <Self as Graph>::NodeId,
-            (Path<Self::NodeId, Self::EdgeId, Self::Directedness>, C),
-        > = HashMap::new();
+        let mut result: HashMap<<Self as Graph>::NodeId, (Path<Self::EdgeId>, C)> = HashMap::new();
         for (node, &dist) in &distances {
             if node == &start {
                 result.insert(start.clone(), (Path::new(start.clone()), C::default()));
