@@ -5,6 +5,10 @@ use std::{
 
 use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, HashStorage};
 
+/// Hash-based asymmetric adjacency matrix for directed graphs.
+///
+/// Stores separate forward and backward edge indices for efficient traversal
+/// in both directions.
 #[derive(Clone, Debug)]
 pub struct AsymmetricHashAdjacencyMatrix<K, V> {
     edges: HashMap<K, HashMap<K, V>>,

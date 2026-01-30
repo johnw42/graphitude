@@ -1,11 +1,14 @@
-// Calculates the nth triangular number, the sum of 1..n, also the number of
-// edges in a complete graph of n nodes.
+/// Calculates the nth triangular number.
+///
+/// The triangular number T(n) = 1 + 2 + ... + n = n(n+1)/2.
+/// This is also equal to the number of edges in a complete undirected graph of n nodes.
 pub fn triangular(n: usize) -> usize {
     (n * (n + 1)) / 2
 }
 
-// Inverse of the triangular number function, returning the largest n such that
-// triangular(n) <= k.
+/// Inverse of the triangular number function.
+///
+/// Returns the largest n such that `triangular(n) <= k`.
 pub fn triangular_inv_floor(k: usize) -> usize {
     // n(n + 1) / 2 = k
     // n(n + 1) = 2k

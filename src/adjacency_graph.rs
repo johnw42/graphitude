@@ -1,6 +1,7 @@
 #![cfg(feature = "bitvec")]
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
+/// Node and edge ID types for adjacency graphs.
 pub use self::ids::{EdgeId, NodeId};
 use crate::{
     AdjacencyMatrix, Directed, Graph, GraphMut,
@@ -119,6 +120,20 @@ mod ids {
     }
 }
 
+/// A graph implementation using an adjacency matrix for edge storage.
+///
+/// This graph stores nodes in a contiguous vector and uses an adjacency matrix
+/// to track edges. The matrix implementation can be selected via the `S` (storage)
+/// type parameter, supporting either hash-based or bitvec-based storage.
+///
+/// Multiple edges between the same pair of nodes are not supported; adding an edge
+/// between two nodes that already have an edge will replace the existing edge's data.
+///
+/// # Type Parameters
+/// * `N` - The type of data stored in nodes
+/// * `E` - The type of data stored in edges
+/// * `D` - The directedness ([`Directed`](crate::Directed) or [`Undirected`](crate::Undirected))
+/// * `S` - The storage type ([`HashStorage`](crate::adjacency_matrix::HashStorage) or [`BitvecStorage`](crate::adjacency_matrix::BitvecStorage))
 pub struct AdjacencyGraph<N, E, D = Directed, S = HashStorage>
 where
     D: Directedness,

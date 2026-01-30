@@ -9,9 +9,16 @@ use crate::{
     adjacency_matrix::{Asymmetric, Symmetric, Symmetry},
 };
 
+/// Marker type representing directed graph edges.
 pub struct Directed;
+
+/// Marker type representing undirected graph edges.
 pub struct Undirected;
 
+/// Trait defining the directedness behavior of graph edges.
+///
+/// This trait is implemented by [`Directed`] and [`Undirected`] marker types
+/// to provide compile-time specialization of graph behavior.
 pub trait Directedness {
     #[cfg(feature = "bitvec")]
     type Symmetry: Symmetry;

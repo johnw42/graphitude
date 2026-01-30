@@ -98,6 +98,9 @@ where
     }
 }
 
+/// Formats a graph for debug output with automatic node numbering.
+///
+/// Nodes are labeled with sequential numbers (0, 1, 2, ...) and both node and edge data are displayed.
 pub fn format_debug<'g, G>(graph: &'g G, fmt: &mut Formatter<'_>, name: &str) -> std::fmt::Result
 where
     G: Graph,
@@ -119,6 +122,15 @@ where
     )
 }
 
+/// Formats a graph for debug output with customizable node labels and data visibility.
+///
+/// # Arguments
+/// * `graph` - The graph to format
+/// * `fmt` - The formatter to write to
+/// * `name` - The name to display for the graph type
+/// * `node_tag` - A function to generate labels for node IDs
+/// * `show_edge_data` - Whether to display edge data
+/// * `show_node_data` - Whether to display node data
 pub fn format_debug_with<'g, G>(
     graph: &'g G,
     fmt: &mut Formatter<'_>,

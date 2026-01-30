@@ -12,6 +12,9 @@ struct Node<N, E> {
     edges_in: Vec<EdgeId<N, E>>,
 }
 
+/// Node identifier for [`LinkedGraph`].
+///
+/// Contains a weak pointer to the node data and a graph ID for safety checks.
 pub struct NodeId<N, E> {
     ptr: Weak<Node<N, E>>,
     graph_id: GraphId,
@@ -67,6 +70,9 @@ struct Edge<N, E> {
     into: NodeId<N, E>,
 }
 
+/// Edge identifier for [`LinkedGraph`].
+///
+/// Contains a weak pointer to the edge data and a graph ID for safety checks.
 pub struct EdgeId<N, E> {
     ptr: Weak<Edge<N, E>>,
     graph_id: GraphId,

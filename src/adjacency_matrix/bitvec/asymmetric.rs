@@ -4,6 +4,11 @@ use bitvec::vec::BitVec;
 
 use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, BitvecStorage};
 
+/// Bitvec-based asymmetric adjacency matrix for directed graphs.
+///
+/// Uses a dense square matrix representation with a bitvec to track which entries exist.
+/// Automatically resizes to the next power of two for efficient indexing.
+/// Requires keys that can be converted to/from usize indices.
 pub struct AsymmetricBitvecAdjacencyMatrix<K, V> {
     data: Vec<MaybeUninit<V>>,
     matrix: BitVec,
@@ -262,8 +267,20 @@ mod tests {
         matrix.insert(1, 0, "C");
         let entries: Vec<_> = matrix.into_iter().collect();
         assert_eq!(entries.len(), 3);
-        assert!(entries.iter().any(|(row, col, val)| *row == 0 && *col == 1 && *val == "A"));
-        assert!(entries.iter().any(|(row, col, val)| *row == 2 && *col == 3 && *val == "B"));
-        assert!(entries.iter().any(|(row, col, val)| *row == 1 && *col == 0 && *val == "C"));
+        assert!(
+            entries
+                .iter()
+                .any(|(row, col, val)| *row == 0 && *col == 1 && *val == "A")
+        );
+        assert!(
+            entries
+                .iter()
+                .any(|(row, col, val)| *row == 2 && *col == 3 && *val == "B")
+        );
+        assert!(
+            entries
+                .iter()
+                .any(|(row, col, val)| *row == 1 && *col == 0 && *val == "C")
+        );
     }
 }

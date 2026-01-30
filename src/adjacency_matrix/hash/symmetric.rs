@@ -6,6 +6,10 @@ use crate::util::sort_pair;
 
 use crate::adjacency_matrix::{AdjacencyMatrix, HashStorage, Symmetric};
 
+/// Hash-based symmetric adjacency matrix for undirected graphs.
+///
+/// Stores only one entry per edge pair (row, col) where row <= col, saving memory
+/// for undirected graphs. Lookups work for both (row, col) and (col, row).
 #[derive(Clone, Debug)]
 pub struct SymmetricHashAdjacencyMatrix<K, V>
 where

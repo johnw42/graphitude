@@ -4,6 +4,10 @@ use super::{EdgeId, Graph};
 
 const DEFAULT_HASH_SET_CAPACITY: usize = 64;
 
+/// Iterator for breadth-first search traversal of a graph.
+///
+/// Visits nodes in breadth-first order starting from one or more root nodes.
+/// Each node is visited at most once.
 pub struct BfsIterator<'g, G: Graph> {
     graph: &'g G,
     visited: HashSet<G::NodeId>,
@@ -47,6 +51,10 @@ where
     }
 }
 
+/// Iterator for breadth-first search traversal that yields paths to each node.
+///
+/// Visits nodes in breadth-first order and yields the path from a root to each visited node.
+/// Each node is visited at most once, and the first path found is returned.
 pub struct BfsIteratorWithPaths<'g, G: Graph> {
     graph: &'g G,
     visited: HashSet<G::NodeId>,
@@ -91,6 +99,10 @@ where
     }
 }
 
+/// Iterator for depth-first search traversal of a graph.
+///
+/// Visits nodes in depth-first order starting from one or more root nodes.
+/// Each node is visited at most once.
 pub struct DfsIterator<'g, G: Graph> {
     graph: &'g G,
     visited: HashSet<G::NodeId>,
@@ -131,6 +143,10 @@ where
     }
 }
 
+/// Iterator for depth-first search traversal that yields paths to each node.
+///
+/// Visits nodes in depth-first order and yields the path from a root to each visited node.
+/// Each node is visited at most once, and the first path found is returned.
 pub struct DfsIteratorWithPaths<'g, G: Graph> {
     graph: &'g G,
     visited: HashSet<G::NodeId>,

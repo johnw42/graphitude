@@ -16,8 +16,10 @@ use crate::{
     search::{BfsIterator, DfsIterator},
 };
 
+/// A trait representing a node identifier in a graph.
 pub trait NodeId: Eq + Hash + Clone + Debug {}
 
+/// A trait representing an edge identifier in a graph.
 pub trait EdgeId<N>: Eq + Hash + Clone + Debug
 where
     N: Eq + Debug,
@@ -264,14 +266,17 @@ pub trait Graph: Sized {
         self.edges_between(from, into).into_iter().count()
     }
 
+    /// Checks if there is at least one edge from one node to another.
     fn has_edge(&self, from: Self::NodeId, into: Self::NodeId) -> bool {
         self.edges_between(from, into).next().is_some()
     }
 
+    /// Checks if there is at least one outgoing edge from the given node.
     fn has_edge_from(&self, from: Self::NodeId) -> bool {
         self.edges_from(from).next().is_some()
     }
 
+    /// Checks if there is at least one incoming edge to the given node.
     fn has_edge_into(&self, into: Self::NodeId) -> bool {
         self.edges_into(into).next().is_some()
     }
@@ -286,27 +291,14 @@ pub trait Graph: Sized {
         self.edge_ids().count()
     }
 
+    /// Gets the number of incoming edges to a given node.
     fn num_edges_into(&self, into: Self::NodeId) -> usize {
         self.edges_into(into).into_iter().count()
     }
 
+    /// Gets the number of outgoing edges from a given node.
     fn num_edges_from(&self, from: Self::NodeId) -> usize {
         self.edges_from(from).into_iter().count()
-    }
-
-    /// Given an edge and one of its endpoint nodes, returns the other
-    /// endpoint node.  Returns `None` if the edge is a self-loop.  Panics if
-    /// the given node is not an endpoint of the edge.
-    fn other_end(&self, edge: Self::EdgeId, node: Self::NodeId) -> Option<Self::NodeId> {
-        let (source, target) = (edge.source(), edge.target());
-        if source == node {
-            Some(target)
-        } else if target == node {
-            Some(source)
-        } else {
-            assert_eq!(source, target); // self-loop
-            None
-        }
     }
 
     // Searches
@@ -412,6 +404,10 @@ pub trait GraphUndirected: Graph {
 
 impl<G> GraphUndirected for G where G: Graph<Directedness = Undirected> {}
 
+/// A trait for graphs that support mutation operations.
+///
+/// This trait extends [`Graph`] with methods for adding and removing nodes and edges.
+/// All graph implementations that support modification should implement this trait.
 pub trait GraphMut: Graph {
     /// Creates a new, empty graph.
     fn new() -> Self;

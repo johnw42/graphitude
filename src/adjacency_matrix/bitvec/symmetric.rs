@@ -11,6 +11,11 @@ use crate::util::sort_pair;
 
 use crate::adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric};
 
+/// Bitvec-based symmetric adjacency matrix for undirected graphs.
+///
+/// Uses a packed triangular matrix representation where only the upper triangle
+/// is stored, providing memory-efficient storage for undirected graphs.
+/// Requires keys that can be converted to/from usize indices.
 pub struct SymmetricBitvecAdjacencyMatrix<K, V> {
     data: Vec<MaybeUninit<V>>,
     liveness: BitVec,

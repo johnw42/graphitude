@@ -6,7 +6,10 @@ use crate::{
     SymmetricHashAdjacencyMatrix,
 };
 
+/// Bitvec-based adjacency matrix implementations.
 pub mod bitvec;
+
+/// Hash-based adjacency matrix implementations.
 pub mod hash;
 
 pub(crate) trait CompactionCount: Eq + Clone + Copy + Default {
@@ -25,9 +28,15 @@ impl CompactionCount for usize {
     }
 }
 
+/// Marker type for bitvec-based adjacency matrix storage.
 pub struct BitvecStorage;
+
+/// Marker type for hash-based adjacency matrix storage.
 pub struct HashStorage;
 
+/// Trait defining storage backend behavior for adjacency matrices.
+///
+/// Implemented by [`BitvecStorage`] and [`HashStorage`] marker types.
 pub trait Storage {
     #[allow(private_bounds)]
     type CompactionCount: CompactionCount;
@@ -44,13 +53,23 @@ impl Storage for HashStorage {
     type CompactionCount = ();
 }
 
+/// Marker type for symmetric adjacency matrices.
 pub struct Symmetric;
+
+/// Marker type for asymmetric (directed) adjacency matrices.
 pub struct Asymmetric;
 
+/// Trait for matrix symmetry types.
+///
+/// Implemented by [`Symmetric`] and [`Asymmetric`] marker types.
 pub trait Symmetry {}
 impl Symmetry for Symmetric {}
 impl Symmetry for Asymmetric {}
 
+/// Trait for adjacency matrix data structures.
+///
+/// Provides methods for inserting, removing, and querying entries in an adjacency matrix.
+/// Supports both symmetric (undirected) and asymmetric (directed) matrix implementations.
 pub trait AdjacencyMatrix
 where
     Self: Sized,
@@ -151,6 +170,9 @@ where
 }
 
 /// Trait for selecting an adjacency matrix implementation based on symmetry and storage.
+///
+/// This trait maps combinations of [`Symmetry`] and [`Storage`] types to concrete
+/// adjacency matrix implementations.
 pub trait AdjacencyMatrixSelector<K, V>
 where
     K: Hash + Eq + Clone,
@@ -188,5 +210,12 @@ where
     type Matrix = AsymmetricHashAdjacencyMatrix<K, V>;
 }
 
-// Helper type alias for convenient usage
+/// Type alias for selecting an adjacency matrix implementation.
+///
+/// Resolves to the appropriate matrix type based on the symmetry and storage parameters.
+/// # Type Parameters
+/// * `Sym` - The symmetry type ([`Symmetric`] or [`Asymmetric`])
+/// * `Stor` - The storage type ([`BitvecStorage`] or [`HashStorage`])
+/// * `K` - The key/index type
+/// * `V` - The value type
 pub type SelectMatrix<Sym, Stor, K, V> = <(Sym, Stor) as AdjacencyMatrixSelector<K, V>>::Matrix;

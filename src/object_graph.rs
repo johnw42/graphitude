@@ -4,6 +4,9 @@ use crate::directedness::Directed;
 
 use super::Graph;
 
+/// Node identifier for [`ObjectGraph`].
+///
+/// Contains a raw pointer to the node data with a lifetime tied to the graph.
 pub struct NodeId<'g, N>(*const N, PhantomData<&'g N>);
 
 impl<'g, N> PartialEq for NodeId<'g, N> {
@@ -42,6 +45,9 @@ impl<'a, N> From<&'a N> for NodeId<'a, N> {
     }
 }
 
+/// Edge identifier for [`ObjectGraph`].
+///
+/// Represented as a tuple of source and target node IDs.
 pub type EdgeId<'g, N> = (NodeId<'g, N>, NodeId<'g, N>);
 
 /// A graph representation for traversing object graphs using a user-provided neighbor function.

@@ -2,6 +2,9 @@ use std::marker::PhantomData;
 
 use crate::Graph;
 
+/// State tracker for generating sequential test data.
+///
+/// Maintains counters for nodes and edges to ensure unique test data generation.
 pub struct BuilderState {
     v: usize,
     e: usize,
@@ -35,6 +38,9 @@ pub trait TestDataBuilder {
     fn new_node_data(i: usize) -> <Self::Graph as Graph>::NodeData;
 }
 
+/// Internal implementation of test data builder.
+///
+/// This type should not be used directly; use the test macros instead.
 pub struct InternalBuilderImpl<G>(BuilderState, PhantomData<G>);
 
 impl<G> InternalBuilderImpl<G>
