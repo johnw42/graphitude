@@ -103,7 +103,9 @@ mod ids {
         }
     }
 
-    impl<S: Storage> crate::graph::EdgeId<NodeId<S>> for EdgeId<S> {
+    impl<S: Storage> crate::graph::EdgeId for EdgeId<S> {
+        type NodeId = NodeId<S>;
+
         fn source(&self) -> NodeId<S> {
             NodeId::new(self.payload.0, self.graph_id, self.compaction_count)
         }

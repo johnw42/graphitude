@@ -18,7 +18,9 @@ impl NodeIdTrait for NodeId {}
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 struct EdgeId(NodeId, NodeId);
 
-impl EdgeIdTrait<NodeId> for EdgeId {
+impl EdgeIdTrait for EdgeId {
+    type NodeId = NodeId;
+
     fn source(&self) -> NodeId {
         self.0
     }

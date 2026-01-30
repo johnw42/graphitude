@@ -16,25 +16,24 @@ use crate::{
 pub trait NodeId: Eq + Hash + Clone + Debug {}
 
 /// A trait representing an edge identifier in a graph.
-pub trait EdgeId<N>: Eq + Hash + Clone + Debug
-where
-    N: NodeId,
-{
+pub trait EdgeId: Eq + Hash + Clone + Debug {
+    type NodeId: NodeId;
+
     /// Gets the source node of the edge.
-    fn source(&self) -> N;
+    fn source(&self) -> Self::NodeId;
 
     /// Gets the target node of the edge.
-    fn target(&self) -> N;
+    fn target(&self) -> Self::NodeId;
 
     /// Gets both ends of the edge as a tuple (source, target).
-    fn ends(&self) -> (N, N) {
+    fn ends(&self) -> (Self::NodeId, Self::NodeId) {
         (self.source(), self.target())
     }
 
     /// Given one end of the edge, returns the other end.  Returns `None` if the
     /// edge is a self-loop.  Panics if the given node is not an endpoint of the
     /// edge.
-    fn other_end(&self, node_id: N) -> Option<N> {
+    fn other_end(&self, node_id: Self::NodeId) -> Option<Self::NodeId> {
         let (source, target) = self.ends();
         if source == node_id {
             Some(target)
@@ -76,7 +75,7 @@ pub trait Graph: Sized {
     type NodeData;
     type NodeId: NodeId;
     type EdgeData;
-    type EdgeId: EdgeId<Self::NodeId>;
+    type EdgeId: EdgeId<NodeId = Self::NodeId>;
     type Directedness: Directedness;
 
     /// Returns true if the graph is directed.

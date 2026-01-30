@@ -13,7 +13,7 @@ pub struct Path<N, E, D> {
 impl<N, E, D> Path<N, E, D>
 where
     N: NodeId,
-    E: EdgeId<N>,
+    E: EdgeId<NodeId = N>,
     D: Directedness,
 {
     /// Creates a new path starting at the given node.
@@ -131,7 +131,7 @@ where
 impl<N, E, D> Clone for Path<N, E, D>
 where
     N: NodeId,
-    E: EdgeId<N> + Clone,
+    E: EdgeId<NodeId = N> + Clone,
     D: Directedness,
 {
     fn clone(&self) -> Self {
@@ -174,7 +174,7 @@ where
 impl<N, E, D> PartialOrd for Path<N, E, D>
 where
     N: NodeId,
-    E: EdgeId<N>,
+    E: EdgeId<NodeId = N>,
     D: Directedness,
 {
     /// A path is "less than" another path if its last node matches the
@@ -197,7 +197,7 @@ where
 impl<N, E, D> Extend<E> for Path<N, E, D>
 where
     N: NodeId,
-    E: EdgeId<N>,
+    E: EdgeId<NodeId = N>,
     D: Directedness,
 {
     fn extend<T: IntoIterator<Item = E>>(&mut self, iter: T) {

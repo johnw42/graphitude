@@ -65,7 +65,9 @@ impl<N> Hash for EdgeId<N> {
     }
 }
 
-impl<N> EdgeIdTrait<NodeId<N>> for EdgeId<N> {
+impl<N> EdgeIdTrait for EdgeId<N> {
+    type NodeId = NodeId<N>;
+
     fn source(&self) -> NodeId<N> {
         self.0
     }
