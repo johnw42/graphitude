@@ -1,3 +1,5 @@
+#[cfg(feature = "pathfinding")]
+use std::ops::Add;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
@@ -22,7 +24,7 @@ pub trait NodeId: Eq + Hash + Clone + Debug {}
 /// A trait representing an edge identifier in a graph.
 pub trait EdgeId<N>: Eq + Hash + Clone + Debug
 where
-    N: Eq + Debug,
+    N: NodeId,
 {
     /// Gets the source node of the edge.
     fn source(&self) -> N;
@@ -329,7 +331,7 @@ pub trait Graph: Sized {
     /// Dijkstra's algorithm.  Returns a map from each reachable node to a
     /// tuple of the path taken and the total cost.
     #[cfg(feature = "pathfinding")]
-    fn shortest_paths<C: Zero + Ord + Copy>(
+    fn shortest_paths<C: Default + Ord + Copy + Add<Output = C>>(
         &self,
         start: Self::NodeId,
         cost_fn: impl Fn(&Self::EdgeId) -> C,
@@ -345,7 +347,7 @@ pub trait Graph: Sized {
                     .collect();
                 r
             });
-        once((start.clone(), (vec![start], C::zero())))
+        once((start.clone(), (vec![start], C::default())))
             .chain(
                 parents
                     .iter()
