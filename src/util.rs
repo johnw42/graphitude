@@ -29,3 +29,44 @@ impl Debug for FormatDebugAs {
         write!(f, "{}", self.0)
     }
 }
+
+/// Result type for [`other_value`] indicating which of two values is "other" than a target value.
+pub enum OtherValue<T> {
+    /// The first value is the "other" one (target matched the second value).
+    First(T),
+    /// The second value is the "other" one (target matched the first value).
+    Second(T),
+    /// Both values are the same as the target (all three are equal).
+    Both(T),
+}
+
+/// Given two values and a target value, determines which of the two values is
+/// the "other" one (i.e., not equal to the target).
+///
+/// # Panics
+///
+/// Panics if the target doesn't match either of the two values.
+///
+/// # Examples
+///
+/// ```
+/// use graphitude::util::{other_value, OtherValue};
+///
+/// match other_value((1, 2), 1) {
+///     OtherValue::Second(n) => assert_eq!(n, 2),
+///     _ => panic!("Expected Second"),
+/// }
+/// ```
+pub fn other_value<T: Eq + Debug>((a, b): (T, T), value: T) -> OtherValue<T> {
+    if a == value {
+        if b == value {
+            OtherValue::Both(b)
+        } else {
+            OtherValue::Second(b)
+        }
+    } else if b == value {
+        OtherValue::First(a)
+    } else {
+        panic!("Value {:?} doesn't match either {:?} or {:?}", value, a, b);
+    }
+}

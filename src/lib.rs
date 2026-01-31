@@ -48,6 +48,7 @@ pub use graph::{EdgeId, Graph, GraphDirected, GraphMut, GraphUndirected, NodeId}
 pub use linked_graph::LinkedGraph;
 pub use mapping_result::MappingResult;
 pub use tests::TestDataBuilder;
+pub use unordered_pair::UnorderedPair;
 
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{

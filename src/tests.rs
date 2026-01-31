@@ -102,14 +102,65 @@ macro_rules! graph_tests {
             let e1 = graph.add_edge(n1.clone(), n2.clone(), ed1.clone());
             let e2 = graph.add_edge(n2.clone(), n3.clone(), ed2.clone());
 
-            assert_eq!(
-                graph
-                    .edges_from(n1)
-                    .into_iter()
-                    .map(|edge_id| edge_id.target())
-                    .collect::<Vec<_>>(),
-                vec![n2.clone()]
-            );
+            // Check edges_from and num_edges_from for each node
+            if graph.is_directed() {
+                assert_eq!(graph.num_edges_from(n1.clone()), 1);
+                assert_eq!(graph.num_edges_from(n2.clone()), 1);
+                assert_eq!(graph.num_edges_from(n3.clone()), 0);
+                assert_eq!(
+                    graph
+                        .edges_from(n1.clone())
+                        .into_iter()
+                        .map(|edge_id| edge_id.target())
+                        .collect::<Vec<_>>(),
+                    vec![n2.clone()]
+                );
+                assert_eq!(
+                    graph
+                        .edges_from(n2.clone())
+                        .into_iter()
+                        .map(|edge_id| edge_id.target())
+                        .collect::<Vec<_>>(),
+                    vec![n3.clone()]
+                );
+            } else {
+                // For undirected: n1-n2, n2-n3
+                assert_eq!(graph.num_edges_from(n1.clone()), 1);
+                assert_eq!(graph.num_edges_from(n2.clone()), 2); // n2 connects to both n1 and n3
+                assert_eq!(graph.num_edges_from(n3.clone()), 1);
+            }
+
+            // Check edges_into and num_edges_into for each node
+            if graph.is_directed() {
+                assert_eq!(graph.num_edges_into(n1.clone()), 0);
+                assert_eq!(graph.num_edges_into(n2.clone()), 1);
+                assert_eq!(graph.num_edges_into(n3.clone()), 1);
+                assert_eq!(
+                    graph.edges_into(n2.clone()).collect::<HashSet<_>>(),
+                    HashSet::from([e1.clone()])
+                );
+                assert_eq!(
+                    graph.edges_into(n3.clone()).collect::<HashSet<_>>(),
+                    HashSet::from([e2.clone()])
+                );
+            } else {
+                // For undirected graphs, edges_into should equal edges_from
+                assert_eq!(graph.num_edges_into(n1.clone()), 1);
+                assert_eq!(graph.num_edges_into(n2.clone()), 2);
+                assert_eq!(graph.num_edges_into(n3.clone()), 1);
+                assert_eq!(
+                    graph.edges_into(n1.clone()).collect::<HashSet<_>>(),
+                    HashSet::from([e1.clone()])
+                );
+                assert_eq!(
+                    graph.edges_into(n2.clone()).collect::<HashSet<_>>(),
+                    HashSet::from([e1.clone(), e2.clone()])
+                );
+                assert_eq!(
+                    graph.edges_into(n3.clone()).collect::<HashSet<_>>(),
+                    HashSet::from([e2.clone()])
+                );
+            }
 
             assert_eq!(graph.edge_data(e1.clone()), (&ed1));
             assert_eq!(graph.edge_data(e2.clone()), (&ed2));
@@ -213,33 +264,54 @@ macro_rules! graph_tests {
             let e3 = graph.add_edge(n1.clone(), n3.clone(), builder.new_edge_data());
             let e4 = graph.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
 
+            // Check edges_from for all nodes
             assert_eq!(
                 graph.edges_from(n0.clone()).collect::<HashSet<_>>(),
                 HashSet::from([e0.clone(), e1.clone()])
             );
+            assert_eq!(graph.num_edges_from(n0.clone()), 2);
+
             if graph.is_directed() {
                 assert_eq!(
                     graph.edges_from(n1.clone()).collect::<HashSet<_>>(),
                     HashSet::from([e2.clone(), e3.clone()])
                 );
+                assert_eq!(graph.num_edges_from(n1.clone()), 2);
                 assert_eq!(
                     graph.edges_from(n2.clone()).collect::<HashSet<_>>(),
                     HashSet::from([e4.clone()])
                 );
-                assert_eq!(graph.edges_from(n3.clone()).count(), 0,);
+                assert_eq!(graph.num_edges_from(n2.clone()), 1);
+                assert_eq!(graph.edges_from(n3.clone()).count(), 0);
+                assert_eq!(graph.num_edges_from(n3.clone()), 0);
+
+                // Check edges_into for directed graphs
+                assert_eq!(graph.num_edges_into(n0.clone()), 0);
+                assert_eq!(graph.num_edges_into(n1.clone()), 1);
+                assert_eq!(graph.num_edges_into(n2.clone()), 2);
+                assert_eq!(graph.num_edges_into(n3.clone()), 2);
             } else {
                 assert_eq!(
                     graph.edges_from(n1.clone()).collect::<HashSet<_>>(),
                     HashSet::from([e0.clone(), e2.clone(), e3.clone()])
                 );
+                assert_eq!(graph.num_edges_from(n1.clone()), 3);
                 assert_eq!(
                     graph.edges_from(n2.clone()).collect::<HashSet<_>>(),
                     HashSet::from([e1.clone(), e2.clone(), e4.clone()])
                 );
+                assert_eq!(graph.num_edges_from(n2.clone()), 3);
                 assert_eq!(
                     graph.edges_from(n3.clone()).collect::<HashSet<_>>(),
                     HashSet::from([e3.clone(), e4.clone()])
                 );
+                assert_eq!(graph.num_edges_from(n3.clone()), 2);
+
+                // Check edges_into for undirected graphs (should match edges_from)
+                assert_eq!(graph.num_edges_into(n0.clone()), 2);
+                assert_eq!(graph.num_edges_into(n1.clone()), 3);
+                assert_eq!(graph.num_edges_into(n2.clone()), 3);
+                assert_eq!(graph.num_edges_into(n3.clone()), 2);
             }
         }
 
@@ -255,10 +327,32 @@ macro_rules! graph_tests {
             let n2 = graph.add_node(vd2);
             let e1 = graph.add_edge(n1.clone(), n2.clone(), ed1.clone());
 
-            assert_eq!(graph.edges_into(n2.clone()).collect::<Vec<_>>(), vec![e1]);
+            // Check edges_into and num_edges_into
+            assert_eq!(
+                graph.edges_into(n2.clone()).collect::<Vec<_>>(),
+                vec![e1.clone()]
+            );
+            assert_eq!(graph.num_edges_into(n2.clone()), 1);
             assert_eq!(
                 graph.num_edges_into(n1.clone()),
-                (!graph.is_directed()).into()
+                if graph.is_directed() { 0 } else { 1 }
+            );
+            if !graph.is_directed() {
+                assert_eq!(
+                    graph.edges_into(n1.clone()).collect::<Vec<_>>(),
+                    vec![e1.clone()]
+                );
+            }
+
+            // Check edges_from and num_edges_from
+            assert_eq!(graph.num_edges_from(n1.clone()), 1);
+            assert_eq!(
+                graph.edges_from(n1.clone()).collect::<Vec<_>>(),
+                vec![e1.clone()]
+            );
+            assert_eq!(
+                graph.num_edges_from(n2.clone()),
+                if graph.is_directed() { 0 } else { 1 }
             );
         }
 
@@ -366,15 +460,38 @@ macro_rules! graph_tests {
             let e3 = graph.add_edge(n1.clone(), n3.clone(), builder.new_edge_data());
             let e4 = graph.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
 
-            assert_eq!((e0.source(), e0.target()), (n0.clone(), n1.clone()));
-            assert_eq!((e1.source(), e1.target()), (n0.clone(), n2.clone()));
-            assert_eq!((e2.source(), e2.target()), (n1.clone(), n2.clone()));
-            assert_eq!((e3.source(), e3.target()), (n1.clone(), n3.clone()));
-            assert_eq!((e4.source(), e4.target()), (n2.clone(), n3.clone()));
+            if graph.is_directed() {
+                assert_eq!((e0.source(), e0.target()), (n0.clone(), n1.clone()));
+                assert_eq!((e1.source(), e1.target()), (n0.clone(), n2.clone()));
+                assert_eq!((e2.source(), e2.target()), (n1.clone(), n2.clone()));
+                assert_eq!((e3.source(), e3.target()), (n1.clone(), n3.clone()));
+                assert_eq!((e4.source(), e4.target()), (n2.clone(), n3.clone()));
+            } else {
+                // For undirected graphs, edges can be in either direction
+                let edge_pairs = vec![
+                    (e0.clone(), (n0.clone(), n1.clone())),
+                    (e1.clone(), (n0.clone(), n2.clone())),
+                    (e2.clone(), (n1.clone(), n2.clone())),
+                    (e3.clone(), (n1.clone(), n3.clone())),
+                    (e4.clone(), (n2.clone(), n3.clone())),
+                ];
+                for (edge, (a, b)) in edge_pairs {
+                    let (src, tgt) = edge.ends();
+                    assert!(
+                        (src == a && tgt == b) || (src == b && tgt == a),
+                        "Edge {:?} does not connect nodes {:?} and {:?}",
+                        edge,
+                        a,
+                        b
+                    );
+                }
+            }
             assert_eq!(
                 graph.successors(n0.clone()).collect::<HashSet<_>>(),
                 HashSet::from([n1.clone(), n2.clone()])
             );
+
+            // Check edge counts for all nodes
             if graph.is_directed() {
                 assert_eq!(
                     graph.successors(n1.clone()).collect::<HashSet<_>>(),
@@ -384,7 +501,19 @@ macro_rules! graph_tests {
                     graph.successors(n2.clone()).collect::<HashSet<_>>(),
                     HashSet::from([n3.clone()])
                 );
-                assert_eq!(graph.successors(n3.clone()).count(), 0,);
+                assert_eq!(graph.successors(n3.clone()).count(), 0);
+
+                // Check num_edges_from for directed graphs
+                assert_eq!(graph.num_edges_from(n0.clone()), 2);
+                assert_eq!(graph.num_edges_from(n1.clone()), 2);
+                assert_eq!(graph.num_edges_from(n2.clone()), 1);
+                assert_eq!(graph.num_edges_from(n3.clone()), 0);
+
+                // Check num_edges_into for directed graphs
+                assert_eq!(graph.num_edges_into(n0.clone()), 0);
+                assert_eq!(graph.num_edges_into(n1.clone()), 1);
+                assert_eq!(graph.num_edges_into(n2.clone()), 2);
+                assert_eq!(graph.num_edges_into(n3.clone()), 2);
             } else {
                 assert_eq!(
                     graph.successors(n1.clone()).collect::<HashSet<_>>(),
@@ -398,6 +527,18 @@ macro_rules! graph_tests {
                     graph.successors(n3.clone()).collect::<HashSet<_>>(),
                     HashSet::from([n1.clone(), n2.clone()])
                 );
+
+                // Check num_edges_from for undirected graphs
+                assert_eq!(graph.num_edges_from(n0.clone()), 2);
+                assert_eq!(graph.num_edges_from(n1.clone()), 3);
+                assert_eq!(graph.num_edges_from(n2.clone()), 3);
+                assert_eq!(graph.num_edges_from(n3.clone()), 2);
+
+                // Check num_edges_into for undirected graphs (should equal num_edges_from)
+                assert_eq!(graph.num_edges_into(n0.clone()), 2);
+                assert_eq!(graph.num_edges_into(n1.clone()), 3);
+                assert_eq!(graph.num_edges_into(n2.clone()), 3);
+                assert_eq!(graph.num_edges_into(n3.clone()), 2);
             }
             assert_eq!(graph.num_edges(), 5);
             assert_eq!(graph.num_edges_between(n0.clone(), n1.clone()), 1);

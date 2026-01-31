@@ -11,6 +11,7 @@ use crate::{
     directedness::{Directed, Directedness, Undirected},
     path::Path,
     search::{BfsIterator, DfsIterator},
+    util::{OtherValue, other_value},
 };
 
 /// A trait representing a node identifier in a graph.
@@ -66,17 +67,10 @@ pub trait EdgeId: Eq + Hash + Clone + Debug {
     /// edge is a self-loop.  Panics if the given node is not an endpoint of the
     /// edge.
     fn other_end(&self, node_id: Self::NodeId) -> OtherEnd<Self::NodeId> {
-        let (source, target) = self.ends();
-        if source == node_id {
-            if target == node_id {
-                OtherEnd::SelfLoop(target)
-            } else {
-                OtherEnd::Target(target)
-            }
-        } else if target == node_id {
-            OtherEnd::Source(source)
-        } else {
-            panic!("NodeId {:?} is not an endpoint of edge {:?}", node_id, self);
+        match other_value(self.ends(), node_id) {
+            OtherValue::First(node) => OtherEnd::Source(node),
+            OtherValue::Second(node) => OtherEnd::Target(node),
+            OtherValue::Both(node) => OtherEnd::SelfLoop(node),
         }
     }
 }
