@@ -3,100 +3,10 @@ use std::{
     fmt::{Debug, Formatter},
 };
 
-use crate::{EdgeId, Graph, util::sort_pair};
-
-struct NodeTag<'a>(&'a str);
-
-impl<'a> Debug for NodeTag<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-struct NodeDebug<'a, G: Graph> {
-    graph: &'a G,
-    node_order: &'a [G::NodeId],
-    node_tags: &'a HashMap<G::NodeId, String>,
-    show_data: bool,
-}
-
-impl<'a, G> Debug for NodeDebug<'a, G>
-where
-    G: Graph,
-    G::NodeData: Debug,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.show_data {
-            f.debug_map()
-                .entries(self.node_order.iter().map(|nid| {
-                    (
-                        NodeTag(&self.node_tags[nid]),
-                        self.graph.node_data(nid.clone()),
-                    )
-                }))
-                .finish()
-        } else {
-            f.debug_list()
-                .entries(
-                    self.node_order
-                        .iter()
-                        .map(|nid| self.graph.node_data(nid.clone())),
-                )
-                .finish()
-        }
-    }
-}
-
-struct EdgeTag<'a>(&'a str, &'a str, bool);
-
-impl<'a> Debug for EdgeTag<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.2 {
-            write!(f, "{} -> {}", &self.0, &self.1)
-        } else {
-            let (t1, t2) = sort_pair(&self.0, &self.1);
-            write!(f, "{} -- {}", t1, t2)
-        }
-    }
-}
-
-struct EdgeDebug<'a, G: Graph> {
-    graph: &'a G,
-    edge_order: &'a [G::EdgeId],
-    node_tags: &'a HashMap<G::NodeId, String>,
-    show_data: bool,
-}
-
-impl<'a, G> Debug for EdgeDebug<'a, G>
-where
-    G: Graph,
-    G::EdgeData: Debug,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let make_edge_tag = |eid: &G::EdgeId| {
-            let (from, to) = (eid.source(), eid.target());
-            EdgeTag(
-                &self.node_tags[&from],
-                &self.node_tags[&to],
-                self.graph.is_directed(),
-            )
-        };
-
-        if self.show_data {
-            f.debug_map()
-                .entries(
-                    self.edge_order
-                        .iter()
-                        .map(|eid| (make_edge_tag(eid), self.graph.edge_data(eid.clone()))),
-                )
-                .finish()
-        } else {
-            f.debug_list()
-                .entries(self.edge_order.iter().map(make_edge_tag))
-                .finish()
-        }
-    }
-}
+use crate::{
+    EdgeId, Graph,
+    util::{FormatDebugAs, FormatDebugWith, sort_pair},
+};
 
 /// Formats a graph for debug output with automatic node numbering.
 ///
@@ -164,21 +74,51 @@ where
     fmt.debug_struct(name)
         .field(
             "nodes",
-            &NodeDebug {
-                graph,
-                node_order: &node_order,
-                node_tags: &node_tags,
-                show_data: show_node_data,
-            },
+            &FormatDebugWith(|f: &mut Formatter<'_>| {
+                if show_node_data {
+                    f.debug_map()
+                        .entries(node_order.iter().map(|nid| {
+                            (
+                                FormatDebugAs(node_tags[nid].clone()),
+                                graph.node_data(nid.clone()),
+                            )
+                        }))
+                        .finish()
+                } else {
+                    f.debug_list()
+                        .entries(node_order.iter().map(|nid| graph.node_data(nid.clone())))
+                        .finish()
+                }
+            }),
         )
         .field(
             "edges",
-            &EdgeDebug {
-                graph,
-                edge_order: &edge_order,
-                node_tags: &node_tags,
-                show_data: show_edge_data,
-            },
+            &FormatDebugWith(|f: &mut Formatter<'_>| {
+                let make_edge_tag = |eid: &G::EdgeId| {
+                    let (from, to) = eid.ends();
+                    let tag = if graph.is_directed() {
+                        format!("{} -> {}", &node_tags[&from], &node_tags[&to])
+                    } else {
+                        let (t1, t2) = sort_pair(&node_tags[&from], &node_tags[&to]);
+                        format!("{} -- {}", t1, t2)
+                    };
+                    FormatDebugAs(tag)
+                };
+
+                if show_edge_data {
+                    f.debug_map()
+                        .entries(
+                            edge_order
+                                .iter()
+                                .map(|eid| (make_edge_tag(eid), graph.edge_data(eid.clone()))),
+                        )
+                        .finish()
+                } else {
+                    f.debug_list()
+                        .entries(edge_order.iter().map(make_edge_tag))
+                        .finish()
+                }
+            }),
         )
         .finish()
 }
