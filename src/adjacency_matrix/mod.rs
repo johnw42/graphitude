@@ -12,59 +12,16 @@ pub mod bitvec;
 /// Hash-based adjacency matrix implementations.
 pub mod hash;
 
-pub(crate) trait CompactionCount: Eq + Clone + Copy + Default {
-    fn increment(self) -> Self;
-}
+/// Symmetry types for adjacency matrices.
+mod symmetry;
 
-impl CompactionCount for () {
-    fn increment(self) -> Self {
-        ()
-    }
-}
+/// Storage types for adjacency matrices.
+mod storage;
 
-impl CompactionCount for usize {
-    fn increment(self) -> Self {
-        self.wrapping_add(1)
-    }
-}
+pub use storage::{BitvecStorage, HashStorage, Storage};
+pub use symmetry::{Asymmetric, Symmetric, Symmetry};
 
-/// Marker type for bitvec-based adjacency matrix storage.
-pub struct BitvecStorage;
-
-/// Marker type for hash-based adjacency matrix storage.
-pub struct HashStorage;
-
-/// Trait defining storage backend behavior for adjacency matrices.
-///
-/// Implemented by [`BitvecStorage`] and [`HashStorage`] marker types.
-pub trait Storage {
-    #[allow(private_bounds)]
-    type CompactionCount: CompactionCount;
-}
-
-impl Storage for BitvecStorage {
-    #[cfg(not(feature = "unchecked"))]
-    type CompactionCount = usize;
-    #[cfg(feature = "unchecked")]
-    type CompactionCount = ();
-}
-
-impl Storage for HashStorage {
-    type CompactionCount = ();
-}
-
-/// Marker type for symmetric adjacency matrices.
-pub struct Symmetric;
-
-/// Marker type for asymmetric (directed) adjacency matrices.
-pub struct Asymmetric;
-
-/// Trait for matrix symmetry types.
-///
-/// Implemented by [`Symmetric`] and [`Asymmetric`] marker types.
-pub trait Symmetry {}
-impl Symmetry for Symmetric {}
-impl Symmetry for Asymmetric {}
+pub(crate) use storage::CompactionCount;
 
 /// Trait for adjacency matrix data structures.
 ///

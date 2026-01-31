@@ -12,154 +12,11 @@ use crate::{
     directedness::Directedness,
     graph_id::GraphId,
     id_vec::{IdVec, IdVecKey},
+    mapping_result::MappingResult,
     util::sort_pair_if,
 };
 
-mod ids {
-    use std::{fmt::Debug, hash::Hash, marker::PhantomData};
-
-    use derivative::Derivative;
-
-    use crate::{Directedness, Storage, graph_id::GraphId, id_vec::IdVecKey};
-
-    #[derive(Derivative)]
-    #[derivative(Clone(bound = ""), Copy(bound = ""))]
-    pub struct NodeIdOrEdgeId<S: Storage, T: Copy> {
-        payload: T,
-        pub compaction_count: S::CompactionCount,
-        pub graph_id: GraphId,
-    }
-
-    impl<S: Storage, T: Copy + Eq> PartialEq for NodeIdOrEdgeId<S, T> {
-        fn eq(&self, other: &Self) -> bool {
-            assert_eq!(self.graph_id, other.graph_id);
-            self.payload == other.payload
-        }
-    }
-
-    impl<S: Storage, T: Copy + Eq> Eq for NodeIdOrEdgeId<S, T> {}
-
-    impl<S: Storage, T: Copy + Hash> Hash for NodeIdOrEdgeId<S, T> {
-        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            self.payload.hash(state);
-        }
-    }
-
-    impl<S: Storage, T: Copy + Ord> PartialOrd for NodeIdOrEdgeId<S, T> {
-        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-            Some(self.payload.cmp(&other.payload))
-        }
-    }
-
-    impl<S: Storage, T: Copy + Ord> Ord for NodeIdOrEdgeId<S, T> {
-        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-            self.payload.cmp(&other.payload)
-        }
-    }
-
-    impl<S: Storage, T: Copy> NodeIdOrEdgeId<S, T> {
-        pub fn new(payload: T, graph_id: GraphId, compaction_count: S::CompactionCount) -> Self {
-            Self {
-                payload,
-                compaction_count,
-                graph_id,
-            }
-        }
-
-        pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
-            self.compaction_count = compaction_count;
-            self
-        }
-    }
-
-    pub type NodeId<S> = NodeIdOrEdgeId<S, IdVecKey>;
-
-    #[derive(Derivative)]
-    #[derivative(
-        Clone(bound = ""),
-        Copy(bound = ""),
-        PartialEq(bound = ""),
-        Eq(bound = ""),
-        Hash(bound = ""),
-        PartialOrd(bound = ""),
-        Ord(bound = "")
-    )]
-    pub struct EdgeId<S: Storage, D: Directedness> {
-        inner: NodeIdOrEdgeId<S, (IdVecKey, IdVecKey)>,
-        _directedness: PhantomData<D>,
-    }
-
-    impl<S: Storage, D: Directedness> EdgeId<S, D> {
-        pub fn new(
-            payload: (IdVecKey, IdVecKey),
-            graph_id: GraphId,
-            compaction_count: S::CompactionCount,
-        ) -> Self {
-            Self {
-                inner: NodeIdOrEdgeId::new(payload, graph_id, compaction_count),
-                _directedness: PhantomData,
-            }
-        }
-
-        pub fn keys(&self) -> (IdVecKey, IdVecKey) {
-            self.inner.payload
-        }
-
-        pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
-            self.inner = self.inner.with_compaction_count(compaction_count);
-            self
-        }
-
-        pub fn compaction_count(&self) -> S::CompactionCount {
-            self.inner.compaction_count
-        }
-
-        pub fn graph_id(&self) -> GraphId {
-            self.inner.graph_id
-        }
-    }
-
-    impl<S: Storage, D: Directedness> Debug for EdgeId<S, D> {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "EdgeId{:?}", self.inner.payload)
-        }
-    }
-
-    impl<S: Storage> crate::graph::NodeId for NodeId<S> {}
-
-    impl<S: Storage> NodeId<S> {
-        pub fn key(&self) -> IdVecKey {
-            self.payload
-        }
-    }
-
-    impl<S: Storage, D: Directedness> crate::graph::EdgeId for EdgeId<S, D> {
-        type NodeId = NodeId<S>;
-        type Directedness = D;
-
-        fn source(&self) -> NodeId<S> {
-            NodeId::new(
-                self.inner.payload.0,
-                self.inner.graph_id,
-                self.inner.compaction_count,
-            )
-        }
-
-        fn target(&self) -> NodeId<S> {
-            NodeId::new(
-                self.inner.payload.1,
-                self.inner.graph_id,
-                self.inner.compaction_count,
-            )
-        }
-    }
-
-    impl<S: Storage> Debug for NodeId<S> {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "NodeId({:?})", self.payload)
-        }
-    }
-}
+mod ids;
 
 /// A graph implementation using an adjacency matrix for edge storage.
 ///
@@ -194,22 +51,25 @@ where
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
+    /// Creates a `NodeId` for the given `IdVecKey`.
     fn node_id(&self, key: IdVecKey) -> NodeId<S> {
         NodeId::new(key, self.id, self.compaction_count)
     }
 
+    /// Creates an `EdgeId` for the given `IdVecKey` pair.
     fn edge_id(&self, from: IdVecKey, into: IdVecKey) -> EdgeId<S, D> {
-        let (k1, k2) = sort_pair_if(!D::is_directed(), from, into);
-        EdgeId::new((k1, k2), self.id, self.compaction_count)
+        EdgeId::new(D::maybe_sort(from, into), self.id, self.compaction_count)
     }
 
+    /// Internal function to perform compaction or shrinking of the graph.
+    /// This function handles updating node and edge IDs via the provided callbacks.
     fn do_compact<F>(
         &mut self,
         mut compact_fn: F,
-        mut node_id_callback: Option<impl FnMut(NodeId<S>, NodeId<S>)>,
-        mut edge_id_callback: Option<impl FnMut(EdgeId<S, D>, EdgeId<S, D>)>,
+        mut node_id_callback: Option<impl FnMut(MappingResult<NodeId<S>>)>,
+        mut edge_id_callback: Option<impl FnMut(MappingResult<EdgeId<S, D>>)>,
     ) where
-        F: FnMut(&mut IdVec<N>, Option<&mut dyn FnMut(IdVecKey, Option<IdVecKey>)>),
+        F: FnMut(&mut IdVec<N>, Option<&mut dyn FnMut(MappingResult<IdVecKey>)>),
     {
         let old_compaction_count = self.compaction_count;
         let new_compaction_count = self.compaction_count.increment();
@@ -219,8 +79,8 @@ where
         let old_indexing = self.nodes.indexing();
         compact_fn(
             &mut self.nodes,
-            Some(&mut |old_key, new_key_opt| {
-                if let Some(new_key) = new_key_opt {
+            Some(&mut |result| {
+                if let MappingResult::Remapped(old_key, new_key) = result {
                     id_vec_map.insert(old_key, new_key);
                 }
             }),
@@ -236,7 +96,7 @@ where
                 let new_node_id = self
                     .node_id(new_index)
                     .with_compaction_count(new_compaction_count);
-                cb(old_node_id, new_node_id);
+                cb(MappingResult::Remapped(old_node_id, new_node_id));
             }
         }
 
@@ -263,7 +123,7 @@ where
                     let new_edge_id = self
                         .edge_id(new_from, new_into)
                         .with_compaction_count(new_compaction_count);
-                    cb(old_edge_id, new_edge_id);
+                    cb(MappingResult::Remapped(old_edge_id, new_edge_id));
                 }
             }
         }
@@ -503,15 +363,15 @@ where
     }
 
     fn compact(&mut self) {
-        self.compact_with::<fn(Self::NodeId, Self::NodeId), fn(Self::EdgeId, Self::EdgeId)>(
+        self.compact_with::<fn(MappingResult<Self::NodeId>), fn(MappingResult<Self::EdgeId>)>(
             None, None,
         );
     }
 
     fn compact_with<F1, F2>(&mut self, node_id_callback: Option<F1>, edge_id_callback: Option<F2>)
     where
-        F1: FnMut(Self::NodeId, Self::NodeId),
-        F2: FnMut(Self::EdgeId, Self::EdgeId),
+        F1: FnMut(MappingResult<Self::NodeId>),
+        F2: FnMut(MappingResult<Self::EdgeId>),
     {
         self.do_compact(
             |vec, cb| vec.compact_with(cb),
@@ -521,7 +381,7 @@ where
     }
 
     fn shrink_to_fit(&mut self) {
-        self.shrink_to_fit_with::<fn(Self::NodeId, Self::NodeId), fn(Self::EdgeId, Self::EdgeId)>(
+        self.shrink_to_fit_with::<fn(MappingResult<Self::NodeId>), fn(MappingResult<Self::EdgeId>)>(
             None, None,
         );
     }
@@ -531,8 +391,8 @@ where
         node_id_callback: Option<F1>,
         edge_id_callback: Option<F2>,
     ) where
-        F1: FnMut(Self::NodeId, Self::NodeId),
-        F2: FnMut(Self::EdgeId, Self::EdgeId),
+        F1: FnMut(MappingResult<Self::NodeId>),
+        F2: FnMut(MappingResult<Self::EdgeId>),
     {
         self.do_compact(
             |vec, cb| vec.shrink_to_fit_with(cb),
