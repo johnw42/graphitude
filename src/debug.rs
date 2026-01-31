@@ -27,8 +27,8 @@ where
         fmt,
         name,
         &mut |nid| node_tags[nid].clone(),
-        Some(&|nid| graph.node_data(nid)),
-        Some(&|eid| graph.edge_data(eid)),
+        &|nid| graph.node_data(nid),
+        &|eid| graph.edge_data(eid),
     )
 }
 
@@ -39,15 +39,15 @@ where
 /// * `fmt` - The formatter to write to
 /// * `name` - The name to display for the graph type
 /// * `node_tag` - A function to generate labels for node IDs
-/// * `node_data_fn` - Optional function to format node data; if None, nodes are shown as tags only
-/// * `edge_data_fn` - Optional function to format edge data; if None, edges are shown as tags only
+/// * `node_data_fn` - Function to format node data; data is omitted if NodeData is zero-sized
+/// * `edge_data_fn` - Function to format edge data; data is omitted if EdgeData is zero-sized
 pub fn format_debug_with<'g, G, T, N, E, NF, EF>(
     graph: &'g G,
     fmt: &mut Formatter<'_>,
     name: &str,
     node_tag: &mut T,
-    node_data_fn: Option<&NF>,
-    edge_data_fn: Option<&EF>,
+    node_data_fn: &NF,
+    edge_data_fn: &EF,
 ) -> std::fmt::Result
 where
     G: Graph,
@@ -78,7 +78,15 @@ where
         .field(
             "nodes",
             &FormatDebugWith(|f: &mut Formatter<'_>| {
-                if let Some(node_data_fn) = node_data_fn {
+                if std::mem::size_of::<N>() == 0 {
+                    f.debug_list()
+                        .entries(
+                            node_order
+                                .iter()
+                                .map(|nid| FormatDebugAs(node_tags[nid].clone())),
+                        )
+                        .finish()
+                } else {
                     f.debug_map()
                         .entries(node_order.iter().map(|nid| {
                             (
@@ -86,14 +94,6 @@ where
                                 node_data_fn(nid.clone()),
                             )
                         }))
-                        .finish()
-                } else {
-                    f.debug_list()
-                        .entries(
-                            node_order
-                                .iter()
-                                .map(|nid| FormatDebugAs(node_tags[nid].clone())),
-                        )
                         .finish()
                 }
             }),
@@ -112,17 +112,17 @@ where
                     FormatDebugAs(tag)
                 };
 
-                if let Some(edge_data_fn) = edge_data_fn {
+                if std::mem::size_of::<E>() == 0 {
+                    f.debug_list()
+                        .entries(edge_order.iter().map(make_edge_tag))
+                        .finish()
+                } else {
                     f.debug_map()
                         .entries(
                             edge_order
                                 .iter()
                                 .map(|eid| (make_edge_tag(eid), edge_data_fn(eid.clone()))),
                         )
-                        .finish()
-                } else {
-                    f.debug_list()
-                        .entries(edge_order.iter().map(make_edge_tag))
                         .finish()
                 }
             }),

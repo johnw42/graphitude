@@ -7,7 +7,7 @@ use std::{
 
 use crate::mapping_result::MappingResult;
 use crate::{
-    LinkedGraph,
+    debug_graph_view::DebugGraphView,
     directedness::{Directed, Directedness, Undirected},
     path::Path,
     search::{BfsIterator, DfsIterator},
@@ -118,14 +118,22 @@ pub trait Graph: Sized {
         Self::Directedness::is_directed()
     }
 
-    /// Creates a new graph with the same structure as this graph, but with
-    /// all node and edge data replaced with `()`.  This is intended for debugging
-    /// purposes, to allow inspection of the graph structure without when the
-    /// data does not implement `Debug`.
-    fn without_data(&self) -> impl Graph<NodeData = (), EdgeData = ()> + Debug {
-        let mut g = LinkedGraph::new();
-        g.copy_from_with(self, |_| (), |_| ());
-        g
+    /// Creates a new graph view in which node and edge data are hidden.
+    fn with_debug(&self) -> impl Graph + Debug {
+        self.with_debug_formatting(|_| (), |_| ())
+    }
+
+    /// Creates a new graph view with custom debug formatting for nodes and edges.
+    fn with_debug_formatting<N, E>(
+        &self,
+        node_fmt: impl Fn(&Self::NodeData) -> N,
+        edge_fmt: impl Fn(&Self::EdgeData) -> E,
+    ) -> impl Graph + Debug
+    where
+        N: Debug,
+        E: Debug,
+    {
+        DebugGraphView::new(self, node_fmt, edge_fmt)
     }
 
     /// Creates a new path starting from the given starting node.  This is a
@@ -545,8 +553,6 @@ pub trait GraphMut: Graph {
     ) -> HashMap<S::NodeId, Self::NodeId>
     where
         S: Graph,
-        Self::NodeData: Clone,
-        Self::EdgeData: Clone,
         F: FnMut(&S::NodeData) -> Self::NodeData,
         G: FnMut(&S::EdgeData) -> Self::EdgeData,
     {

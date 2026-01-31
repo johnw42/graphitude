@@ -139,8 +139,8 @@ impl Debug for StringGraph {
             f,
             "StringGraph",
             &mut |nid| format!("{:?}", nid.0),
-            None::<&fn(_) -> ()>,
-            None::<&fn(_) -> ()>,
+            &|_| (),
+            &|_| (),
         )
     }
 }
@@ -168,7 +168,7 @@ fn test_format_debug_with() {
     let n2 = graph.add_node("A".to_string());
     graph.add_edge(n1, n2, ());
 
-    // Single-line output.
+    // Single-line output - nodes show data (not zero-sized), edges don't (zero-sized)
     let output = format!("{:?}", &graph);
     let expected = r#"StringGraph { nodes: ["A", "B"], edges: ["A" -- "B"] }"#;
     assert_eq!(output, expected);

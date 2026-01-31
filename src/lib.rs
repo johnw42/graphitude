@@ -26,6 +26,7 @@
 pub mod adjacency_graph;
 pub mod adjacency_matrix;
 pub mod debug;
+pub mod debug_graph_view;
 pub mod directedness;
 pub mod graph;
 pub mod linked_graph;
