@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use jrw_graph::{
+use graphitude::{
     Directed, EdgeId as EdgeIdTrait, Graph, GraphMut, NodeId as NodeIdTrait,
     graph_test_copy_from_with, graph_tests, tests::TestDataBuilder,
 };

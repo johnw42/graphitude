@@ -18,40 +18,17 @@ use crate::{
 mod ids {
     use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
+    use derivative::Derivative;
+
     use crate::{Directedness, Storage, graph_id::GraphId, id_vec::IdVecKey};
 
+    #[derive(Derivative)]
+    #[derivative(Clone(bound = ""), Copy(bound = ""))]
     pub struct NodeIdOrEdgeId<S: Storage, T: Copy> {
         payload: T,
         pub compaction_count: S::CompactionCount,
         pub graph_id: GraphId,
     }
-
-    impl<S: Storage, T: Copy> NodeIdOrEdgeId<S, T> {
-        pub fn new(payload: T, graph_id: GraphId, compaction_count: S::CompactionCount) -> Self {
-            Self {
-                payload,
-                compaction_count,
-                graph_id,
-            }
-        }
-
-        pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
-            self.compaction_count = compaction_count;
-            self
-        }
-    }
-
-    impl<S: Storage, T: Copy> Clone for NodeIdOrEdgeId<S, T> {
-        fn clone(&self) -> Self {
-            Self {
-                payload: self.payload,
-                compaction_count: self.compaction_count,
-                graph_id: self.graph_id,
-            }
-        }
-    }
-
-    impl<S: Storage, T: Copy> Copy for NodeIdOrEdgeId<S, T> {}
 
     impl<S: Storage, T: Copy + Eq> PartialEq for NodeIdOrEdgeId<S, T> {
         fn eq(&self, other: &Self) -> bool {
@@ -80,8 +57,33 @@ mod ids {
         }
     }
 
+    impl<S: Storage, T: Copy> NodeIdOrEdgeId<S, T> {
+        pub fn new(payload: T, graph_id: GraphId, compaction_count: S::CompactionCount) -> Self {
+            Self {
+                payload,
+                compaction_count,
+                graph_id,
+            }
+        }
+
+        pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
+            self.compaction_count = compaction_count;
+            self
+        }
+    }
+
     pub type NodeId<S> = NodeIdOrEdgeId<S, IdVecKey>;
 
+    #[derive(Derivative)]
+    #[derivative(
+        Clone(bound = ""),
+        Copy(bound = ""),
+        PartialEq(bound = ""),
+        Eq(bound = ""),
+        Hash(bound = ""),
+        PartialOrd(bound = ""),
+        Ord(bound = "")
+    )]
     pub struct EdgeId<S: Storage, D: Directedness> {
         inner: NodeIdOrEdgeId<S, (IdVecKey, IdVecKey)>,
         _directedness: PhantomData<D>,
@@ -114,43 +116,6 @@ mod ids {
 
         pub fn graph_id(&self) -> GraphId {
             self.inner.graph_id
-        }
-    }
-
-    impl<S: Storage, D: Directedness> Clone for EdgeId<S, D> {
-        fn clone(&self) -> Self {
-            Self {
-                inner: self.inner,
-                _directedness: PhantomData,
-            }
-        }
-    }
-
-    impl<S: Storage, D: Directedness> Copy for EdgeId<S, D> {}
-
-    impl<S: Storage, D: Directedness> PartialEq for EdgeId<S, D> {
-        fn eq(&self, other: &Self) -> bool {
-            self.inner == other.inner
-        }
-    }
-
-    impl<S: Storage, D: Directedness> Eq for EdgeId<S, D> {}
-
-    impl<S: Storage, D: Directedness> Hash for EdgeId<S, D> {
-        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            self.inner.hash(state);
-        }
-    }
-
-    impl<S: Storage, D: Directedness> PartialOrd for EdgeId<S, D> {
-        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-            self.inner.partial_cmp(&other.inner)
-        }
-    }
-
-    impl<S: Storage, D: Directedness> Ord for EdgeId<S, D> {
-        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-            self.inner.cmp(&other.inner)
         }
     }
 

@@ -1,69 +1,30 @@
-use std::{fmt::Debug, hash::Hash};
+use derivative::Derivative;
 
-use jrw_graph::{EdgeId as EdgeIdTrait, Graph, NodeId as NodeIdTrait, directedness::Directed};
+use graphitude::{EdgeId as EdgeIdTrait, Graph, NodeId as NodeIdTrait, directedness::Directed};
 
+#[derive(Derivative)]
+#[derivative(
+    Clone(bound = ""),
+    Copy(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = ""),
+    Hash(bound = ""),
+    Debug(bound = "")
+)]
 struct NodeId<N>(*const N);
-
-impl<N> Debug for NodeId<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NodeId({:?})", self.0)
-    }
-}
-
-impl<N> PartialEq for NodeId<N> {
-    fn eq(&self, other: &Self) -> bool {
-        std::ptr::eq(self.0, other.0)
-    }
-}
-
-impl<N> Eq for NodeId<N> {}
-
-impl<N> Clone for NodeId<N> {
-    fn clone(&self) -> Self {
-        NodeId(self.0)
-    }
-}
-
-impl<N> Copy for NodeId<N> {}
-
-impl<N> Hash for NodeId<N> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}
 
 impl<N> NodeIdTrait for NodeId<N> {}
 
+#[derive(Derivative)]
+#[derivative(
+    Clone(bound = ""),
+    Copy(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = ""),
+    Hash(bound = ""),
+    Debug(bound = "")
+)]
 struct EdgeId<N>(NodeId<N>, NodeId<N>);
-
-impl<N> Debug for EdgeId<N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EdgeId({:?}, {:?})", self.0, self.1)
-    }
-}
-
-impl<N> Clone for EdgeId<N> {
-    fn clone(&self) -> Self {
-        EdgeId(self.0, self.1)
-    }
-}
-
-impl<N> Copy for EdgeId<N> {}
-
-impl<N> PartialEq for EdgeId<N> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0 && self.1 == other.1
-    }
-}
-
-impl<N> Eq for EdgeId<N> {}
-
-impl<N> Hash for EdgeId<N> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-        self.1.hash(state);
-    }
-}
 
 impl<N> EdgeIdTrait for EdgeId<N> {
     type NodeId = NodeId<N>;
@@ -207,7 +168,7 @@ fn test_shortest_paths() {
 
     fn values<'a, F: for<'b> Fn(&'b Node<'a>) -> Vec<&'b Node<'a>>>(
         graph: &OwnedObjectGraph<Node<'a>, F>,
-        path: &jrw_graph::path::Path<EdgeId<Node<'a>>>,
+        path: &graphitude::path::Path<EdgeId<Node<'a>>>,
     ) -> Vec<i32> {
         path.nodes().map(|nid| graph.node_data(nid).value).collect()
     }

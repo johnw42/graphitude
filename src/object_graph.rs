@@ -1,4 +1,6 @@
-use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::transmute};
+use std::{fmt::Debug, marker::PhantomData, mem::transmute};
+
+use derivative::Derivative;
 
 use crate::directedness::Directed;
 
@@ -7,35 +9,16 @@ use super::Graph;
 /// Node identifier for [`ObjectGraph`].
 ///
 /// Contains a raw pointer to the node data with a lifetime tied to the graph.
+#[derive(Derivative)]
+#[derivative(
+    Clone(bound = ""),
+    Copy(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = ""),
+    Hash(bound = ""),
+    Debug(bound = "")
+)]
 pub struct NodeId<'g, N>(*const N, PhantomData<&'g N>);
-
-impl<'g, N> PartialEq for NodeId<'g, N> {
-    fn eq(&self, other: &Self) -> bool {
-        std::ptr::eq(self.0, other.0)
-    }
-}
-
-impl<'g, N> Eq for NodeId<'g, N> {}
-
-impl<'g, N> Clone for NodeId<'g, N> {
-    fn clone(&self) -> Self {
-        NodeId(self.0, self.1)
-    }
-}
-
-impl<'g, N> Copy for NodeId<'g, N> {}
-
-impl<'g, N> Hash for NodeId<'g, N> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}
-
-impl<'g, N> Debug for NodeId<'g, N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NodeId({:?})", self.0)
-    }
-}
 
 impl<'a, N> crate::graph::NodeId for NodeId<'a, N> {}
 
@@ -101,9 +84,7 @@ where
     }
 }
 
-impl<'a, N: Debug> crate::graph::EdgeId
-    for (NodeId<'a, N>, NodeId<'a, N>)
-{
+impl<'a, N: Debug> crate::graph::EdgeId for (NodeId<'a, N>, NodeId<'a, N>) {
     type NodeId = NodeId<'a, N>;
     type Directedness = Directed;
 

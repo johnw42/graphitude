@@ -1,9 +1,19 @@
 use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once, marker::PhantomData};
 
+use derivative::Derivative;
+
 use crate::{Directedness, EdgeId};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
+#[derive(Derivative)]
+#[derivative(
+    Clone(bound = "E: Clone, E::NodeId: Clone"),
+    PartialEq(bound = "E: PartialEq, E::NodeId: PartialEq"),
+    Eq(bound = "E: Eq, E::NodeId: Eq"),
+    Hash(bound = "E: Hash, E::NodeId: Hash"),
+    Debug(bound = "E: Debug, E::NodeId: Debug")
+)]
 pub struct Path<E: EdgeId> {
     edges: Vec<E>,
     nodes: Vec<E::NodeId>,
@@ -123,31 +133,6 @@ impl<E: EdgeId> Path<E> {
     }
 }
 
-impl<E: EdgeId + Clone> Clone for Path<E> {
-    fn clone(&self) -> Self {
-        Self {
-            edges: self.edges.clone(),
-            nodes: self.nodes.clone(),
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<E: EdgeId> PartialEq for Path<E> {
-    fn eq(&self, other: &Self) -> bool {
-        self.edges == other.edges && self.nodes == other.nodes
-    }
-}
-
-impl<E: EdgeId> Eq for Path<E> {}
-
-impl<E: EdgeId> Hash for Path<E> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.edges.hash(state);
-        self.nodes.hash(state);
-    }
-}
-
 impl<E: EdgeId> PartialOrd for Path<E> {
     /// A path is "less than" another path if its last node matches the
     /// other's first node, and "greater than" if its first node matches the
@@ -171,15 +156,6 @@ impl<E: EdgeId> Extend<E> for Path<E> {
         for edge_id in iter {
             self.add_edge(edge_id);
         }
-    }
-}
-
-impl<E: EdgeId> Debug for Path<E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Path")
-            .field("nodes", &self.nodes)
-            .field("edges", &self.edges)
-            .finish()
     }
 }
 
