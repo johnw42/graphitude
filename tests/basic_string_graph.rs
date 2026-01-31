@@ -139,8 +139,8 @@ impl Debug for StringGraph {
             f,
             "StringGraph",
             &mut |nid| format!("{:?}", nid.0),
-            false,
-            false,
+            None::<&fn(_) -> ()>,
+            None::<&fn(_) -> ()>,
         )
     }
 }

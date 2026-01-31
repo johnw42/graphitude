@@ -27,32 +27,35 @@ where
         fmt,
         name,
         &mut |nid| node_tags[nid].clone(),
-        true,
-        true,
+        Some(&|nid| graph.node_data(nid)),
+        Some(&|eid| graph.edge_data(eid)),
     )
 }
 
-/// Formats a graph for debug output with customizable node labels and data visibility.
+/// Formats a graph for debug output with customizable node labels and data formatters.
 ///
 /// # Arguments
 /// * `graph` - The graph to format
 /// * `fmt` - The formatter to write to
 /// * `name` - The name to display for the graph type
 /// * `node_tag` - A function to generate labels for node IDs
-/// * `show_edge_data` - Whether to display edge data
-/// * `show_node_data` - Whether to display node data
-pub fn format_debug_with<'g, G>(
+/// * `node_data_fn` - Optional function to format node data; if None, nodes are shown as tags only
+/// * `edge_data_fn` - Optional function to format edge data; if None, edges are shown as tags only
+pub fn format_debug_with<'g, G, T, N, E, NF, EF>(
     graph: &'g G,
     fmt: &mut Formatter<'_>,
     name: &str,
-    node_tag: &mut impl FnMut(&G::NodeId) -> String,
-    show_edge_data: bool,
-    show_node_data: bool,
+    node_tag: &mut T,
+    node_data_fn: Option<&NF>,
+    edge_data_fn: Option<&EF>,
 ) -> std::fmt::Result
 where
     G: Graph,
-    G::NodeData: Debug,
-    G::EdgeData: Debug,
+    T: FnMut(&G::NodeId) -> String,
+    NF: Fn(G::NodeId) -> N,
+    EF: Fn(G::EdgeId) -> E,
+    N: Debug,
+    E: Debug,
 {
     let node_tags: HashMap<_, _> = graph
         .node_ids()
@@ -75,18 +78,22 @@ where
         .field(
             "nodes",
             &FormatDebugWith(|f: &mut Formatter<'_>| {
-                if show_node_data {
+                if let Some(node_data_fn) = node_data_fn {
                     f.debug_map()
                         .entries(node_order.iter().map(|nid| {
                             (
                                 FormatDebugAs(node_tags[nid].clone()),
-                                graph.node_data(nid.clone()),
+                                node_data_fn(nid.clone()),
                             )
                         }))
                         .finish()
                 } else {
                     f.debug_list()
-                        .entries(node_order.iter().map(|nid| graph.node_data(nid.clone())))
+                        .entries(
+                            node_order
+                                .iter()
+                                .map(|nid| FormatDebugAs(node_tags[nid].clone())),
+                        )
                         .finish()
                 }
             }),
@@ -105,12 +112,12 @@ where
                     FormatDebugAs(tag)
                 };
 
-                if show_edge_data {
+                if let Some(edge_data_fn) = edge_data_fn {
                     f.debug_map()
                         .entries(
                             edge_order
                                 .iter()
-                                .map(|eid| (make_edge_tag(eid), graph.edge_data(eid.clone()))),
+                                .map(|eid| (make_edge_tag(eid), edge_data_fn(eid.clone()))),
                         )
                         .finish()
                 } else {
@@ -125,7 +132,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{linked_graph::LinkedGraph, *};
+    use crate::{adjacency_graph::AdjacencyGraph, linked_graph::LinkedGraph, *};
 
     #[test]
     fn test_format_debug() {
@@ -151,5 +158,42 @@ mod tests {
     },
 }"#;
         assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn test_format_debug_with_undirected() {
+        type UndirectedGraph = AdjacencyGraph<&'static str, i32, directedness::Undirected>;
+        let mut graph = UndirectedGraph::new();
+        let n1 = graph.add_node("B");
+        let n2 = graph.add_node("A");
+        let n3 = graph.add_node("C");
+        graph.add_edge(n1, n2, 10);
+        graph.add_edge(n2, n3, 20);
+
+        let output = format!("{:?}", &graph);
+
+        // Check structure
+        assert!(output.starts_with("AdjacencyGraph { nodes: {"));
+        assert!(output.contains("edges: {"));
+
+        // Check all nodes are present
+        assert!(output.contains(r#""A""#));
+        assert!(output.contains(r#""B""#));
+        assert!(output.contains(r#""C""#));
+
+        // Check edges use undirected notation (--)
+        assert!(output.contains("--"));
+        assert!(!output.contains("->"));
+
+        // Check edge data is present
+        assert!(output.contains("10"));
+        assert!(output.contains("20"));
+
+        // Multi-line output should have proper structure
+        let output = format!("{:#?}", &graph);
+        assert!(output.starts_with("AdjacencyGraph {\n    nodes: {"));
+        assert!(output.contains("edges: {"));
+        assert!(output.contains("--"));
+        assert!(!output.contains("->"));
     }
 }
