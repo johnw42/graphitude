@@ -204,9 +204,9 @@ mod tests {
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
         let n3 = graph.add_node(3);
-        graph.add_edge(n0, n1, ());
-        graph.add_edge(n0, n2, ());
-        graph.add_edge(n1, n3, ());
+        graph.add_edge(n0.clone(), n1.clone(), ());
+        graph.add_edge(n0.clone(), n2.clone(), ());
+        graph.add_edge(n1.clone(), n3.clone(), ());
         graph
     }
 
@@ -215,9 +215,9 @@ mod tests {
         let n0 = graph.add_node(0);
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
-        graph.add_edge(n0, n1, ());
-        graph.add_edge(n1, n2, ());
-        graph.add_edge(n2, n0, ());
+        graph.add_edge(n0.clone(), n1.clone(), ());
+        graph.add_edge(n1.clone(), n2.clone(), ());
+        graph.add_edge(n2.clone(), n0.clone(), ());
         graph
     }
 
@@ -225,7 +225,7 @@ mod tests {
     fn test_bfs_simple_graph() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: Vec<_> = BfsIterator::new(&graph, vec![nodes[0]]).collect();
+        let visited: Vec<_> = BfsIterator::new(&graph, vec![nodes[0].clone()]).collect();
         assert_eq!(visited.len(), 4);
         assert!(visited[0] == nodes[0]);
         assert!(visited[1] == nodes[1] || visited[1] == nodes[2]);
@@ -237,7 +237,7 @@ mod tests {
     fn test_bfs_visits_all_reachable() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: HashSet<_> = BfsIterator::new(&graph, vec![nodes[0]]).collect();
+        let visited: HashSet<_> = BfsIterator::new(&graph, vec![nodes[0].clone()]).collect();
         assert_eq!(visited.len(), 4);
         assert!(visited.contains(&nodes[0]));
         assert!(visited.contains(&nodes[1]));
@@ -256,7 +256,8 @@ mod tests {
     fn test_bfs_multiple_start_nodes() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: HashSet<_> = BfsIterator::new(&graph, vec![nodes[0], nodes[1]]).collect();
+        let visited: HashSet<_> =
+            BfsIterator::new(&graph, vec![nodes[0].clone(), nodes[1].clone()]).collect();
         assert_eq!(visited.len(), 4);
     }
 
@@ -264,7 +265,7 @@ mod tests {
     fn test_bfs_handles_cycles() {
         let graph = create_cyclic_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: Vec<_> = BfsIterator::new(&graph, vec![nodes[0]]).collect();
+        let visited: Vec<_> = BfsIterator::new(&graph, vec![nodes[0].clone()]).collect();
         assert_eq!(visited.len(), 3);
     }
 
@@ -272,10 +273,15 @@ mod tests {
     fn test_dfs_simple_graph() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: HashSet<_> = DfsIterator::new(&graph, vec![nodes[0]]).collect();
+        let visited: HashSet<_> = DfsIterator::new(&graph, vec![nodes[0].clone()]).collect();
         assert_eq!(
             visited,
-            HashSet::from([nodes[0], nodes[1], nodes[3], nodes[2]])
+            HashSet::from([
+                nodes[0].clone(),
+                nodes[1].clone(),
+                nodes[3].clone(),
+                nodes[2].clone()
+            ])
         );
     }
 
@@ -283,7 +289,7 @@ mod tests {
     fn test_dfs_visits_all_reachable() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: HashSet<_> = DfsIterator::new(&graph, vec![nodes[0]]).collect();
+        let visited: HashSet<_> = DfsIterator::new(&graph, vec![nodes[0].clone()]).collect();
         assert_eq!(visited.len(), 4);
         assert!(visited.contains(&nodes[0]));
         assert!(visited.contains(&nodes[1]));
@@ -302,7 +308,8 @@ mod tests {
     fn test_dfs_multiple_start_nodes() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: HashSet<_> = DfsIterator::new(&graph, vec![nodes[0], nodes[1]]).collect();
+        let visited: HashSet<_> =
+            DfsIterator::new(&graph, vec![nodes[0].clone(), nodes[1].clone()]).collect();
         assert_eq!(visited.len(), 4);
     }
 
@@ -310,7 +317,7 @@ mod tests {
     fn test_dfs_handles_cycles() {
         let graph = create_cyclic_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: Vec<_> = DfsIterator::new(&graph, vec![nodes[0]]).collect();
+        let visited: Vec<_> = DfsIterator::new(&graph, vec![nodes[0].clone()]).collect();
         assert_eq!(visited.len(), 3);
     }
 
@@ -318,8 +325,8 @@ mod tests {
     fn test_bfs_dfs_visit_same_nodes() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let bfs_visited: HashSet<_> = BfsIterator::new(&graph, vec![nodes[0]]).collect();
-        let dfs_visited: HashSet<_> = DfsIterator::new(&graph, vec![nodes[0]]).collect();
+        let bfs_visited: HashSet<_> = BfsIterator::new(&graph, vec![nodes[0].clone()]).collect();
+        let dfs_visited: HashSet<_> = DfsIterator::new(&graph, vec![nodes[0].clone()]).collect();
         assert_eq!(bfs_visited, dfs_visited);
     }
 
@@ -327,15 +334,16 @@ mod tests {
     fn test_bfs_wth_paths() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: HashSet<_> = BfsIteratorWithPaths::new(&graph, vec![nodes[0]]).collect();
+        let visited: HashSet<_> =
+            BfsIteratorWithPaths::new(&graph, vec![nodes[0].clone()]).collect();
         assert_eq!(visited.len(), 4);
         assert_eq!(
             visited,
             HashSet::from([
-                vec![nodes[0]],
-                vec![nodes[0], nodes[1]],
-                vec![nodes[0], nodes[2]],
-                vec![nodes[0], nodes[1], nodes[3]],
+                vec![nodes[0].clone()],
+                vec![nodes[0].clone(), nodes[1].clone()],
+                vec![nodes[0].clone(), nodes[2].clone()],
+                vec![nodes[0].clone(), nodes[1].clone(), nodes[3].clone()],
             ])
         );
     }
@@ -344,14 +352,15 @@ mod tests {
     fn test_dfs_wth_paths() {
         let graph = create_simple_graph();
         let nodes: Vec<_> = graph.node_ids().collect();
-        let visited: HashSet<_> = DfsIteratorWithPaths::new(&graph, vec![nodes[0]]).collect();
+        let visited: HashSet<_> =
+            DfsIteratorWithPaths::new(&graph, vec![nodes[0].clone()]).collect();
         assert_eq!(
             visited,
             HashSet::from([
-                vec![nodes[0]],
-                vec![nodes[0], nodes[2]],
-                vec![nodes[0], nodes[1]],
-                vec![nodes[0], nodes[1], nodes[3]],
+                vec![nodes[0].clone()],
+                vec![nodes[0].clone(), nodes[2].clone()],
+                vec![nodes[0].clone(), nodes[1].clone()],
+                vec![nodes[0].clone(), nodes[1].clone(), nodes[3].clone()],
             ])
         );
     }

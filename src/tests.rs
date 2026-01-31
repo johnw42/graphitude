@@ -476,7 +476,7 @@ macro_rules! graph_tests {
                     (e4.clone(), (n2.clone(), n3.clone())),
                 ];
                 for (edge, (a, b)) in edge_pairs {
-                    let (src, tgt) = edge.ends();
+                    let (src, tgt) = edge.ends().into();
                     assert!(
                         (src == a && tgt == b) || (src == b && tgt == a),
                         "Edge {:?} does not connect nodes {:?} and {:?}",

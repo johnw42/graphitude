@@ -38,6 +38,7 @@ pub mod tests;
 mod graph_id;
 mod id_vec;
 mod mapping_result;
+mod pairs;
 mod util;
 
 #[cfg(feature = "bitvec")]
@@ -47,8 +48,8 @@ pub use directedness::{Directed, Directedness, Undirected};
 pub use graph::{EdgeId, Graph, GraphDirected, GraphMut, GraphUndirected, NodeId};
 pub use linked_graph::LinkedGraph;
 pub use mapping_result::MappingResult;
+pub use pairs::UnorderedPair;
 pub use tests::TestDataBuilder;
-pub use unordered_pair::UnorderedPair;
 
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{

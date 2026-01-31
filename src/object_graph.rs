@@ -16,7 +16,9 @@ use super::Graph;
     PartialEq(bound = ""),
     Eq(bound = ""),
     Hash(bound = ""),
-    Debug(bound = "")
+    Debug(bound = ""),
+    PartialOrd(bound = ""),
+    Ord(bound = "")
 )]
 pub struct NodeId<'g, N>(*const N, PhantomData<&'g N>);
 

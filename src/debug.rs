@@ -102,7 +102,7 @@ where
             "edges",
             &FormatDebugWith(|f: &mut Formatter<'_>| {
                 let make_edge_tag = |eid: &G::EdgeId| {
-                    let (from, to) = eid.ends();
+                    let (from, to) = eid.ends().into();
                     let tag = if graph.is_directed() {
                         format!("{} -> {}", &node_tags[&from], &node_tags[&to])
                     } else {
@@ -167,8 +167,8 @@ mod tests {
         let n1 = graph.add_node("B");
         let n2 = graph.add_node("A");
         let n3 = graph.add_node("C");
-        graph.add_edge(n1, n2, 10);
-        graph.add_edge(n2, n3, 20);
+        graph.add_edge(n1.clone(), n2.clone(), 10);
+        graph.add_edge(n2.clone(), n3.clone(), 20);
 
         let output = format!("{:?}", &graph);
 

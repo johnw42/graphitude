@@ -1,7 +1,7 @@
 #[cfg(feature = "bitvec")]
 use std::{fmt::Debug, hash::Hash};
 
-use crate::util::sort_pair;
+use crate::pairs::{OrderedPair, Pair, UnorderedPair};
 
 #[cfg(feature = "bitvec")]
 use crate::{
@@ -19,7 +19,7 @@ pub struct Undirected;
 ///
 /// This trait is implemented by [`Directed`] and [`Undirected`] marker types
 /// to provide compile-time specialization of graph behavior.
-pub trait Directedness {
+pub trait Directedness: Sized {
     #[cfg(feature = "bitvec")]
     type Symmetry: Symmetry;
     #[cfg(feature = "bitvec")]
@@ -27,8 +27,9 @@ pub trait Directedness {
     where
         K: Eq + Hash + Clone + Ord + Debug;
 
+    type Pair<T: Eq + Hash + Clone + Debug + Ord>: Pair<T> + Eq + Hash + Clone + Debug + Ord;
+
     fn is_directed() -> bool;
-    fn maybe_sort<K: Ord>(a: K, b: K) -> (K, K);
 }
 
 impl Directedness for Directed {
@@ -40,12 +41,10 @@ impl Directedness for Directed {
     where
         K: Eq + Hash + Clone + Ord + Debug;
 
+    type Pair<T: Eq + Hash + Clone + Debug + Ord> = OrderedPair<T>;
+
     fn is_directed() -> bool {
         true
-    }
-
-    fn maybe_sort<K: Ord>(a: K, b: K) -> (K, K) {
-        (a, b)
     }
 }
 
@@ -58,11 +57,9 @@ impl Directedness for Undirected {
     where
         K: Eq + Hash + Clone + Ord + Debug;
 
+    type Pair<T: Eq + Hash + Clone + Debug + Ord> = UnorderedPair<T>;
+
     fn is_directed() -> bool {
         false
-    }
-
-    fn maybe_sort<K: Ord>(a: K, b: K) -> (K, K) {
-        sort_pair(a, b)
     }
 }

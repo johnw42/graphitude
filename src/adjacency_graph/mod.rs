@@ -13,6 +13,7 @@ use crate::{
     graph_id::GraphId,
     id_vec::{IdVec, IdVecKey},
     mapping_result::MappingResult,
+    pairs::Pair,
 };
 
 mod ids;
@@ -57,7 +58,7 @@ where
 
     /// Creates an `EdgeId` for the given `IdVecKey` pair.
     fn edge_id(&self, from: IdVecKey, into: IdVecKey) -> EdgeId<S, D> {
-        EdgeId::new(D::maybe_sort(from, into), self.id, self.compaction_count)
+        EdgeId::new((from, into).into(), self.id, self.compaction_count)
     }
 
     /// Internal function to perform compaction or shrinking of the graph.
@@ -154,7 +155,7 @@ where
 
     fn edge_data(&self, eid: Self::EdgeId) -> &Self::EdgeData {
         self.assert_valid_edge_id(&eid);
-        let (from, to) = eid.keys();
+        let (from, to) = eid.keys().into();
         &self
             .adjacency
             .get(
@@ -247,8 +248,8 @@ where
         if self
             .adjacency
             .get(
-                self.nodes.zero_based_index(id.keys().0),
-                self.nodes.zero_based_index(id.keys().1),
+                self.nodes.zero_based_index(id.keys().into_first()),
+                self.nodes.zero_based_index(id.keys().into_second()),
             )
             .is_none()
         {
@@ -331,8 +332,8 @@ where
     fn remove_edge(&mut self, id: Self::EdgeId) -> Self::EdgeData {
         self.adjacency
             .remove(
-                self.nodes.zero_based_index(id.keys().0),
-                self.nodes.zero_based_index(id.keys().1),
+                self.nodes.zero_based_index(id.keys().into_first()),
+                self.nodes.zero_based_index(id.keys().into_second()),
             )
             .expect("Invalid edge ID")
     }

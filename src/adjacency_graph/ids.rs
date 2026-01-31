@@ -2,18 +2,17 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use derivative::Derivative;
 
-use crate::{Directedness, Storage, graph_id::GraphId, id_vec::IdVecKey};
+use crate::{Directedness, Storage, graph_id::GraphId, id_vec::IdVecKey, pairs::Pair};
 
 #[derive(Derivative)]
 #[derivative(
-    Clone(bound = ""),
-    Copy(bound = ""),
+    Clone(bound = "T: Clone"),
     Eq(bound = "T: Eq"),
     Hash(bound = "T: Hash"),
     PartialOrd(bound = "T: Ord"),
     Ord(bound = "T: Ord")
 )]
-pub struct NodeIdOrEdgeId<S: Storage, T: Copy> {
+pub struct NodeIdOrEdgeId<S: Storage, T> {
     payload: T,
     #[derivative(PartialOrd = "ignore", Ord = "ignore", Hash = "ignore")]
     pub compaction_count: S::CompactionCount,
@@ -21,14 +20,14 @@ pub struct NodeIdOrEdgeId<S: Storage, T: Copy> {
     pub graph_id: GraphId,
 }
 
-impl<S: Storage, T: Copy + Eq> PartialEq for NodeIdOrEdgeId<S, T> {
+impl<S: Storage, T: Eq> PartialEq for NodeIdOrEdgeId<S, T> {
     fn eq(&self, other: &Self) -> bool {
         assert_eq!(self.graph_id, other.graph_id);
         self.payload == other.payload
     }
 }
 
-impl<S: Storage, T: Copy> NodeIdOrEdgeId<S, T> {
+impl<S: Storage, T> NodeIdOrEdgeId<S, T> {
     pub fn new(payload: T, graph_id: GraphId, compaction_count: S::CompactionCount) -> Self {
         Self {
             payload,
@@ -48,7 +47,6 @@ pub type NodeId<S> = NodeIdOrEdgeId<S, IdVecKey>;
 #[derive(Derivative)]
 #[derivative(
     Clone(bound = ""),
-    Copy(bound = ""),
     PartialEq(bound = ""),
     Eq(bound = ""),
     Hash(bound = ""),
@@ -56,13 +54,13 @@ pub type NodeId<S> = NodeIdOrEdgeId<S, IdVecKey>;
     Ord(bound = "")
 )]
 pub struct EdgeId<S: Storage, D: Directedness> {
-    inner: NodeIdOrEdgeId<S, (IdVecKey, IdVecKey)>,
+    inner: NodeIdOrEdgeId<S, D::Pair<IdVecKey>>,
     _directedness: PhantomData<D>,
 }
 
 impl<S: Storage, D: Directedness> EdgeId<S, D> {
     pub fn new(
-        payload: (IdVecKey, IdVecKey),
+        payload: D::Pair<IdVecKey>,
         graph_id: GraphId,
         compaction_count: S::CompactionCount,
     ) -> Self {
@@ -72,8 +70,8 @@ impl<S: Storage, D: Directedness> EdgeId<S, D> {
         }
     }
 
-    pub fn keys(&self) -> (IdVecKey, IdVecKey) {
-        self.inner.payload
+    pub fn keys(&self) -> D::Pair<IdVecKey> {
+        self.inner.payload.clone()
     }
 
     pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
@@ -108,9 +106,16 @@ impl<S: Storage, D: Directedness> crate::graph::EdgeId for EdgeId<S, D> {
     type NodeId = NodeId<S>;
     type Directedness = D;
 
+    fn ends(&self) -> D::Pair<NodeId<S>> {
+        let (from_key, to_key) = self.inner.payload.clone().into();
+        let from = NodeId::new(from_key, self.inner.graph_id, self.inner.compaction_count);
+        let to = NodeId::new(to_key, self.inner.graph_id, self.inner.compaction_count);
+        (from, to).into()
+    }
+
     fn source(&self) -> NodeId<S> {
         NodeId::new(
-            self.inner.payload.0,
+            self.inner.payload.first().clone(),
             self.inner.graph_id,
             self.inner.compaction_count,
         )
@@ -118,7 +123,7 @@ impl<S: Storage, D: Directedness> crate::graph::EdgeId for EdgeId<S, D> {
 
     fn target(&self) -> NodeId<S> {
         NodeId::new(
-            self.inner.payload.1,
+            self.inner.payload.second().clone(),
             self.inner.graph_id,
             self.inner.compaction_count,
         )

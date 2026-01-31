@@ -1,11 +1,8 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::{
-    Directed, Graph, GraphMut,
-    debug::format_debug,
-    directedness::Directedness,
-    graph_id::GraphId,
-    util::{OtherValue, other_value},
+    Directed, Graph, GraphMut, debug::format_debug, directedness::Directedness, graph_id::GraphId,
+    pairs::Pair, util::OtherValue,
 };
 
 mod edge_id;
@@ -14,17 +11,16 @@ mod node_id;
 pub use edge_id::EdgeId;
 pub use node_id::NodeId;
 
-struct Node<N, E, D> {
+struct Node<N, E, D: Directedness> {
     data: N,
     edges_out: Vec<Arc<Edge<N, E, D>>>,
     edges_in: Vec<EdgeId<N, E, D>>,
     directedness: PhantomData<D>,
 }
 
-struct Edge<N, E, D> {
+struct Edge<N, E, D: Directedness> {
     data: E,
-    from: NodeId<N, E, D>,
-    into: NodeId<N, E, D>,
+    ends: D::Pair<NodeId<N, E, D>>,
     directedness: PhantomData<D>,
 }
 
@@ -261,12 +257,12 @@ where
         into: Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
-        let (from_sorted, into_sorted) = D::maybe_sort(from.clone(), into.clone());
+        let ends = D::Pair::from((from, into));
+        let (from, into) = ends.clone().into();
 
         let edge = Arc::new(Edge {
             data,
-            from: from_sorted.clone(),
-            into: into_sorted.clone(),
+            ends,
             directedness: PhantomData,
         });
         let eid = self.edge_id(&edge);
@@ -276,16 +272,14 @@ where
         // TODO: Make sure this is true!
         unsafe {
             // Always add to the sorted "from" node's edges_out
-            self.node_mut(from_sorted.clone())
-                .edges_out
-                .push(edge.clone());
+            self.node_mut(from.clone()).edges_out.push(edge.clone());
 
             if D::is_directed() {
                 // For directed graphs, add to the "into" node's edges_in
-                self.node_mut(into_sorted).edges_in.push(eid.clone());
-            } else if from_sorted != into_sorted {
+                self.node_mut(into).edges_in.push(eid.clone());
+            } else if from != into {
                 // For undirected graphs (non-self-loop), add to the other node's edges_out
-                self.node_mut(into_sorted).edges_out.push(edge);
+                self.node_mut(into).edges_out.push(edge);
             }
         }
 
@@ -303,7 +297,7 @@ where
         // Remove outgoing edges from other nodes
         for edge in &node.edges_out {
             // For undirected graphs, the "other" node could be either edge.from or edge.into
-            match other_value((&edge.from, &edge.into), &nid) {
+            match edge.ends.other_value(&nid) {
                 OtherValue::First(other_nid) | OtherValue::Second(other_nid) => {
                     let other_node = unsafe { self.node_mut(other_nid.clone()) };
                     if D::is_directed() {
@@ -324,9 +318,9 @@ where
             // For directed graphs, also remove incoming edges from source nodes' edges_out
             for eid in &node.edges_in {
                 let edge = self.edge(eid.clone());
-                let from_nid = edge.from.clone();
-                if from_nid != nid {
-                    let from_node = unsafe { self.node_mut(from_nid) };
+                let from_nid = edge.ends.first();
+                if *from_nid != nid {
+                    let from_node = unsafe { self.node_mut(from_nid.clone()) };
                     from_node
                         .edges_out
                         .retain(|edge| self.edge_id(edge) != *eid);
@@ -342,8 +336,7 @@ where
     fn remove_edge(&mut self, eid: Self::EdgeId) -> Self::EdgeData {
         self.assert_valid_edge_id(&eid);
         let edge = eid.ptr.upgrade().expect("EdgeId is dangling");
-        let from_nid = edge.from.clone();
-        let to_nid = edge.into.clone();
+        let (from_nid, into_nid) = edge.ends.clone().into();
 
         // Remove from source node's edges_out
         let from_node = unsafe { self.node_mut(from_nid.clone()) };
@@ -351,11 +344,11 @@ where
 
         if D::is_directed() {
             // For directed graphs, remove from target node's edges_in
-            let to_node = unsafe { self.node_mut(to_nid) };
+            let to_node = unsafe { self.node_mut(into_nid) };
             to_node.edges_in.retain(|eid2| eid != *eid2);
-        } else if from_nid != to_nid {
+        } else if from_nid != into_nid {
             // For undirected graphs (non-self-loop), remove from target node's edges_out
-            let to_node = unsafe { self.node_mut(to_nid) };
+            let to_node = unsafe { self.node_mut(into_nid) };
             to_node.edges_out.retain(|edge| eid != self.edge_id(edge));
         }
 

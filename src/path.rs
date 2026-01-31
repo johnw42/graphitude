@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once, marker::PhantomData
 
 use derivative::Derivative;
 
-use crate::{Directedness, EdgeId};
+use crate::{Directedness, EdgeId, pairs::Pair};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
@@ -87,7 +87,7 @@ impl<E: EdgeId> Path<E> {
     /// last node of the path.
     pub fn add_edge(&mut self, edge_id: E) {
         let last = self.last_node();
-        let (source, target) = edge_id.ends();
+        let (source, target) = edge_id.ends().into();
 
         let next_node = if source == last {
             target
@@ -107,17 +107,13 @@ impl<E: EdgeId> Path<E> {
     /// path, or if the provided node does not match the edge's target node.
     pub fn add_edge_and_node(&mut self, edge_id: E, node_id: E::NodeId) {
         let last = self.last_node();
-        let (source, target) = edge_id.ends();
 
         // For directed graphs, source must be last and target must be node_id
         // For undirected graphs, we're more flexible
-        let valid = if E::Directedness::is_directed() {
-            source == last && target == node_id
-        } else {
-            (source == last && target == node_id) || (target == last && source == node_id)
-        };
-
-        assert!(valid, "Edge does not connect last node to provided node");
+        assert!(
+            edge_id.ends().has_both(&last, &node_id),
+            "Edge does not connect last node to provided node"
+        );
 
         self.edges.push(edge_id);
         self.nodes.push(node_id);
@@ -177,7 +173,7 @@ mod tests {
                 fn test_new_path() {
                     let mut graph = <$type>::new();
                     let n1 = graph.add_node("n1");
-                    let path = graph.new_path(n1);
+                    let path = graph.new_path(n1.clone());
                     assert_eq!(path.first_node(), n1);
                     assert_eq!(path.last_node(), n1);
                 }
@@ -187,9 +183,9 @@ mod tests {
                     let mut graph = <$type>::new();
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
-                    let e1 = graph.add_edge(n1, n2, "e1");
+                    let e1 = graph.add_edge(n1.clone(), n2.clone(), "e1");
 
-                    let mut path = graph.new_path(n1);
+                    let mut path = graph.new_path(n1.clone());
                     path.add_edge(e1);
 
                     assert_eq!(path.last_node(), n2);
@@ -206,8 +202,8 @@ mod tests {
                     let e1 = graph.add_edge(n1.clone(), n2.clone(), "e1");
                     let e2 = graph.add_edge(n2.clone(), n3.clone(), "e2");
                     let mut path = graph.new_path(n1.clone());
-                    path.add_edge(e1);
-                    path.add_edge(e2);
+                    path.add_edge(e1.clone());
+                    path.add_edge(e2.clone());
                     let mut iter = path.nodes_with_edges();
                     assert_eq!(iter.next(), Some((None, n1.clone(), Some(e1.clone()))));
                     assert_eq!(
@@ -224,8 +220,8 @@ mod tests {
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(n1, n2, "e12");
-                    let e2 = graph.add_edge(n2, n3, "e23");
+                    let e1 = graph.add_edge(n1.clone(), n2.clone(), "e12");
+                    let e2 = graph.add_edge(n2.clone(), n3.clone(), "e23");
 
                     let mut path1 = graph.new_path(n1);
                     path1.add_edge(e1);
@@ -245,8 +241,8 @@ mod tests {
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(n1, n2, "e12");
-                    let e2 = graph.add_edge(n2, n3, "e23");
+                    let e1 = graph.add_edge(n1.clone(), n2.clone(), "e12");
+                    let e2 = graph.add_edge(n2.clone(), n3.clone(), "e23");
 
                     let mut path = graph.new_path(n1);
                     path.extend(vec![e1, e2]);
@@ -261,9 +257,9 @@ mod tests {
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(n1, n2, "e12");
-                    let e2 = graph.add_edge(n2, n3, "e23");
-                    let e3 = graph.add_edge(n3, n1, "e31");
+                    let e1 = graph.add_edge(n1.clone(), n2.clone(), "e12");
+                    let e2 = graph.add_edge(n2.clone(), n3.clone(), "e23");
+                    let e3 = graph.add_edge(n3.clone(), n1.clone(), "e31");
 
                     let mut path = graph.new_path(n1);
                     path.extend(vec![e1, e2, e3]);

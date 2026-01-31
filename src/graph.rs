@@ -9,6 +9,7 @@ use crate::mapping_result::MappingResult;
 use crate::{
     debug_graph_view::DebugGraphView,
     directedness::{Directed, Directedness, Undirected},
+    pairs::Pair,
     path::Path,
     search::{BfsIterator, DfsIterator},
     util::{OtherValue, other_value},
@@ -22,7 +23,7 @@ use crate::{
 /// since they do not implement this trait.  To work around this, you can define
 /// a newtype wrapper around the primitive type and implement `NodeId` for the
 /// newtype.
-pub trait NodeId: Eq + Hash + Clone + Debug {}
+pub trait NodeId: Eq + Hash + Clone + Debug + Ord {}
 
 /// Return type of [`EdgeId::other_end`].
 pub enum OtherEnd<N: NodeId> {
@@ -32,6 +33,17 @@ pub enum OtherEnd<N: NodeId> {
     Target(N),
     /// The edge is a self-loop; both ends are the same node.
     SelfLoop(N),
+}
+
+impl<N: NodeId> OtherEnd<N> {
+    /// Consumes the `OtherEnd`, returning the inner node ID.
+    pub fn into_inner(self) -> N {
+        match self {
+            OtherEnd::Source(n) => n,
+            OtherEnd::Target(n) => n,
+            OtherEnd::SelfLoop(n) => n,
+        }
+    }
 }
 
 /// A trait representing an edge identifier in a graph.  When Directedness is
@@ -50,24 +62,24 @@ pub trait EdgeId: Eq + Hash + Clone + Debug {
 
     /// Gets the source node of the edge.
     fn source(&self) -> Self::NodeId {
-        self.ends().0
+        self.ends().into_first()
     }
 
     /// Gets the target node of the edge.
     fn target(&self) -> Self::NodeId {
-        self.ends().1
+        self.ends().into_second()
     }
 
     /// Gets both ends of the edge as a tuple (source, target).
-    fn ends(&self) -> (Self::NodeId, Self::NodeId) {
-        (self.source(), self.target())
+    fn ends(&self) -> <Self::Directedness as Directedness>::Pair<Self::NodeId> {
+        (self.source(), self.target()).into()
     }
 
     /// Given one end of the edge, returns the other end.  Returns `None` if the
     /// edge is a self-loop.  Panics if the given node is not an endpoint of the
     /// edge.
     fn other_end(&self, node_id: Self::NodeId) -> OtherEnd<Self::NodeId> {
-        match other_value(self.ends(), node_id) {
+        match other_value(self.ends().into(), node_id) {
             OtherValue::First(node) => OtherEnd::Source(node),
             OtherValue::Second(node) => OtherEnd::Target(node),
             OtherValue::Both(node) => OtherEnd::SelfLoop(node),
@@ -389,7 +401,7 @@ pub trait Graph: Sized {
 
             // Update distances to neighbors
             for edge_id in self.edges_from(current_node.clone()) {
-                let neighbor = edge_id.target();
+                let neighbor = edge_id.other_end(current_node.clone()).into_inner();
                 if unvisited.contains(&neighbor) {
                     let edge_distance = distance_fn(&edge_id);
                     let new_dist = current_dist + edge_distance;

@@ -9,7 +9,9 @@ use graphitude::{EdgeId as EdgeIdTrait, Graph, NodeId as NodeIdTrait, directedne
     PartialEq(bound = ""),
     Eq(bound = ""),
     Hash(bound = ""),
-    Debug(bound = "")
+    Debug(bound = ""),
+    PartialOrd(bound = ""),
+    Ord(bound = "")
 )]
 struct NodeId<N>(*const N);
 

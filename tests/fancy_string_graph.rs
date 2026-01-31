@@ -10,7 +10,7 @@ struct StringGraph {
     next_node_id: usize,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 struct NodeId(usize);
 
 impl NodeIdTrait for NodeId {}
