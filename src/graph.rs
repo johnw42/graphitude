@@ -5,6 +5,7 @@ use std::{
     hash::Hash,
 };
 
+use crate::mapping_result::MappingResult;
 use crate::{
     LinkedGraph,
     directedness::{Directed, Directedness, Undirected},
@@ -13,7 +14,24 @@ use crate::{
 };
 
 /// A trait representing a node identifier in a graph.
+///
+///  This trait has no methods but serves as a marker for types that can be used
+/// as node identifiers.  This has the unfortunately side-effect of preventing
+/// the use of primitive types (e.g., `usize`, `u32`, etc.) as node identifiers,
+/// since they do not implement this trait.  To work around this, you can define
+/// a newtype wrapper around the primitive type and implement `NodeId` for the
+/// newtype.
 pub trait NodeId: Eq + Hash + Clone + Debug {}
+
+/// Return type of [`EdgeId::other_end`].
+pub enum OtherEnd<N: NodeId> {
+    /// The source node of the edge for which a target was passed.
+    Source(N),
+    /// The target node of the edge for which a source was passed.
+    Target(N),
+    /// The edge is a self-loop; both ends are the same node.
+    SelfLoop(N),
+}
 
 /// A trait representing an edge identifier in a graph.
 pub trait EdgeId: Eq + Hash + Clone + Debug {
@@ -34,15 +52,18 @@ pub trait EdgeId: Eq + Hash + Clone + Debug {
     /// Given one end of the edge, returns the other end.  Returns `None` if the
     /// edge is a self-loop.  Panics if the given node is not an endpoint of the
     /// edge.
-    fn other_end(&self, node_id: Self::NodeId) -> Option<Self::NodeId> {
+    fn other_end(&self, node_id: Self::NodeId) -> OtherEnd<Self::NodeId> {
         let (source, target) = self.ends();
         if source == node_id {
-            Some(target)
+            if target == node_id {
+                OtherEnd::SelfLoop(target)
+            } else {
+                OtherEnd::Target(target)
+            }
         } else if target == node_id {
-            Some(source)
+            OtherEnd::Source(source)
         } else {
-            assert_eq!(source, target); // self-loop
-            None
+            panic!("NodeId {:?} is not an endpoint of edge {:?}", node_id, self);
         }
     }
 }
@@ -578,8 +599,8 @@ pub trait GraphMut: Graph {
     /// NodeIds and EdgeIds.
     fn compact(&mut self) {
         self.compact_with(
-            None::<fn(Self::NodeId, Self::NodeId)>,
-            None::<fn(Self::EdgeId, Self::EdgeId)>,
+            None::<fn(MappingResult<Self::NodeId>)>,
+            None::<fn(MappingResult<Self::EdgeId>)>,
         );
     }
 
@@ -592,8 +613,8 @@ pub trait GraphMut: Graph {
         mut node_id_callback: Option<F1>,
         mut edge_id_callback: Option<F2>,
     ) where
-        F1: FnMut(Self::NodeId, Self::NodeId),
-        F2: FnMut(Self::EdgeId, Self::EdgeId),
+        F1: FnMut(MappingResult<Self::NodeId>),
+        F2: FnMut(MappingResult<Self::EdgeId>),
     {
         let _ = &mut node_id_callback;
         let _ = &mut edge_id_callback;
@@ -602,7 +623,7 @@ pub trait GraphMut: Graph {
     /// Shrinks internal storage used by the graph to fit its current size.  May
     /// invalidate existing NodeIds and EdgeIds.  Does nothing by default.
     fn shrink_to_fit(&mut self) {
-        self.shrink_to_fit_with::<fn(Self::NodeId, Self::NodeId), fn(Self::EdgeId, Self::EdgeId)>(
+        self.shrink_to_fit_with::<fn(MappingResult<Self::NodeId>), fn(MappingResult<Self::EdgeId>)>(
             None, None,
         );
     }
@@ -616,8 +637,8 @@ pub trait GraphMut: Graph {
         mut node_id_callback: Option<F1>,
         mut edge_id_callback: Option<F2>,
     ) where
-        F1: FnMut(Self::NodeId, Self::NodeId),
-        F2: FnMut(Self::EdgeId, Self::EdgeId),
+        F1: FnMut(MappingResult<Self::NodeId>),
+        F2: FnMut(MappingResult<Self::EdgeId>),
     {
         let _ = &mut node_id_callback;
         let _ = &mut edge_id_callback;

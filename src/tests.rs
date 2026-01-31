@@ -481,16 +481,16 @@ macro_rules! graph_tests {
             let mut nid_map = std::collections::HashMap::new();
             let mut eid_map = std::collections::HashMap::new();
             graph.compact_with(
-                Some(
-                    |old_nid: <$type as Graph>::NodeId, new_nid: <$type as Graph>::NodeId| {
+                Some(|result: $crate::MappingResult<<$type as Graph>::NodeId>| {
+                    if let $crate::MappingResult::Remapped(old_nid, new_nid) = result {
                         nid_map.insert(old_nid.clone(), new_nid.clone());
-                    },
-                ),
-                Some(
-                    |old_eid: <$type as Graph>::EdgeId, new_eid: <$type as Graph>::EdgeId| {
+                    }
+                }),
+                Some(|result: $crate::MappingResult<<$type as Graph>::EdgeId>| {
+                    if let $crate::MappingResult::Remapped(old_eid, new_eid) = result {
                         eid_map.insert(old_eid.clone(), new_eid.clone());
-                    },
-                ),
+                    }
+                }),
             );
             assert_eq!(graph.node_ids().count(), 2);
             assert_eq!(graph.edge_ids().count(), 2);

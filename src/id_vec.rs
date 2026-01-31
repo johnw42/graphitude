@@ -13,6 +13,8 @@ use std::{
 
 use bitvec::vec::BitVec;
 
+use crate::MappingResult;
+
 /// An key for an `IdVec`. Stable across insertions and removals, but not
 /// across `compact` or `shrink_to_fit` operations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -32,34 +34,42 @@ impl From<usize> for IdVecKey {
     }
 }
 
+/// Helper struct for indexing into an `IdVec`.
 pub struct IdVecIndexing {
     key_offset: usize,
 }
 
 impl IdVecIndexing {
-    /// Decodes an `IdVecKey` into an index smaller than the size of the `IdVec`.
+    /// Decodes an `IdVecKey` into an index smaller than the size of the
+    /// `IdVec`. Used for correlating items in the `IdVec` with other data
+    /// structures that use zero-based indexing, such as adjacency matrices.
     ///
-    /// This is used internally to map from the stable key to the internal vector
-    /// index.
+    /// This is used internally to map from the stable key to the internal
+    /// vector index.
     pub fn zero_based_index(&self, index: IdVecKey) -> usize {
         index.0 - self.key_offset
     }
 
     /// Encodes an index returned by `zero_based_index` back into an `IdVecKey`.
     /// Use with caution, because there is no guarantee that the index is valid
-    /// unless it came directly from `zero_based_index`.
+    /// unless it came directly from `zero_based_index`, and even then, it may
+    /// be a the key of a removed entry.
     pub fn key_from_index(&self, index: usize) -> IdVecKey {
         IdVecKey(index + self.key_offset)
     }
 }
 
-/// A map-like structure that assigns stable keys to inserted values.  Keys
-/// remain valid across insertions and removals, but not across `compact` or
-/// `shrink_to_fit` operations.  Internally uses a `Vec<MaybeUninit<T>>` to
+/// A map- or bag-like structure that assigns stable keys to inserted values.
+/// Keys remain valid across insertions and removals, but not across `compact`
+/// or `shrink_to_fit` operations.  Internally uses a `Vec<MaybeUninit<T>>` to
 /// store values and a `BitVec` to track live entries.
 pub struct IdVec<T> {
+    /// Internal vector storing the values.
     vec: Vec<MaybeUninit<T>>,
+    /// BitVec tracking which entries are live (not removed).  This is used to
+    /// determine which entries contain an initialized value.
     liveness: BitVec,
+    /// The difference between indices stored in keys and actual vector indices.
     key_offset: usize,
 }
 
@@ -153,18 +163,18 @@ impl<T> IdVec<T> {
     /// entries down to fill the gaps. This invalidates all existing keys.  No
     /// memory is reallocated.
     pub fn compact(&mut self) {
-        self.compact_with(None::<fn(IdVecKey, Option<IdVecKey>)>);
+        self.compact_with(None::<fn(MappingResult<IdVecKey>)>);
     }
 
     /// Compacts the `IdVec` by removing all dead entries and shifting live
     /// entries down to fill the gaps. This invalidates all existing keys.  No
     /// memory is reallocated.
     ///
-    /// Calls the provided callback with each (old_key, new_key)
-    /// mapping as they are created during compaction. For removed entries, the
-    /// callback is called with (old_key, None). If no entries were removed, all
-    /// keys map to themselves, so the callback is not called.
-    pub fn compact_with(&mut self, mut callback: Option<impl FnMut(IdVecKey, Option<IdVecKey>)>) {
+    /// Calls the provided callback with MappingResult for each key:
+    /// - Remapped(old_key, new_key) for entries that moved
+    /// - Deleted(old_key) for removed entries
+    /// If no entries were removed, all keys map to themselves, so the callback is not called.
+    pub fn compact_with(&mut self, mut callback: Option<impl FnMut(MappingResult<IdVecKey>)>) {
         if self.liveness.all() {
             return;
         }
@@ -175,14 +185,14 @@ impl<T> IdVec<T> {
             if self.liveness[si] {
                 let new_key = IdVecKey(di + new_key_offset);
                 if let Some(ref mut cb) = callback {
-                    cb(old_key, Some(new_key));
+                    cb(MappingResult::Remapped(old_key, new_key));
                 }
                 self.vec[di] = MaybeUninit::new(unsafe { self.vec[si].assume_init_read() });
                 self.liveness.set(di, true);
                 di += 1;
             } else {
                 if let Some(ref mut cb) = callback {
-                    cb(old_key, None);
+                    cb(MappingResult::Deleted(old_key));
                 }
             }
         }
@@ -195,20 +205,20 @@ impl<T> IdVec<T> {
     /// entries.  This invalidates all existing keys. Memory is reallocated to
     /// fit exactly.
     pub fn shrink_to_fit(&mut self) {
-        self.shrink_to_fit_with(None::<fn(IdVecKey, Option<IdVecKey>)>);
+        self.shrink_to_fit_with(None::<fn(MappingResult<IdVecKey>)>);
     }
 
     /// Compacts the `IdVec` by removing all dead entries without shifting live
     /// entries.  This invalidates all existing keys. Memory is reallocated to
     /// fit exactly.
     ///
-    /// Calls the provided callback with each (old_key, new_key)
-    /// mapping as they are created during compaction. For removed entries, the
-    /// callback is called with (old_key, None). If no entries were removed, all
-    /// keys map to themselves, so the callback is not called.
+    /// Calls the provided callback with MappingResult for each key:
+    /// - Remapped(old_key, new_key) for entries that moved
+    /// - Deleted(old_key) for removed entries
+    /// If no entries were removed, all keys map to themselves, so the callback is not called.
     pub fn shrink_to_fit_with(
         &mut self,
-        mut callback: Option<impl FnMut(IdVecKey, Option<IdVecKey>)>,
+        mut callback: Option<impl FnMut(MappingResult<IdVecKey>)>,
     ) {
         if self.len() == self.vec.len() + self.key_offset {
             return;
@@ -224,13 +234,13 @@ impl<T> IdVec<T> {
                 let di = new_vec.len();
                 let new_key = IdVecKey(di + new_key_offset);
                 if let Some(ref mut cb) = callback {
-                    cb(old_key, Some(new_key));
+                    cb(MappingResult::Remapped(old_key, new_key));
                 }
                 new_vec.push(unsafe { MaybeUninit::new(self.vec[si].assume_init_read()) });
                 new_liveness.push(true);
             } else {
                 if let Some(ref mut cb) = callback {
-                    cb(old_key, None);
+                    cb(MappingResult::Deleted(old_key));
                 }
             }
         }
@@ -457,8 +467,8 @@ mod tests {
         vec.remove(id2);
         let mut key_map = HashMap::new();
 
-        vec.compact_with(Some(|old_key, new_key_opt| {
-            if let Some(new_key) = new_key_opt {
+        vec.compact_with(Some(|result| {
+            if let MappingResult::Remapped(old_key, new_key) = result {
                 key_map.insert(old_key, new_key);
             }
         }));
@@ -508,8 +518,8 @@ mod tests {
         vec.remove(id3);
         let mut key_map = HashMap::new();
 
-        vec.shrink_to_fit_with(Some(|old_key, new_key_opt| {
-            if let Some(new_key) = new_key_opt {
+        vec.shrink_to_fit_with(Some(|result| {
+            if let MappingResult::Remapped(old_key, new_key) = result {
                 key_map.insert(old_key, new_key);
             }
         }));
@@ -687,7 +697,7 @@ mod tests {
         let id2 = vec.insert(2);
 
         vec.remove(id1);
-        vec.compact_with(Some(|_, _| {}));
+        vec.compact_with(Some(|_result| {}));
 
         let _ = vec.get(id2);
     }
@@ -779,8 +789,8 @@ mod tests {
         vec.remove(id2);
 
         let mut key_map = HashMap::new();
-        vec.compact_with(Some(|old_key, new_key_opt| {
-            if let Some(new_key) = new_key_opt {
+        vec.compact_with(Some(|result| {
+            if let MappingResult::Remapped(old_key, new_key) = result {
                 key_map.insert(old_key, new_key);
             }
         }));
@@ -799,7 +809,7 @@ mod tests {
         // shrink_to_fit with no removals does nothing, callback not called
         let mut callback_called = false;
 
-        vec.compact_with(Some(|_old_key, _new_key_opt| {
+        vec.compact_with(Some(|_result| {
             callback_called = true;
         }));
 
@@ -819,7 +829,7 @@ mod tests {
         // shrink_to_fit with no removals does nothing, callback not called
         let mut callback_called = false;
 
-        vec.shrink_to_fit_with(Some(|_old_key, _new_key_opt| {
+        vec.shrink_to_fit_with(Some(|_result| {
             callback_called = true;
         }));
 
@@ -838,7 +848,7 @@ mod tests {
         // shrink_to_fit with no removals does nothing, callback not called
         let mut callback_called = false;
 
-        vec.shrink_to_fit_with(Some(|_old_key, _new_key_opt| {
+        vec.shrink_to_fit_with(Some(|_result| {
             callback_called = true;
         }));
 

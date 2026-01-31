@@ -36,6 +36,7 @@ pub mod tests;
 
 mod graph_id;
 mod id_vec;
+mod mapping_result;
 mod symmetric_maxtrix_indexing;
 mod util;
 
@@ -45,6 +46,7 @@ mod triangular;
 pub use directedness::{Directed, Directedness, Undirected};
 pub use graph::{EdgeId, Graph, GraphDirected, GraphMut, GraphUndirected, NodeId};
 pub use linked_graph::LinkedGraph;
+pub use mapping_result::MappingResult;
 pub use tests::TestDataBuilder;
 
 #[cfg(feature = "bitvec")]
