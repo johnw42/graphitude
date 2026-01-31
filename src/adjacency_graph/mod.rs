@@ -13,7 +13,6 @@ use crate::{
     graph_id::GraphId,
     id_vec::{IdVec, IdVecKey},
     mapping_result::MappingResult,
-    util::sort_pair_if,
 };
 
 mod ids;

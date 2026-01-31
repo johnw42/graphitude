@@ -37,7 +37,6 @@ pub mod tests;
 mod graph_id;
 mod id_vec;
 mod mapping_result;
-mod symmetric_maxtrix_indexing;
 mod util;
 
 #[cfg(feature = "bitvec")]

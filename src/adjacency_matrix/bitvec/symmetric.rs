@@ -5,7 +5,7 @@ use std::mem::MaybeUninit;
 
 use bitvec::vec::BitVec;
 
-use crate::symmetric_maxtrix_indexing::SymmetricMatrixIndexing;
+use super::symmetric_maxtrix_indexing::SymmetricMatrixIndexing;
 use crate::triangular::triangular;
 use crate::util::sort_pair;
 
