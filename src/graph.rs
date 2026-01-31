@@ -33,16 +33,29 @@ pub enum OtherEnd<N: NodeId> {
     SelfLoop(N),
 }
 
-/// A trait representing an edge identifier in a graph.
+/// A trait representing an edge identifier in a graph.  When Directedness is
+/// `Directed`, the source and target are distinct; when Directedness is
+/// `Undirected`, the source and target are always be ordered such that
+/// `source <= target`.
+///
+/// Implementors must ensure the following conditions:
+/// - Either `ends` is implemented, or both `source` and `target` are implemented.
+/// - If `Directedness` is `Undirected`, then the source must always be less than or
+///   equal to the target, according to the `Ord` implementation of the `NodeId`
+///   type.
 pub trait EdgeId: Eq + Hash + Clone + Debug {
     type NodeId: NodeId;
     type Directedness: Directedness;
 
     /// Gets the source node of the edge.
-    fn source(&self) -> Self::NodeId;
+    fn source(&self) -> Self::NodeId {
+        self.ends().0
+    }
 
     /// Gets the target node of the edge.
-    fn target(&self) -> Self::NodeId;
+    fn target(&self) -> Self::NodeId {
+        self.ends().1
+    }
 
     /// Gets both ends of the edge as a tuple (source, target).
     fn ends(&self) -> (Self::NodeId, Self::NodeId) {
