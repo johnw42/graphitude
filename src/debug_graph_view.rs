@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{Directed, Graph, GraphMut, LinkedGraph};
+use crate::{Directedness, Graph, GraphMut, LinkedGraph};
 
 /// A view of a graph with transformed node and edge data, suitable for debugging.
 ///
@@ -9,21 +9,22 @@ use crate::{Directed, Graph, GraphMut, LinkedGraph};
 /// and the result is stored in an internal `LinkedGraph`.
 ///
 /// Note: This view always represents a directed graph, regardless of the source graph's
-/// directedness. Undirected edges from the source will be represented as pairs of
-/// directed edges in the view.
-pub struct DebugGraphView<N, E> {
-    inner: LinkedGraph<N, E>,
+/// directedness. Edges are copied as-is from the source, so each edge in the source
+/// graph becomes one directed edge in the view.
+pub struct DebugGraphView<N, E, D: Directedness> {
+    inner: LinkedGraph<N, E, D>,
 }
 
-impl<N, E> DebugGraphView<N, E>
+impl<N, E, D> DebugGraphView<N, E, D>
 where
     N: Debug,
     E: Debug,
+    D: Directedness,
 {
     /// Creates a new `DebugGraphView` by transforming the data from the source graph.
     pub fn new<G, NF, EF>(graph: &G, node_fn: NF, edge_fn: EF) -> Self
     where
-        G: Graph,
+        G: Graph<Directedness = D>,
         NF: Fn(&G::NodeData) -> N,
         EF: Fn(&G::EdgeData) -> E,
     {
@@ -33,16 +34,17 @@ where
     }
 }
 
-impl<N, E> Graph for DebugGraphView<N, E>
+impl<N, E, D> Graph for DebugGraphView<N, E, D>
 where
     N: Debug,
     E: Debug,
+    D: Directedness,
 {
-    type Directedness = Directed;
+    type Directedness = D;
     type NodeData = N;
-    type NodeId = <LinkedGraph<N, E> as Graph>::NodeId;
+    type NodeId = <LinkedGraph<N, E, D> as Graph>::NodeId;
     type EdgeData = E;
-    type EdgeId = <LinkedGraph<N, E> as Graph>::EdgeId;
+    type EdgeId = <LinkedGraph<N, E, D> as Graph>::EdgeId;
 
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
         self.inner.node_ids()
@@ -69,12 +71,179 @@ where
     }
 }
 
-impl<N, E> Debug for DebugGraphView<N, E>
+impl<N, E, D> Debug for DebugGraphView<N, E, D>
 where
     N: Debug,
     E: Debug,
+    D: Directedness,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.inner, f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{LinkedGraph, Undirected};
+
+    #[test]
+    fn test_new_empty_graph() {
+        let graph: LinkedGraph<i32, ()> = LinkedGraph::new();
+        let view = DebugGraphView::new(&graph, |&n| n, |_| ());
+
+        assert_eq!(view.node_ids().count(), 0);
+        assert_eq!(view.edge_ids().count(), 0);
+    }
+
+    #[test]
+    fn test_new_with_nodes() {
+        let mut graph: LinkedGraph<i32, ()> = LinkedGraph::new();
+        let _n1 = graph.add_node(10);
+        let _n2 = graph.add_node(20);
+        let _n3 = graph.add_node(30);
+
+        let view = DebugGraphView::new(&graph, |&n| n, |_| ());
+
+        assert_eq!(view.node_ids().count(), 3);
+        let node_data: Vec<i32> = view.node_ids().map(|id| *view.node_data(id)).collect();
+        assert!(node_data.contains(&10));
+        assert!(node_data.contains(&20));
+        assert!(node_data.contains(&30));
+    }
+
+    #[test]
+    fn test_new_with_edges() {
+        let mut graph: LinkedGraph<&str, i32> = LinkedGraph::new();
+        let n1 = graph.add_node("A");
+        let n2 = graph.add_node("B");
+        let n3 = graph.add_node("C");
+
+        graph.add_edge(n1.clone(), n2.clone(), 100);
+        graph.add_edge(n2, n3, 200);
+
+        let view = DebugGraphView::new(&graph, |&s| s, |&e| e);
+
+        assert_eq!(view.edge_ids().count(), 2);
+        let edge_data: Vec<i32> = view.edge_ids().map(|id| *view.edge_data(id)).collect();
+        assert!(edge_data.contains(&100));
+        assert!(edge_data.contains(&200));
+    }
+
+    #[test]
+    fn test_node_transformation() {
+        let mut graph: LinkedGraph<i32, ()> = LinkedGraph::new();
+        graph.add_node(1);
+        graph.add_node(2);
+        graph.add_node(3);
+
+        // Transform by doubling the values
+        let view = DebugGraphView::new(&graph, |&n| n * 2, |_| ());
+
+        let node_data: Vec<i32> = view.node_ids().map(|id| *view.node_data(id)).collect();
+        assert!(node_data.contains(&2));
+        assert!(node_data.contains(&4));
+        assert!(node_data.contains(&6));
+    }
+
+    #[test]
+    fn test_edge_transformation() {
+        let mut graph: LinkedGraph<(), i32> = LinkedGraph::new();
+        let n1 = graph.add_node(());
+        let n2 = graph.add_node(());
+
+        graph.add_edge(n1, n2, 5);
+
+        // Transform by multiplying by 10
+        let view = DebugGraphView::new(&graph, |_| (), |&e| e * 10);
+
+        let edge_data: Vec<i32> = view.edge_ids().map(|id| *view.edge_data(id)).collect();
+        assert_eq!(edge_data, vec![50]);
+    }
+
+    #[test]
+    fn test_type_transformation() {
+        let mut graph: LinkedGraph<i32, f64> = LinkedGraph::new();
+        let n1 = graph.add_node(42);
+        let n2 = graph.add_node(100);
+
+        graph.add_edge(n1, n2, 3.14);
+
+        // Transform types: i32 -> String, f64 -> bool
+        let view = DebugGraphView::new(&graph, |&n| format!("Node_{}", n), |&e| e > 2.0);
+
+        let node_data: Vec<String> = view
+            .node_ids()
+            .map(|id| view.node_data(id).clone())
+            .collect();
+        assert!(node_data.contains(&"Node_42".to_string()));
+        assert!(node_data.contains(&"Node_100".to_string()));
+
+        let edge_data: Vec<bool> = view.edge_ids().map(|id| *view.edge_data(id)).collect();
+        assert_eq!(edge_data, vec![true]);
+    }
+
+    #[test]
+    fn test_edges_between() {
+        let mut graph: LinkedGraph<&str, i32> = LinkedGraph::new();
+        let n1 = graph.add_node("A");
+        let n2 = graph.add_node("B");
+
+        graph.add_edge(n1.clone(), n2.clone(), 1);
+        graph.add_edge(n1, n2, 2);
+
+        let view = DebugGraphView::new(&graph, |&s| s, |&e| e);
+
+        let node_ids: Vec<_> = view.node_ids().collect();
+        let edges_between: Vec<_> = view
+            .edges_between(node_ids[0].clone(), node_ids[1].clone())
+            .collect();
+        assert_eq!(edges_between.len(), 2);
+    }
+
+    #[test]
+    fn test_debug_format_directed() {
+        let mut graph: LinkedGraph<i32, &str> = LinkedGraph::new();
+        let n1 = graph.add_node(1);
+        let n2 = graph.add_node(2);
+
+        graph.add_edge(n1, n2, "edge");
+
+        let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
+
+        let debug_output = format!("{:?}", view);
+        assert!(debug_output.contains("LinkedGraph"));
+        assert!(debug_output.contains("->"));
+        assert!(!debug_output.contains("--"));
+    }
+
+    #[test]
+    fn test_debug_format_undirected() {
+        let mut graph: LinkedGraph<i32, &str, Undirected> = LinkedGraph::new();
+        let n1 = graph.add_node(1);
+        let n2 = graph.add_node(2);
+
+        graph.add_edge(n1, n2, "edge");
+
+        let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
+
+        let debug_output = format!("{:?}", view);
+        assert!(debug_output.contains("LinkedGraph"));
+        assert!(!debug_output.contains("->"));
+        assert!(debug_output.contains("--"));
+    }
+
+    #[test]
+    fn test_debug_format_alternate() {
+        let mut graph: LinkedGraph<i32, &str> = LinkedGraph::new();
+        let n1 = graph.add_node(1);
+        let n2 = graph.add_node(2);
+
+        graph.add_edge(n1, n2, "edge");
+
+        let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
+
+        let debug_output = format!("{:#?}", view);
+        assert!(debug_output.contains("LinkedGraph"));
     }
 }

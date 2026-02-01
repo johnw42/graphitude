@@ -139,7 +139,7 @@ pub trait Graph: Sized {
         N: Debug,
         E: Debug,
     {
-        DebugGraphView::new(self, node_fmt, edge_fmt)
+        DebugGraphView::<N, E, Self::Directedness>::new(self, node_fmt, edge_fmt)
     }
 
     /// Creates a new path starting from the given starting node.  This is a
