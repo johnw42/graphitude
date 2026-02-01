@@ -187,10 +187,10 @@ where
                 self.nodes.zero_based_index(into.key()),
             )
             .into_iter()
-            .map(|(from, into, _)| {
+            .map(|(indicies, _)| {
                 self.edge_id(
-                    self.nodes.key_from_index(from),
-                    self.nodes.key_from_index(into),
+                    self.nodes.key_from_index(indicies.clone().into_first()),
+                    self.nodes.key_from_index(indicies.into_second()),
                 )
             })
     }

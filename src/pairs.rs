@@ -101,9 +101,17 @@ where
 /// This is useful for representing edges in undirected graphs, where (a, b) and (b, a)
 /// should be considered identical.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
-pub struct UnorderedPair<T>(T, T);
+pub struct SortedPair<T>(T, T);
 
-impl<T: Ord + Eq> Pair<T> for UnorderedPair<T> {
+impl<T: Ord> SortedPair<T> {
+    /// Create a new `SortedPair` from two pre-sorted values.
+    pub fn from_sorted(a: T, b: T) -> Self {
+        debug_assert!(a <= b, "Values are not in sorted order");
+        Self(a, b)
+    }
+}
+
+impl<T: Ord + Eq> Pair<T> for SortedPair<T> {
     fn first(&self) -> &T {
         &self.0
     }
@@ -135,7 +143,7 @@ impl<T: Ord + Eq> Pair<T> for UnorderedPair<T> {
     }
 }
 
-impl<T> PartialEq<(T, T)> for UnorderedPair<T>
+impl<T> PartialEq<(T, T)> for SortedPair<T>
 where
     T: Ord + Eq,
 {
@@ -144,7 +152,7 @@ where
     }
 }
 
-impl<'a, T> PartialEq<(&'a T, &'a T)> for UnorderedPair<T>
+impl<'a, T> PartialEq<(&'a T, &'a T)> for SortedPair<T>
 where
     T: Ord + Eq,
 {
@@ -153,7 +161,7 @@ where
     }
 }
 
-impl<T> From<(T, T)> for UnorderedPair<T>
+impl<T> From<(T, T)> for SortedPair<T>
 where
     T: Ord,
 {
@@ -163,14 +171,14 @@ where
     }
 }
 
-impl<T> From<UnorderedPair<T>> for (T, T) {
-    fn from(pair: UnorderedPair<T>) -> Self {
+impl<T> From<SortedPair<T>> for (T, T) {
+    fn from(pair: SortedPair<T>) -> Self {
         (pair.0, pair.1)
     }
 }
 
-impl<'a, T> From<&'a UnorderedPair<T>> for (&'a T, &'a T) {
-    fn from(pair: &'a UnorderedPair<T>) -> Self {
+impl<'a, T> From<&'a SortedPair<T>> for (&'a T, &'a T) {
+    fn from(pair: &'a SortedPair<T>) -> Self {
         (&pair.0, &pair.1)
     }
 }

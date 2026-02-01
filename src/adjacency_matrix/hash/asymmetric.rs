@@ -17,7 +17,7 @@ pub struct AsymmetricHashAdjacencyMatrix<I, V> {
 
 impl<I, V> AdjacencyMatrix for AsymmetricHashAdjacencyMatrix<I, V>
 where
-    I: Hash + Eq + Clone,
+    I: Hash + Eq + Clone + Ord,
 {
     type Index = I;
     type Value = V;

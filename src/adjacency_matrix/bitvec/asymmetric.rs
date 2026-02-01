@@ -83,7 +83,7 @@ where
 
 impl<I, V> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<I, V>
 where
-    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash,
+    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord,
 {
     type Index = I;
     type Value = V;

@@ -3,6 +3,7 @@
 use std::ops::Range;
 
 use crate::{
+    SortedPair,
     triangular::{triangular, triangular_inv_floor},
     util::sort_pair,
 };
@@ -57,10 +58,10 @@ impl SymmetricMatrixIndexing {
 
     /// Returns the `(column, row)` coordinates corresponding to the given
     /// index, where `column <= row`.
-    pub fn coordinates(&self, index: usize) -> (usize, usize) {
+    pub fn coordinates(&self, index: usize) -> SortedPair<usize> {
         let row = triangular_inv_floor(index);
         let col = index - triangular(row);
-        (col, row)
+        SortedPair::from_sorted(col, row)
     }
 
     /// Returns an iterator over the indices in row `i` of the symmetric matrix.
@@ -136,8 +137,8 @@ mod tests {
         for i in 0..6 {
             for j in 0..6 {
                 let idx = smi.unchecked_index(i, j);
-                let (col, row) = smi.coordinates(idx);
-                assert!(col <= row);
+                let (col, row) = smi.coordinates(idx).into();
+                debug_assert!(col <= row);
                 assert_eq!(smi.unchecked_index(col, row), idx);
             }
         }

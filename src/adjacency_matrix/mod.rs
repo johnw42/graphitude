@@ -31,7 +31,7 @@ pub trait AdjacencyMatrix
 where
     Self: Sized,
 {
-    type Index: Hash + Eq + Clone;
+    type Index: Hash + Eq + Clone + Ord;
     type Value;
     type Symmetry: Symmetry;
     type Storage: Storage;
@@ -78,8 +78,11 @@ where
     /// For internal use.  Gets the canonical indices for the given indices.  This will return a pair
     /// `(i1, i2)` such that for symmetric matrices, `i1 <= i2`.
     #[doc(hidden)]
-    fn entry_indices(i1: Self::Index, i2: Self::Index) -> (Self::Index, Self::Index) {
-        (i1, i2)
+    fn entry_indices(
+        i1: Self::Index,
+        i2: Self::Index,
+    ) -> <Self::Symmetry as Symmetry>::Pair<Self::Index> {
+        (i1, i2).into()
     }
 
     /// Gets the entry at the given row and col.
@@ -87,11 +90,12 @@ where
         &self,
         row: Self::Index,
         col: Self::Index,
-    ) -> Option<(Self::Index, Self::Index, &'_ Self::Value)> {
-        self.get(row.clone(), col.clone()).map(|data| {
-            let (i1, i2) = Self::entry_indices(row.clone(), col.clone());
-            (i1, i2, data)
-        })
+    ) -> Option<(
+        <<Self as AdjacencyMatrix>::Symmetry as Symmetry>::Pair<Self::Index>,
+        &'_ Self::Value,
+    )> {
+        self.get(row.clone(), col.clone())
+            .map(|data| (Self::entry_indices(row.clone(), col.clone()), data))
     }
 
     /// Iterates over all entries in the given row.
@@ -140,7 +144,7 @@ where
 #[cfg(feature = "bitvec")]
 impl<I, V> AdjacencyMatrixSelector<I, V> for (Asymmetric, BitvecStorage)
 where
-    I: Into<usize> + From<usize> + Copy + Eq + Hash,
+    I: Into<usize> + From<usize> + Copy + Eq + Hash + Ord,
 {
     type Matrix = AsymmetricBitvecAdjacencyMatrix<I, V>;
 }
@@ -162,7 +166,7 @@ where
 
 impl<I, V> AdjacencyMatrixSelector<I, V> for (Asymmetric, HashStorage)
 where
-    I: Hash + Eq + Copy,
+    I: Hash + Eq + Copy + Ord,
 {
     type Matrix = AsymmetricHashAdjacencyMatrix<I, V>;
 }

@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     EdgeId, Graph,
-    util::{FormatDebugAs, FormatDebugWith, sort_pair},
+    util::{FormatDebugAs, FormatDebugWith},
 };
 
 /// Formats a graph for debug output with automatic node numbering.
@@ -106,8 +106,7 @@ where
                     let tag = if graph.is_directed() {
                         format!("{} -> {}", &node_tags[&from], &node_tags[&to])
                     } else {
-                        let (t1, t2) = sort_pair(&node_tags[&from], &node_tags[&to]);
-                        format!("{} -- {}", t1, t2)
+                        format!("{} -- {}", &node_tags[&from], &node_tags[&to])
                     };
                     FormatDebugAs(tag)
                 };

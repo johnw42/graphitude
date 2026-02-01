@@ -6,8 +6,8 @@ use std::mem::MaybeUninit;
 use bitvec::vec::BitVec;
 
 use super::symmetric_maxtrix_indexing::SymmetricMatrixIndexing;
+use crate::SortedPair;
 use crate::triangular::triangular;
-use crate::util::sort_pair;
 
 use crate::adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric};
 
@@ -81,7 +81,7 @@ where
     }
 
     fn insert(&mut self, row: I, col: I, data: V) -> Option<V> {
-        let (i1, i2) = sort_pair(row.into(), col.into());
+        let (i1, i2) = SortedPair::from((row.into(), col.into())).into();
         if self.indexing.index(i1.into(), i2.into()).is_none() {
             let required_size = (i2 + 1).next_power_of_two();
             if self.indexing.storage_size() < required_size {
@@ -114,7 +114,7 @@ where
         V: 'a,
     {
         self.liveness.iter_ones().map(|index| {
-            let (i1, i2) = self.indexing.coordinates(index);
+            let (i1, i2) = self.indexing.coordinates(index).into();
             (i1.into(), i2.into(), self.unchecked_get_data_ref(index))
         })
     }
@@ -131,7 +131,7 @@ where
             .enumerate()
             .filter_map(move |(index, bit)| {
                 if bit {
-                    let (i1, i2) = indexing.coordinates(index);
+                    let (i1, i2) = indexing.coordinates(index).into();
                     Some((i1.into(), i2.into(), unsafe {
                         data[index].assume_init_read()
                     }))
@@ -141,10 +141,6 @@ where
             })
     }
 
-    fn entry_indices(i1: Self::Index, i2: Self::Index) -> (Self::Index, Self::Index) {
-        sort_pair(i1, i2)
-    }
-
     fn entries_in_row<'a>(&'a self, row: I) -> impl Iterator<Item = (I, &'a V)>
     where
         V: 'a,
@@ -152,7 +148,8 @@ where
         let row_idx = row.into();
         self.indexing.row(row_idx).filter_map(move |index| {
             if self.liveness[index] {
-                let (i, j) = self.indexing.coordinates(index);
+                let (i, j) = self.indexing.coordinates(index).into();
+                debug_assert!(i <= row_idx);
                 debug_assert!(i == row_idx || j == row_idx);
                 Some((
                     if i == row_idx { j.into() } else { i.into() },

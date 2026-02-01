@@ -1,7 +1,7 @@
 #[cfg(feature = "bitvec")]
 use std::{fmt::Debug, hash::Hash};
 
-use crate::pairs::{OrderedPair, Pair, UnorderedPair};
+use crate::pairs::{OrderedPair, Pair, SortedPair};
 
 #[cfg(feature = "bitvec")]
 use crate::{
@@ -57,7 +57,7 @@ impl Directedness for Undirected {
     where
         K: Eq + Hash + Clone + Ord + Debug;
 
-    type Pair<T: Eq + Hash + Clone + Debug + Ord> = UnorderedPair<T>;
+    type Pair<T: Eq + Hash + Clone + Debug + Ord> = SortedPair<T>;
 
     fn is_directed() -> bool {
         false

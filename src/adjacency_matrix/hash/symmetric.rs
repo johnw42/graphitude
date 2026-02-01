@@ -74,10 +74,6 @@ where
         })
     }
 
-    fn entry_indices(i1: Self::Index, i2: Self::Index) -> (Self::Index, Self::Index) {
-        sort_pair(i1, i2)
-    }
-
     fn entries_in_row<'a>(&'a self, row: I) -> impl Iterator<Item = (I, &'a V)>
     where
         V: 'a,
@@ -117,6 +113,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::SortedPair;
+
     use super::*;
 
     #[test]
@@ -155,9 +153,9 @@ mod tests {
         let entry = matrix.entry_at(0, 0);
         assert_eq!(entry, None);
         let entry = matrix.entry_at(0, 1);
-        assert_eq!(entry, Some((0, 1, &"edge")));
+        assert_eq!(entry, Some((SortedPair::from((0, 1)), &"edge")));
         let entry_rev = matrix.entry_at(1, 0);
-        assert_eq!(entry_rev, Some((0, 1, &"edge")));
+        assert_eq!(entry_rev, Some((SortedPair::from((0, 1)), &"edge")));
     }
 
     #[test]

@@ -48,7 +48,7 @@ pub use directedness::{Directed, Directedness, Undirected};
 pub use graph::{EdgeId, Graph, GraphDirected, GraphMut, GraphUndirected, NodeId};
 pub use linked_graph::LinkedGraph;
 pub use mapping_result::MappingResult;
-pub use pairs::UnorderedPair;
+pub use pairs::SortedPair;
 pub use tests::TestDataBuilder;
 
 #[cfg(feature = "bitvec")]
