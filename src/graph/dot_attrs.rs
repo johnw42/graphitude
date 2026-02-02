@@ -62,8 +62,8 @@ pub enum DotAttr {
     Bb(Rect),
     /// Whether to draw leaf nodes uniformly in a circle
     Beautify(bool),
-    /// Canvas background color
-    Bgcolor(Color),
+    /// Canvas background color (single color or gradient list)
+    Bgcolor(Vec<Color>),
     /// Whether to center the drawing
     Center(bool),
     /// Character encoding
@@ -74,8 +74,8 @@ pub enum DotAttr {
     Cluster(bool),
     /// Mode for handling clusters
     Clusterrank(String),
-    /// Basic drawing color
-    Color(Color),
+    /// Basic drawing color (single color or list for parallel splines)
+    Color(Vec<Color>),
     /// Color scheme namespace
     Colorscheme(String),
     /// Comments inserted into output
@@ -120,8 +120,8 @@ pub enum DotAttr {
     EsepDouble(f64),
     /// Margin around polygons for spline routing (point variant)
     EsepPoint(Point),
-    /// Color to fill node or cluster background
-    Fillcolor(Color),
+    /// Color to fill node or cluster background (single color or gradient list)
+    Fillcolor(Vec<Color>),
     /// Whether to use specified width/height (bool variant)
     FixedsizeBool(bool),
     /// Whether to use specified width/height (string variant)
@@ -328,10 +328,8 @@ pub enum DotAttr {
     Rank(RankType),
     /// Direction of graph layout
     Rankdir(RankDir),
-    /// Separation between ranks (double variant)
-    RanksepDouble(f64),
-    /// Separation between ranks (doubleList variant)
-    RanksepString(String),
+    /// Separation between ranks (single value or list)
+    Ranksep(Vec<f64>),
     /// Aspect ratio for drawing (double variant)
     RatioDouble(f64),
     /// Aspect ratio for drawing (string variant)
@@ -423,7 +421,7 @@ pub enum DotAttr {
     /// Use truecolor rendering
     Truecolor(bool),
     /// Coordinates of polygon vertices
-    Vertices(String), // pointList
+    Vertices(Vec<Point>),
     /// Clipping window on final drawing
     Viewport(String),
     /// Tuning margin of Voronoi technique
@@ -481,19 +479,27 @@ impl DotAttr {
                 .map(DotAttr::Bb)
                 .map_err(|_| DotAttrParseError::InvalidValue("bb", value)),
             "beautify" => parse_bool(value).map(DotAttr::Beautify),
-            "bgcolor" => value
-                .parse::<Color>()
-                .map(DotAttr::Bgcolor)
-                .map_err(|_| DotAttrParseError::InvalidValue("bgcolor", value)),
+            "bgcolor" => {
+                // Try parsing as colon-separated list of colors
+                let colors: Result<Vec<Color>, _> =
+                    value.split(':').map(|s| s.parse::<Color>()).collect();
+                colors
+                    .map(DotAttr::Bgcolor)
+                    .map_err(|_| DotAttrParseError::InvalidValue("bgcolor", value))
+            }
             "center" => parse_bool(value).map(DotAttr::Center),
             "charset" => Ok(DotAttr::Charset(value.to_string())),
             "class" => Ok(DotAttr::Class(value.to_string())),
             "cluster" => parse_bool(value).map(DotAttr::Cluster),
             "clusterrank" => Ok(DotAttr::Clusterrank(value.to_string())),
-            "color" => value
-                .parse::<Color>()
-                .map(DotAttr::Color)
-                .map_err(|_| DotAttrParseError::InvalidValue("color", value)),
+            "color" => {
+                // Try parsing as colon-separated list of colors
+                let colors: Result<Vec<Color>, _> =
+                    value.split(':').map(|s| s.parse::<Color>()).collect();
+                colors
+                    .map(DotAttr::Color)
+                    .map_err(|_| DotAttrParseError::InvalidValue("color", value))
+            }
             "colorscheme" => Ok(DotAttr::Colorscheme(value.to_string())),
             "comment" => Ok(DotAttr::Comment(value.to_string())),
             "compound" => parse_bool(value).map(DotAttr::Compound),
@@ -553,10 +559,14 @@ impl DotAttr {
                         .map_err(|_| DotAttrParseError::InvalidValue("esep", value))
                 }
             }
-            "fillcolor" => value
-                .parse::<Color>()
-                .map(DotAttr::Fillcolor)
-                .map_err(|_| DotAttrParseError::InvalidValue("fillcolor", value)),
+            "fillcolor" => {
+                // Try parsing as colon-separated list of colors
+                let colors: Result<Vec<Color>, _> =
+                    value.split(':').map(|s| s.parse::<Color>()).collect();
+                colors
+                    .map(DotAttr::Fillcolor)
+                    .map_err(|_| DotAttrParseError::InvalidValue("fillcolor", value))
+            }
             "fixedsize" => {
                 if let Ok(b) = parse_bool(value) {
                     Ok(DotAttr::FixedsizeBool(b))
@@ -838,11 +848,12 @@ impl DotAttr {
                 .map(DotAttr::Rankdir)
                 .map_err(|_| DotAttrParseError::InvalidValue("rankdir", value)),
             "ranksep" => {
-                if let Ok(d) = value.parse::<f64>() {
-                    Ok(DotAttr::RanksepDouble(d))
-                } else {
-                    Ok(DotAttr::RanksepString(value.to_string()))
-                }
+                // Try parsing as colon-separated list of doubles
+                let values: Result<Vec<f64>, _> =
+                    value.split(':').map(|s| s.parse::<f64>()).collect();
+                values
+                    .map(DotAttr::Ranksep)
+                    .map_err(|_| DotAttrParseError::InvalidValue("ranksep", value))
             }
             "ratio" => {
                 if let Ok(d) = value.parse::<f64>() {
@@ -970,7 +981,14 @@ impl DotAttr {
             "tbbalance" => Ok(DotAttr::TBbalance(value.to_string())),
             "tooltip" => Ok(DotAttr::Tooltip(value.to_string())),
             "truecolor" => parse_bool(value).map(DotAttr::Truecolor),
-            "vertices" => Ok(DotAttr::Vertices(value.to_string())),
+            "vertices" => {
+                // Parse as colon-separated list of points
+                let points: Result<Vec<Point>, _> =
+                    value.split(':').map(|s| s.parse::<Point>()).collect();
+                points
+                    .map(DotAttr::Vertices)
+                    .map_err(|_| DotAttrParseError::InvalidValue("vertices", value))
+            }
             "viewport" => Ok(DotAttr::Viewport(value.to_string())),
             "voro_margin" => value
                 .parse::<f64>()
@@ -1148,8 +1166,7 @@ impl DotAttr {
             DotAttr::Radius(_) => "radius",
             DotAttr::Rank(_) => "rank",
             DotAttr::Rankdir(_) => "rankdir",
-            DotAttr::RanksepDouble(_) => "ranksep",
-            DotAttr::RanksepString(_) => "ranksep",
+            DotAttr::Ranksep(_) => "ranksep",
             DotAttr::RatioDouble(_) => "ratio",
             DotAttr::RatioString(_) => "ratio",
             DotAttr::Rects(_) => "rects",
@@ -1220,13 +1237,19 @@ impl fmt::Display for DotAttr {
             DotAttr::Arrowtail(v) => write!(f, "arrowtail={}", v),
             DotAttr::Bb(v) => write!(f, "bb={}", v),
             DotAttr::Beautify(v) => write!(f, "beautify={}", v),
-            DotAttr::Bgcolor(v) => write!(f, "bgcolor={}", v),
+            DotAttr::Bgcolor(v) => {
+                let colors: Vec<String> = v.iter().map(|c| c.to_string()).collect();
+                write!(f, "bgcolor={}", colors.join(":"))
+            }
             DotAttr::Center(v) => write!(f, "center={}", v),
             DotAttr::Charset(v) => write!(f, "charset={}", v),
             DotAttr::Class(v) => write!(f, "class={}", v),
             DotAttr::Cluster(v) => write!(f, "cluster={}", v),
             DotAttr::Clusterrank(v) => write!(f, "clusterrank={}", v),
-            DotAttr::Color(v) => write!(f, "color={}", v),
+            DotAttr::Color(v) => {
+                let colors: Vec<String> = v.iter().map(|c| c.to_string()).collect();
+                write!(f, "color={}", colors.join(":"))
+            }
             DotAttr::Colorscheme(v) => write!(f, "colorscheme={}", v),
             DotAttr::Comment(v) => write!(f, "comment={}", v),
             DotAttr::Compound(v) => write!(f, "compound={}", v),
@@ -1249,7 +1272,10 @@ impl fmt::Display for DotAttr {
             DotAttr::Epsilon(v) => write!(f, "epsilon={}", v),
             DotAttr::EsepDouble(v) => write!(f, "esep={}", v),
             DotAttr::EsepPoint(v) => write!(f, "esep={}", v),
-            DotAttr::Fillcolor(v) => write!(f, "fillcolor={}", v),
+            DotAttr::Fillcolor(v) => {
+                let colors: Vec<String> = v.iter().map(|c| c.to_string()).collect();
+                write!(f, "fillcolor={}", colors.join(":"))
+            }
             DotAttr::FixedsizeBool(v) => write!(f, "fixedsize={}", v),
             DotAttr::FixedsizeString(v) => write!(f, "fixedsize={}", v),
             DotAttr::Fontcolor(v) => write!(f, "fontcolor={}", v),
@@ -1353,8 +1379,10 @@ impl fmt::Display for DotAttr {
             DotAttr::Radius(v) => write!(f, "radius={}", v),
             DotAttr::Rank(v) => write!(f, "rank={}", v),
             DotAttr::Rankdir(v) => write!(f, "rankdir={}", v),
-            DotAttr::RanksepDouble(v) => write!(f, "ranksep={}", v),
-            DotAttr::RanksepString(v) => write!(f, "ranksep={}", v),
+            DotAttr::Ranksep(v) => {
+                let values: Vec<String> = v.iter().map(|d| d.to_string()).collect();
+                write!(f, "ranksep={}", values.join(":"))
+            }
             DotAttr::RatioDouble(v) => write!(f, "ratio={}", v),
             DotAttr::RatioString(v) => write!(f, "ratio={}", v),
             DotAttr::Rects(v) => write!(f, "rects={}", v),
@@ -1400,7 +1428,10 @@ impl fmt::Display for DotAttr {
             DotAttr::TBbalance(v) => write!(f, "TBbalance={}", v),
             DotAttr::Tooltip(v) => write!(f, "tooltip={}", v),
             DotAttr::Truecolor(v) => write!(f, "truecolor={}", v),
-            DotAttr::Vertices(v) => write!(f, "vertices={}", v),
+            DotAttr::Vertices(v) => {
+                let points: Vec<String> = v.iter().map(|p| p.to_string()).collect();
+                write!(f, "vertices={}", points.join(":"))
+            }
             DotAttr::Viewport(v) => write!(f, "viewport={}", v),
             DotAttr::Voro_margin(v) => write!(f, "voro_margin={}", v),
             DotAttr::WeightInt(v) => write!(f, "weight={}", v),
@@ -1508,7 +1539,7 @@ mod tests {
             let attr = DotAttr::parse(name, value).unwrap();
             let formatted = attr.to_string();
             assert!(formatted.starts_with(name));
-            assert!(formatted.contains(value) || formatted.contains(&value.replace(".", ".")));
+            assert!(formatted.contains(value) || formatted.contains(&value));
         }
     }
 }
