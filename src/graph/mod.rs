@@ -1,4 +1,6 @@
 #[cfg(feature = "dot")]
+pub mod dot_attrs;
+#[cfg(feature = "dot")]
 pub mod dot_parser_impl;
 #[cfg(feature = "dot")]
 pub mod dot_types;

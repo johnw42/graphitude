@@ -60,6 +60,9 @@ pub use graph::dot_types::{
     ArrowType, Color, DirType, OutputMode, PageDir, Point, RankDir, RankType, Rect, Shape, Style,
 };
 
+#[cfg(feature = "dot")]
+pub use graph::dot_attrs::DotAttr;
+
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{
     AdjacencyMatrix, Asymmetric, BitvecStorage, HashStorage, Storage, Symmetric, Symmetry,
