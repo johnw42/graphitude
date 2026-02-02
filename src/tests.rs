@@ -239,28 +239,40 @@ macro_rules! graph_tests {
         fn test_deconstruct_large_graph_by_nodes() {
             let mut graph = generate_large_graph();
 
-            let mut i = 0;
-            while graph.num_nodes() > 0 {
-                // We collect node_ids fresh each iteration to ensure they're always valid.
-                // This is necessary because PartialEq ignores compaction_count, which means
-                // a HashSet can't reliably track nodes across compactions.
-                let mut node_ids = graph.node_ids().collect::<Vec<_>>();
-                
-                // Remove a random node (using the first one since iteration order varies)
-                let num_nodes = graph.num_nodes();
+            // We use a hash set instead of a vec so the nodes are removed in
+            // random order.
+            let mut node_ids = graph.node_ids().collect::<std::collections::HashSet<_>>();
+
+            for i in 0..node_ids.len() {
+                // Test removing a random node.
+                assert!(!node_ids.is_empty());
+                let num_nodes = node_ids.len();
                 let num_edges = graph.num_edges();
-                let node_id = node_ids[0].clone();
+                assert_eq!(num_nodes, node_ids.len());
+                let node_id = node_ids.iter().next().cloned().unwrap();
+                node_ids.remove(&node_id);
                 graph.remove_node(node_id);
                 assert_eq!(graph.num_nodes(), num_nodes - 1);
                 assert!(graph.num_edges() <= num_edges);
 
                 // Test compaction every 10 iterations
                 if i % 10 == 0 {
-                    let num_nodes = graph.num_nodes();
+                    let num_nodes = node_ids.len();
                     let num_edges = graph.num_edges();
 
-                    graph.compact();
-                    
+                    graph.compact_with(
+                        Some(|r| {
+                            if let $crate::mapping_result::MappingResult::Remapped(old_id, new_id) =
+                                r
+                            {
+                                let removed = node_ids.remove(&old_id);
+                                assert!(removed);
+                                let inserted = node_ids.insert(new_id.clone());
+                                assert!(inserted);
+                            }
+                        }),
+                        Some(|_| {}),
+                    );
                     assert_eq!(graph.num_nodes(), num_nodes);
                     assert_eq!(graph.num_edges(), num_edges);
                     for node_id in graph.node_ids() {
@@ -270,8 +282,6 @@ macro_rules! graph_tests {
                         assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
                     }
                 }
-                
-                i += 1;
             }
 
             assert_eq!(graph.num_nodes(), 0);
