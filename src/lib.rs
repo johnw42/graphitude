@@ -30,6 +30,7 @@ pub mod debug_graph_view;
 pub mod directedness;
 pub mod graph;
 pub mod linked_graph;
+pub mod mapping_result;
 pub mod object_graph;
 pub mod path;
 pub mod search;
@@ -37,7 +38,6 @@ pub mod tests;
 
 mod graph_id;
 mod id_vec;
-mod mapping_result;
 mod pairs;
 mod util;
 

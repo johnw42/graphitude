@@ -110,7 +110,6 @@ where
                 let new_from = id_vec_map.get(&old_from).copied().unwrap_or(old_from);
                 let old_into = old_indexing.key_from_index(old_into_index);
                 let new_into = id_vec_map.get(&old_into).copied().unwrap_or(old_into);
-                dbg!(old_from, new_from, old_into, new_into);
                 self.adjacency.insert(
                     new_indexing.zero_based_index(new_from),
                     new_indexing.zero_based_index(new_into),

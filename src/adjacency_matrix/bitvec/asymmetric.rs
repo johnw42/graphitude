@@ -177,16 +177,15 @@ where
         let row_end = row_start + self.size;
         self.matrix[row_start..row_end]
             .iter_ones()
-            .map(|index| (index.into(), self.unchecked_get_data_ref(index.into())))
+            .map(move |index| (index.into(), self.unchecked_get_data_ref(row_start + index)))
     }
 
     fn entries_in_col<'a>(&'a self, col: I) -> impl Iterator<Item = (I, &'a V)>
     where
         V: 'a,
     {
-        let (_, target_col) = self.coordinates(col.into());
         (0..self.size).filter_map(move |target_row| {
-            self.get(target_row.into(), target_col)
+            self.get(target_row.into(), col)
                 .map(|data| (target_row.into(), data))
         })
     }

@@ -82,16 +82,16 @@ where
 
     fn insert(&mut self, row: I, col: I, data: V) -> Option<V> {
         let (i1, i2) = SortedPair::from((row.into(), col.into())).into();
-        if self.indexing.index(i1.into(), i2.into()).is_none() {
+        if self.indexing.index(i1, i2).is_none() {
             let required_size = (i2 + 1).next_power_of_two();
-            if self.indexing.storage_size() < required_size {
+            if self.indexing.size() < required_size {
                 self.indexing = SymmetricMatrixIndexing::new(required_size);
-                let repr_size = self.indexing.unchecked_index(0, required_size);
+                let repr_size = self.indexing.storage_size();
                 self.liveness.resize(repr_size, false);
                 self.data.resize_with(repr_size, MaybeUninit::uninit);
             }
         }
-        let index = self.indexing.unchecked_index(i1.into(), i2.into());
+        let index = self.indexing.unchecked_index(i1, i2);
         let old_data = self.get_data_read(index);
         self.liveness.set(index, true);
         self.data[index] = MaybeUninit::new(data);
