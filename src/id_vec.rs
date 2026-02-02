@@ -178,17 +178,17 @@ impl<T> IdVec<T> {
         if self.liveness.all() {
             return;
         }
-        let new_key_offset = self.vec.len();
+        let new_key_offset = self.key_offset + self.liveness.len();
         let mut di = 0;
-        for si in self.key_offset..self.liveness.len() {
+        for si in 0..self.liveness.len() {
             let old_key = IdVecKey(si + self.key_offset);
             if self.liveness[si] {
                 let new_key = IdVecKey(di + new_key_offset);
+                self.vec[di] = MaybeUninit::new(unsafe { self.vec[si].assume_init_read() });
+                self.liveness.set(di, true);
                 if let Some(ref mut cb) = callback {
                     cb(MappingResult::Remapped(old_key, new_key));
                 }
-                self.vec[di] = MaybeUninit::new(unsafe { self.vec[si].assume_init_read() });
-                self.liveness.set(di, true);
                 di += 1;
             } else {
                 if let Some(ref mut cb) = callback {
@@ -224,7 +224,7 @@ impl<T> IdVec<T> {
             return;
         }
 
-        let new_key_offset = self.vec.len();
+        let new_key_offset = self.key_offset + self.liveness.len();
         let mut new_vec: Vec<MaybeUninit<T>> = Vec::with_capacity(self.vec.len());
         let mut new_liveness = BitVec::with_capacity(self.liveness.len());
 
@@ -233,11 +233,11 @@ impl<T> IdVec<T> {
             if *live {
                 let di = new_vec.len();
                 let new_key = IdVecKey(di + new_key_offset);
+                new_vec.push(unsafe { MaybeUninit::new(self.vec[si].assume_init_read()) });
+                new_liveness.push(true);
                 if let Some(ref mut cb) = callback {
                     cb(MappingResult::Remapped(old_key, new_key));
                 }
-                new_vec.push(unsafe { MaybeUninit::new(self.vec[si].assume_init_read()) });
-                new_liveness.push(true);
             } else {
                 if let Some(ref mut cb) = callback {
                     cb(MappingResult::Deleted(old_key));
@@ -857,6 +857,119 @@ mod tests {
         // Old keys should still work
         assert_eq!(vec.get(id1), Some(&1));
         assert_eq!(vec.get(id2), Some(&2));
+    }
+
+    // Test compaction with multiple removals and insertions and multiple rounds of compaction.
+    #[test]
+    fn test_multiple_compactions() {
+        let mut vec = IdVec::new();
+        let id1 = vec.insert(1);
+        let id2 = vec.insert(2);
+        let id3 = vec.insert(3);
+        let id4 = vec.insert(4);
+        let id5 = vec.insert(5);
+
+        // First round of removals
+        vec.remove(id2);
+        vec.remove(id4);
+
+        let mut key_map = HashMap::new();
+        vec.compact_with(Some(|result| {
+            if let MappingResult::Remapped(old_key, new_key) = result {
+                key_map.insert(old_key, new_key);
+            }
+        }));
+
+        // Update keys after first compaction
+        let new_id1 = key_map[&id1];
+        let new_id3 = key_map[&id3];
+        let new_id5 = key_map[&id5];
+
+        assert_eq!(vec.len(), 3);
+        assert_eq!(vec.get(new_id1), Some(&1));
+        assert_eq!(vec.get(new_id3), Some(&3));
+        assert_eq!(vec.get(new_id5), Some(&5));
+
+        // Insert more values
+        let id6 = vec.insert(6);
+        let id7 = vec.insert(7);
+
+        // Second round of removals
+        vec.remove(new_id3);
+        vec.remove(id6);
+
+        key_map.clear();
+        vec.compact_with(Some(|result| {
+            if let MappingResult::Remapped(old_key, new_key) = result {
+                key_map.insert(old_key, new_key);
+            }
+        }));
+
+        // Update keys after second compaction
+        let final_id1 = key_map[&new_id1];
+        let final_id5 = key_map[&new_id5];
+        let final_id7 = key_map[&id7];
+
+        assert_eq!(vec.len(), 3);
+        assert_eq!(vec.get(final_id1), Some(&1));
+        assert_eq!(vec.get(final_id5), Some(&5));
+        assert_eq!(vec.get(final_id7), Some(&7));
+    }
+
+    #[test]
+    fn test_multiple_shrink_to_fits() {
+        let mut vec = IdVec::new();
+        let id1 = vec.insert(1);
+        let id2 = vec.insert(2);
+        let id3 = vec.insert(3);
+        let id4 = vec.insert(4);
+        let id5 = vec.insert(5);
+
+        // First round of removals
+        vec.remove(id2);
+        vec.remove(id4);
+
+        let mut key_map = HashMap::new();
+        vec.shrink_to_fit_with(Some(|result| {
+            if let MappingResult::Remapped(old_key, new_key) = result {
+                key_map.insert(old_key, new_key);
+            }
+        }));
+
+        // Update keys after first shrink_to_fit
+        let new_id1 = key_map[&id1];
+        let new_id3 = key_map[&id3];
+        let new_id5 = key_map[&id5];
+
+        assert_eq!(vec.len(), 3);
+        assert_eq!(vec.get(new_id1), Some(&1));
+        assert_eq!(vec.get(new_id3), Some(&3));
+        assert_eq!(vec.get(new_id5), Some(&5));
+
+        // Insert more values
+        let id6 = vec.insert(6);
+        let id7 = vec.insert(7);
+
+        // Second round of removals
+        vec.remove(new_id3);
+        vec.remove(id6);
+
+        key_map.clear();
+        vec.shrink_to_fit_with(Some(|result| {
+            if let MappingResult::Remapped(old_key, new_key) = result {
+                key_map.insert(old_key, new_key);
+            }
+        }));
+
+        // Update keys after second shrink_to_fit
+        let final_id1 = key_map[&new_id1];
+        let final_id5 = key_map[&new_id5];
+        let final_id7 = key_map[&id7];
+
+        assert_eq!(vec.len(), 3);
+        assert_eq!(vec.get(final_id1), Some(&1));
+        assert_eq!(vec.get(final_id5), Some(&5));
+        assert_eq!(vec.get(final_id7), Some(&7));
     }
 
     #[test]

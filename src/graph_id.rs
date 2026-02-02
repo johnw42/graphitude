@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 static GRAPH_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 /// A unique identifier for a graph instance.
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
 pub struct GraphId(#[cfg(not(feature = "unchecked"))] usize);
 
 impl GraphId {

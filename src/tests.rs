@@ -67,6 +67,13 @@ where
 /// Macro to generate standard graph tests for a given graph type.
 #[macro_export]
 macro_rules! graph_tests {
+    ($name:ident, $type:ty) => {
+        mod $name {
+            use super::*;
+
+            graph_tests_impl!($type);
+        }
+    };
     ($type:ty) => {
         fn generate_large_graph() -> $type {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
@@ -232,10 +239,39 @@ macro_rules! graph_tests {
         fn test_deconstruct_large_graph_by_nodes() {
             let mut graph = generate_large_graph();
 
-            let mut node_ids = graph.node_ids().collect::<Vec<_>>();
+            let mut i = 0;
+            while graph.num_nodes() > 0 {
+                // We collect node_ids fresh each iteration to ensure they're always valid.
+                // This is necessary because PartialEq ignores compaction_count, which means
+                // a HashSet can't reliably track nodes across compactions.
+                let mut node_ids = graph.node_ids().collect::<Vec<_>>();
+                
+                // Remove a random node (using the first one since iteration order varies)
+                let num_nodes = graph.num_nodes();
+                let num_edges = graph.num_edges();
+                let node_id = node_ids[0].clone();
+                graph.remove_node(node_id);
+                assert_eq!(graph.num_nodes(), num_nodes - 1);
+                assert!(graph.num_edges() <= num_edges);
 
-            for i in 0..node_ids.len() {
-                graph.remove_node(node_ids.remove(i % node_ids.len()));
+                // Test compaction every 10 iterations
+                if i % 10 == 0 {
+                    let num_nodes = graph.num_nodes();
+                    let num_edges = graph.num_edges();
+
+                    graph.compact();
+                    
+                    assert_eq!(graph.num_nodes(), num_nodes);
+                    assert_eq!(graph.num_edges(), num_edges);
+                    for node_id in graph.node_ids() {
+                        assert_eq!(graph.check_valid_node_id(&node_id), Ok(()));
+                    }
+                    for edge_id in graph.edge_ids() {
+                        assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
+                    }
+                }
+                
+                i += 1;
             }
 
             assert_eq!(graph.num_nodes(), 0);
@@ -795,13 +831,14 @@ macro_rules! graph_tests {
             let nd2 = builder.new_node_data();
             let ed1 = builder.new_edge_data();
             let ed2 = builder.new_edge_data();
+            let ed3 = builder.new_edge_data();
 
             let n1 = graph.add_node(nd1.clone());
             let n2 = graph.add_node(nd2.clone());
             let n3 = graph.add_node(builder.new_node_data());
             let e1 = graph.add_edge(n1.clone(), n1.clone(), ed1.clone());
             let e2 = graph.add_edge(n1.clone(), n2.clone(), ed2.clone());
-            let _e3 = graph.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
+            let _e3 = graph.add_edge(n2.clone(), n3.clone(), ed3.clone());
             graph.remove_node(n3.clone());
             assert_eq!(graph.node_ids().count(), 2);
             assert_eq!(graph.edge_ids().count(), 2);

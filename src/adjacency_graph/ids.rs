@@ -7,25 +7,25 @@ use crate::{Directedness, Storage, graph_id::GraphId, id_vec::IdVecKey, pairs::P
 #[derive(Derivative)]
 #[derivative(
     Clone(bound = "T: Clone"),
-    Eq(bound = "T: Eq"),
     Hash(bound = "T: Hash"),
+    // Comparing the graph_id and compaction_count is unfortunate, because
+    // it changes the semantics of equality based on whether error checking
+    // is enabled.  Ideally, we'd like to just assert they're equal,
+    // but that would break the way hash data structures work.
+    // So we ignore them for PartialEq/Eq and validate them separately.
+    PartialEq(bound = "T: Eq"),
     PartialOrd(bound = "T: Ord"),
     Ord(bound = "T: Ord")
 )]
 pub struct NodeIdOrEdgeId<S: Storage, T> {
     payload: T,
-    #[derivative(PartialOrd = "ignore", Ord = "ignore", Hash = "ignore")]
+    #[derivative(PartialOrd = "ignore", Ord = "ignore", Hash = "ignore", PartialEq = "ignore")]
     pub compaction_count: S::CompactionCount,
-    #[derivative(PartialOrd = "ignore", Ord = "ignore", Hash = "ignore")]
+    #[derivative(PartialOrd = "ignore", Ord = "ignore", Hash = "ignore", PartialEq = "ignore")]
     pub graph_id: GraphId,
 }
 
-impl<S: Storage, T: Eq> PartialEq for NodeIdOrEdgeId<S, T> {
-    fn eq(&self, other: &Self) -> bool {
-        assert_eq!(self.graph_id, other.graph_id);
-        self.payload == other.payload
-    }
-}
+impl<S: Storage, T: Eq> Eq for NodeIdOrEdgeId<S, T> {}
 
 impl<S: Storage, T> NodeIdOrEdgeId<S, T> {
     pub fn new(payload: T, graph_id: GraphId, compaction_count: S::CompactionCount) -> Self {

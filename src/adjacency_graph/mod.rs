@@ -107,9 +107,16 @@ where
             self.adjacency.reserve(self.nodes.len());
             for (old_from_index, old_into_index, data) in old_adjacency.into_iter() {
                 let old_from = old_indexing.key_from_index(old_from_index);
-                let new_from = id_vec_map.get(&old_from).copied().unwrap_or(old_from);
                 let old_into = old_indexing.key_from_index(old_into_index);
-                let new_into = id_vec_map.get(&old_into).copied().unwrap_or(old_into);
+
+                // Skip edges where either endpoint was removed
+                let Some(&new_from) = id_vec_map.get(&old_from) else {
+                    continue;
+                };
+                let Some(&new_into) = id_vec_map.get(&old_into) else {
+                    continue;
+                };
+
                 self.adjacency.insert(
                     new_indexing.zero_based_index(new_from),
                     new_indexing.zero_based_index(new_into),

@@ -1,8 +1,12 @@
+use std::{fmt::Debug, hash::Hash};
+
 /// Trait representing the compaction count for adjacency matrix storage
 /// backends.  This is used to track modifications that may require compaction
 /// of the storage while making the compaction count type omittable by setting
 /// it to `()` for storage backends that do not require it.
-pub(crate) trait CompactionCount: Eq + Clone + Copy + Default {
+pub(crate) trait CompactionCount:
+    Clone + Copy + Debug + Default + Eq + Hash + PartialOrd + Ord
+{
     fn increment(self) -> Self;
 }
 
@@ -31,7 +35,6 @@ pub struct BitvecStorage;
 
 /// Marker type for hash-based adjacency matrix storage.
 pub struct HashStorage;
-
 
 impl Storage for BitvecStorage {
     #[cfg(not(feature = "unchecked"))]

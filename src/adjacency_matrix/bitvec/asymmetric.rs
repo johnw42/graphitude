@@ -193,6 +193,25 @@ where
     fn clear(&mut self) {
         self.matrix.fill(false);
     }
+
+    fn reserve(&mut self, capacity: usize) {
+        if self.size < capacity {
+            let mut new_self = Self::with_size(capacity);
+            for old_row in 0..self.size {
+                let old_start = self.unchecked_index(old_row.into(), 0.into());
+                let new_start = new_self.unchecked_index(old_row.into(), 0.into());
+                new_self.matrix[new_start..new_start + self.size]
+                    .copy_from_bitslice(&self.matrix[old_start..old_start + self.size]);
+                for (old_col, old_datum) in self.data[old_start..old_start + self.size]
+                    .iter_mut()
+                    .enumerate()
+                {
+                    std::mem::swap(old_datum, &mut new_self.data[new_start + old_col]);
+                }
+            }
+            *self = new_self;
+        }
+    }
 }
 
 #[cfg(test)]

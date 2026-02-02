@@ -171,7 +171,43 @@ where
     fn clear(&mut self) {
         self.liveness.fill(false);
     }
+
+    fn reserve(&mut self, capacity: usize) {
+        let current_capacity = self.indexing.size();
+        if current_capacity < capacity {
+            let new_indexing = SymmetricMatrixIndexing::new(capacity);
+            let new_storage_size = new_indexing.storage_size();
+            
+            let mut new_liveness = BitVec::with_capacity(new_storage_size);
+            new_liveness.resize(new_storage_size, false);
+            
+            let mut new_data = Vec::with_capacity(new_storage_size);
+            new_data.resize_with(new_storage_size, MaybeUninit::uninit);
+            
+            // Copy existing data to the new storage
+            for row in 0..current_capacity {
+                for col in 0..=row {
+                    if let Some(old_index) = self.indexing.index(row, col) {
+                        if self.liveness[old_index] {
+                            if let Some(new_index) = new_indexing.index(row, col) {
+                                new_liveness.set(new_index, true);
+                                // SAFETY: old_index is live, so data at that index is initialized
+                                new_data[new_index] = MaybeUninit::new(
+                                    unsafe { self.data[old_index].assume_init_read() }
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            
+            self.indexing = new_indexing;
+            self.liveness = new_liveness;
+            self.data = new_data;
+        }
+    }
 }
+
 
 impl<I, V> Debug for SymmetricBitvecAdjacencyMatrix<I, V>
 where
