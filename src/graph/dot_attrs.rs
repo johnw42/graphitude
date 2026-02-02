@@ -98,8 +98,10 @@ pub enum DotAttr {
     Dimen(i32),
     /// Edge type for drawing arrowheads
     Dir(DirType),
-    /// Constrain edges to point downwards
-    Diredgeconstraints(String), // string | bool
+    /// Constrain edges to point downwards (string variant)
+    DiredgeconstraintsString(String),
+    /// Constrain edges to point downwards (bool variant)
+    DiredgeconstraintsBool(bool),
     /// Distortion factor for polygon shapes
     Distortion(f64),
     /// Pixels per inch on display device
@@ -114,12 +116,16 @@ pub enum DotAttr {
     EdgeURL(String),
     /// Terminating condition for layout
     Epsilon(f64),
-    /// Margin around polygons for spline routing
-    Esep(f64), // addDouble | addPoint
+    /// Margin around polygons for spline routing (double variant)
+    EsepDouble(f64),
+    /// Margin around polygons for spline routing (point variant)
+    EsepPoint(Point),
     /// Color to fill node or cluster background
     Fillcolor(Color),
-    /// Whether to use specified width/height
-    Fixedsize(String), // bool | string
+    /// Whether to use specified width/height (bool variant)
+    FixedsizeBool(bool),
+    /// Whether to use specified width/height (string variant)
+    FixedsizeString(String),
     /// Color used for text
     Fontcolor(Color),
     /// Font used for text
@@ -164,8 +170,10 @@ pub enum DotAttr {
     Imagepath(String),
     /// How image is positioned in node
     Imagepos(String),
-    /// How image fills containing node
-    Imagescale(String), // bool | string
+    /// How image fills containing node (bool variant)
+    ImagescaleBool(bool),
+    /// How image fills containing node (string variant)
+    ImagescaleString(String),
     /// Scale input positions between units
     Inputscale(f64),
     /// Spring constant for virtual model
@@ -230,8 +238,10 @@ pub enum DotAttr {
     Ltail(String),
     /// Width of graph/cluster label
     Lwidth(f64),
-    /// Margins of canvas or around label
-    Margin(f64), // double | point
+    /// Margins of canvas or around label (double variant)
+    MarginDouble(f64),
+    /// Margins of canvas or around label (point variant)
+    MarginPoint(Point),
     /// Maximum iterations for layout
     Maxiter(i32),
     /// Upper bound on crossing minimization
@@ -250,8 +260,10 @@ pub enum DotAttr {
     Nodesep(f64),
     /// Justify multiline text
     Nojustify(bool),
-    /// Normalize coordinates of final layout
-    Normalize(String), // double | bool
+    /// Normalize coordinates of final layout (double variant)
+    NormalizeDouble(f64),
+    /// Normalize coordinates of final layout (bool variant)
+    NormalizeBool(bool),
     /// Avoid translating layout to origin
     Notranslate(bool),
     /// Iterations in network simplex (x coords)
@@ -262,24 +274,34 @@ pub enum DotAttr {
     Oneblock(bool),
     /// Left-to-right ordering of node edges
     Ordering(String),
-    /// Node shape rotation or graph orientation
-    Orientation(String), // double | string
+    /// Node shape rotation or graph orientation (double variant)
+    OrientationDouble(f64),
+    /// Node shape rotation or graph orientation (string variant)
+    OrientationString(String),
     /// Order in which nodes and edges are drawn
     Outputorder(OutputMode),
-    /// How to remove node overlaps
-    Overlap(String), // string | bool
+    /// How to remove node overlaps (string variant)
+    OverlapString(String),
+    /// How to remove node overlaps (bool variant)
+    OverlapBool(bool),
     /// Scale layout to reduce node overlap
     Overlap_scaling(f64),
     /// Compression pass for overlap removal
     Overlap_shrink(bool),
-    /// Pack connected components separately
-    Pack(String), // bool | int
+    /// Pack connected components separately (bool variant)
+    PackBool(bool),
+    /// Pack connected components separately (int variant)
+    PackInt(i32),
     /// How to pack connected components
     Packmode(String),
-    /// Extend drawing area around graph
-    Pad(f64), // double | point
-    /// Width and height of output pages
-    Page(f64), // double | point
+    /// Extend drawing area around graph (double variant)
+    PadDouble(f64),
+    /// Extend drawing area around graph (point variant)
+    PadPoint(Point),
+    /// Width and height of output pages (double variant)
+    PageDouble(f64),
+    /// Width and height of output pages (point variant)
+    PagePoint(Point),
     /// Order pages are emitted
     Pagedir(PageDir),
     /// Color for cluster bounding box
@@ -290,10 +312,14 @@ pub enum DotAttr {
     Peripheries(i32),
     /// Keep node at given position
     Pin(bool),
-    /// Position of node or spline control points
-    Pos(String), // point | splineType
-    /// Quadtree scheme to use
-    Quadtree(String), // quadType | bool
+    /// Position of node or spline control points (point variant)
+    PosPoint(Point),
+    /// Position of node or spline control points (splineType variant)
+    PosString(String),
+    /// Quadtree scheme to use (string variant)
+    QuadtreeString(String),
+    /// Quadtree scheme to use (bool variant)
+    QuadtreeBool(bool),
     /// Quantum for node label dimensions
     Quantum(f64),
     /// Radius of rounded corners
@@ -302,10 +328,14 @@ pub enum DotAttr {
     Rank(RankType),
     /// Direction of graph layout
     Rankdir(RankDir),
-    /// Separation between ranks
-    Ranksep(f64), // double | doubleList
-    /// Aspect ratio for drawing
-    Ratio(String), // double | string
+    /// Separation between ranks (double variant)
+    RanksepDouble(f64),
+    /// Separation between ranks (doubleList variant)
+    RanksepString(String),
+    /// Aspect ratio for drawing (double variant)
+    RatioDouble(f64),
+    /// Aspect ratio for drawing (string variant)
+    RatioString(String),
     /// Rectangles for record fields
     Rects(Rect),
     /// Force polygon to be regular
@@ -316,8 +346,10 @@ pub enum DotAttr {
     Repulsiveforce(f64),
     /// Synonym for dpi
     Resolution(f64),
-    /// Nodes used as center of layout
-    Root(String), // string | bool
+    /// Nodes used as center of layout (string variant)
+    RootString(String),
+    /// Nodes used as center of layout (bool variant)
+    RootBool(bool),
     /// Set drawing orientation to landscape
     Rotate(i32),
     /// Rotate final layout counter-clockwise
@@ -328,12 +360,16 @@ pub enum DotAttr {
     Sametail(String),
     /// Number of points for circle/ellipse node
     Samplepoints(i32),
-    /// Scale layout after initial layout
-    Scale(f64), // double | point
+    /// Scale layout after initial layout (double variant)
+    ScaleDouble(f64),
+    /// Scale layout after initial layout (point variant)
+    ScalePoint(Point),
     /// Maximum edges with negative cut values
     Searchsize(i32),
-    /// Margin around nodes for overlap removal
-    Sep(f64), // addDouble | addPoint
+    /// Margin around nodes for overlap removal (double variant)
+    SepDouble(f64),
+    /// Margin around nodes for overlap removal (point variant)
+    SepPoint(Point),
     /// Shape of a node
     Shape(Shape),
     /// File containing user-supplied node content
@@ -342,16 +378,20 @@ pub enum DotAttr {
     Showboxes(i32),
     /// Number of sides for polygon shape
     Sides(i32),
-    /// Maximum width and height of drawing
-    Size(f64), // double | point
+    /// Maximum width and height of drawing (double variant)
+    SizeDouble(f64),
+    /// Maximum width and height of drawing (point variant)
+    SizePoint(Point),
     /// Skew factor for polygon shape
     Skew(f64),
     /// Smooth out uneven node distribution
     Smoothing(String),
     /// Sort order for packmode packing
     Sortv(i32),
-    /// How edges are represented
-    Splines(String), // bool | string
+    /// How edges are represented (bool variant)
+    SplinesBool(bool),
+    /// How edges are represented (string variant)
+    SplinesString(String),
     /// Initial layout parameter
     Start(String),
     /// Style information for components
@@ -388,8 +428,10 @@ pub enum DotAttr {
     Viewport(String),
     /// Tuning margin of Voronoi technique
     Voro_margin(f64),
-    /// Weight of edge
-    Weight(f64), // int | double
+    /// Weight of edge (int variant)
+    WeightInt(i32),
+    /// Weight of edge (double variant)
+    WeightDouble(f64),
     /// Width of node in inches
     Width(f64),
     /// Version of xdot used in output
@@ -478,7 +520,13 @@ impl DotAttr {
                 .parse::<DirType>()
                 .map(DotAttr::Dir)
                 .map_err(|_| DotAttrParseError::InvalidValue("dir", value)),
-            "diredgeconstraints" => Ok(DotAttr::Diredgeconstraints(value.to_string())),
+            "diredgeconstraints" => {
+                if let Ok(b) = parse_bool(value) {
+                    Ok(DotAttr::DiredgeconstraintsBool(b))
+                } else {
+                    Ok(DotAttr::DiredgeconstraintsString(value.to_string()))
+                }
+            }
             "distortion" => value
                 .parse::<f64>()
                 .map(DotAttr::Distortion)
@@ -495,15 +543,27 @@ impl DotAttr {
                 .parse::<f64>()
                 .map(DotAttr::Epsilon)
                 .map_err(|_| DotAttrParseError::InvalidValue("epsilon", value)),
-            "esep" => value
-                .parse::<f64>()
-                .map(DotAttr::Esep)
-                .map_err(|_| DotAttrParseError::InvalidValue("esep", value)),
+            "esep" => {
+                if let Ok(pt) = value.parse::<Point>() {
+                    Ok(DotAttr::EsepPoint(pt))
+                } else {
+                    value
+                        .parse::<f64>()
+                        .map(DotAttr::EsepDouble)
+                        .map_err(|_| DotAttrParseError::InvalidValue("esep", value))
+                }
+            }
             "fillcolor" => value
                 .parse::<Color>()
                 .map(DotAttr::Fillcolor)
                 .map_err(|_| DotAttrParseError::InvalidValue("fillcolor", value)),
-            "fixedsize" => Ok(DotAttr::Fixedsize(value.to_string())),
+            "fixedsize" => {
+                if let Ok(b) = parse_bool(value) {
+                    Ok(DotAttr::FixedsizeBool(b))
+                } else {
+                    Ok(DotAttr::FixedsizeString(value.to_string()))
+                }
+            }
             "fontcolor" => value
                 .parse::<Color>()
                 .map(DotAttr::Fontcolor)
@@ -541,7 +601,13 @@ impl DotAttr {
             "image" => Ok(DotAttr::Image(value.to_string())),
             "imagepath" => Ok(DotAttr::Imagepath(value.to_string())),
             "imagepos" => Ok(DotAttr::Imagepos(value.to_string())),
-            "imagescale" => Ok(DotAttr::Imagescale(value.to_string())),
+            "imagescale" => {
+                if let Ok(b) = parse_bool(value) {
+                    Ok(DotAttr::ImagescaleBool(b))
+                } else {
+                    Ok(DotAttr::ImagescaleString(value.to_string()))
+                }
+            }
             "inputscale" => value
                 .parse::<f64>()
                 .map(DotAttr::Inputscale)
@@ -616,10 +682,16 @@ impl DotAttr {
                 .parse::<f64>()
                 .map(DotAttr::Lwidth)
                 .map_err(|_| DotAttrParseError::InvalidValue("lwidth", value)),
-            "margin" => value
-                .parse::<f64>()
-                .map(DotAttr::Margin)
-                .map_err(|_| DotAttrParseError::InvalidValue("margin", value)),
+            "margin" => {
+                if let Ok(pt) = value.parse::<Point>() {
+                    Ok(DotAttr::MarginPoint(pt))
+                } else {
+                    value
+                        .parse::<f64>()
+                        .map(DotAttr::MarginDouble)
+                        .map_err(|_| DotAttrParseError::InvalidValue("margin", value))
+                }
+            }
             "maxiter" => value
                 .parse::<i32>()
                 .map(DotAttr::Maxiter)
@@ -644,7 +716,15 @@ impl DotAttr {
                 .map(DotAttr::Nodesep)
                 .map_err(|_| DotAttrParseError::InvalidValue("nodesep", value)),
             "nojustify" => parse_bool(value).map(DotAttr::Nojustify),
-            "normalize" => Ok(DotAttr::Normalize(value.to_string())),
+            "normalize" => {
+                if let Ok(d) = value.parse::<f64>() {
+                    Ok(DotAttr::NormalizeDouble(d))
+                } else if let Ok(b) = parse_bool(value) {
+                    Ok(DotAttr::NormalizeBool(b))
+                } else {
+                    Err(DotAttrParseError::InvalidValue("normalize", value))
+                }
+            }
             "notranslate" => parse_bool(value).map(DotAttr::Notranslate),
             "nslimit" => value
                 .parse::<f64>()
@@ -656,27 +736,60 @@ impl DotAttr {
                 .map_err(|_| DotAttrParseError::InvalidValue("nslimit1", value)),
             "oneblock" => parse_bool(value).map(DotAttr::Oneblock),
             "ordering" => Ok(DotAttr::Ordering(value.to_string())),
-            "orientation" => Ok(DotAttr::Orientation(value.to_string())),
+            "orientation" => {
+                if let Ok(d) = value.parse::<f64>() {
+                    Ok(DotAttr::OrientationDouble(d))
+                } else {
+                    Ok(DotAttr::OrientationString(value.to_string()))
+                }
+            }
             "outputorder" => value
                 .parse::<OutputMode>()
                 .map(DotAttr::Outputorder)
                 .map_err(|_| DotAttrParseError::InvalidValue("outputorder", value)),
-            "overlap" => Ok(DotAttr::Overlap(value.to_string())),
+            "overlap" => {
+                if let Ok(b) = parse_bool(value) {
+                    Ok(DotAttr::OverlapBool(b))
+                } else {
+                    Ok(DotAttr::OverlapString(value.to_string()))
+                }
+            }
             "overlap_scaling" => value
                 .parse::<f64>()
                 .map(DotAttr::Overlap_scaling)
                 .map_err(|_| DotAttrParseError::InvalidValue("overlap_scaling", value)),
             "overlap_shrink" => parse_bool(value).map(DotAttr::Overlap_shrink),
-            "pack" => Ok(DotAttr::Pack(value.to_string())),
+            "pack" => {
+                if let Ok(b) = parse_bool(value) {
+                    Ok(DotAttr::PackBool(b))
+                } else {
+                    value
+                        .parse::<i32>()
+                        .map(DotAttr::PackInt)
+                        .map_err(|_| DotAttrParseError::InvalidValue("pack", value))
+                }
+            }
             "packmode" => Ok(DotAttr::Packmode(value.to_string())),
-            "pad" => value
-                .parse::<f64>()
-                .map(DotAttr::Pad)
-                .map_err(|_| DotAttrParseError::InvalidValue("pad", value)),
-            "page" => value
-                .parse::<f64>()
-                .map(DotAttr::Page)
-                .map_err(|_| DotAttrParseError::InvalidValue("page", value)),
+            "pad" => {
+                if let Ok(pt) = value.parse::<Point>() {
+                    Ok(DotAttr::PadPoint(pt))
+                } else {
+                    value
+                        .parse::<f64>()
+                        .map(DotAttr::PadDouble)
+                        .map_err(|_| DotAttrParseError::InvalidValue("pad", value))
+                }
+            }
+            "page" => {
+                if let Ok(pt) = value.parse::<Point>() {
+                    Ok(DotAttr::PagePoint(pt))
+                } else {
+                    value
+                        .parse::<f64>()
+                        .map(DotAttr::PageDouble)
+                        .map_err(|_| DotAttrParseError::InvalidValue("page", value))
+                }
+            }
             "pagedir" => value
                 .parse::<PageDir>()
                 .map(DotAttr::Pagedir)
@@ -694,8 +807,20 @@ impl DotAttr {
                 .map(DotAttr::Peripheries)
                 .map_err(|_| DotAttrParseError::InvalidValue("peripheries", value)),
             "pin" => parse_bool(value).map(DotAttr::Pin),
-            "pos" => Ok(DotAttr::Pos(value.to_string())),
-            "quadtree" => Ok(DotAttr::Quadtree(value.to_string())),
+            "pos" => {
+                if let Ok(pt) = value.parse::<Point>() {
+                    Ok(DotAttr::PosPoint(pt))
+                } else {
+                    Ok(DotAttr::PosString(value.to_string()))
+                }
+            }
+            "quadtree" => {
+                if let Ok(b) = parse_bool(value) {
+                    Ok(DotAttr::QuadtreeBool(b))
+                } else {
+                    Ok(DotAttr::QuadtreeString(value.to_string()))
+                }
+            }
             "quantum" => value
                 .parse::<f64>()
                 .map(DotAttr::Quantum)
@@ -712,11 +837,20 @@ impl DotAttr {
                 .parse::<RankDir>()
                 .map(DotAttr::Rankdir)
                 .map_err(|_| DotAttrParseError::InvalidValue("rankdir", value)),
-            "ranksep" => value
-                .parse::<f64>()
-                .map(DotAttr::Ranksep)
-                .map_err(|_| DotAttrParseError::InvalidValue("ranksep", value)),
-            "ratio" => Ok(DotAttr::Ratio(value.to_string())),
+            "ranksep" => {
+                if let Ok(d) = value.parse::<f64>() {
+                    Ok(DotAttr::RanksepDouble(d))
+                } else {
+                    Ok(DotAttr::RanksepString(value.to_string()))
+                }
+            }
+            "ratio" => {
+                if let Ok(d) = value.parse::<f64>() {
+                    Ok(DotAttr::RatioDouble(d))
+                } else {
+                    Ok(DotAttr::RatioString(value.to_string()))
+                }
+            }
             "rects" => value
                 .parse::<Rect>()
                 .map(DotAttr::Rects)
@@ -731,7 +865,13 @@ impl DotAttr {
                 .parse::<f64>()
                 .map(DotAttr::Resolution)
                 .map_err(|_| DotAttrParseError::InvalidValue("resolution", value)),
-            "root" => Ok(DotAttr::Root(value.to_string())),
+            "root" => {
+                if let Ok(b) = parse_bool(value) {
+                    Ok(DotAttr::RootBool(b))
+                } else {
+                    Ok(DotAttr::RootString(value.to_string()))
+                }
+            }
             "rotate" => value
                 .parse::<i32>()
                 .map(DotAttr::Rotate)
@@ -746,18 +886,30 @@ impl DotAttr {
                 .parse::<i32>()
                 .map(DotAttr::Samplepoints)
                 .map_err(|_| DotAttrParseError::InvalidValue("samplepoints", value)),
-            "scale" => value
-                .parse::<f64>()
-                .map(DotAttr::Scale)
-                .map_err(|_| DotAttrParseError::InvalidValue("scale", value)),
+            "scale" => {
+                if let Ok(pt) = value.parse::<Point>() {
+                    Ok(DotAttr::ScalePoint(pt))
+                } else {
+                    value
+                        .parse::<f64>()
+                        .map(DotAttr::ScaleDouble)
+                        .map_err(|_| DotAttrParseError::InvalidValue("scale", value))
+                }
+            }
             "searchsize" => value
                 .parse::<i32>()
                 .map(DotAttr::Searchsize)
                 .map_err(|_| DotAttrParseError::InvalidValue("searchsize", value)),
-            "sep" => value
-                .parse::<f64>()
-                .map(DotAttr::Sep)
-                .map_err(|_| DotAttrParseError::InvalidValue("sep", value)),
+            "sep" => {
+                if let Ok(pt) = value.parse::<Point>() {
+                    Ok(DotAttr::SepPoint(pt))
+                } else {
+                    value
+                        .parse::<f64>()
+                        .map(DotAttr::SepDouble)
+                        .map_err(|_| DotAttrParseError::InvalidValue("sep", value))
+                }
+            }
             "shape" => value
                 .parse::<Shape>()
                 .map(DotAttr::Shape)
@@ -771,10 +923,16 @@ impl DotAttr {
                 .parse::<i32>()
                 .map(DotAttr::Sides)
                 .map_err(|_| DotAttrParseError::InvalidValue("sides", value)),
-            "size" => value
-                .parse::<f64>()
-                .map(DotAttr::Size)
-                .map_err(|_| DotAttrParseError::InvalidValue("size", value)),
+            "size" => {
+                if let Ok(pt) = value.parse::<Point>() {
+                    Ok(DotAttr::SizePoint(pt))
+                } else {
+                    value
+                        .parse::<f64>()
+                        .map(DotAttr::SizeDouble)
+                        .map_err(|_| DotAttrParseError::InvalidValue("size", value))
+                }
+            }
             "skew" => value
                 .parse::<f64>()
                 .map(DotAttr::Skew)
@@ -784,7 +942,13 @@ impl DotAttr {
                 .parse::<i32>()
                 .map(DotAttr::Sortv)
                 .map_err(|_| DotAttrParseError::InvalidValue("sortv", value)),
-            "splines" => Ok(DotAttr::Splines(value.to_string())),
+            "splines" => {
+                if let Ok(b) = parse_bool(value) {
+                    Ok(DotAttr::SplinesBool(b))
+                } else {
+                    Ok(DotAttr::SplinesString(value.to_string()))
+                }
+            }
             "start" => Ok(DotAttr::Start(value.to_string())),
             "style" => value
                 .parse::<Style>()
@@ -812,10 +976,16 @@ impl DotAttr {
                 .parse::<f64>()
                 .map(DotAttr::Voro_margin)
                 .map_err(|_| DotAttrParseError::InvalidValue("voro_margin", value)),
-            "weight" => value
-                .parse::<f64>()
-                .map(DotAttr::Weight)
-                .map_err(|_| DotAttrParseError::InvalidValue("weight", value)),
+            "weight" => {
+                if let Ok(i) = value.parse::<i32>() {
+                    Ok(DotAttr::WeightInt(i))
+                } else {
+                    value
+                        .parse::<f64>()
+                        .map(DotAttr::WeightDouble)
+                        .map_err(|_| DotAttrParseError::InvalidValue("weight", value))
+                }
+            }
             "width" => value
                 .parse::<f64>()
                 .map(DotAttr::Width)
@@ -863,7 +1033,8 @@ impl DotAttr {
             DotAttr::Dim(_) => "dim",
             DotAttr::Dimen(_) => "dimen",
             DotAttr::Dir(_) => "dir",
-            DotAttr::Diredgeconstraints(_) => "diredgeconstraints",
+            DotAttr::DiredgeconstraintsString(_) => "diredgeconstraints",
+            DotAttr::DiredgeconstraintsBool(_) => "diredgeconstraints",
             DotAttr::Distortion(_) => "distortion",
             DotAttr::Dpi(_) => "dpi",
             DotAttr::Edgehref(_) => "edgehref",
@@ -871,9 +1042,11 @@ impl DotAttr {
             DotAttr::Edgetooltip(_) => "edgetooltip",
             DotAttr::EdgeURL(_) => "edgeURL",
             DotAttr::Epsilon(_) => "epsilon",
-            DotAttr::Esep(_) => "esep",
+            DotAttr::EsepDouble(_) => "esep",
+            DotAttr::EsepPoint(_) => "esep",
             DotAttr::Fillcolor(_) => "fillcolor",
-            DotAttr::Fixedsize(_) => "fixedsize",
+            DotAttr::FixedsizeBool(_) => "fixedsize",
+            DotAttr::FixedsizeString(_) => "fixedsize",
             DotAttr::Fontcolor(_) => "fontcolor",
             DotAttr::Fontname(_) => "fontname",
             DotAttr::Fontnames(_) => "fontnames",
@@ -896,7 +1069,8 @@ impl DotAttr {
             DotAttr::Image(_) => "image",
             DotAttr::Imagepath(_) => "imagepath",
             DotAttr::Imagepos(_) => "imagepos",
-            DotAttr::Imagescale(_) => "imagescale",
+            DotAttr::ImagescaleBool(_) => "imagescale",
+            DotAttr::ImagescaleString(_) => "imagescale",
             DotAttr::Inputscale(_) => "inputscale",
             DotAttr::K(_) => "K",
             DotAttr::Label(_) => "label",
@@ -929,7 +1103,8 @@ impl DotAttr {
             DotAttr::Lp(_) => "lp",
             DotAttr::Ltail(_) => "ltail",
             DotAttr::Lwidth(_) => "lwidth",
-            DotAttr::Margin(_) => "margin",
+            DotAttr::MarginDouble(_) => "margin",
+            DotAttr::MarginPoint(_) => "margin",
             DotAttr::Maxiter(_) => "maxiter",
             DotAttr::Mclimit(_) => "mclimit",
             DotAttr::Mindist(_) => "mindist",
@@ -939,57 +1114,72 @@ impl DotAttr {
             DotAttr::Newrank(_) => "newrank",
             DotAttr::Nodesep(_) => "nodesep",
             DotAttr::Nojustify(_) => "nojustify",
-            DotAttr::Normalize(_) => "normalize",
+            DotAttr::NormalizeDouble(_) => "normalize",
+            DotAttr::NormalizeBool(_) => "normalize",
             DotAttr::Notranslate(_) => "notranslate",
             DotAttr::Nslimit(_) => "nslimit",
             DotAttr::Nslimit1(_) => "nslimit1",
             DotAttr::Oneblock(_) => "oneblock",
             DotAttr::Ordering(_) => "ordering",
-            DotAttr::Orientation(_) => "orientation",
+            DotAttr::OrientationDouble(_) => "orientation",
+            DotAttr::OrientationString(_) => "orientation",
             DotAttr::Outputorder(_) => "outputorder",
-            DotAttr::Overlap(_) => "overlap",
+            DotAttr::OverlapString(_) => "overlap",
+            DotAttr::OverlapBool(_) => "overlap",
             DotAttr::Overlap_scaling(_) => "overlap_scaling",
             DotAttr::Overlap_shrink(_) => "overlap_shrink",
-            DotAttr::Pack(_) => "pack",
+            DotAttr::PackBool(_) => "pack",
+            DotAttr::PackInt(_) => "pack",
             DotAttr::Packmode(_) => "packmode",
-            DotAttr::Pad(_) => "pad",
-            DotAttr::Page(_) => "page",
+            DotAttr::PadDouble(_) => "pad",
+            DotAttr::PadPoint(_) => "pad",
+            DotAttr::PageDouble(_) => "page",
+            DotAttr::PagePoint(_) => "page",
             DotAttr::Pagedir(_) => "pagedir",
             DotAttr::Pencolor(_) => "pencolor",
             DotAttr::Penwidth(_) => "penwidth",
             DotAttr::Peripheries(_) => "peripheries",
             DotAttr::Pin(_) => "pin",
-            DotAttr::Pos(_) => "pos",
-            DotAttr::Quadtree(_) => "quadtree",
+            DotAttr::PosPoint(_) => "pos",
+            DotAttr::PosString(_) => "pos",
+            DotAttr::QuadtreeString(_) => "quadtree",
+            DotAttr::QuadtreeBool(_) => "quadtree",
             DotAttr::Quantum(_) => "quantum",
             DotAttr::Radius(_) => "radius",
             DotAttr::Rank(_) => "rank",
             DotAttr::Rankdir(_) => "rankdir",
-            DotAttr::Ranksep(_) => "ranksep",
-            DotAttr::Ratio(_) => "ratio",
+            DotAttr::RanksepDouble(_) => "ranksep",
+            DotAttr::RanksepString(_) => "ranksep",
+            DotAttr::RatioDouble(_) => "ratio",
+            DotAttr::RatioString(_) => "ratio",
             DotAttr::Rects(_) => "rects",
             DotAttr::Regular(_) => "regular",
             DotAttr::Remincross(_) => "remincross",
             DotAttr::Repulsiveforce(_) => "repulsiveforce",
             DotAttr::Resolution(_) => "resolution",
-            DotAttr::Root(_) => "root",
+            DotAttr::RootString(_) => "root",
+            DotAttr::RootBool(_) => "root",
             DotAttr::Rotate(_) => "rotate",
             DotAttr::Rotation(_) => "rotation",
             DotAttr::Samehead(_) => "samehead",
             DotAttr::Sametail(_) => "sametail",
             DotAttr::Samplepoints(_) => "samplepoints",
-            DotAttr::Scale(_) => "scale",
+            DotAttr::ScaleDouble(_) => "scale",
+            DotAttr::ScalePoint(_) => "scale",
             DotAttr::Searchsize(_) => "searchsize",
-            DotAttr::Sep(_) => "sep",
+            DotAttr::SepDouble(_) => "sep",
+            DotAttr::SepPoint(_) => "sep",
             DotAttr::Shape(_) => "shape",
             DotAttr::Shapefile(_) => "shapefile",
             DotAttr::Showboxes(_) => "showboxes",
             DotAttr::Sides(_) => "sides",
-            DotAttr::Size(_) => "size",
+            DotAttr::SizeDouble(_) => "size",
+            DotAttr::SizePoint(_) => "size",
             DotAttr::Skew(_) => "skew",
             DotAttr::Smoothing(_) => "smoothing",
             DotAttr::Sortv(_) => "sortv",
-            DotAttr::Splines(_) => "splines",
+            DotAttr::SplinesBool(_) => "splines",
+            DotAttr::SplinesString(_) => "splines",
             DotAttr::Start(_) => "start",
             DotAttr::Style(_) => "style",
             DotAttr::Stylesheet(_) => "stylesheet",
@@ -1008,7 +1198,8 @@ impl DotAttr {
             DotAttr::Vertices(_) => "vertices",
             DotAttr::Viewport(_) => "viewport",
             DotAttr::Voro_margin(_) => "voro_margin",
-            DotAttr::Weight(_) => "weight",
+            DotAttr::WeightInt(_) => "weight",
+            DotAttr::WeightDouble(_) => "weight",
             DotAttr::Width(_) => "width",
             DotAttr::Xdotversion(_) => "xdotversion",
             DotAttr::Xlabel(_) => "xlabel",
@@ -1047,7 +1238,8 @@ impl fmt::Display for DotAttr {
             DotAttr::Dim(v) => write!(f, "dim={}", v),
             DotAttr::Dimen(v) => write!(f, "dimen={}", v),
             DotAttr::Dir(v) => write!(f, "dir={}", v),
-            DotAttr::Diredgeconstraints(v) => write!(f, "diredgeconstraints={}", v),
+            DotAttr::DiredgeconstraintsString(v) => write!(f, "diredgeconstraints={}", v),
+            DotAttr::DiredgeconstraintsBool(v) => write!(f, "diredgeconstraints={}", v),
             DotAttr::Distortion(v) => write!(f, "distortion={}", v),
             DotAttr::Dpi(v) => write!(f, "dpi={}", v),
             DotAttr::Edgehref(v) => write!(f, "edgehref={}", v),
@@ -1055,9 +1247,11 @@ impl fmt::Display for DotAttr {
             DotAttr::Edgetooltip(v) => write!(f, "edgetooltip={}", v),
             DotAttr::EdgeURL(v) => write!(f, "edgeURL={}", v),
             DotAttr::Epsilon(v) => write!(f, "epsilon={}", v),
-            DotAttr::Esep(v) => write!(f, "esep={}", v),
+            DotAttr::EsepDouble(v) => write!(f, "esep={}", v),
+            DotAttr::EsepPoint(v) => write!(f, "esep={}", v),
             DotAttr::Fillcolor(v) => write!(f, "fillcolor={}", v),
-            DotAttr::Fixedsize(v) => write!(f, "fixedsize={}", v),
+            DotAttr::FixedsizeBool(v) => write!(f, "fixedsize={}", v),
+            DotAttr::FixedsizeString(v) => write!(f, "fixedsize={}", v),
             DotAttr::Fontcolor(v) => write!(f, "fontcolor={}", v),
             DotAttr::Fontname(v) => write!(f, "fontname={}", v),
             DotAttr::Fontnames(v) => write!(f, "fontnames={}", v),
@@ -1080,7 +1274,8 @@ impl fmt::Display for DotAttr {
             DotAttr::Image(v) => write!(f, "image={}", v),
             DotAttr::Imagepath(v) => write!(f, "imagepath={}", v),
             DotAttr::Imagepos(v) => write!(f, "imagepos={}", v),
-            DotAttr::Imagescale(v) => write!(f, "imagescale={}", v),
+            DotAttr::ImagescaleBool(v) => write!(f, "imagescale={}", v),
+            DotAttr::ImagescaleString(v) => write!(f, "imagescale={}", v),
             DotAttr::Inputscale(v) => write!(f, "inputscale={}", v),
             DotAttr::K(v) => write!(f, "K={}", v),
             DotAttr::Label(v) => write!(f, "label={}", v),
@@ -1113,7 +1308,8 @@ impl fmt::Display for DotAttr {
             DotAttr::Lp(v) => write!(f, "lp={}", v),
             DotAttr::Ltail(v) => write!(f, "ltail={}", v),
             DotAttr::Lwidth(v) => write!(f, "lwidth={}", v),
-            DotAttr::Margin(v) => write!(f, "margin={}", v),
+            DotAttr::MarginDouble(v) => write!(f, "margin={}", v),
+            DotAttr::MarginPoint(v) => write!(f, "margin={}", v),
             DotAttr::Maxiter(v) => write!(f, "maxiter={}", v),
             DotAttr::Mclimit(v) => write!(f, "mclimit={}", v),
             DotAttr::Mindist(v) => write!(f, "mindist={}", v),
@@ -1123,57 +1319,72 @@ impl fmt::Display for DotAttr {
             DotAttr::Newrank(v) => write!(f, "newrank={}", v),
             DotAttr::Nodesep(v) => write!(f, "nodesep={}", v),
             DotAttr::Nojustify(v) => write!(f, "nojustify={}", v),
-            DotAttr::Normalize(v) => write!(f, "normalize={}", v),
+            DotAttr::NormalizeDouble(v) => write!(f, "normalize={}", v),
+            DotAttr::NormalizeBool(v) => write!(f, "normalize={}", v),
             DotAttr::Notranslate(v) => write!(f, "notranslate={}", v),
             DotAttr::Nslimit(v) => write!(f, "nslimit={}", v),
             DotAttr::Nslimit1(v) => write!(f, "nslimit1={}", v),
             DotAttr::Oneblock(v) => write!(f, "oneblock={}", v),
             DotAttr::Ordering(v) => write!(f, "ordering={}", v),
-            DotAttr::Orientation(v) => write!(f, "orientation={}", v),
+            DotAttr::OrientationDouble(v) => write!(f, "orientation={}", v),
+            DotAttr::OrientationString(v) => write!(f, "orientation={}", v),
             DotAttr::Outputorder(v) => write!(f, "outputorder={}", v),
-            DotAttr::Overlap(v) => write!(f, "overlap={}", v),
+            DotAttr::OverlapString(v) => write!(f, "overlap={}", v),
+            DotAttr::OverlapBool(v) => write!(f, "overlap={}", v),
             DotAttr::Overlap_scaling(v) => write!(f, "overlap_scaling={}", v),
             DotAttr::Overlap_shrink(v) => write!(f, "overlap_shrink={}", v),
-            DotAttr::Pack(v) => write!(f, "pack={}", v),
+            DotAttr::PackBool(v) => write!(f, "pack={}", v),
+            DotAttr::PackInt(v) => write!(f, "pack={}", v),
             DotAttr::Packmode(v) => write!(f, "packmode={}", v),
-            DotAttr::Pad(v) => write!(f, "pad={}", v),
-            DotAttr::Page(v) => write!(f, "page={}", v),
+            DotAttr::PadDouble(v) => write!(f, "pad={}", v),
+            DotAttr::PadPoint(v) => write!(f, "pad={}", v),
+            DotAttr::PageDouble(v) => write!(f, "page={}", v),
+            DotAttr::PagePoint(v) => write!(f, "page={}", v),
             DotAttr::Pagedir(v) => write!(f, "pagedir={}", v),
             DotAttr::Pencolor(v) => write!(f, "pencolor={}", v),
             DotAttr::Penwidth(v) => write!(f, "penwidth={}", v),
             DotAttr::Peripheries(v) => write!(f, "peripheries={}", v),
             DotAttr::Pin(v) => write!(f, "pin={}", v),
-            DotAttr::Pos(v) => write!(f, "pos={}", v),
-            DotAttr::Quadtree(v) => write!(f, "quadtree={}", v),
+            DotAttr::PosPoint(v) => write!(f, "pos={}", v),
+            DotAttr::PosString(v) => write!(f, "pos={}", v),
+            DotAttr::QuadtreeString(v) => write!(f, "quadtree={}", v),
+            DotAttr::QuadtreeBool(v) => write!(f, "quadtree={}", v),
             DotAttr::Quantum(v) => write!(f, "quantum={}", v),
             DotAttr::Radius(v) => write!(f, "radius={}", v),
             DotAttr::Rank(v) => write!(f, "rank={}", v),
             DotAttr::Rankdir(v) => write!(f, "rankdir={}", v),
-            DotAttr::Ranksep(v) => write!(f, "ranksep={}", v),
-            DotAttr::Ratio(v) => write!(f, "ratio={}", v),
+            DotAttr::RanksepDouble(v) => write!(f, "ranksep={}", v),
+            DotAttr::RanksepString(v) => write!(f, "ranksep={}", v),
+            DotAttr::RatioDouble(v) => write!(f, "ratio={}", v),
+            DotAttr::RatioString(v) => write!(f, "ratio={}", v),
             DotAttr::Rects(v) => write!(f, "rects={}", v),
             DotAttr::Regular(v) => write!(f, "regular={}", v),
             DotAttr::Remincross(v) => write!(f, "remincross={}", v),
             DotAttr::Repulsiveforce(v) => write!(f, "repulsiveforce={}", v),
             DotAttr::Resolution(v) => write!(f, "resolution={}", v),
-            DotAttr::Root(v) => write!(f, "root={}", v),
+            DotAttr::RootString(v) => write!(f, "root={}", v),
+            DotAttr::RootBool(v) => write!(f, "root={}", v),
             DotAttr::Rotate(v) => write!(f, "rotate={}", v),
             DotAttr::Rotation(v) => write!(f, "rotation={}", v),
             DotAttr::Samehead(v) => write!(f, "samehead={}", v),
             DotAttr::Sametail(v) => write!(f, "sametail={}", v),
             DotAttr::Samplepoints(v) => write!(f, "samplepoints={}", v),
-            DotAttr::Scale(v) => write!(f, "scale={}", v),
+            DotAttr::ScaleDouble(v) => write!(f, "scale={}", v),
+            DotAttr::ScalePoint(v) => write!(f, "scale={}", v),
             DotAttr::Searchsize(v) => write!(f, "searchsize={}", v),
-            DotAttr::Sep(v) => write!(f, "sep={}", v),
+            DotAttr::SepDouble(v) => write!(f, "sep={}", v),
+            DotAttr::SepPoint(v) => write!(f, "sep={}", v),
             DotAttr::Shape(v) => write!(f, "shape={}", v),
             DotAttr::Shapefile(v) => write!(f, "shapefile={}", v),
             DotAttr::Showboxes(v) => write!(f, "showboxes={}", v),
             DotAttr::Sides(v) => write!(f, "sides={}", v),
-            DotAttr::Size(v) => write!(f, "size={}", v),
+            DotAttr::SizeDouble(v) => write!(f, "size={}", v),
+            DotAttr::SizePoint(v) => write!(f, "size={}", v),
             DotAttr::Skew(v) => write!(f, "skew={}", v),
             DotAttr::Smoothing(v) => write!(f, "smoothing={}", v),
             DotAttr::Sortv(v) => write!(f, "sortv={}", v),
-            DotAttr::Splines(v) => write!(f, "splines={}", v),
+            DotAttr::SplinesBool(v) => write!(f, "splines={}", v),
+            DotAttr::SplinesString(v) => write!(f, "splines={}", v),
             DotAttr::Start(v) => write!(f, "start={}", v),
             DotAttr::Style(v) => write!(f, "style={}", v),
             DotAttr::Stylesheet(v) => write!(f, "stylesheet={}", v),
@@ -1192,7 +1403,8 @@ impl fmt::Display for DotAttr {
             DotAttr::Vertices(v) => write!(f, "vertices={}", v),
             DotAttr::Viewport(v) => write!(f, "viewport={}", v),
             DotAttr::Voro_margin(v) => write!(f, "voro_margin={}", v),
-            DotAttr::Weight(v) => write!(f, "weight={}", v),
+            DotAttr::WeightInt(v) => write!(f, "weight={}", v),
+            DotAttr::WeightDouble(v) => write!(f, "weight={}", v),
             DotAttr::Width(v) => write!(f, "width={}", v),
             DotAttr::Xdotversion(v) => write!(f, "xdotversion={}", v),
             DotAttr::Xlabel(v) => write!(f, "xlabel={}", v),
