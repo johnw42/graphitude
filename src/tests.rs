@@ -236,6 +236,65 @@ macro_rules! graph_tests {
         }
 
         #[test]
+        fn test_large_graph_structure() {
+            let graph = generate_large_graph();
+
+            // Verify basic structure
+            assert_eq!(
+                graph.num_nodes(),
+                410,
+                "Expected 410 nodes: 50 + 80 + 150 + 20 + 100 + 10"
+            );
+
+            // The graph should have a significant number of edges
+            // Theoretical maximum (if no duplicates/replacements):
+            // - Cluster 1: ~735 edges (50 nodes, 60% of 1225 possible)
+            // - Cluster 2: ~960 edges (80 nodes, 30% of 3160 possible)
+            // - Cluster 3: ~894 edges (150 nodes, 8% of 11175 possible)
+            // - Hubs: ~20 * 410 * 4/7 ≈ 4686 edges (many duplicates/overlaps expected)
+            // - Scattered: ~100 * 2 = 200 edges (1-3 per node)
+            // - Bridges: 30 edges (3 edges per bridge)
+            // - Long-range: ~200 edges (some may be duplicates)
+            // - Self-loops: 50 edges
+            // Total theoretical max: ~7755 edges, but duplicates will reduce this
+
+            let num_edges = graph.num_edges();
+
+            // For implementations that replace duplicate edges, expect fewer edges
+            // For implementations that allow parallel edges, expect more edges
+            // Minimum: at least 2000 edges (conservative lower bound)
+            // Maximum: at most 10000 edges (very liberal upper bound)
+            assert!(
+                num_edges >= 2000,
+                "Expected at least 2000 edges, got {}",
+                num_edges
+            );
+            assert!(
+                num_edges <= 10000,
+                "Expected at most 10000 edges, got {}",
+                num_edges
+            );
+
+            // Verify all nodes are valid
+            for node_id in graph.node_ids() {
+                assert_eq!(graph.check_valid_node_id(&node_id), Ok(()));
+            }
+
+            // Verify all edges are valid
+            for edge_id in graph.edge_ids() {
+                assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
+            }
+
+            // Count edges to verify consistency
+            let edge_count_via_iteration = graph.edge_ids().count();
+            assert_eq!(
+                edge_count_via_iteration, num_edges,
+                "Edge count mismatch: num_edges() returned {} but iteration counted {}",
+                num_edges, edge_count_via_iteration
+            );
+        }
+
+        #[test]
         fn test_deconstruct_large_graph_by_nodes() {
             let mut graph = generate_large_graph();
 

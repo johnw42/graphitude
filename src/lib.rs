@@ -41,6 +41,9 @@ mod id_vec;
 mod pairs;
 mod util;
 
+#[cfg(feature = "dot")]
+mod dot_parser_impl;
+
 #[cfg(feature = "bitvec")]
 mod triangular;
 
@@ -50,6 +53,9 @@ pub use linked_graph::LinkedGraph;
 pub use mapping_result::MappingResult;
 pub use pairs::SortedPair;
 pub use tests::TestDataBuilder;
+
+#[cfg(feature = "dot")]
+pub use dot_parser_impl::{DotGraphBuilder, DotParseError};
 
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{

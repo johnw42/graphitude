@@ -749,4 +749,18 @@ pub trait GraphMut: Graph {
         let _ = &mut node_id_callback;
         let _ = &mut edge_id_callback;
     }
+
+    #[cfg(feature = "dot")]
+    fn new_from_dot<B>(
+        data: &str,
+        builder: &mut B,
+    ) -> Result<Self, crate::dot_parser_impl::DotParseError<B>>
+    where
+        B: crate::dot_parser_impl::DotGraphBuilder<
+                NodeData = Self::NodeData,
+                EdgeData = Self::EdgeData,
+            >,
+    {
+        crate::dot_parser_impl::parse_dot_into_graph(data, builder)
+    }
 }
