@@ -41,9 +41,6 @@ mod id_vec;
 mod pairs;
 mod util;
 
-#[cfg(feature = "dot")]
-mod dot_parser_impl;
-
 #[cfg(feature = "bitvec")]
 mod triangular;
 
@@ -55,7 +52,13 @@ pub use pairs::SortedPair;
 pub use tests::TestDataBuilder;
 
 #[cfg(feature = "dot")]
-pub use dot_parser_impl::{DotGraphBuilder, DotParseError};
+#[cfg(feature = "dot")]
+pub use graph::dot_parser_impl::{DotGraphBuilder, DotParseError};
+
+#[cfg(feature = "dot")]
+pub use graph::dot_types::{
+    ArrowType, Color, DirType, OutputMode, PageDir, Point, RankDir, RankType, Rect, Shape, Style,
+};
 
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{

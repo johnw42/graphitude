@@ -1,3 +1,6 @@
+#[cfg(feature = "dot")]
+pub mod dot_parser_impl;
+
 use std::ops::Add;
 use std::{
     collections::{HashMap, HashSet},
@@ -761,6 +764,3 @@ pub trait GraphMut: Graph {
         dot_parser_impl::parse_dot_into_graph(data, builder)
     }
 }
-
-#[cfg(feature = "dot")]
-pub mod dot_parser_impl;
