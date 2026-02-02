@@ -204,9 +204,9 @@ mod tests {
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
         let n3 = graph.add_node(3);
-        graph.add_edge(n0.clone(), n1.clone(), ());
-        graph.add_edge(n0.clone(), n2.clone(), ());
-        graph.add_edge(n1.clone(), n3.clone(), ());
+        graph.add_edge(&n0, &n1, ());
+        graph.add_edge(&n0, &n2, ());
+        graph.add_edge(&n1, &n3, ());
         graph
     }
 
@@ -215,9 +215,9 @@ mod tests {
         let n0 = graph.add_node(0);
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
-        graph.add_edge(n0.clone(), n1.clone(), ());
-        graph.add_edge(n1.clone(), n2.clone(), ());
-        graph.add_edge(n2.clone(), n0.clone(), ());
+        graph.add_edge(&n0, &n1, ());
+        graph.add_edge(&n1, &n2, ());
+        graph.add_edge(&n2, &n0, ());
         graph
     }
 

@@ -7,9 +7,9 @@
 //! # Examples
 //!
 //! ```
-//! use graphitude::DotAttr;
+//! use graphitude::dot::attr::Attr;
 //!
-//! let attr = DotAttr::parse("color", "red").unwrap();
+//! let attr = Attr::parse("color", "red").unwrap();
 //! assert_eq!(attr.to_string(), "color=red");
 //! ```
 
@@ -448,11 +448,11 @@ impl Attr {
     /// # Examples
     ///
     /// ```
-    /// use graphitude::DotAttr;
+    /// use graphitude::dot::attr::Attr;
     ///
-    /// let attr = DotAttr::parse("fontsize", "12").unwrap();
-    /// let attr = DotAttr::parse("color", "red").unwrap();
-    /// let attr = DotAttr::parse("shape", "box").unwrap();
+    /// let attr = Attr::parse("fontsize", "12").unwrap();
+    /// let attr = Attr::parse("color", "red").unwrap();
+    /// let attr = Attr::parse("shape", "box").unwrap();
     /// ```
     pub fn parse<'a>(name: &'a str, value: &'a str) -> Result<Self, ParseError<'a>> {
         match name.to_lowercase().as_str() {

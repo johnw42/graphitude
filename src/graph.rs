@@ -617,8 +617,8 @@ pub trait GraphMut: Graph {
     /// Use [`Self::add_or_replace_edge`] to get the old edge data as well.
     fn add_edge(
         &mut self,
-        from: Self::NodeId,
-        to: Self::NodeId,
+        from: &Self::NodeId,
+        to: &Self::NodeId,
         data: Self::EdgeData,
     ) -> Self::EdgeId {
         self.add_or_replace_edge(from, to, data).0
@@ -630,8 +630,8 @@ pub trait GraphMut: Graph {
     /// data is returned as well.
     fn add_or_replace_edge(
         &mut self,
-        from: Self::NodeId,
-        to: Self::NodeId,
+        from: &Self::NodeId,
+        to: &Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>);
 
@@ -673,7 +673,7 @@ pub trait GraphMut: Graph {
             let edata = map_edge(source.edge_data(&eid));
             let new_from = node_map.get(&from).expect("missing node");
             let new_to = node_map.get(&to).expect("missing node");
-            self.add_edge(new_from.clone(), new_to.clone(), edata);
+            self.add_edge(new_from, new_to, edata);
         }
         node_map
     }

@@ -94,11 +94,7 @@ macro_rules! graph_tests {
             for i in cluster1_start..all_nodes.len() {
                 for j in (i + 1)..all_nodes.len() {
                     if (i * 7 + j * 11) % 10 < 6 {
-                        graph.add_edge(
-                            all_nodes[i].clone(),
-                            all_nodes[j].clone(),
-                            builder.new_edge_data(),
-                        );
+                        graph.add_edge(&all_nodes[i], &all_nodes[j], builder.new_edge_data());
                     }
                 }
             }
@@ -113,11 +109,7 @@ macro_rules! graph_tests {
             for i in cluster2_start..all_nodes.len() {
                 for j in (i + 1)..all_nodes.len() {
                     if (i * 13 + j * 17) % 10 < 3 {
-                        graph.add_edge(
-                            all_nodes[i].clone(),
-                            all_nodes[j].clone(),
-                            builder.new_edge_data(),
-                        );
+                        graph.add_edge(&all_nodes[i], &all_nodes[j], builder.new_edge_data());
                     }
                 }
             }
@@ -132,11 +124,7 @@ macro_rules! graph_tests {
             for i in cluster3_start..all_nodes.len() {
                 for j in (i + 1)..all_nodes.len() {
                     if (i * 19 + j * 23) % 100 < 8 {
-                        graph.add_edge(
-                            all_nodes[i].clone(),
-                            all_nodes[j].clone(),
-                            builder.new_edge_data(),
-                        );
+                        graph.add_edge(&all_nodes[i], &all_nodes[j], builder.new_edge_data());
                     }
                 }
             }
@@ -150,7 +138,7 @@ macro_rules! graph_tests {
                 // Connect each hub to random existing nodes
                 for i in 0..all_nodes.len() - 1 {
                     if (hubs_start * 29 + i * 31) % 7 < 4 {
-                        graph.add_edge(hub.clone(), all_nodes[i].clone(), builder.new_edge_data());
+                        graph.add_edge(&hub, &all_nodes[i], builder.new_edge_data());
                     }
                 }
             }
@@ -166,11 +154,7 @@ macro_rules! graph_tests {
                 for c in 0..num_connections {
                     let target_idx = (scattered_start * 37 + all_nodes.len() * 41 + c * 43)
                         % (all_nodes.len() - 1);
-                    graph.add_edge(
-                        node.clone(),
-                        all_nodes[target_idx].clone(),
-                        builder.new_edge_data(),
-                    );
+                    graph.add_edge(&node, &all_nodes[target_idx], builder.new_edge_data());
                 }
             }
 
@@ -183,21 +167,9 @@ macro_rules! graph_tests {
                 let idx2 = (i * 53) % (cluster3_start - cluster2_start) + cluster2_start;
                 let idx3 = (i * 59) % (hubs_start - cluster3_start) + cluster3_start;
 
-                graph.add_edge(
-                    bridge.clone(),
-                    all_nodes[idx1].clone(),
-                    builder.new_edge_data(),
-                );
-                graph.add_edge(
-                    bridge.clone(),
-                    all_nodes[idx2].clone(),
-                    builder.new_edge_data(),
-                );
-                graph.add_edge(
-                    bridge.clone(),
-                    all_nodes[idx3].clone(),
-                    builder.new_edge_data(),
-                );
+                graph.add_edge(&bridge, &all_nodes[idx1], builder.new_edge_data());
+                graph.add_edge(&bridge, &all_nodes[idx2], builder.new_edge_data());
+                graph.add_edge(&bridge, &all_nodes[idx3], builder.new_edge_data());
 
                 all_nodes.push(bridge);
             }
@@ -207,22 +179,14 @@ macro_rules! graph_tests {
                 let idx1 = (i * 61) % all_nodes.len();
                 let idx2 = (i * 67 + 100) % all_nodes.len();
                 if idx1 != idx2 {
-                    graph.add_edge(
-                        all_nodes[idx1].clone(),
-                        all_nodes[idx2].clone(),
-                        builder.new_edge_data(),
-                    );
+                    graph.add_edge(&all_nodes[idx1], &all_nodes[idx2], builder.new_edge_data());
                 }
             }
 
             // Add some self loops
             for i in 0..50 {
                 let idx = (i * 71) % all_nodes.len();
-                graph.add_edge(
-                    all_nodes[idx].clone(),
-                    all_nodes[idx].clone(),
-                    builder.new_edge_data(),
-                );
+                graph.add_edge(&all_nodes[idx], &all_nodes[idx], builder.new_edge_data());
             }
 
             // use std::io::Write;
@@ -326,7 +290,7 @@ macro_rules! graph_tests {
                             {
                                 let removed = node_ids.remove(&old_id);
                                 assert!(removed);
-                                let inserted = node_ids.insert(new_id.clone());
+                                let inserted = node_ids.insert(new_id);
                                 assert!(inserted);
                             }
                         }),
@@ -380,7 +344,7 @@ macro_rules! graph_tests {
                             {
                                 let removed = edge_ids.remove(&old_id);
                                 assert!(removed);
-                                let inserted = edge_ids.insert(new_id.clone());
+                                let inserted = edge_ids.insert(new_id);
                                 assert!(inserted);
                             }
                         }),
@@ -430,8 +394,8 @@ macro_rules! graph_tests {
             let n1 = graph.add_node(vd1);
             let n2 = graph.add_node(vd2);
             let n3 = graph.add_node(vd3);
-            let e1 = graph.add_edge(n1.clone(), n2.clone(), ed1.clone());
-            let e2 = graph.add_edge(n2.clone(), n3.clone(), ed2.clone());
+            let e1 = graph.add_edge(&n1, &n2, ed1.clone());
+            let e2 = graph.add_edge(&n2, &n3, ed2.clone());
 
             // Check edges_from and num_edges_from for each node
             if graph.is_directed() {
@@ -515,8 +479,8 @@ macro_rules! graph_tests {
             let n1 = graph.add_node(vd1);
             let n2 = graph.add_node(vd2);
             let n3 = graph.add_node(vd3);
-            let e1 = graph.add_edge(n1.clone(), n2.clone(), ed1.clone());
-            let e2 = graph.add_edge(n1.clone(), n3.clone(), ed2.clone());
+            let e1 = graph.add_edge(&n1, &n2, ed1.clone());
+            let e2 = graph.add_edge(&n1, &n3, ed2.clone());
 
             let edge_ids: Vec<_> = graph.edge_ids().collect();
             dbg!(&edge_ids);
@@ -539,11 +503,11 @@ macro_rules! graph_tests {
             let n2 = graph.add_node(vd2.clone());
 
             // Normal edge.
-            graph.add_edge(n1.clone(), n2.clone(), ed1.clone());
+            graph.add_edge(&n1, &n2, ed1.clone());
             // Duplicate edge.
-            graph.add_edge(n1.clone(), n2.clone(), ed2.clone());
+            graph.add_edge(&n1, &n2, ed2.clone());
             // Self edge.
-            graph.add_edge(n1.clone(), n1.clone(), ed3.clone());
+            graph.add_edge(&n1, &n1, ed3.clone());
 
             let removed_data = graph.remove_node(&n1);
             assert_eq!(removed_data, vd1);
@@ -565,11 +529,11 @@ macro_rules! graph_tests {
             let n2 = graph.add_node(vd2.clone());
 
             // Normal edge.
-            graph.add_edge(n1.clone(), n2.clone(), ed1.clone());
+            graph.add_edge(&n1, &n2, ed1.clone());
             // Duplicate edge.
-            graph.add_edge(n1.clone(), n2.clone(), ed2.clone());
+            graph.add_edge(&n1, &n2, ed2.clone());
             // Self edge.
-            graph.add_edge(n1.clone(), n1.clone(), ed3.clone());
+            graph.add_edge(&n1, &n1, ed3.clone());
 
             graph.remove_node(&n1);
             assert_eq!(graph.num_nodes(), 1);
@@ -587,11 +551,11 @@ macro_rules! graph_tests {
             let n2 = graph.add_node(builder.new_node_data());
             let n3 = graph.add_node(builder.new_node_data());
 
-            let e0 = graph.add_edge(n0.clone(), n1.clone(), builder.new_edge_data());
-            let e1 = graph.add_edge(n0.clone(), n2.clone(), builder.new_edge_data());
-            let e2 = graph.add_edge(n1.clone(), n2.clone(), builder.new_edge_data());
-            let e3 = graph.add_edge(n1.clone(), n3.clone(), builder.new_edge_data());
-            let e4 = graph.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
+            let e0 = graph.add_edge(&n0, &n1, builder.new_edge_data());
+            let e1 = graph.add_edge(&n0, &n2, builder.new_edge_data());
+            let e2 = graph.add_edge(&n1, &n2, builder.new_edge_data());
+            let e3 = graph.add_edge(&n1, &n3, builder.new_edge_data());
+            let e4 = graph.add_edge(&n2, &n3, builder.new_edge_data());
 
             // Check edges_from for all nodes
             assert_eq!(
@@ -654,7 +618,7 @@ macro_rules! graph_tests {
 
             let n1 = graph.add_node(vd1);
             let n2 = graph.add_node(vd2);
-            let e1 = graph.add_edge(n1.clone(), n2.clone(), ed1.clone());
+            let e1 = graph.add_edge(&n1, &n2, ed1.clone());
 
             // Check edges_into and num_edges_into
             assert_eq!(graph.edges_into(&n2).collect::<Vec<_>>(), vec![e1.clone()]);
@@ -686,7 +650,7 @@ macro_rules! graph_tests {
 
             let n1 = graph.add_node(vd1);
             let n2 = graph.add_node(vd2);
-            let e1 = graph.add_edge(n1.clone(), n2.clone(), ed1);
+            let e1 = graph.add_edge(&n1, &n2, ed1);
 
             assert_eq!(graph.num_edges_between(&n1, &n2), 1);
             assert_eq!(
@@ -710,8 +674,8 @@ macro_rules! graph_tests {
             let n1 = source.add_node(builder.new_node_data());
             let n2 = source.add_node(builder.new_node_data());
             let n3 = source.add_node(builder.new_node_data());
-            let e1 = source.add_edge(n1.clone(), n2.clone(), builder.new_edge_data());
-            let e2 = source.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
+            let e1 = source.add_edge(&n1, &n2, builder.new_edge_data());
+            let e2 = source.add_edge(&n2, &n3, builder.new_edge_data());
 
             let mut target = <$type>::new();
             let node_map = target.copy_from(&source);
@@ -732,7 +696,7 @@ macro_rules! graph_tests {
             let mut graph = <$type>::new();
             let n1 = graph.add_node(builder.new_node_data());
             let n2 = graph.add_node(builder.new_node_data());
-            graph.add_edge(n1, n2, builder.new_edge_data());
+            graph.add_edge(&n1, &n2, builder.new_edge_data());
 
             assert_eq!(graph.node_ids().count(), 2);
             assert_eq!(graph.edge_ids().count(), 1);
@@ -755,11 +719,11 @@ macro_rules! graph_tests {
             let n2 = graph.add_node(builder.new_node_data());
             let n3 = graph.add_node(builder.new_node_data());
 
-            let e0 = graph.add_edge(n0.clone(), n1.clone(), builder.new_edge_data());
-            let e1 = graph.add_edge(n0.clone(), n2.clone(), builder.new_edge_data());
-            let e2 = graph.add_edge(n1.clone(), n2.clone(), builder.new_edge_data());
-            let e3 = graph.add_edge(n1.clone(), n3.clone(), builder.new_edge_data());
-            let e4 = graph.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
+            let e0 = graph.add_edge(&n0, &n1, builder.new_edge_data());
+            let e1 = graph.add_edge(&n0, &n2, builder.new_edge_data());
+            let e2 = graph.add_edge(&n1, &n2, builder.new_edge_data());
+            let e3 = graph.add_edge(&n1, &n3, builder.new_edge_data());
+            let e4 = graph.add_edge(&n2, &n3, builder.new_edge_data());
 
             if graph.is_directed() {
                 assert_eq!((e0.source(), e0.target()), (n0.clone(), n1.clone()));
@@ -860,11 +824,11 @@ macro_rules! graph_tests {
             let n2 = graph.add_node(builder.new_node_data());
             let n3 = graph.add_node(builder.new_node_data());
 
-            graph.add_edge(n0.clone(), n1.clone(), builder.new_edge_data());
-            graph.add_edge(n0.clone(), n2.clone(), builder.new_edge_data());
-            graph.add_edge(n1.clone(), n2.clone(), builder.new_edge_data());
-            graph.add_edge(n1.clone(), n3.clone(), builder.new_edge_data());
-            graph.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
+            graph.add_edge(&n0, &n1, builder.new_edge_data());
+            graph.add_edge(&n0, &n2, builder.new_edge_data());
+            graph.add_edge(&n1, &n2, builder.new_edge_data());
+            graph.add_edge(&n1, &n3, builder.new_edge_data());
+            graph.add_edge(&n2, &n3, builder.new_edge_data());
 
             let paths = graph.shortest_paths(&n0, |_| 1);
             assert_eq!(paths[&n0].0.nodes().collect::<Vec<_>>(), vec![n0.clone()]);
@@ -894,7 +858,7 @@ macro_rules! graph_tests {
             let n1 = graph.add_node(builder.new_node_data());
             let n2 = graph.add_node(builder.new_node_data());
 
-            graph.add_edge(n0.clone(), n1.clone(), builder.new_edge_data());
+            graph.add_edge(&n0, &n1, builder.new_edge_data());
 
             let paths = graph.shortest_paths(&n0, |_| 1);
             assert_eq!(paths.get(&n0).map(|(_, dist)| *dist), Some(0));
@@ -914,9 +878,9 @@ macro_rules! graph_tests {
             let n1 = graph.add_node(nd1.clone());
             let n2 = graph.add_node(nd2.clone());
             let n3 = graph.add_node(builder.new_node_data());
-            let e1 = graph.add_edge(n1.clone(), n1.clone(), ed1.clone());
-            let e2 = graph.add_edge(n1.clone(), n2.clone(), ed2.clone());
-            let _e3 = graph.add_edge(n2.clone(), n3.clone(), ed3.clone());
+            let e1 = graph.add_edge(&n1, &n1, ed1.clone());
+            let e2 = graph.add_edge(&n1, &n2, ed2.clone());
+            let _e3 = graph.add_edge(&n2, &n3, ed3.clone());
             graph.remove_node(&n3);
             assert_eq!(graph.node_ids().count(), 2);
             assert_eq!(graph.edge_ids().count(), 2);
@@ -961,8 +925,8 @@ macro_rules! graph_test_copy_from_with {
             let n1 = source.add_node(builder.new_node_data());
             let n2 = source.add_node(builder.new_node_data());
             let n3 = source.add_node(builder.new_node_data());
-            let e0 = source.add_edge(n1.clone(), n2.clone(), builder.new_edge_data());
-            let e1 = source.add_edge(n2.clone(), n3.clone(), builder.new_edge_data());
+            let e0 = source.add_edge(&n1, &n2, builder.new_edge_data());
+            let e1 = source.add_edge(&n2, &n3, builder.new_edge_data());
 
             let mut target = <$type>::new();
 

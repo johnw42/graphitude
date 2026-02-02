@@ -304,8 +304,8 @@ where
 
     fn add_or_replace_edge(
         &mut self,
-        from: Self::NodeId,
-        into: Self::NodeId,
+        from: &Self::NodeId,
+        into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
         let old_data = self.adjacency.insert(
@@ -356,8 +356,8 @@ where
 
     fn add_edge(
         &mut self,
-        from: Self::NodeId,
-        to: Self::NodeId,
+        from: &Self::NodeId,
+        to: &Self::NodeId,
         data: Self::EdgeData,
     ) -> Self::EdgeId {
         self.add_or_replace_edge(from, to, data).0
@@ -467,7 +467,7 @@ mod tests {
                 let mut graph: $type = GraphMut::new();
                 let n1 = graph.add_node(1);
                 let n2 = graph.add_node(2);
-                let e1 = graph.add_edge(n1, n2, "edge".to_string());
+                let e1 = graph.add_edge(&n1, &n2, "edge".to_string());
                 graph.compact();
                 graph.assert_valid_edge_id(&e1);
             }

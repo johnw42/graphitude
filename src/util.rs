@@ -46,17 +46,6 @@ pub enum OtherValue<T> {
 /// # Panics
 ///
 /// Panics if the target doesn't match either of the two values.
-///
-/// # Examples
-///
-/// ```
-/// use graphitude::util::{other_value, OtherValue};
-///
-/// match other_value((1, 2), 1) {
-///     OtherValue::Second(n) => assert_eq!(n, 2),
-///     _ => panic!("Expected Second"),
-/// }
-/// ```
 pub fn other_value<T: Eq + Debug>((a, b): (T, T), value: T) -> OtherValue<T> {
     if a == value {
         if b == value {

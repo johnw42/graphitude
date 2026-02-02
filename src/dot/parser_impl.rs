@@ -229,7 +229,7 @@ where
                                 let edge_data = builder
                                     .make_edge_data(&edge_stmt)
                                     .map_err(ParseError::Builder)?;
-                                graph.add_edge(current_from.clone(), to_id.clone(), edge_data);
+                                graph.add_edge(&current_from, to_id, edge_data);
                             }
 
                             // For edge chains, the "to" becomes the "from" for the next segment

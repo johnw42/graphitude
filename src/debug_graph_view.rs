@@ -119,8 +119,8 @@ mod tests {
         let n2 = graph.add_node("B");
         let n3 = graph.add_node("C");
 
-        graph.add_edge(n1.clone(), n2.clone(), 100);
-        graph.add_edge(n2, n3, 200);
+        graph.add_edge(&n1, &n2, 100);
+        graph.add_edge(&n2, &n3, 200);
 
         let view = DebugGraphView::new(&graph, |&s| s, |&e| e);
 
@@ -152,7 +152,7 @@ mod tests {
         let n1 = graph.add_node(());
         let n2 = graph.add_node(());
 
-        graph.add_edge(n1, n2, 5);
+        graph.add_edge(&n1, &n2, 5);
 
         // Transform by multiplying by 10
         let view = DebugGraphView::new(&graph, |_| (), |&e| e * 10);
@@ -167,7 +167,7 @@ mod tests {
         let n1 = graph.add_node(42);
         let n2 = graph.add_node(100);
 
-        graph.add_edge(n1, n2, 3.14);
+        graph.add_edge(&n1, &n2, 3.14);
 
         // Transform types: i32 -> String, f64 -> bool
         let view = DebugGraphView::new(&graph, |&n| format!("Node_{}", n), |&e| e > 2.0);
@@ -189,8 +189,8 @@ mod tests {
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
 
-        graph.add_edge(n1.clone(), n2.clone(), 1);
-        graph.add_edge(n1, n2, 2);
+        graph.add_edge(&n1, &n2, 1);
+        graph.add_edge(&n1, &n2, 2);
 
         let view = DebugGraphView::new(&graph, |&s| s, |&e| e);
 
@@ -207,7 +207,7 @@ mod tests {
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
-        graph.add_edge(n1, n2, "edge");
+        graph.add_edge(&n1, &n2, "edge");
 
         let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
 
@@ -223,7 +223,7 @@ mod tests {
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
-        graph.add_edge(n1, n2, "edge");
+        graph.add_edge(&n1, &n2, "edge");
 
         let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
 
@@ -239,7 +239,7 @@ mod tests {
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
-        graph.add_edge(n1, n2, "edge");
+        graph.add_edge(&n1, &n2, "edge");
 
         let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
 

@@ -29,11 +29,7 @@ mod debug {
 
         // Add edges between consecutive nodes
         for i in 0..49 {
-            graph.add_edge(
-                all_nodes[i].clone(),
-                all_nodes[i + 1].clone(),
-                new_edge_data(i),
-            );
+            graph.add_edge(&all_nodes[i], &all_nodes[i + 1], new_edge_data(i));
         }
 
         println!(

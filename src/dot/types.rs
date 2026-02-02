@@ -7,7 +7,7 @@
 //! # Examples
 //!
 //! ```
-//! use graphitude::{Point, Color, Shape, ArrowType};
+//! use graphitude::dot::types::{Point, Color, Shape, ArrowType};
 //!
 //! // Parse a point from a string
 //! let point: Point = "1.5,2.5".parse().unwrap();

@@ -259,10 +259,12 @@ where
 
     fn add_or_replace_edge(
         &mut self,
-        from: Self::NodeId,
-        into: Self::NodeId,
+        from: &Self::NodeId,
+        into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
+        let from = from.clone();
+        let into = into.clone();
         let ends = D::Pair::from((from, into));
         let (from, into) = ends.clone().into();
 

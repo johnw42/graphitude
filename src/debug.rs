@@ -141,7 +141,7 @@ mod tests {
         let mut graph = LinkedGraph::<&str, i32>::new();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
-        graph.add_edge(n1, n2, 10);
+        graph.add_edge(&n1, &n2, 10);
 
         // Single-line output.
         let output = format!("{:?}", &graph);
@@ -170,8 +170,8 @@ mod tests {
         let n1 = graph.add_node("B");
         let n2 = graph.add_node("A");
         let n3 = graph.add_node("C");
-        graph.add_edge(n1.clone(), n2.clone(), 10);
-        graph.add_edge(n2.clone(), n3.clone(), 20);
+        graph.add_edge(&n1, &n2, 10);
+        graph.add_edge(&n2, &n3, 20);
 
         let output = format!("{:?}", &graph);
 

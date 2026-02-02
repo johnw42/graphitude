@@ -72,11 +72,16 @@ impl Graph for StringGraph {
     }
 
     fn num_edges_between(&self, from: &Self::NodeId, into: &Self::NodeId) -> usize {
-        self.edges.get(from.clone(), into.clone()).into_iter().count()
+        self.edges
+            .get(from.clone(), into.clone())
+            .into_iter()
+            .count()
     }
 
     fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
-        self.edges.get(id.0.clone(), id.1.clone()).expect("Edge does not exist")
+        self.edges
+            .get(id.0.clone(), id.1.clone())
+            .expect("Edge does not exist")
     }
 
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
@@ -126,8 +131,8 @@ impl GraphMut for StringGraph {
 
     fn add_or_replace_edge(
         &mut self,
-        from: Self::NodeId,
-        into: Self::NodeId,
+        from: &Self::NodeId,
+        into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
         let old_data = self.edges.insert(from.clone(), into.clone(), data);
@@ -148,7 +153,9 @@ impl GraphMut for StringGraph {
     }
 
     fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData {
-        self.edges.remove(id.0.clone(), id.1.clone()).expect("Edge does not exist")
+        self.edges
+            .remove(id.0.clone(), id.1.clone())
+            .expect("Edge does not exist")
     }
 }
 
@@ -186,7 +193,7 @@ fn test_format_debug_with() {
     // Add nodes in non-sorted order.
     let n1 = graph.add_node("B".to_string());
     let n2 = graph.add_node("A".to_string());
-    graph.add_edge(n1, n2, ());
+    graph.add_edge(&n1, &n2, ());
 
     // Single-line output - nodes show data (not zero-sized), edges don't (zero-sized)
     let output = format!("{:?}", &graph);
