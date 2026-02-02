@@ -292,10 +292,49 @@ macro_rules! graph_tests {
         fn test_deconstruct_large_graph_by_edges() {
             let mut graph = generate_large_graph();
 
-            let mut edge_ids = graph.edge_ids().collect::<Vec<_>>();
+            // We use a hash set instead of a vec so the edges are removed in
+            // random order.
+            let mut edge_ids = graph.edge_ids().collect::<std::collections::HashSet<_>>();
 
             for i in 0..edge_ids.len() {
-                graph.remove_edge(edge_ids.remove(i % edge_ids.len()));
+                // Test removing a random edge.
+                assert!(!edge_ids.is_empty());
+                let num_nodes = graph.num_nodes();
+                let num_edges = edge_ids.len();
+                assert_eq!(num_edges, edge_ids.len());
+                let edge_id = edge_ids.iter().next().cloned().unwrap();
+                edge_ids.remove(&edge_id);
+                graph.remove_edge(edge_id);
+                assert_eq!(graph.num_nodes(), num_nodes);
+                assert_eq!(graph.num_edges(), num_edges - 1);
+
+                // Test compaction every 10 iterations
+                if i % 10 == 0 {
+                    let num_nodes = graph.num_nodes();
+                    let num_edges = edge_ids.len();
+
+                    graph.compact_with(
+                        Some(|_| {}),
+                        Some(|r| {
+                            if let $crate::mapping_result::MappingResult::Remapped(old_id, new_id) =
+                                r
+                            {
+                                let removed = edge_ids.remove(&old_id);
+                                assert!(removed);
+                                let inserted = edge_ids.insert(new_id.clone());
+                                assert!(inserted);
+                            }
+                        }),
+                    );
+                    assert_eq!(graph.num_nodes(), num_nodes);
+                    assert_eq!(graph.num_edges(), num_edges);
+                    for node_id in graph.node_ids() {
+                        assert_eq!(graph.check_valid_node_id(&node_id), Ok(()));
+                    }
+                    for edge_id in graph.edge_ids() {
+                        assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
+                    }
+                }
             }
 
             assert_eq!(graph.num_edges(), 0);

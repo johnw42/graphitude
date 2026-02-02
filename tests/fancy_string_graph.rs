@@ -8,6 +8,7 @@ use graphitude::{
 struct StringGraph {
     nodes: HashMap<NodeId, Node>,
     next_node_id: usize,
+    next_edge_id: usize,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -16,7 +17,7 @@ struct NodeId(usize);
 impl NodeIdTrait for NodeId {}
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-struct EdgeId(NodeId, NodeId);
+struct EdgeId(NodeId, NodeId, usize);
 
 impl EdgeIdTrait for EdgeId {
     type NodeId = NodeId;
@@ -39,6 +40,8 @@ struct Node {
 struct Edge {
     target: NodeId,
     data: String,
+    // The index is necessary to uniquely identify edges between the same pair of nodes.
+    index: usize,
 }
 
 impl StringGraph {
@@ -52,7 +55,7 @@ impl StringGraph {
             .expect("Invalid edge ID")
             .edges_out
             .iter()
-            .find(|e| e.target == id.1)
+            .find(|e| e.target == id.1 && e.index == id.2)
             .expect("Invalid edge ID")
     }
 }
@@ -80,7 +83,7 @@ impl Graph for StringGraph {
         self.nodes.iter().flat_map(|(from_id, node)| {
             node.edges_out
                 .iter()
-                .map(move |edge| EdgeId(from_id.clone(), edge.target.clone()))
+                .map(move |edge| EdgeId(from_id.clone(), edge.target.clone(), edge.index))
         })
     }
 
@@ -98,7 +101,11 @@ impl Graph for StringGraph {
 
     fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
         if let Some(node) = self.nodes.get(&id.0) {
-            if node.edges_out.iter().any(|e| e.target == id.1) {
+            if node
+                .edges_out
+                .iter()
+                .any(|e| e.target == id.1 && e.index == id.2)
+            {
                 Ok(())
             } else {
                 Err("EdgeId not found in graph")
@@ -114,6 +121,7 @@ impl GraphMut for StringGraph {
         StringGraph {
             nodes: HashMap::new(),
             next_node_id: 0,
+            next_edge_id: 0,
         }
     }
 
@@ -137,6 +145,8 @@ impl GraphMut for StringGraph {
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<Self::EdgeData>) {
         assert!(self.nodes.contains_key(&to), "Invalid 'to' node ID");
+        let edge_index = self.next_edge_id;
+        self.next_edge_id += 1;
         self.nodes
             .get_mut(&from)
             .expect("Invalid 'from' node ID")
@@ -144,8 +154,9 @@ impl GraphMut for StringGraph {
             .push(Edge {
                 target: to.clone(),
                 data: data,
+                index: edge_index,
             });
-        (EdgeId(from, to), None)
+        (EdgeId(from, to, edge_index), None)
     }
 
     fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData {
@@ -155,13 +166,13 @@ impl GraphMut for StringGraph {
         self.nodes.remove(&id).expect("Invalid node ID").data
     }
 
-    fn remove_edge(&mut self, EdgeId(from, to): Self::EdgeId) -> Self::EdgeData {
+    fn remove_edge(&mut self, EdgeId(from, to, index): Self::EdgeId) -> Self::EdgeData {
         let node = self.nodes.get_mut(&from).expect("Invalid 'from' node ID");
         let pos = node
             .edges_out
             .iter()
-            .position(|e| e.target == to)
-            .expect("Invalid 'to' node ID");
+            .position(|e| e.target == to && e.index == index)
+            .expect("Invalid edge ID");
         let data = node.edges_out.remove(pos).data;
         data
     }
