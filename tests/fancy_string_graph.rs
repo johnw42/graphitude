@@ -83,6 +83,30 @@ impl Graph for StringGraph {
                 .map(move |edge| EdgeId(from_id.clone(), edge.target.clone()))
         })
     }
+
+    // Override these methods to provide O(1) or O(degree) validation instead of the
+    // default O(n) iteration. This is necessary to make test_deconstruct_large_graph_by_nodes
+    // reasonably fast, as it validates all nodes and edges after every compaction.
+
+    fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
+        if self.nodes.contains_key(id) {
+            Ok(())
+        } else {
+            Err("NodeId not found in graph")
+        }
+    }
+
+    fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
+        if let Some(node) = self.nodes.get(&id.0) {
+            if node.edges_out.iter().any(|e| e.target == id.1) {
+                Ok(())
+            } else {
+                Err("EdgeId not found in graph")
+            }
+        } else {
+            Err("EdgeId not found in graph")
+        }
+    }
 }
 
 impl GraphMut for StringGraph {
