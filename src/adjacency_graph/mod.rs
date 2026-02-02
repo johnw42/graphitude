@@ -1,4 +1,3 @@
-#![cfg(feature = "bitvec")]
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
 /// Node and edge ID types for adjacency graphs.

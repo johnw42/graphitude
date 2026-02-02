@@ -23,11 +23,15 @@
 //!   feature)
 //! - Queries for nodes, edges, predecessors, and successors
 
+#[cfg(feature = "bitvec")]
 pub mod adjacency_graph;
+#[cfg(feature = "bitvec")]
 pub mod adjacency_matrix;
 pub mod debug;
 pub mod debug_graph_view;
 pub mod directedness;
+#[cfg(feature = "dot")]
+pub mod dot;
 pub mod graph;
 pub mod linked_graph;
 pub mod mapping_result;
@@ -52,16 +56,7 @@ pub use pairs::SortedPair;
 pub use tests::TestDataBuilder;
 
 #[cfg(feature = "dot")]
-#[cfg(feature = "dot")]
-pub use graph::dot_parser_impl::{DotGraphBuilder, DotParseError};
-
-#[cfg(feature = "dot")]
-pub use graph::dot_types::{
-    ArrowType, Color, DirType, OutputMode, PageDir, Point, RankDir, RankType, Rect, Shape, Style,
-};
-
-#[cfg(feature = "dot")]
-pub use graph::dot_attrs::DotAttr;
+pub use dot::parser_impl::{GraphBuilder, ParseError};
 
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{

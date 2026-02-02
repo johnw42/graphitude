@@ -2,71 +2,71 @@
 
 #[cfg(feature = "dot")]
 fn main() {
-    use graphitude::DotAttr;
+    use graphitude::dot::attr::Attr;
 
     println!("=== Graphviz DOT Attributes with Typed Payloads ===\n");
 
     // Parse various attribute types
     println!("1. Numeric attributes:");
-    let fontsize = DotAttr::parse("fontsize", "14.5").unwrap();
+    let fontsize = Attr::parse("fontsize", "14.5").unwrap();
     println!("   {} -> {}", fontsize.name(), fontsize);
 
-    let width = DotAttr::parse("width", "2.0").unwrap();
+    let width = Attr::parse("width", "2.0").unwrap();
     println!("   {} -> {}", width.name(), width);
 
     println!("\n2. Boolean attributes:");
-    let center = DotAttr::parse("center", "true").unwrap();
+    let center = Attr::parse("center", "true").unwrap();
     println!("   {} -> {}", center.name(), center);
 
-    let constraint = DotAttr::parse("constraint", "false").unwrap();
+    let constraint = Attr::parse("constraint", "false").unwrap();
     println!("   {} -> {}", constraint.name(), constraint);
 
     println!("\n3. String attributes:");
-    let label = DotAttr::parse("label", "My Label").unwrap();
+    let label = Attr::parse("label", "My Label").unwrap();
     println!("   {} -> {}", label.name(), label);
 
-    let comment = DotAttr::parse("comment", "A comment").unwrap();
+    let comment = Attr::parse("comment", "A comment").unwrap();
     println!("   {} -> {}", comment.name(), comment);
 
     println!("\n4. Color attributes:");
-    let color = DotAttr::parse("color", "red").unwrap();
+    let color = Attr::parse("color", "red").unwrap();
     println!("   {} -> {}", color.name(), color);
 
-    let bgcolor = DotAttr::parse("bgcolor", "#ff00ff").unwrap();
+    let bgcolor = Attr::parse("bgcolor", "#ff00ff").unwrap();
     println!("   {} -> {}", bgcolor.name(), bgcolor);
 
     println!("\n5. Shape attributes:");
-    let shape = DotAttr::parse("shape", "box").unwrap();
+    let shape = Attr::parse("shape", "box").unwrap();
     println!("   {} -> {}", shape.name(), shape);
 
-    let shape2 = DotAttr::parse("shape", "ellipse").unwrap();
+    let shape2 = Attr::parse("shape", "ellipse").unwrap();
     println!("   {} -> {}", shape2.name(), shape2);
 
     println!("\n6. Arrow type attributes:");
-    let arrowhead = DotAttr::parse("arrowhead", "diamond").unwrap();
+    let arrowhead = Attr::parse("arrowhead", "diamond").unwrap();
     println!("   {} -> {}", arrowhead.name(), arrowhead);
 
-    let arrowtail = DotAttr::parse("arrowtail", "dot").unwrap();
+    let arrowtail = Attr::parse("arrowtail", "dot").unwrap();
     println!("   {} -> {}", arrowtail.name(), arrowtail);
 
     println!("\n7. Direction attributes:");
-    let dir = DotAttr::parse("dir", "forward").unwrap();
+    let dir = Attr::parse("dir", "forward").unwrap();
     println!("   {} -> {}", dir.name(), dir);
 
-    let rankdir = DotAttr::parse("rankdir", "LR").unwrap();
+    let rankdir = Attr::parse("rankdir", "LR").unwrap();
     println!("   {} -> {}", rankdir.name(), rankdir);
 
     println!("\n8. Style attributes:");
-    let style = DotAttr::parse("style", "filled,bold").unwrap();
+    let style = Attr::parse("style", "filled,bold").unwrap();
     println!("   {} -> {}", style.name(), style);
 
     println!("\n9. Error handling:");
-    match DotAttr::parse("fontsize", "not_a_number") {
+    match Attr::parse("fontsize", "not_a_number") {
         Ok(_) => println!("   Unexpected success!"),
         Err(e) => println!("   Parse error: {}", e),
     }
 
-    match DotAttr::parse("unknown_attr", "value") {
+    match Attr::parse("unknown_attr", "value") {
         Ok(_) => println!("   Unexpected success!"),
         Err(e) => println!("   Unknown attribute: {}", e),
     }

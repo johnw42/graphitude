@@ -44,7 +44,7 @@ fn extract_node_ids(either: &Either<NodeID, Subgraph<(ID<'_>, ID<'_>)>>) -> Vec<
 #[derive(Derivative)]
 #[derivative(Debug(bound = ""))]
 #[non_exhaustive]
-pub enum DotParseError<B: DotGraphBuilder> {
+pub enum ParseError<B: GraphBuilder> {
     /// Failed to parse the DOT format data.
     ParseError(String),
     /// A node ID referenced in an edge was not found in the graph.
@@ -57,7 +57,7 @@ pub enum DotParseError<B: DotGraphBuilder> {
 ///
 /// Implementors of this trait provide the logic for converting DOT format
 /// node and edge statements into the graph's node and edge data types.
-pub trait DotGraphBuilder {
+pub trait GraphBuilder {
     type NodeData;
     type EdgeData;
     type Error: Error;
@@ -96,13 +96,13 @@ pub trait DotGraphBuilder {
 ///
 /// Returns `DotParseError::ParseError` if the DOT data cannot be parsed.
 /// Returns `DotParseError::NodeNotFound` if an edge references a non-existent node.
-pub fn parse_dot_into_graph<G, B>(data: &str, builder: &mut B) -> Result<G, DotParseError<B>>
+pub fn parse_dot_into_graph<G, B>(data: &str, builder: &mut B) -> Result<G, ParseError<B>>
 where
     G: Graph + GraphMut,
-    B: DotGraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
+    B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
 {
     let dot_ast: DotGraph<_> = DotGraph::try_from(data)
-        .map_err(|e| DotParseError::ParseError(format!("Failed to parse DOT data: {:?}", e)))?;
+        .map_err(|e| ParseError::ParseError(format!("Failed to parse DOT data: {:?}", e)))?;
 
     let mut graph = G::new();
     let mut node_map: HashMap<String, G::NodeId> = HashMap::new();
@@ -113,10 +113,10 @@ where
         graph: &mut G,
         node_map: &mut HashMap<String, G::NodeId>,
         builder: &mut B,
-    ) -> Result<(), DotParseError<B>>
+    ) -> Result<(), ParseError<B>>
     where
         G: Graph + GraphMut,
-        B: DotGraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
+        B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
     {
         for stmt in stmts {
             match stmt {
@@ -125,7 +125,7 @@ where
                     if !node_map.contains_key(&node_id_str) {
                         let node_data = builder
                             .make_node_data(&node_stmt)
-                            .map_err(DotParseError::Builder)?;
+                            .map_err(ParseError::Builder)?;
                         let new_node_id = graph.add_node(node_data);
                         node_map.insert(node_id_str, new_node_id);
                     }
@@ -148,23 +148,23 @@ where
         graph: &mut G,
         node_map: &mut HashMap<String, G::NodeId>,
         builder: &mut B,
-    ) -> Result<(), DotParseError<B>>
+    ) -> Result<(), ParseError<B>>
     where
         G: Graph + GraphMut,
-        B: DotGraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
+        B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
     {
         for stmt in stmts {
             match stmt {
                 Stmt::EdgeStmt(edge_stmt) => {
                     // Helper to collect node IDs from Either<NodeID, Subgraph>
                     let mut collect_node_ids =
-                        |node: &Either<NodeID, _>| -> Result<(), DotParseError<B>> {
+                        |node: &Either<NodeID, _>| -> Result<(), ParseError<B>> {
                             for node_id_str in extract_node_ids(node) {
                                 if !node_map.contains_key(&node_id_str) {
                                     // Create implicit node using builder
                                     let node_data = builder
                                         .make_implicit_node_data(&node_id_str)
-                                        .map_err(DotParseError::Builder)?;
+                                        .map_err(ParseError::Builder)?;
                                     let new_node_id = graph.add_node(node_data);
                                     node_map.insert(node_id_str, new_node_id);
                                 }
@@ -200,10 +200,10 @@ where
         graph: &mut G,
         node_map: &HashMap<String, G::NodeId>,
         builder: &mut B,
-    ) -> Result<(), DotParseError<B>>
+    ) -> Result<(), ParseError<B>>
     where
         G: Graph + GraphMut,
-        B: DotGraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
+        B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
     {
         for stmt in stmts {
             match stmt {
@@ -228,7 +228,7 @@ where
                             for to_id in &to_node_ids {
                                 let edge_data = builder
                                     .make_edge_data(&edge_stmt)
-                                    .map_err(DotParseError::Builder)?;
+                                    .map_err(ParseError::Builder)?;
                                 graph.add_edge(current_from.clone(), to_id.clone(), edge_data);
                             }
 
@@ -267,7 +267,7 @@ mod tests {
     #[derive(Debug)]
     struct SimpleBuilder;
 
-    impl DotGraphBuilder for SimpleBuilder {
+    impl GraphBuilder for SimpleBuilder {
         type NodeData = String;
         type EdgeData = ();
         type Error = std::convert::Infallible;
@@ -442,7 +442,7 @@ mod tests {
         let result: Result<LinkedGraph<String, (), Directed>, _> =
             parse_dot_into_graph(dot, &mut builder);
 
-        assert!(matches!(result, Err(DotParseError::ParseError(_))));
+        assert!(matches!(result, Err(ParseError::ParseError(_))));
     }
 
     #[test]
@@ -509,7 +509,7 @@ mod tests {
     #[derive(Debug)]
     struct EdgeWeightBuilder;
 
-    impl DotGraphBuilder for EdgeWeightBuilder {
+    impl GraphBuilder for EdgeWeightBuilder {
         type NodeData = String;
         type EdgeData = i32;
         type Error = std::convert::Infallible;

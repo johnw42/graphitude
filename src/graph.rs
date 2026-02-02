@@ -1,10 +1,3 @@
-#[cfg(feature = "dot")]
-pub mod dot_attrs;
-#[cfg(feature = "dot")]
-pub mod dot_parser_impl;
-#[cfg(feature = "dot")]
-pub mod dot_types;
-
 use std::ops::Add;
 use std::{
     collections::{HashMap, HashSet},
@@ -12,6 +5,8 @@ use std::{
     hash::Hash,
 };
 
+#[cfg(feature = "dot")]
+use crate::dot::parser_impl;
 use crate::mapping_result::MappingResult;
 use crate::{
     debug_graph_view::DebugGraphView,
@@ -758,13 +753,10 @@ pub trait GraphMut: Graph {
     }
 
     #[cfg(feature = "dot")]
-    fn new_from_dot<B>(
-        data: &str,
-        builder: &mut B,
-    ) -> Result<Self, dot_parser_impl::DotParseError<B>>
+    fn new_from_dot<B>(data: &str, builder: &mut B) -> Result<Self, parser_impl::ParseError<B>>
     where
-        B: dot_parser_impl::DotGraphBuilder<NodeData = Self::NodeData, EdgeData = Self::EdgeData>,
+        B: parser_impl::GraphBuilder<NodeData = Self::NodeData, EdgeData = Self::EdgeData>,
     {
-        dot_parser_impl::parse_dot_into_graph(data, builder)
+        parser_impl::parse_dot_into_graph(data, builder)
     }
 }

@@ -1,4 +1,3 @@
-#[cfg(feature = "bitvec")]
 use std::{fmt::Debug, hash::Hash};
 
 use crate::pairs::{OrderedPair, Pair, SortedPair};

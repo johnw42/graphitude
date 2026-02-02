@@ -131,7 +131,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{adjacency_graph::AdjacencyGraph, linked_graph::LinkedGraph, *};
+    use crate::{linked_graph::LinkedGraph, *};
+
+    #[cfg(feature = "bitvec")]
+    use crate::adjacency_graph::AdjacencyGraph;
 
     #[test]
     fn test_format_debug() {
@@ -159,6 +162,7 @@ mod tests {
         assert_eq!(output, expected);
     }
 
+    #[cfg(feature = "bitvec")]
     #[test]
     fn test_format_debug_with_undirected() {
         type UndirectedGraph = AdjacencyGraph<&'static str, i32, directedness::Undirected>;
