@@ -76,26 +76,30 @@ where
     type EdgeId = EdgeId<N>;
     type Directedness = Directed;
 
-    fn edges_from(&self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        let node_data: &Self::NodeData = self.node_data(from.clone());
+    fn edges_from<'a, 'b: 'a>(
+        &'a self,
+        from: &'b Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        let node_data: &Self::NodeData = self.node_data(&from);
         let items = (self.neighbors_fn)(node_data);
-        items.into_iter().map(move |v| EdgeId(from, NodeId(v)))
+        items.into_iter().map(move |v| EdgeId(*from, NodeId(v)))
     }
 
-    fn node_data(&self, id: NodeId<N>) -> &Self::NodeData {
+    fn node_data(&self, id: &NodeId<N>) -> &Self::NodeData {
         unsafe { &*id.0 }
     }
 
-    fn edge_data(&self, _eid: Self::EdgeId) -> &Self::EdgeData {
+    fn edge_data(&self, _eid: &Self::EdgeId) -> &Self::EdgeData {
         &()
     }
 
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
-        self.bfs(self.root())
+        self.bfs(&self.root())
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
-        self.node_ids().flat_map(|from| self.edges_from(from))
+        self.node_ids()
+            .flat_map(|from| self.edges_from(&from).collect::<Vec<_>>())
     }
 }
 
@@ -122,20 +126,17 @@ fn test_object_graph() {
     let graph = OwnedObjectGraph::new(node1, |node: &Node| node.neighbors.iter().collect());
 
     let root_id = graph.root();
-    assert_eq!(graph.node_data(root_id.clone()).value, 1);
+    assert_eq!(graph.node_data(&root_id).value, 1);
 
-    let successors: Vec<_> = graph.successors(root_id.clone()).into_iter().collect();
+    let successors: Vec<_> = graph.successors(&root_id).into_iter().collect();
     assert_eq!(successors.len(), 1);
-    assert_eq!(graph.node_data(successors[0].clone()).value, 2);
-    let second_successors: Vec<_> = graph
-        .successors(successors[0].clone())
-        .into_iter()
-        .collect();
+    assert_eq!(graph.node_data(&successors[0]).value, 2);
+    let second_successors: Vec<_> = graph.successors(&successors[0]).into_iter().collect();
     assert_eq!(second_successors.len(), 1);
-    assert_eq!(graph.node_data(second_successors[0].clone()).value, 3);
+    assert_eq!(graph.node_data(&second_successors[0]).value, 3);
 
-    assert!(graph.has_edge(root_id.clone(), successors[0].clone()));
-    assert!(!graph.has_edge(root_id.clone(), second_successors[0].clone()));
+    assert!(graph.has_edge(&root_id, &successors[0]));
+    assert!(!graph.has_edge(&root_id, &second_successors[0]));
 }
 
 #[cfg(feature = "pathfinding")]
@@ -172,7 +173,9 @@ fn test_shortest_paths() {
         graph: &OwnedObjectGraph<Node<'a>, F>,
         path: &graphitude::path::Path<EdgeId<Node<'a>>>,
     ) -> Vec<i32> {
-        path.nodes().map(|nid| graph.node_data(nid).value).collect()
+        path.nodes()
+            .map(|nid| graph.node_data(&nid).value)
+            .collect()
     }
 
     let graph = OwnedObjectGraph::new(node1, |node: &Node| node.neighbors.clone());
@@ -182,7 +185,7 @@ fn test_shortest_paths() {
     let id3 = graph.node_id(&node3);
     let id4 = graph.node_id(&node4);
 
-    let paths = graph.shortest_paths(id1.clone(), |_| 1);
+    let paths = graph.shortest_paths(&id1, |_| 1);
     assert_eq!(paths.len(), 4);
     assert_eq!(paths.get(&id1).unwrap().1, 0);
     assert_eq!(values(&graph, &paths.get(&id1).unwrap().0), vec![1]);

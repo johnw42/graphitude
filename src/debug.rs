@@ -27,8 +27,8 @@ where
         fmt,
         name,
         &mut |nid| node_tags[nid].clone(),
-        &|nid| graph.node_data(nid),
-        &|eid| graph.edge_data(eid),
+        &|nid| graph.node_data(&nid),
+        &|eid| graph.edge_data(&eid),
     )
 }
 

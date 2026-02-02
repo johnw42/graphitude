@@ -149,8 +149,8 @@ where
     type NodeId = NodeId<S>;
     type Directedness = D;
 
-    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
-        self.assert_valid_node_id(&id);
+    fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
+        self.assert_valid_node_id(id);
         &self.nodes.get(id.key()).expect("no such node")
     }
 
@@ -158,8 +158,8 @@ where
         self.nodes.iter_keys().map(|key| self.node_id(key))
     }
 
-    fn edge_data(&self, eid: Self::EdgeId) -> &Self::EdgeData {
-        self.assert_valid_edge_id(&eid);
+    fn edge_data(&self, eid: &Self::EdgeId) -> &Self::EdgeData {
+        self.assert_valid_edge_id(eid);
         let (from, to) = eid.keys().into();
         &self
             .adjacency
@@ -179,13 +179,13 @@ where
         })
     }
 
-    fn edges_between(
-        &self,
-        from: Self::NodeId,
-        into: Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        self.assert_valid_node_id(&from);
-        self.assert_valid_node_id(&into);
+    fn edges_between<'a, 'b: 'a>(
+        &'a self,
+        from: &'b Self::NodeId,
+        into: &'b Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        self.assert_valid_node_id(from);
+        self.assert_valid_node_id(into);
         self.adjacency
             .entry_at(
                 self.nodes.zero_based_index(from.key()),
@@ -200,8 +200,11 @@ where
             })
     }
 
-    fn edges_into<'a>(&'a self, into: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.assert_valid_node_id(&into);
+    fn edges_into<'a, 'b: 'a>(
+        &'a self,
+        into: &'b Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        self.assert_valid_node_id(into);
         self.adjacency
             .entries_in_col(self.nodes.zero_based_index(into.key()))
             .map(|(from, _)| self.edge_id(self.nodes.key_from_index(from), into.key()))
@@ -209,8 +212,11 @@ where
             .into_iter()
     }
 
-    fn edges_from<'a>(&'a self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.assert_valid_node_id(&from);
+    fn edges_from<'a, 'b: 'a>(
+        &'a self,
+        from: &'b Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        self.assert_valid_node_id(from);
         self.adjacency
             .entries_in_row(self.nodes.zero_based_index(from.key()))
             .map(|(into, _)| self.edge_id(from.key(), self.nodes.key_from_index(into)))
@@ -310,7 +316,7 @@ where
         (self.edge_id(from.key(), into.key()), old_data)
     }
 
-    fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData {
+    fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData {
         for into in self
             .adjacency
             .entries_in_row(self.nodes.zero_based_index(id.key()))
@@ -334,7 +340,7 @@ where
         self.nodes.remove(id.key()).expect("invalid node ID")
     }
 
-    fn remove_edge(&mut self, id: Self::EdgeId) -> Self::EdgeData {
+    fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData {
         self.adjacency
             .remove(
                 self.nodes.zero_based_index(id.keys().into_first()),

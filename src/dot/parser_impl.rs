@@ -314,7 +314,7 @@ mod tests {
         // Verify nodes exist
         let nodes: Vec<_> = graph
             .node_ids()
-            .map(|id| graph.node_data(id).clone())
+            .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
         assert!(nodes.contains(&"b".to_string()));
@@ -358,7 +358,7 @@ mod tests {
 
         let nodes: Vec<_> = graph
             .node_ids()
-            .map(|id| graph.node_data(id).clone())
+            .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
         assert!(nodes.contains(&"b".to_string()));
@@ -560,7 +560,7 @@ mod tests {
 
         // All edges should have default weight of 1
         for edge_id in edge_ids {
-            assert_eq!(*graph.edge_data(edge_id), 1);
+            assert_eq!(*graph.edge_data(&edge_id), 1);
         }
     }
 
@@ -582,7 +582,7 @@ mod tests {
 
         let nodes: Vec<_> = graph
             .node_ids()
-            .map(|id| graph.node_data(id).clone())
+            .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
         assert!(nodes.contains(&"b".to_string()));
@@ -624,7 +624,7 @@ mod tests {
 
         let nodes: Vec<_> = graph
             .node_ids()
-            .map(|id| graph.node_data(id).clone())
+            .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
         assert!(nodes.contains(&"b".to_string()));

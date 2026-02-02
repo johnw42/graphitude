@@ -67,12 +67,12 @@ impl Graph for StringGraph {
     type EdgeId = EdgeId;
     type Directedness = Directed;
 
-    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
-        &self.node(&id).data
+    fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
+        &self.node(id).data
     }
 
-    fn edge_data(&self, id: Self::EdgeId) -> &Self::EdgeData {
-        &self.edge(&id).data
+    fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
+        &self.edge(id).data
     }
 
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
@@ -159,19 +159,20 @@ impl GraphMut for StringGraph {
         (EdgeId(from, to, edge_index), None)
     }
 
-    fn remove_node(&mut self, id: Self::NodeId) -> Self::NodeData {
+    fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData {
         for node in self.nodes.values_mut() {
-            node.edges_out.retain(|e| e.target != id);
+            node.edges_out.retain(|e| e.target != *id);
         }
-        self.nodes.remove(&id).expect("Invalid node ID").data
+        self.nodes.remove(id).expect("Invalid node ID").data
     }
 
-    fn remove_edge(&mut self, EdgeId(from, to, index): Self::EdgeId) -> Self::EdgeData {
-        let node = self.nodes.get_mut(&from).expect("Invalid 'from' node ID");
+    fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData {
+        let EdgeId(from, to, index) = id;
+        let node = self.nodes.get_mut(from).expect("Invalid 'from' node ID");
         let pos = node
             .edges_out
             .iter()
-            .position(|e| e.target == to && e.index == index)
+            .position(|e| e.target == *to && e.index == *index)
             .expect("Invalid edge ID");
         let data = node.edges_out.remove(pos).data;
         data

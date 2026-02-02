@@ -50,7 +50,7 @@ where
         self.inner.node_ids()
     }
 
-    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
+    fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         self.inner.node_data(id)
     }
 
@@ -58,15 +58,15 @@ where
         self.inner.edge_ids()
     }
 
-    fn edge_data(&self, id: Self::EdgeId) -> &Self::EdgeData {
+    fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
         self.inner.edge_data(id)
     }
 
-    fn edges_between(
-        &self,
-        from: Self::NodeId,
-        to: Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges_between<'a, 'b: 'a>(
+        &'a self,
+        from: &'b Self::NodeId,
+        to: &'b Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.inner.edges_between(from, to)
     }
 }
@@ -106,7 +106,7 @@ mod tests {
         let view = DebugGraphView::new(&graph, |&n| n, |_| ());
 
         assert_eq!(view.node_ids().count(), 3);
-        let node_data: Vec<i32> = view.node_ids().map(|id| *view.node_data(id)).collect();
+        let node_data: Vec<i32> = view.node_ids().map(|id| *view.node_data(&id)).collect();
         assert!(node_data.contains(&10));
         assert!(node_data.contains(&20));
         assert!(node_data.contains(&30));
@@ -125,7 +125,7 @@ mod tests {
         let view = DebugGraphView::new(&graph, |&s| s, |&e| e);
 
         assert_eq!(view.edge_ids().count(), 2);
-        let edge_data: Vec<i32> = view.edge_ids().map(|id| *view.edge_data(id)).collect();
+        let edge_data: Vec<i32> = view.edge_ids().map(|id| *view.edge_data(&id)).collect();
         assert!(edge_data.contains(&100));
         assert!(edge_data.contains(&200));
     }
@@ -140,7 +140,7 @@ mod tests {
         // Transform by doubling the values
         let view = DebugGraphView::new(&graph, |&n| n * 2, |_| ());
 
-        let node_data: Vec<i32> = view.node_ids().map(|id| *view.node_data(id)).collect();
+        let node_data: Vec<i32> = view.node_ids().map(|id| *view.node_data(&id)).collect();
         assert!(node_data.contains(&2));
         assert!(node_data.contains(&4));
         assert!(node_data.contains(&6));
@@ -157,7 +157,7 @@ mod tests {
         // Transform by multiplying by 10
         let view = DebugGraphView::new(&graph, |_| (), |&e| e * 10);
 
-        let edge_data: Vec<i32> = view.edge_ids().map(|id| *view.edge_data(id)).collect();
+        let edge_data: Vec<i32> = view.edge_ids().map(|id| *view.edge_data(&id)).collect();
         assert_eq!(edge_data, vec![50]);
     }
 
@@ -174,12 +174,12 @@ mod tests {
 
         let node_data: Vec<String> = view
             .node_ids()
-            .map(|id| view.node_data(id).clone())
+            .map(|id| view.node_data(&id).clone())
             .collect();
         assert!(node_data.contains(&"Node_42".to_string()));
         assert!(node_data.contains(&"Node_100".to_string()));
 
-        let edge_data: Vec<bool> = view.edge_ids().map(|id| *view.edge_data(id)).collect();
+        let edge_data: Vec<bool> = view.edge_ids().map(|id| *view.edge_data(&id)).collect();
         assert_eq!(edge_data, vec![true]);
     }
 
@@ -196,7 +196,7 @@ mod tests {
 
         let node_ids: Vec<_> = view.node_ids().collect();
         let edges_between: Vec<_> = view
-            .edges_between(node_ids[0].clone(), node_ids[1].clone())
+            .edges_between(&node_ids[0], &node_ids[1])
             .collect();
         assert_eq!(edges_between.len(), 2);
     }

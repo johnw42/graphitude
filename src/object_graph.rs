@@ -73,7 +73,7 @@ where
         NodeId::from(v)
     }
 
-    fn neighbors(&self, id: NodeId<'a, N>) -> Vec<<Self as Graph>::NodeId> {
+    fn neighbors(&self, id: &NodeId<'a, N>) -> Vec<<Self as Graph>::NodeId> {
         let v = self.node_data(id);
         (self.neighbors_fn)(v)
             .iter()
@@ -81,8 +81,8 @@ where
             .collect()
     }
 
-    fn make_edge_id(&self, from: NodeId<'a, N>, to: NodeId<'a, N>) -> EdgeId<'a, N> {
-        (from, to)
+    fn make_edge_id(&self, from: &NodeId<'a, N>, to: &NodeId<'a, N>) -> EdgeId<'a, N> {
+        (*from, *to)
     }
 }
 
@@ -99,33 +99,36 @@ impl<'a, N: Debug> crate::graph::EdgeId for (NodeId<'a, N>, NodeId<'a, N>) {
     }
 }
 
-impl<'a, N: Debug, F> Graph for ObjectGraph<'a, N, F>
+impl<'d, N: Debug, F> Graph for ObjectGraph<'d, N, F>
 where
-    F: Fn(&'a N) -> Vec<&'a N>,
+    F: Fn(&'d N) -> Vec<&'d N>,
 {
-    type NodeId = NodeId<'a, N>;
-    type NodeData = &'a N;
+    type NodeId = NodeId<'d, N>;
+    type NodeData = &'d N;
     type EdgeId = (Self::NodeId, Self::NodeId);
     type EdgeData = ();
     type Directedness = Directed;
 
-    fn node_data(&self, id: NodeId<N>) -> &<Self as Graph>::NodeData {
-        unsafe { transmute::<&*const N, &&'a N>(&id.0) }
+    fn node_data(&self, id: &NodeId<N>) -> &<Self as Graph>::NodeData {
+        unsafe { transmute::<&*const N, &&'d N>(&id.0) }
     }
 
-    fn edge_data(&self, (from, to): <Self as Graph>::EdgeId) -> &<Self as Graph>::EdgeData {
+    fn edge_data(&self, (from, to): &<Self as Graph>::EdgeId) -> &<Self as Graph>::EdgeData {
         let neighbors = (self.neighbors_fn)(self.node_data(from));
         neighbors
             .iter()
-            .position(|&v| NodeId::from(v) == to)
+            .position(|&v| NodeId::from(v) == *to)
             .map(|_| &())
             .expect("Edge does not exist")
     }
 
-    fn edges_from<'b>(&'b self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'b {
-        self.neighbors(from)
+    fn edges_from<'a, 'b: 'a>(
+        &'a self,
+        from: &'b Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        self.neighbors(&from)
             .into_iter()
-            .map(move |to| self.make_edge_id(from, to))
+            .map(move |to| self.make_edge_id(&from, &to))
     }
 
     fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
@@ -133,7 +136,8 @@ where
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        self.node_ids().flat_map(|from| self.edges_from(from))
+        self.node_ids()
+            .flat_map(|from| self.edges_from(&from).collect::<Vec<_>>())
     }
 }
 
@@ -165,18 +169,18 @@ mod tests {
         let graph = ObjectGraph::new(&node1, |node: &Node| node.neighbors.iter().collect());
 
         let root_id = graph.roots().next().unwrap();
-        assert_eq!(graph.node_data(root_id).value, 1);
+        assert_eq!(graph.node_data(&root_id).value, 1);
 
-        let neighbors: Vec<_> = graph.neighbors(root_id).into_iter().collect();
+        let neighbors: Vec<_> = graph.neighbors(&root_id).into_iter().collect();
         assert_eq!(neighbors.len(), 1);
-        assert_eq!(graph.node_data(neighbors[0]).value, 2);
+        assert_eq!(graph.node_data(&neighbors[0]).value, 2);
 
-        let second_neighbors: Vec<_> = graph.neighbors(neighbors[0]).into_iter().collect();
+        let second_neighbors: Vec<_> = graph.neighbors(&neighbors[0]).into_iter().collect();
         assert_eq!(second_neighbors.len(), 1);
-        assert_eq!(graph.node_data(second_neighbors[0]).value, 3);
+        assert_eq!(graph.node_data(&second_neighbors[0]).value, 3);
 
-        assert!(graph.has_edge(root_id, neighbors[0]));
-        assert!(!graph.has_edge(root_id, second_neighbors[0]));
+        assert!(graph.has_edge(&root_id, &neighbors[0]));
+        assert!(!graph.has_edge(&root_id, &second_neighbors[0]));
     }
 
     #[cfg(feature = "pathfinding")]
@@ -217,7 +221,7 @@ mod tests {
         let id3 = unsafe { graph.node_id(&node3) };
         let id4 = unsafe { graph.node_id(&node4) };
 
-        let paths = graph.shortest_paths(id1, |_| 1);
+        let paths = graph.shortest_paths(&id1, |_| 1);
 
         let values = |id| {
             paths
@@ -225,7 +229,7 @@ mod tests {
                 .unwrap()
                 .0
                 .nodes()
-                .map(|nid| graph.node_data(nid).value)
+                .map(|nid| graph.node_data(&nid).value)
                 .collect::<Vec<_>>()
         };
         assert_eq!(paths.len(), 4);

@@ -98,8 +98,8 @@ where
     type EdgeData = E;
     type Directedness = D;
 
-    fn node_data(&self, id: Self::NodeId) -> &Self::NodeData {
-        &self.node(id).data
+    fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
+        &self.node(id.clone()).data
     }
 
     /// Gets an iterator over all node identifiers in the graph in insertion order.
@@ -107,8 +107,8 @@ where
         self.nodes.iter().map(|node| self.node_id(node))
     }
 
-    fn edge_data(&self, id: Self::EdgeId) -> &Self::EdgeData {
-        &self.edge(id).data
+    fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
+        &self.edge(id.clone()).data
     }
 
     /// Gets an iterator over all edge identifiers in the graph in insertion order of the
@@ -137,8 +137,11 @@ where
 
     /// Gets an iterator over the edges outgoing from the given node in
     /// insertion order of the edges outgoing from the given node.
-    fn edges_from(&self, from: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> {
-        self.node(from)
+    fn edges_from<'a, 'b: 'a>(
+        &'a self,
+        from: &'b Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        self.node(from.clone())
             .edges_out
             .iter()
             .map(|edge| self.edge_id(edge))
@@ -146,10 +149,13 @@ where
 
     /// Gets an iterator over the edges incoming to the given node in
     /// insertion order of the edges incoming to the given node.
-    fn edges_into(&self, into: Self::NodeId) -> impl Iterator<Item = Self::EdgeId> {
+    fn edges_into<'a, 'b: 'a>(
+        &'a self,
+        into: &'b Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         if D::is_directed() {
             // For directed graphs, use edges_in
-            self.node(into)
+            self.node(into.clone())
                 .edges_in
                 .iter()
                 .cloned()
@@ -158,7 +164,7 @@ where
         } else {
             // For undirected graphs, edges_into is the same as edges_from
             // since edges appear in both nodes' edges_out lists
-            self.node(into)
+            self.node(into.clone())
                 .edges_out
                 .iter()
                 .map(|edge| self.edge_id(edge))
@@ -167,16 +173,16 @@ where
         }
     }
 
-    fn num_edges_into(&self, into: Self::NodeId) -> usize {
+    fn num_edges_into(&self, into: &Self::NodeId) -> usize {
         if D::is_directed() {
-            self.node(into).edges_in.len()
+            self.node(into.clone()).edges_in.len()
         } else {
-            self.node(into).edges_out.len()
+            self.node(into.clone()).edges_out.len()
         }
     }
 
-    fn num_edges_from(&self, from: Self::NodeId) -> usize {
-        self.node(from).edges_out.len()
+    fn num_edges_from(&self, from: &Self::NodeId) -> usize {
+        self.node(from.clone()).edges_out.len()
     }
 
     fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
@@ -286,18 +292,18 @@ where
         (eid, None)
     }
 
-    fn remove_node(&mut self, nid: Self::NodeId) -> N {
+    fn remove_node(&mut self, nid: &Self::NodeId) -> N {
         let index = self
             .nodes
             .iter()
-            .position(|node| self.node_id(node) == nid)
+            .position(|node| self.node_id(node) == *nid)
             .expect("Node does not exist");
         let node = self.nodes.remove(index);
 
         // Remove outgoing edges from other nodes
         for edge in &node.edges_out {
             // For undirected graphs, the "other" node could be either edge.from or edge.into
-            match edge.ends.other_value(&nid) {
+            match edge.ends.other_value(nid) {
                 OtherValue::First(other_nid) | OtherValue::Second(other_nid) => {
                     let other_node = unsafe { self.node_mut(other_nid.clone()) };
                     if D::is_directed() {
@@ -319,7 +325,7 @@ where
             for eid in &node.edges_in {
                 let edge = self.edge(eid.clone());
                 let from_nid = edge.ends.first();
-                if *from_nid != nid {
+                if *from_nid != *nid {
                     let from_node = unsafe { self.node_mut(from_nid.clone()) };
                     from_node
                         .edges_out
@@ -333,23 +339,25 @@ where
             .data
     }
 
-    fn remove_edge(&mut self, eid: Self::EdgeId) -> Self::EdgeData {
-        self.assert_valid_edge_id(&eid);
+    fn remove_edge(&mut self, eid: &Self::EdgeId) -> Self::EdgeData {
+        self.assert_valid_edge_id(eid);
         let edge = eid.ptr.upgrade().expect("EdgeId is dangling");
         let (from_nid, into_nid) = edge.ends.clone().into();
 
         // Remove from source node's edges_out
         let from_node = unsafe { self.node_mut(from_nid.clone()) };
-        from_node.edges_out.retain(|edge| eid != self.edge_id(edge));
+        from_node
+            .edges_out
+            .retain(|edge| *eid != self.edge_id(edge));
 
         if D::is_directed() {
             // For directed graphs, remove from target node's edges_in
             let to_node = unsafe { self.node_mut(into_nid) };
-            to_node.edges_in.retain(|eid2| eid != *eid2);
+            to_node.edges_in.retain(|eid2| *eid != *eid2);
         } else if from_nid != into_nid {
             // For undirected graphs (non-self-loop), remove from target node's edges_out
             let to_node = unsafe { self.node_mut(into_nid) };
-            to_node.edges_out.retain(|edge| eid != self.edge_id(edge));
+            to_node.edges_out.retain(|edge| *eid != self.edge_id(edge));
         }
 
         Arc::into_inner(edge)

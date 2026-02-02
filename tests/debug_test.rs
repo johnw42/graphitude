@@ -55,7 +55,7 @@ mod debug {
             }
             let idx_to_remove = i % node_ids.len();
             let node_to_remove = node_ids.remove(idx_to_remove);
-            graph.remove_node(node_to_remove);
+            graph.remove_node(&node_to_remove);
 
             if i % 10 == 0 && i > 0 {
                 println!("  Compacting at iteration {}...", i);
