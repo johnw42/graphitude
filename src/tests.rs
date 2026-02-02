@@ -68,6 +68,193 @@ where
 #[macro_export]
 macro_rules! graph_tests {
     ($type:ty) => {
+        fn generate_large_graph() -> $type {
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = <$type>::new();
+
+            // Create an irregular graph with ~500 nodes and ~2000 edges
+            // Structure includes: clusters, hubs, sparse regions, and bridges
+
+            let mut all_nodes = Vec::new();
+
+            // Cluster 1: Dense cluster (50 nodes, highly connected)
+            let cluster1_start = all_nodes.len();
+            for _ in 0..50 {
+                let node = graph.add_node(builder.new_node_data());
+                all_nodes.push(node);
+            }
+            // Connect nodes within cluster 1 with ~60% density
+            for i in cluster1_start..all_nodes.len() {
+                for j in (i + 1)..all_nodes.len() {
+                    if (i * 7 + j * 11) % 10 < 6 {
+                        graph.add_edge(
+                            all_nodes[i].clone(),
+                            all_nodes[j].clone(),
+                            builder.new_edge_data(),
+                        );
+                    }
+                }
+            }
+
+            // Cluster 2: Medium cluster (80 nodes, moderately connected)
+            let cluster2_start = all_nodes.len();
+            for _ in 0..80 {
+                let node = graph.add_node(builder.new_node_data());
+                all_nodes.push(node);
+            }
+            // Connect nodes within cluster 2 with ~30% density
+            for i in cluster2_start..all_nodes.len() {
+                for j in (i + 1)..all_nodes.len() {
+                    if (i * 13 + j * 17) % 10 < 3 {
+                        graph.add_edge(
+                            all_nodes[i].clone(),
+                            all_nodes[j].clone(),
+                            builder.new_edge_data(),
+                        );
+                    }
+                }
+            }
+
+            // Cluster 3: Large sparse cluster (150 nodes, sparsely connected)
+            let cluster3_start = all_nodes.len();
+            for _ in 0..150 {
+                let node = graph.add_node(builder.new_node_data());
+                all_nodes.push(node);
+            }
+            // Connect nodes within cluster 3 with ~8% density
+            for i in cluster3_start..all_nodes.len() {
+                for j in (i + 1)..all_nodes.len() {
+                    if (i * 19 + j * 23) % 100 < 8 {
+                        graph.add_edge(
+                            all_nodes[i].clone(),
+                            all_nodes[j].clone(),
+                            builder.new_edge_data(),
+                        );
+                    }
+                }
+            }
+
+            // Add hub nodes (20 nodes with many connections)
+            let hubs_start = all_nodes.len();
+            for _ in 0..20 {
+                let hub = graph.add_node(builder.new_node_data());
+                all_nodes.push(hub.clone());
+
+                // Connect each hub to random existing nodes
+                for i in 0..all_nodes.len() - 1 {
+                    if (hubs_start * 29 + i * 31) % 7 < 4 {
+                        graph.add_edge(hub.clone(), all_nodes[i].clone(), builder.new_edge_data());
+                    }
+                }
+            }
+
+            // Add scattered nodes (100 nodes with few connections)
+            let scattered_start = all_nodes.len();
+            for _ in 0..100 {
+                let node = graph.add_node(builder.new_node_data());
+                all_nodes.push(node.clone());
+
+                // Connect to 1-3 random other nodes
+                let num_connections = ((scattered_start + all_nodes.len()) % 3) + 1;
+                for c in 0..num_connections {
+                    let target_idx = (scattered_start * 37 + all_nodes.len() * 41 + c * 43)
+                        % (all_nodes.len() - 1);
+                    graph.add_edge(
+                        node.clone(),
+                        all_nodes[target_idx].clone(),
+                        builder.new_edge_data(),
+                    );
+                }
+            }
+
+            // Add bridge nodes connecting clusters (10 nodes)
+            for i in 0..10 {
+                let bridge = graph.add_node(builder.new_node_data());
+
+                // Connect to nodes from different clusters
+                let idx1 = (i * 47) % (cluster2_start - cluster1_start) + cluster1_start;
+                let idx2 = (i * 53) % (cluster3_start - cluster2_start) + cluster2_start;
+                let idx3 = (i * 59) % (hubs_start - cluster3_start) + cluster3_start;
+
+                graph.add_edge(
+                    bridge.clone(),
+                    all_nodes[idx1].clone(),
+                    builder.new_edge_data(),
+                );
+                graph.add_edge(
+                    bridge.clone(),
+                    all_nodes[idx2].clone(),
+                    builder.new_edge_data(),
+                );
+                graph.add_edge(
+                    bridge.clone(),
+                    all_nodes[idx3].clone(),
+                    builder.new_edge_data(),
+                );
+
+                all_nodes.push(bridge);
+            }
+
+            // Add some long-range connections between random nodes
+            for i in 0..200 {
+                let idx1 = (i * 61) % all_nodes.len();
+                let idx2 = (i * 67 + 100) % all_nodes.len();
+                if idx1 != idx2 {
+                    graph.add_edge(
+                        all_nodes[idx1].clone(),
+                        all_nodes[idx2].clone(),
+                        builder.new_edge_data(),
+                    );
+                }
+            }
+
+            // Add some self loops
+            for i in 0..50 {
+                let idx = (i * 71) % all_nodes.len();
+                graph.add_edge(
+                    all_nodes[idx].clone(),
+                    all_nodes[idx].clone(),
+                    builder.new_edge_data(),
+                );
+            }
+
+            // use std::io::Write;
+
+            // std::fs::File::create("tmp.dot")
+            //     .unwrap()
+            //     .write_all(&graph.generate_dot_file())
+            //     .unwrap();
+
+            graph
+        }
+
+        #[test]
+        fn test_deconstruct_large_graph_by_nodes() {
+            let mut graph = generate_large_graph();
+
+            let mut node_ids = graph.node_ids().collect::<Vec<_>>();
+
+            for i in 0..node_ids.len() {
+                graph.remove_node(node_ids.remove(i % node_ids.len()));
+            }
+
+            assert_eq!(graph.num_nodes(), 0);
+            assert_eq!(graph.num_edges(), 0);
+        }
+
+        #[test]
+        fn test_deconstruct_large_graph_by_edges() {
+            let mut graph = generate_large_graph();
+
+            let mut edge_ids = graph.edge_ids().collect::<Vec<_>>();
+
+            for i in 0..edge_ids.len() {
+                graph.remove_edge(edge_ids.remove(i % edge_ids.len()));
+            }
+
+            assert_eq!(graph.num_edges(), 0);
+        }
+
         #[test]
         fn test_new_graph_is_empty() {
             let graph: $type = <$type>::new();
