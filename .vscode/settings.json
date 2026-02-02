@@ -1,0 +1,7 @@
+{
+  "git.enabled": false,
+  "rust-analyzer.cargo.features": [
+    "default",
+    "dot"
+  ]
+}

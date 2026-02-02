@@ -142,6 +142,87 @@ pub trait Graph: Sized {
         DebugGraphView::<N, E, Self::Directedness>::new(self, node_fmt, edge_fmt)
     }
 
+    #[cfg(feature = "dot")]
+    fn generate_dot_file(&self) -> Vec<u8>
+    where
+        Self::NodeData: Debug,
+        Self::EdgeData: Debug,
+    {
+        struct GraphWrapper<'a, G: Graph> {
+            graph: &'a G,
+            node_id_map: HashMap<G::NodeId, usize>,
+        }
+
+        impl<'a, G: Graph> GraphWrapper<'a, G> {
+            fn new(graph: &'a G) -> Self {
+                let node_id_map = graph
+                    .node_ids()
+                    .enumerate()
+                    .map(|(i, nid)| (nid, i))
+                    .collect();
+                Self { graph, node_id_map }
+            }
+        }
+
+        impl<'a, G> dot::Labeller<'a, G::NodeId, G::EdgeId> for GraphWrapper<'a, G>
+        where
+            G: Graph,
+            G::NodeData: Debug,
+            G::EdgeData: Debug,
+        {
+            fn graph_id(&'a self) -> dot::Id<'a> {
+                dot::Id::new("G").unwrap()
+            }
+
+            fn node_id(&'a self, n: &G::NodeId) -> dot::Id<'a> {
+                let idx = self.node_id_map.get(n).unwrap();
+                dot::Id::new(format!("n{}", idx)).unwrap()
+            }
+
+            fn node_label(&'a self, n: &G::NodeId) -> dot::LabelText<'a> {
+                let data = self.graph.node_data(n.clone());
+                dot::LabelText::LabelStr(format!("{:?}", data).into())
+            }
+
+            fn edge_label(&'a self, e: &G::EdgeId) -> dot::LabelText<'a> {
+                let data = self.graph.edge_data(e.clone());
+                dot::LabelText::LabelStr(format!("{:?}", data).into())
+            }
+        }
+
+        impl<'a, G> dot::GraphWalk<'a, G::NodeId, G::EdgeId> for GraphWrapper<'a, G>
+        where
+            G: Graph,
+        {
+            fn nodes(&'a self) -> dot::Nodes<'a, G::NodeId> {
+                self.graph.node_ids().collect::<Vec<_>>().into()
+            }
+
+            fn edges(&'a self) -> dot::Edges<'a, G::EdgeId> {
+                self.graph.edge_ids().collect::<Vec<_>>().into()
+            }
+
+            fn source(&'a self, edge: &G::EdgeId) -> G::NodeId {
+                edge.source()
+            }
+
+            fn target(&'a self, edge: &G::EdgeId) -> G::NodeId {
+                edge.target()
+            }
+        }
+
+        let wrapper = GraphWrapper::new(self);
+        let mut output = Vec::new();
+
+        if self.is_directed() {
+            dot::render(&wrapper, &mut output).unwrap();
+        } else {
+            dot::render(&wrapper, &mut output).unwrap();
+        }
+
+        output
+    }
+
     /// Creates a new path starting from the given starting node.  This is a
     /// convenience method to avoid having to import the `Path` type separately
     /// and specify its type argument explicity.
