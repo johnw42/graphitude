@@ -1,7 +1,6 @@
 {
   "git.enabled": false,
-  "rust-analyzer.cargo.features": [
-    "default",
-    "dot"
-  ]
+  // "rust-analyzer.cargo.features": [
+  //   "default",
+  // ]
 }

@@ -19,6 +19,25 @@ use super::dot_types::{
     ArrowType, Color, DirType, OutputMode, PageDir, Point, RankDir, RankType, Rect, Shape, Style,
 };
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum DotAttrParseError<'a> {
+    UnknownAttribute(&'a str),
+    InvalidValue(&'a str, &'a str),
+}
+
+impl<'a> fmt::Display for DotAttrParseError<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DotAttrParseError::UnknownAttribute(name) => write!(f, "Unknown attribute: {}", name),
+            DotAttrParseError::InvalidValue(attr_type, value) => {
+                write!(f, "Invalid {} value: {}", attr_type, value)
+            }
+        }
+    }
+}
+
+impl<'a> std::error::Error for DotAttrParseError<'a> {}
+
 /// Enumeration of all Graphviz DOT attribute names with typed payloads.
 ///
 /// Each variant corresponds to an attribute documented at
@@ -395,35 +414,35 @@ impl DotAttr {
     /// let attr = DotAttr::parse("color", "red").unwrap();
     /// let attr = DotAttr::parse("shape", "box").unwrap();
     /// ```
-    pub fn parse(name: &str, value: &str) -> Result<Self, String> {
+    pub fn parse<'a>(name: &'a str, value: &'a str) -> Result<Self, DotAttrParseError<'a>> {
         match name.to_lowercase().as_str() {
             "_background" => Ok(DotAttr::_background(value.to_string())),
             "url" => Ok(DotAttr::URL(value.to_string())),
             "area" => value
                 .parse::<f64>()
                 .map(DotAttr::Area)
-                .map_err(|e| format!("Invalid area value: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("area value", value)),
             "arrowhead" => value
                 .parse::<ArrowType>()
                 .map(DotAttr::Arrowhead)
-                .map_err(|e| format!("Invalid arrowhead: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("arrowhead", value)),
             "arrowsize" => value
                 .parse::<f64>()
                 .map(DotAttr::Arrowsize)
-                .map_err(|e| format!("Invalid arrowsize: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("arrowsize", value)),
             "arrowtail" => value
                 .parse::<ArrowType>()
                 .map(DotAttr::Arrowtail)
-                .map_err(|e| format!("Invalid arrowtail: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("arrowtail", value)),
             "bb" => value
                 .parse::<Rect>()
                 .map(DotAttr::Bb)
-                .map_err(|e| format!("Invalid bb: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("bb", value)),
             "beautify" => parse_bool(value).map(DotAttr::Beautify),
             "bgcolor" => value
                 .parse::<Color>()
                 .map(DotAttr::Bgcolor)
-                .map_err(|e| format!("Invalid bgcolor: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("bgcolor", value)),
             "center" => parse_bool(value).map(DotAttr::Center),
             "charset" => Ok(DotAttr::Charset(value.to_string())),
             "class" => Ok(DotAttr::Class(value.to_string())),
@@ -432,7 +451,7 @@ impl DotAttr {
             "color" => value
                 .parse::<Color>()
                 .map(DotAttr::Color)
-                .map_err(|e| format!("Invalid color: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("color", value)),
             "colorscheme" => Ok(DotAttr::Colorscheme(value.to_string())),
             "comment" => Ok(DotAttr::Comment(value.to_string())),
             "compound" => parse_bool(value).map(DotAttr::Compound),
@@ -441,33 +460,33 @@ impl DotAttr {
             "damping" => value
                 .parse::<f64>()
                 .map(DotAttr::Damping)
-                .map_err(|e| format!("Invalid damping: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("damping", value)),
             "decorate" => parse_bool(value).map(DotAttr::Decorate),
             "defaultdist" => value
                 .parse::<f64>()
                 .map(DotAttr::Defaultdist)
-                .map_err(|e| format!("Invalid defaultdist: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("defaultdist", value)),
             "dim" => value
                 .parse::<i32>()
                 .map(DotAttr::Dim)
-                .map_err(|e| format!("Invalid dim: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("dim", value)),
             "dimen" => value
                 .parse::<i32>()
                 .map(DotAttr::Dimen)
-                .map_err(|e| format!("Invalid dimen: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("dimen", value)),
             "dir" => value
                 .parse::<DirType>()
                 .map(DotAttr::Dir)
-                .map_err(|e| format!("Invalid dir: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("dir", value)),
             "diredgeconstraints" => Ok(DotAttr::Diredgeconstraints(value.to_string())),
             "distortion" => value
                 .parse::<f64>()
                 .map(DotAttr::Distortion)
-                .map_err(|e| format!("Invalid distortion: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("distortion", value)),
             "dpi" => value
                 .parse::<f64>()
                 .map(DotAttr::Dpi)
-                .map_err(|e| format!("Invalid dpi: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("dpi", value)),
             "edgehref" => Ok(DotAttr::Edgehref(value.to_string())),
             "edgetarget" => Ok(DotAttr::Edgetarget(value.to_string())),
             "edgetooltip" => Ok(DotAttr::Edgetooltip(value.to_string())),
@@ -475,37 +494,37 @@ impl DotAttr {
             "epsilon" => value
                 .parse::<f64>()
                 .map(DotAttr::Epsilon)
-                .map_err(|e| format!("Invalid epsilon: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("epsilon", value)),
             "esep" => value
                 .parse::<f64>()
                 .map(DotAttr::Esep)
-                .map_err(|e| format!("Invalid esep: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("esep", value)),
             "fillcolor" => value
                 .parse::<Color>()
                 .map(DotAttr::Fillcolor)
-                .map_err(|e| format!("Invalid fillcolor: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("fillcolor", value)),
             "fixedsize" => Ok(DotAttr::Fixedsize(value.to_string())),
             "fontcolor" => value
                 .parse::<Color>()
                 .map(DotAttr::Fontcolor)
-                .map_err(|e| format!("Invalid fontcolor: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("fontcolor", value)),
             "fontname" => Ok(DotAttr::Fontname(value.to_string())),
             "fontnames" => Ok(DotAttr::Fontnames(value.to_string())),
             "fontpath" => Ok(DotAttr::Fontpath(value.to_string())),
             "fontsize" => value
                 .parse::<f64>()
                 .map(DotAttr::Fontsize)
-                .map_err(|e| format!("Invalid fontsize: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("fontsize", value)),
             "forcelabels" => parse_bool(value).map(DotAttr::Forcelabels),
             "gradientangle" => value
                 .parse::<i32>()
                 .map(DotAttr::Gradientangle)
-                .map_err(|e| format!("Invalid gradientangle: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("gradientangle", value)),
             "group" => Ok(DotAttr::Group(value.to_string())),
             "head_lp" => value
                 .parse::<Point>()
                 .map(DotAttr::Head_lp)
-                .map_err(|e| format!("Invalid head_lp: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("head_lp", value)),
             "headclip" => parse_bool(value).map(DotAttr::Headclip),
             "headhref" => Ok(DotAttr::Headhref(value.to_string())),
             "headlabel" => Ok(DotAttr::Headlabel(value.to_string())),
@@ -516,7 +535,7 @@ impl DotAttr {
             "height" => value
                 .parse::<f64>()
                 .map(DotAttr::Height)
-                .map_err(|e| format!("Invalid height: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("height", value)),
             "href" => Ok(DotAttr::Href(value.to_string())),
             "id" => Ok(DotAttr::Id(value.to_string())),
             "image" => Ok(DotAttr::Image(value.to_string())),
@@ -526,34 +545,34 @@ impl DotAttr {
             "inputscale" => value
                 .parse::<f64>()
                 .map(DotAttr::Inputscale)
-                .map_err(|e| format!("Invalid inputscale: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("inputscale", value)),
             "k" => value
                 .parse::<f64>()
                 .map(DotAttr::K)
-                .map_err(|e| format!("Invalid k: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("k", value)),
             "label" => Ok(DotAttr::Label(value.to_string())),
             "label_scheme" => value
                 .parse::<i32>()
                 .map(DotAttr::Label_scheme)
-                .map_err(|e| format!("Invalid label_scheme: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("label_scheme", value)),
             "labelangle" => value
                 .parse::<f64>()
                 .map(DotAttr::Labelangle)
-                .map_err(|e| format!("Invalid labelangle: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("labelangle", value)),
             "labeldistance" => value
                 .parse::<f64>()
                 .map(DotAttr::Labeldistance)
-                .map_err(|e| format!("Invalid labeldistance: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("labeldistance", value)),
             "labelfloat" => parse_bool(value).map(DotAttr::Labelfloat),
             "labelfontcolor" => value
                 .parse::<Color>()
                 .map(DotAttr::Labelfontcolor)
-                .map_err(|e| format!("Invalid labelfontcolor: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("labelfontcolor", value)),
             "labelfontname" => Ok(DotAttr::Labelfontname(value.to_string())),
             "labelfontsize" => value
                 .parse::<f64>()
                 .map(DotAttr::Labelfontsize)
-                .map_err(|e| format!("Invalid labelfontsize: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("labelfontsize", value)),
             "labelhref" => Ok(DotAttr::Labelhref(value.to_string())),
             "labeljust" => Ok(DotAttr::Labeljust(value.to_string())),
             "labelloc" => Ok(DotAttr::Labelloc(value.to_string())),
@@ -570,212 +589,212 @@ impl DotAttr {
             "len" => value
                 .parse::<f64>()
                 .map(DotAttr::Len)
-                .map_err(|e| format!("Invalid len: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("len", value)),
             "levels" => value
                 .parse::<i32>()
                 .map(DotAttr::Levels)
-                .map_err(|e| format!("Invalid levels: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("levels", value)),
             "levelsgap" => value
                 .parse::<f64>()
                 .map(DotAttr::Levelsgap)
-                .map_err(|e| format!("Invalid levelsgap: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("levelsgap", value)),
             "lhead" => Ok(DotAttr::Lhead(value.to_string())),
             "lheight" => value
                 .parse::<f64>()
                 .map(DotAttr::Lheight)
-                .map_err(|e| format!("Invalid lheight: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("lheight", value)),
             "linelength" => value
                 .parse::<i32>()
                 .map(DotAttr::Linelength)
-                .map_err(|e| format!("Invalid linelength: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("linelength", value)),
             "lp" => value
                 .parse::<Point>()
                 .map(DotAttr::Lp)
-                .map_err(|e| format!("Invalid lp: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("lp", value)),
             "ltail" => Ok(DotAttr::Ltail(value.to_string())),
             "lwidth" => value
                 .parse::<f64>()
                 .map(DotAttr::Lwidth)
-                .map_err(|e| format!("Invalid lwidth: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("lwidth", value)),
             "margin" => value
                 .parse::<f64>()
                 .map(DotAttr::Margin)
-                .map_err(|e| format!("Invalid margin: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("margin", value)),
             "maxiter" => value
                 .parse::<i32>()
                 .map(DotAttr::Maxiter)
-                .map_err(|e| format!("Invalid maxiter: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("maxiter", value)),
             "mclimit" => value
                 .parse::<f64>()
                 .map(DotAttr::Mclimit)
-                .map_err(|e| format!("Invalid mclimit: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("mclimit", value)),
             "mindist" => value
                 .parse::<f64>()
                 .map(DotAttr::Mindist)
-                .map_err(|e| format!("Invalid mindist: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("mindist", value)),
             "minlen" => value
                 .parse::<i32>()
                 .map(DotAttr::Minlen)
-                .map_err(|e| format!("Invalid minlen: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("minlen", value)),
             "mode" => Ok(DotAttr::Mode(value.to_string())),
             "model" => Ok(DotAttr::Model(value.to_string())),
             "newrank" => parse_bool(value).map(DotAttr::Newrank),
             "nodesep" => value
                 .parse::<f64>()
                 .map(DotAttr::Nodesep)
-                .map_err(|e| format!("Invalid nodesep: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("nodesep", value)),
             "nojustify" => parse_bool(value).map(DotAttr::Nojustify),
             "normalize" => Ok(DotAttr::Normalize(value.to_string())),
             "notranslate" => parse_bool(value).map(DotAttr::Notranslate),
             "nslimit" => value
                 .parse::<f64>()
                 .map(DotAttr::Nslimit)
-                .map_err(|e| format!("Invalid nslimit: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("nslimit", value)),
             "nslimit1" => value
                 .parse::<f64>()
                 .map(DotAttr::Nslimit1)
-                .map_err(|e| format!("Invalid nslimit1: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("nslimit1", value)),
             "oneblock" => parse_bool(value).map(DotAttr::Oneblock),
             "ordering" => Ok(DotAttr::Ordering(value.to_string())),
             "orientation" => Ok(DotAttr::Orientation(value.to_string())),
             "outputorder" => value
                 .parse::<OutputMode>()
                 .map(DotAttr::Outputorder)
-                .map_err(|e| format!("Invalid outputorder: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("outputorder", value)),
             "overlap" => Ok(DotAttr::Overlap(value.to_string())),
             "overlap_scaling" => value
                 .parse::<f64>()
                 .map(DotAttr::Overlap_scaling)
-                .map_err(|e| format!("Invalid overlap_scaling: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("overlap_scaling", value)),
             "overlap_shrink" => parse_bool(value).map(DotAttr::Overlap_shrink),
             "pack" => Ok(DotAttr::Pack(value.to_string())),
             "packmode" => Ok(DotAttr::Packmode(value.to_string())),
             "pad" => value
                 .parse::<f64>()
                 .map(DotAttr::Pad)
-                .map_err(|e| format!("Invalid pad: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("pad", value)),
             "page" => value
                 .parse::<f64>()
                 .map(DotAttr::Page)
-                .map_err(|e| format!("Invalid page: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("page", value)),
             "pagedir" => value
                 .parse::<PageDir>()
                 .map(DotAttr::Pagedir)
-                .map_err(|e| format!("Invalid pagedir: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("pagedir", value)),
             "pencolor" => value
                 .parse::<Color>()
                 .map(DotAttr::Pencolor)
-                .map_err(|e| format!("Invalid pencolor: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("pencolor", value)),
             "penwidth" => value
                 .parse::<f64>()
                 .map(DotAttr::Penwidth)
-                .map_err(|e| format!("Invalid penwidth: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("penwidth", value)),
             "peripheries" => value
                 .parse::<i32>()
                 .map(DotAttr::Peripheries)
-                .map_err(|e| format!("Invalid peripheries: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("peripheries", value)),
             "pin" => parse_bool(value).map(DotAttr::Pin),
             "pos" => Ok(DotAttr::Pos(value.to_string())),
             "quadtree" => Ok(DotAttr::Quadtree(value.to_string())),
             "quantum" => value
                 .parse::<f64>()
                 .map(DotAttr::Quantum)
-                .map_err(|e| format!("Invalid quantum: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("quantum", value)),
             "radius" => value
                 .parse::<f64>()
                 .map(DotAttr::Radius)
-                .map_err(|e| format!("Invalid radius: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("radius", value)),
             "rank" => value
                 .parse::<RankType>()
                 .map(DotAttr::Rank)
-                .map_err(|e| format!("Invalid rank: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("rank", value)),
             "rankdir" => value
                 .parse::<RankDir>()
                 .map(DotAttr::Rankdir)
-                .map_err(|e| format!("Invalid rankdir: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("rankdir", value)),
             "ranksep" => value
                 .parse::<f64>()
                 .map(DotAttr::Ranksep)
-                .map_err(|e| format!("Invalid ranksep: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("ranksep", value)),
             "ratio" => Ok(DotAttr::Ratio(value.to_string())),
             "rects" => value
                 .parse::<Rect>()
                 .map(DotAttr::Rects)
-                .map_err(|e| format!("Invalid rects: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("rects", value)),
             "regular" => parse_bool(value).map(DotAttr::Regular),
             "remincross" => parse_bool(value).map(DotAttr::Remincross),
             "repulsiveforce" => value
                 .parse::<f64>()
                 .map(DotAttr::Repulsiveforce)
-                .map_err(|e| format!("Invalid repulsiveforce: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("repulsiveforce", value)),
             "resolution" => value
                 .parse::<f64>()
                 .map(DotAttr::Resolution)
-                .map_err(|e| format!("Invalid resolution: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("resolution", value)),
             "root" => Ok(DotAttr::Root(value.to_string())),
             "rotate" => value
                 .parse::<i32>()
                 .map(DotAttr::Rotate)
-                .map_err(|e| format!("Invalid rotate: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("rotate", value)),
             "rotation" => value
                 .parse::<f64>()
                 .map(DotAttr::Rotation)
-                .map_err(|e| format!("Invalid rotation: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("rotation", value)),
             "samehead" => Ok(DotAttr::Samehead(value.to_string())),
             "sametail" => Ok(DotAttr::Sametail(value.to_string())),
             "samplepoints" => value
                 .parse::<i32>()
                 .map(DotAttr::Samplepoints)
-                .map_err(|e| format!("Invalid samplepoints: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("samplepoints", value)),
             "scale" => value
                 .parse::<f64>()
                 .map(DotAttr::Scale)
-                .map_err(|e| format!("Invalid scale: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("scale", value)),
             "searchsize" => value
                 .parse::<i32>()
                 .map(DotAttr::Searchsize)
-                .map_err(|e| format!("Invalid searchsize: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("searchsize", value)),
             "sep" => value
                 .parse::<f64>()
                 .map(DotAttr::Sep)
-                .map_err(|e| format!("Invalid sep: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("sep", value)),
             "shape" => value
                 .parse::<Shape>()
                 .map(DotAttr::Shape)
-                .map_err(|e| format!("Invalid shape: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("shape", value)),
             "shapefile" => Ok(DotAttr::Shapefile(value.to_string())),
             "showboxes" => value
                 .parse::<i32>()
                 .map(DotAttr::Showboxes)
-                .map_err(|e| format!("Invalid showboxes: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("showboxes", value)),
             "sides" => value
                 .parse::<i32>()
                 .map(DotAttr::Sides)
-                .map_err(|e| format!("Invalid sides: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("sides", value)),
             "size" => value
                 .parse::<f64>()
                 .map(DotAttr::Size)
-                .map_err(|e| format!("Invalid size: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("size", value)),
             "skew" => value
                 .parse::<f64>()
                 .map(DotAttr::Skew)
-                .map_err(|e| format!("Invalid skew: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("skew", value)),
             "smoothing" => Ok(DotAttr::Smoothing(value.to_string())),
             "sortv" => value
                 .parse::<i32>()
                 .map(DotAttr::Sortv)
-                .map_err(|e| format!("Invalid sortv: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("sortv", value)),
             "splines" => Ok(DotAttr::Splines(value.to_string())),
             "start" => Ok(DotAttr::Start(value.to_string())),
             "style" => value
                 .parse::<Style>()
                 .map(DotAttr::Style)
-                .map_err(|e| format!("Invalid style: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("style", value)),
             "stylesheet" => Ok(DotAttr::Stylesheet(value.to_string())),
             "tail_lp" => value
                 .parse::<Point>()
                 .map(DotAttr::Tail_lp)
-                .map_err(|e| format!("Invalid tail_lp: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("tail_lp", value)),
             "tailclip" => parse_bool(value).map(DotAttr::Tailclip),
             "tailhref" => Ok(DotAttr::Tailhref(value.to_string())),
             "taillabel" => Ok(DotAttr::Taillabel(value.to_string())),
@@ -792,26 +811,26 @@ impl DotAttr {
             "voro_margin" => value
                 .parse::<f64>()
                 .map(DotAttr::Voro_margin)
-                .map_err(|e| format!("Invalid voro_margin: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("voro_margin", value)),
             "weight" => value
                 .parse::<f64>()
                 .map(DotAttr::Weight)
-                .map_err(|e| format!("Invalid weight: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("weight", value)),
             "width" => value
                 .parse::<f64>()
                 .map(DotAttr::Width)
-                .map_err(|e| format!("Invalid width: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("width", value)),
             "xdotversion" => Ok(DotAttr::Xdotversion(value.to_string())),
             "xlabel" => Ok(DotAttr::Xlabel(value.to_string())),
             "xlp" => value
                 .parse::<Point>()
                 .map(DotAttr::Xlp)
-                .map_err(|e| format!("Invalid xlp: {}", e)),
+                .map_err(|_| DotAttrParseError::InvalidValue("xlp", value)),
             "z" => value
                 .parse::<f64>()
                 .map(DotAttr::Z)
-                .map_err(|e| format!("Invalid z: {}", e)),
-            _ => Err(format!("Unknown attribute: {}", name)),
+                .map_err(|_| DotAttrParseError::InvalidValue("z", value)),
+            _ => Err(DotAttrParseError::UnknownAttribute(name)),
         }
     }
 
@@ -1184,7 +1203,7 @@ impl fmt::Display for DotAttr {
 }
 
 /// Helper function to parse boolean values
-fn parse_bool(s: &str) -> Result<bool, String> {
+fn parse_bool<'a>(s: &'a str) -> Result<bool, DotAttrParseError<'a>> {
     // Try parsing as integer first - any nonzero integer is true
     if let Ok(n) = s.parse::<i64>() {
         return Ok(n != 0);
@@ -1194,7 +1213,7 @@ fn parse_bool(s: &str) -> Result<bool, String> {
     match s.to_lowercase().as_str() {
         "true" | "yes" => Ok(true),
         "false" | "no" => Ok(false),
-        _ => Err(format!("Invalid boolean value: {}", s)),
+        _ => Err(DotAttrParseError::InvalidValue("boolean", s)),
     }
 }
 
