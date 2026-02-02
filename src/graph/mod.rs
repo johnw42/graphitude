@@ -1,5 +1,7 @@
 #[cfg(feature = "dot")]
 pub mod dot_parser_impl;
+#[cfg(feature = "dot")]
+pub mod dot_types;
 
 use std::ops::Add;
 use std::{
