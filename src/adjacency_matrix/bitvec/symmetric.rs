@@ -410,4 +410,52 @@ mod tests {
 "#
         );
     }
+
+    #[test]
+    fn test_large_stress_symmetric() {
+        // Insert many edges into the symmetric matrix (undirected), remove
+        // them in pseudo-random order, and call reserve to exercise resizing.
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::<usize, usize>::new();
+        let nodes: usize = 120;
+        let mut entries = Vec::new();
+
+        for i in 0..nodes {
+            for j in 0..=i {
+                // deterministic sparse pattern
+                if (i * 29 + j * 13) % 19 == 0 {
+                    matrix.insert(i, j, i * nodes + j);
+                    if ((i+j) % 7) == 0 {
+                        // insert both directions to test symmetry
+                        matrix.insert(j, i, i * nodes + j);
+                    }
+                    entries.push((i, j));
+                }
+            }
+        }
+
+        let mut set: std::collections::HashSet<_> = entries.iter().cloned().collect();
+        assert_eq!(matrix.iter().count(), set.len());
+
+        // Remove entries and occasionally reserve a larger size
+        let total = set.len();
+        for k in 0..total {
+            assert!(!set.is_empty());
+            let &(a, b) = set.iter().next().unwrap();
+            set.remove(&(a, b));
+
+            let removed = matrix.remove(a, b).expect("expected present");
+            assert_eq!(removed, a * nodes + b);
+
+            if k % 60 == 0 {
+                matrix.reserve(nodes + 32);
+                for &(x, y) in set.iter() {
+                    // undirected: both directions should be accessible
+                    assert!(matrix.get(x, y).is_some());
+                    assert!(matrix.get(y, x).is_some());
+                }
+            }
+        }
+
+        assert_eq!(matrix.iter().count(), 0);
+    }
 }

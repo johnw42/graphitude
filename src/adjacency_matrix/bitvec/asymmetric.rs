@@ -301,4 +301,50 @@ mod tests {
                 .any(|(row, col, val)| *row == 1 && *col == 0 && *val == "C")
         );
     }
+
+    #[test]
+    fn test_large_stress_asymmetric() {
+        // Insert many entries across a 100x100 matrix, remove in pseudo-random
+        // order, and call reserve occasionally to exercise resizing logic.
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+        let nodes: usize = 120;
+        let mut entries = Vec::new();
+
+        for i in 0..nodes {
+            for j in 0..nodes {
+                // deterministic sparse pattern
+                if (i * 31 + j * 17) % 23 == 0 {
+                    matrix.insert(i, j, i * nodes + j);
+                    entries.push((i, j));
+                }
+            }
+        }
+
+        let mut set: std::collections::HashSet<_> = entries.iter().cloned().collect();
+        assert_eq!(matrix.iter().count(), set.len());
+
+        // Remove entries one by one
+        let total = set.len();
+        for k in 0..total {
+            assert!(!set.is_empty());
+            // pick an arbitrary entry
+            let &(r, c) = set.iter().next().unwrap();
+            set.remove(&(r, c));
+
+            let removed = matrix.remove(r, c).expect("expected present");
+            assert_eq!(removed, r * nodes + c);
+
+            if k % 50 == 0 {
+                // bump reserve to force reallocation/copy behavior
+                let desired = matrix.index(r, c).map(|_| nodes + 16).unwrap_or(nodes + 16);
+                matrix.reserve(desired);
+                // verify remaining entries are still accessible
+                for &(rr, cc) in set.iter() {
+                    assert!(matrix.get(rr, cc).is_some());
+                }
+            }
+        }
+
+        assert_eq!(matrix.iter().count(), 0);
+    }
 }

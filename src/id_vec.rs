@@ -175,6 +175,7 @@ impl<T> IdVec<T> {
     /// - Deleted(old_key) for removed entries
     /// If no entries were removed, all keys map to themselves, so the callback is not called.
     pub fn compact_with(&mut self, mut callback: Option<impl FnMut(MappingResult<IdVecKey>)>) {
+        debug_assert_eq!(self.vec.len(), self.liveness.len());
         if self.liveness.all() {
             return;
         }
@@ -990,5 +991,71 @@ mod tests {
             dropped_entries.sort();
             assert_eq!(*dropped_entries, vec![0, 1, 3]);
         });
+    }
+
+    #[test]
+    fn test_idvec_large() {
+        // Insert a large number of entries, remove many of them in
+        // pseudo-random order, and occasionally compact while tracking
+        // remappings. Inspired by the large-graph deconstruction test.
+        let mut vec = IdVec::new();
+        let mut map = std::collections::HashMap::new();
+        let mut keys = Vec::new();
+        let total: usize = 1000;
+
+        for i in 0..total {
+            let k = vec.insert(i);
+            map.insert(k, i);
+            keys.push(k);
+        }
+
+        assert_eq!(vec.len(), total);
+
+        let mut key_set: std::collections::HashSet<_> = keys.into_iter().collect();
+        let mut removed = std::collections::HashSet::new();
+
+        for i in 0..total {
+            assert!(!key_set.is_empty());
+            let _num = key_set.len();
+            // pick an arbitrary key (HashSet iteration order is effectively random)
+            let key = *key_set.iter().next().unwrap();
+            key_set.remove(&key);
+
+            let val = vec.remove(key).expect("expected present value");
+            assert_eq!(val, map.remove(&key).unwrap());
+            removed.insert(key);
+
+            // Compact periodically and update tracked keys according to remap
+            if i % 100 == 0 {
+                let len_before = vec.len();
+                vec.compact_with(Some(|r| {
+                    match r {
+                        MappingResult::Remapped(old, new) => {
+                            let was_present = key_set.remove(&old);
+                            // old may already have been removed earlier
+                            assert!(was_present || removed.contains(&old));
+                            // Update key_set and also move any stored mapping in `map`.
+                            let inserted = key_set.insert(new);
+                            assert!(inserted);
+                            if let Some(v) = map.remove(&old) {
+                                map.insert(new, v);
+                            }
+                        }
+                        MappingResult::Deleted(old) => {
+                            // Deleted entries should previously have been removed
+                            assert!(removed.contains(&old));
+                        }
+                        _ => {}
+                    }
+                }));
+
+                assert_eq!(vec.len(), len_before);
+                for k in key_set.iter() {
+                    assert!(vec.get(*k).is_some());
+                }
+            }
+        }
+
+        assert_eq!(vec.len(), 0);
     }
 }
