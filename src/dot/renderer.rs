@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt;
 use std::io;
 
 use crate::{
@@ -9,40 +8,17 @@ use crate::{
 };
 
 /// Errors that can occur during DOT file generation.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum DotError<E> {
     /// Invalid identifier for DOT format.
+    #[error("Invalid DOT identifier: {0}")]
     InvalidId(String),
     /// IO error during rendering.
-    IoError(io::Error),
+    #[error("IO error: {0}")]
+    IoError(#[from] io::Error),
     /// Error from the user-provided generator.
-    Generator(E),
-}
-
-impl<E: Error> fmt::Display for DotError<E> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DotError::InvalidId(id) => write!(f, "Invalid DOT identifier: {}", id),
-            DotError::IoError(err) => write!(f, "IO error: {}", err),
-            DotError::Generator(err) => write!(f, "Generator error: {}", err),
-        }
-    }
-}
-
-impl<E: Error + 'static> std::error::Error for DotError<E> {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            DotError::IoError(err) => Some(err),
-            DotError::Generator(err) => Some(err),
-            _ => None,
-        }
-    }
-}
-
-impl<E> From<io::Error> for DotError<E> {
-    fn from(err: io::Error) -> Self {
-        DotError::IoError(err)
-    }
+    #[error("Generator error: {0}")]
+    Generator(#[source] E),
 }
 
 /// Trait for generating DOT representations of graphs.  Users can implement

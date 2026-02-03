@@ -41,16 +41,18 @@ fn extract_node_ids(either: &Either<NodeID, Subgraph<(ID<'_>, ID<'_>)>>) -> Vec<
 }
 
 /// Errors that can occur during DOT format parsing.
-#[derive(Derivative)]
-#[derivative(Debug(bound = ""))]
+#[derive(thiserror::Error)]
 #[non_exhaustive]
 pub enum ParseError<B: GraphBuilder> {
     /// Failed to parse the DOT format data.
+    #[error("Failed to parse DOT format data: {0}")]
     ParseError(String),
     /// A node ID referenced in an edge was not found in the graph.
+    #[error("Node not found: {0}")]
     NodeNotFound(String),
     /// An error occurred in the graph builder.
-    Builder(B::Error),
+    #[error("Builder error: {0}")]
+    Builder(#[source] B::Error),
 }
 
 /// Trait for building graph data from DOT format statements.

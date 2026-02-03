@@ -19,24 +19,13 @@ use super::types::{
     ArrowType, Color, DirType, OutputMode, PageDir, Point, RankDir, RankType, Rect, Shape, Style,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ParseError<'a> {
+    #[error("unknown attribute: {0}")]
     UnknownAttribute(&'a str),
+    #[error("invalid {0} value: {1}")]
     InvalidValue(&'a str, &'a str),
 }
-
-impl<'a> fmt::Display for ParseError<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ParseError::UnknownAttribute(name) => write!(f, "attribute: {}", name),
-            ParseError::InvalidValue(attr_type, value) => {
-                write!(f, "{} value: {}", attr_type, value)
-            }
-        }
-    }
-}
-
-impl<'a> std::error::Error for ParseError<'a> {}
 
 /// Enumeration of all Graphviz DOT attribute names with typed payloads.
 ///

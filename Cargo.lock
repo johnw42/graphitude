@@ -141,6 +141,7 @@ dependencies = [
  "dot",
  "dot-parser",
  "pathfinding",
+ "thiserror",
 ]
 
 [[package]]
