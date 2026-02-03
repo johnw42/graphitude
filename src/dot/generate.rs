@@ -1,61 +1,124 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
 
-use crate::graph::{EdgeId, Graph};
+use crate::{
+    dot::attr::Attr,
+    graph::{EdgeId, Graph},
+};
+
+/// Trait for generating DOT representations of graphs.  Users can implement
+/// this trait to customize node names and attributes in the generated DOT file.
+pub trait DotGenerator<G: Graph> {
+    /// Returns the name of the graph to be used in the DOT output.
+    /// By default, this returns "G".
+    fn graph_name(&self) -> String {
+        "G".to_string()
+    }
+
+    /// Returns an identifier for a node to be used in the DOT output.  The
+    /// `index` parameter is a zero-based index of the node in the graph's node
+    /// IDs iterator, which can be used to generate unique names.
+    ///
+    /// By default, this returns "n{index}".
+    fn node_name(&self, node_id: &G::NodeId, index: usize) -> String {
+        let _ = node_id;
+        format!("n{}", index)
+    }
+
+    /// Returns a list of attributes for a given node.  The `name` parameter is
+    /// the name returned by `node_name` for the same node.  After this method
+    /// has been called for each node, all nodes must have unique names.
+    fn node_attrs(&self, node_id: &G::NodeId, name: &mut String) -> Vec<Attr> {
+        let _ = (node_id, name);
+        vec![]
+    }
+
+    /// Returns a list of attributes for a given edge.
+    fn edge_attrs(&self, edge_id: &G::EdgeId) -> Vec<Attr> {
+        let _ = edge_id;
+        vec![]
+    }
+}
 
 // Generates a DOT representation for any `Graph` implementation.
 #[cfg(feature = "dot")]
-pub fn generate_dot_file<G>(graph: &G) -> Vec<u8>
+pub fn generate_dot_file<G, D>(graph: &G, generator: &D) -> Vec<u8>
 where
     G: Graph,
-    G::NodeData: Debug,
-    G::EdgeData: Debug,
+    D: DotGenerator<G>,
 {
-    struct GraphWrapper<'a, G: Graph> {
+    struct GraphWrapper<'a, G: Graph, D: DotGenerator<G>> {
         graph: &'a G,
+        generator: &'a D,
         node_id_map: HashMap<G::NodeId, usize>,
     }
 
-    impl<'a, G: Graph> GraphWrapper<'a, G> {
-        fn new(graph: &'a G) -> Self {
+    impl<'a, G: Graph, D: DotGenerator<G>> GraphWrapper<'a, G, D> {
+        fn new(graph: &'a G, generator: &'a D) -> Self {
             let node_id_map = graph
                 .node_ids()
                 .enumerate()
                 .map(|(i, nid)| (nid, i))
                 .collect();
-            Self { graph, node_id_map }
+            Self {
+                graph,
+                generator,
+                node_id_map,
+            }
         }
     }
 
-    impl<'a, G> ::dot::Labeller<'a, G::NodeId, G::EdgeId> for GraphWrapper<'a, G>
+    impl<'a, G, D> ::dot::Labeller<'a, G::NodeId, G::EdgeId> for GraphWrapper<'a, G, D>
     where
         G: Graph,
-        G::NodeData: Debug,
-        G::EdgeData: Debug,
+        D: DotGenerator<G>,
     {
         fn graph_id(&'a self) -> ::dot::Id<'a> {
-            ::dot::Id::new("G").unwrap()
+            ::dot::Id::new(self.generator.graph_name()).unwrap()
         }
 
         fn node_id(&'a self, n: &G::NodeId) -> ::dot::Id<'a> {
             let idx = self.node_id_map.get(n).unwrap();
-            ::dot::Id::new(format!("n{}", idx)).unwrap()
+            let mut name = self.generator.node_name(n, *idx);
+            // Ensure node_attrs has been called to allow name modification
+            let _attrs = self.generator.node_attrs(n, &mut name);
+            ::dot::Id::new(name).unwrap()
         }
 
         fn node_label(&'a self, n: &G::NodeId) -> ::dot::LabelText<'a> {
-            let data = self.graph.node_data(n);
-            ::dot::LabelText::LabelStr(format!("{:?}", data).into())
+            let idx = self.node_id_map.get(n).unwrap();
+            let mut name = self.generator.node_name(n, *idx);
+            let attrs = self.generator.node_attrs(n, &mut name);
+
+            // Build label from attributes if present
+            if attrs.is_empty() {
+                ::dot::LabelText::LabelStr(name.into())
+            } else {
+                let attr_strs: Vec<String> = attrs
+                    .iter()
+                    .map(|a| format!("{}={}", a.name(), a.value()))
+                    .collect();
+                ::dot::LabelText::LabelStr(attr_strs.join(", ").into())
+            }
         }
 
         fn edge_label(&'a self, e: &G::EdgeId) -> ::dot::LabelText<'a> {
-            let data = self.graph.edge_data(e);
-            ::dot::LabelText::LabelStr(format!("{:?}", data).into())
+            let attrs = self.generator.edge_attrs(e);
+            if attrs.is_empty() {
+                ::dot::LabelText::LabelStr("".into())
+            } else {
+                let attr_strs: Vec<String> = attrs
+                    .iter()
+                    .map(|a| format!("{}={}", a.name(), a.value()))
+                    .collect();
+                ::dot::LabelText::LabelStr(attr_strs.join(", ").into())
+            }
         }
     }
 
-    impl<'a, G> ::dot::GraphWalk<'a, G::NodeId, G::EdgeId> for GraphWrapper<'a, G>
+    impl<'a, G, D> ::dot::GraphWalk<'a, G::NodeId, G::EdgeId> for GraphWrapper<'a, G, D>
     where
         G: Graph,
+        D: DotGenerator<G>,
     {
         fn nodes(&'a self) -> ::dot::Nodes<'a, G::NodeId> {
             self.graph.node_ids().collect::<Vec<_>>().into()
@@ -74,14 +137,10 @@ where
         }
     }
 
-    let wrapper = GraphWrapper::new(graph);
+    let wrapper = GraphWrapper::new(graph, generator);
     let mut output = Vec::new();
 
-    if graph.is_directed() {
-        ::dot::render(&wrapper, &mut output).unwrap();
-    } else {
-        ::dot::render(&wrapper, &mut output).unwrap();
-    }
+    ::dot::render(&wrapper, &mut output).unwrap();
 
     output
 }

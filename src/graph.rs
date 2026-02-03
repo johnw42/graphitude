@@ -155,7 +155,29 @@ pub trait Graph: Sized {
         Self::NodeData: Debug,
         Self::EdgeData: Debug,
     {
-        crate::dot::generate::generate_dot_file(self)
+        struct DefaultGenerator;
+        impl<G: Graph> crate::dot::generate::DotGenerator<G> for DefaultGenerator
+        where
+            G::NodeData: Debug,
+            G::EdgeData: Debug,
+        {
+            fn node_name(&self, _node_id: &G::NodeId, index: usize) -> String {
+                format!("n{}", index)
+            }
+
+            fn node_attrs(
+                &self,
+                node_id: &G::NodeId,
+                _name: &mut String,
+            ) -> Vec<crate::dot::attr::Attr> {
+                vec![crate::dot::attr::Attr::Label(format!("{:?}", node_id))]
+            }
+
+            fn edge_attrs(&self, edge_id: &G::EdgeId) -> Vec<crate::dot::attr::Attr> {
+                vec![crate::dot::attr::Attr::Label(format!("{:?}", edge_id))]
+            }
+        }
+        crate::dot::generate::generate_dot_file(self, &DefaultGenerator)
     }
 
     /// Creates a new path starting from the given starting node.  This is a
