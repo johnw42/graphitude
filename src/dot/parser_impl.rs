@@ -5,7 +5,7 @@ use dot_parser::ast::{
     EdgeStmt, Graph as DotGraph, ID, NodeID, NodeStmt, Stmt, StmtList, Subgraph, either::Either,
 };
 
-use crate::{Graph, GraphMut};
+use crate::{Graph, GraphMut, dot::attr::Attr};
 
 /// Recursively extract all node IDs from a node/subgraph specification.
 /// Returns a vector of node ID strings.
@@ -62,23 +62,55 @@ pub trait GraphBuilder {
     type EdgeData;
     type Error: Error;
 
-    /// Create node data from a DOT NodeStmt.
-    fn make_node_data(
-        &mut self,
-        node_stmt: &NodeStmt<(ID<'_>, ID<'_>)>,
-    ) -> Result<Self::NodeData, Self::Error>;
+    /// Create node data from a node with its attributes.
+    fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<Self::NodeData, Self::Error>;
 
     /// Create edge data from a DOT EdgeStmt.
-    fn make_edge_data(
-        &mut self,
-        edge_stmt: &EdgeStmt<(ID<'_>, ID<'_>)>,
-    ) -> Result<Self::EdgeData, Self::Error>;
+    fn make_edge_data(&mut self, attrs: &[Attr]) -> Result<Self::EdgeData, Self::Error>;
 
     /// Create node data for an implicit node (referenced in an edge but not explicitly declared).
     fn make_implicit_node_data(&mut self, node_id: &str) -> Result<Self::NodeData, Self::Error> {
         let _ = node_id;
         unimplemented!("make_implicit_node_data must be implemented to handle implicit nodes")
     }
+}
+
+/// Parse DOT attribute lists into a Vec<Attr>.
+/// Handles the nested structure: Vec<AttrList> -> Vec<AList> -> Vec<(ID, ID)>
+fn parse_attrs(
+    attr_lists: &[dot_parser::ast::AttrList<(ID<'_>, ID<'_>)>],
+) -> Result<Vec<Attr>, String> {
+    let mut attrs = Vec::new();
+    for attr_list in attr_lists {
+        for alist in &attr_list.elems {
+            for (name, value) in &alist.elems {
+                let name_str: String = name.clone().into();
+                let value_str: String = value.clone().into();
+                let attr = Attr::parse(&name_str, &value_str)
+                    .map_err(|e| format!("Failed to parse attribute '{}': {:?}", name_str, e))?;
+                attrs.push(attr);
+            }
+        }
+    }
+    Ok(attrs)
+}
+
+/// Parse attributes from a NodeStmt into a Vec<Attr>.
+fn parse_node_attrs(node_stmt: &NodeStmt<(ID<'_>, ID<'_>)>) -> Result<Vec<Attr>, String> {
+    node_stmt
+        .attr
+        .as_ref()
+        .map(|attrs| parse_attrs(std::slice::from_ref(attrs)))
+        .unwrap_or_else(|| Ok(Vec::new()))
+}
+
+/// Parse attributes from an EdgeStmt into a Vec<Attr>.
+fn parse_edge_attrs(edge_stmt: &EdgeStmt<(ID<'_>, ID<'_>)>) -> Result<Vec<Attr>, String> {
+    edge_stmt
+        .attr
+        .as_ref()
+        .map(|attrs| parse_attrs(std::slice::from_ref(attrs)))
+        .unwrap_or_else(|| Ok(Vec::new()))
 }
 
 /// Parse a DOT format string and construct a graph using the provided builder.
@@ -123,8 +155,9 @@ where
                 Stmt::NodeStmt(node_stmt) => {
                     let node_id_str = node_stmt.node.id.to_string();
                     if !node_map.contains_key(&node_id_str) {
+                        let attrs = parse_node_attrs(node_stmt).map_err(ParseError::ParseError)?;
                         let node_data = builder
-                            .make_node_data(&node_stmt)
+                            .make_node_data(&node_id_str, &attrs)
                             .map_err(ParseError::Builder)?;
                         let new_node_id = graph.add_node(node_data);
                         node_map.insert(node_id_str, new_node_id);
@@ -226,8 +259,10 @@ where
                                 .collect();
 
                             for to_id in &to_node_ids {
+                                let attrs =
+                                    parse_edge_attrs(edge_stmt).map_err(ParseError::ParseError)?;
                                 let edge_data = builder
-                                    .make_edge_data(&edge_stmt)
+                                    .make_edge_data(&attrs)
                                     .map_err(ParseError::Builder)?;
                                 graph.add_edge(&current_from, to_id, edge_data);
                             }
@@ -274,9 +309,19 @@ mod tests {
 
         fn make_node_data(
             &mut self,
-            node_stmt: &NodeStmt<(ID<'_>, ID<'_>)>,
+            id: &str,
+            attrs: &[Attr],
         ) -> Result<Self::NodeData, Self::Error> {
-            Ok(node_stmt.node.id.to_string())
+            if attrs.is_empty() {
+                Ok(id.to_string())
+            } else {
+                let attrs_str = attrs
+                    .iter()
+                    .map(|attr| attr.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                Ok(format!("{}[{}]", id, attrs_str))
+            }
         }
 
         fn make_implicit_node_data(
@@ -286,10 +331,7 @@ mod tests {
             Ok(node_id.to_string())
         }
 
-        fn make_edge_data(
-            &mut self,
-            _edge_stmt: &EdgeStmt<(ID<'_>, ID<'_>)>,
-        ) -> Result<Self::EdgeData, Self::Error> {
+        fn make_edge_data(&mut self, _attrs: &[Attr]) -> Result<Self::EdgeData, Self::Error> {
             Ok(())
         }
     }
@@ -417,6 +459,21 @@ mod tests {
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
+
+        // Verify that attributes are reflected in node data
+        let nodes: Vec<_> = graph
+            .node_ids()
+            .map(|id| graph.node_data(&id).clone())
+            .collect();
+
+        // Check that node data includes the label attribute
+        let node_a = nodes.iter().find(|n| n.starts_with("a")).unwrap();
+        assert!(node_a.contains("label"));
+        assert!(node_a.contains("Node A"));
+
+        let node_b = nodes.iter().find(|n| n.starts_with("b")).unwrap();
+        assert!(node_b.contains("label"));
+        assert!(node_b.contains("Node B"));
     }
 
     #[test]
@@ -516,9 +573,10 @@ mod tests {
 
         fn make_node_data(
             &mut self,
-            node_stmt: &NodeStmt<(ID<'_>, ID<'_>)>,
+            id: &str,
+            _attrs: &[Attr],
         ) -> Result<Self::NodeData, Self::Error> {
-            Ok(node_stmt.node.id.to_string())
+            Ok(id.to_string())
         }
 
         fn make_implicit_node_data(
@@ -528,12 +586,9 @@ mod tests {
             Ok(node_id.to_string())
         }
 
-        fn make_edge_data(
-            &mut self,
-            _edge_stmt: &EdgeStmt<(ID<'_>, ID<'_>)>,
-        ) -> Result<Self::EdgeData, Self::Error> {
+        fn make_edge_data(&mut self, _attrs: &[Attr]) -> Result<Self::EdgeData, Self::Error> {
             // For simplicity, just return a default weight
-            // In a real implementation, you'd parse the attributes from edge_stmt.attr
+            // In a real implementation, you'd parse the attributes
             Ok(1)
         }
     }
