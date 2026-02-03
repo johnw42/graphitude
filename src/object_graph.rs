@@ -2,7 +2,7 @@ use std::{fmt::Debug, marker::PhantomData, mem::transmute};
 
 use derivative::Derivative;
 
-use crate::directedness::Directed;
+use crate::{MultipleEdges, directedness::Directed};
 
 use super::Graph;
 
@@ -108,6 +108,7 @@ where
     type EdgeId = (Self::NodeId, Self::NodeId);
     type EdgeData = ();
     type Directedness = Directed;
+    type EdgeMultiplicity = MultipleEdges;
 
     fn node_data(&self, id: &NodeId<N>) -> &<Self as Graph>::NodeData {
         unsafe { transmute::<&*const N, &&'d N>(&id.0) }

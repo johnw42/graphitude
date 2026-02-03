@@ -5,6 +5,7 @@ use std::{
     hash::Hash,
 };
 
+use crate::EdgeMultiplicity;
 #[cfg(feature = "dot")]
 use crate::dot::parser_impl;
 use crate::mapping_result::MappingResult;
@@ -116,6 +117,7 @@ pub trait EdgeId: Eq + Hash + Clone + Debug {
 /// - [`Self::has_edge_into`]
 pub trait Graph: Sized {
     type Directedness: Directedness;
+    type EdgeMultiplicity: EdgeMultiplicity;
     type NodeData;
     type NodeId: NodeId;
     type EdgeData;
@@ -141,7 +143,7 @@ pub trait Graph: Sized {
         N: Debug,
         E: Debug,
     {
-        DebugGraphView::<N, E, Self::Directedness>::new(self, node_fmt, edge_fmt)
+        DebugGraphView::<N, E, _, _>::new(self, node_fmt, edge_fmt)
     }
 
     #[cfg(feature = "dot")]

@@ -865,6 +865,7 @@ macro_rules! graph_tests {
             assert_eq!(paths.get(&n1).map(|(_, dist)| *dist), Some(1));
             assert_eq!(paths.get(&n2).map(|(_, dist)| *dist), None);
         }
+
         #[test]
         fn test_compaction() {
             let mut graph: $type = GraphMut::new();

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use graphitude::{
-    Directed, EdgeId as EdgeIdTrait, Graph, GraphMut, NodeId as NodeIdTrait,
+    Directed, EdgeId as EdgeIdTrait, Graph, GraphMut, MultipleEdges, NodeId as NodeIdTrait,
     graph_test_copy_from_with, graph_tests, tests::TestDataBuilder,
 };
 
@@ -66,6 +66,7 @@ impl Graph for StringGraph {
     type EdgeData = String;
     type EdgeId = EdgeId;
     type Directedness = Directed;
+    type EdgeMultiplicity = MultipleEdges;
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         &self.node(id).data

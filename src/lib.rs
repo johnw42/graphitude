@@ -32,6 +32,7 @@ pub mod debug_graph_view;
 pub mod directedness;
 #[cfg(feature = "dot")]
 pub mod dot;
+pub mod edge_multiplicity;
 pub mod graph;
 pub mod linked_graph;
 pub mod mapping_result;
@@ -49,6 +50,7 @@ mod util;
 mod triangular;
 
 pub use directedness::{Directed, Directedness, Undirected};
+pub use edge_multiplicity::{EdgeMultiplicity, MultipleEdges, SingleEdge};
 pub use graph::{EdgeId, Graph, GraphDirected, GraphMut, GraphUndirected, NodeId};
 pub use linked_graph::LinkedGraph;
 pub use mapping_result::MappingResult;

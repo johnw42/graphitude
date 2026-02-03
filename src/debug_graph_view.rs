@@ -1,6 +1,6 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, marker::PhantomData};
 
-use crate::{Directedness, Graph, GraphMut, LinkedGraph};
+use crate::{Directedness, EdgeMultiplicity, Graph, GraphMut, LinkedGraph};
 
 /// A view of a graph with transformed node and edge data, suitable for debugging.
 ///
@@ -11,36 +11,43 @@ use crate::{Directedness, Graph, GraphMut, LinkedGraph};
 /// Note: This view always represents a directed graph, regardless of the source graph's
 /// directedness. Edges are copied as-is from the source, so each edge in the source
 /// graph becomes one directed edge in the view.
-pub struct DebugGraphView<N, E, D: Directedness> {
+pub struct DebugGraphView<N, E, D: Directedness, M: EdgeMultiplicity> {
     inner: LinkedGraph<N, E, D>,
+    multiplicity: PhantomData<M>,
 }
 
-impl<N, E, D> DebugGraphView<N, E, D>
+impl<N, E, D, M> DebugGraphView<N, E, D, M>
 where
     N: Debug,
     E: Debug,
     D: Directedness,
+    M: EdgeMultiplicity,
 {
     /// Creates a new `DebugGraphView` by transforming the data from the source graph.
     pub fn new<G, NF, EF>(graph: &G, node_fn: NF, edge_fn: EF) -> Self
     where
-        G: Graph<Directedness = D>,
+        G: Graph<Directedness = D, EdgeMultiplicity = M>,
         NF: Fn(&G::NodeData) -> N,
         EF: Fn(&G::EdgeData) -> E,
     {
         let mut inner = LinkedGraph::new();
         inner.copy_from_with(graph, node_fn, edge_fn);
-        Self { inner }
+        Self {
+            inner,
+            multiplicity: PhantomData,
+        }
     }
 }
 
-impl<N, E, D> Graph for DebugGraphView<N, E, D>
+impl<N, E, D, M> Graph for DebugGraphView<N, E, D, M>
 where
     N: Debug,
     E: Debug,
     D: Directedness,
+    M: EdgeMultiplicity,
 {
     type Directedness = D;
+    type EdgeMultiplicity = M;
     type NodeData = N;
     type NodeId = <LinkedGraph<N, E, D> as Graph>::NodeId;
     type EdgeData = E;
@@ -71,11 +78,12 @@ where
     }
 }
 
-impl<N, E, D> Debug for DebugGraphView<N, E, D>
+impl<N, E, D, M> Debug for DebugGraphView<N, E, D, M>
 where
     N: Debug,
     E: Debug,
     D: Directedness,
+    M: EdgeMultiplicity,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.inner, f)
@@ -195,9 +203,7 @@ mod tests {
         let view = DebugGraphView::new(&graph, |&s| s, |&e| e);
 
         let node_ids: Vec<_> = view.node_ids().collect();
-        let edges_between: Vec<_> = view
-            .edges_between(&node_ids[0], &node_ids[1])
-            .collect();
+        let edges_between: Vec<_> = view.edges_between(&node_ids[0], &node_ids[1]).collect();
         assert_eq!(edges_between.len(), 2);
     }
 

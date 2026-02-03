@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 /// Node and edge ID types for adjacency graphs.
 pub use self::ids::{EdgeId, NodeId};
 use crate::{
-    AdjacencyMatrix, Directed, Graph, GraphMut,
+    AdjacencyMatrix, Directed, Graph, GraphMut, SingleEdge,
     adjacency_matrix::{
         AdjacencyMatrixSelector, CompactionCount as _, HashStorage, SelectMatrix, Storage,
     },
@@ -148,6 +148,7 @@ where
     type NodeData = N;
     type NodeId = NodeId<S>;
     type Directedness = D;
+    type EdgeMultiplicity = SingleEdge;
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         self.assert_valid_node_id(id);

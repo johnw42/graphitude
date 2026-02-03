@@ -1,8 +1,8 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::{
-    Directed, Graph, GraphMut, debug::format_debug, directedness::Directedness, graph_id::GraphId,
-    pairs::Pair, util::OtherValue,
+    Directed, Graph, GraphMut, MultipleEdges, debug::format_debug, directedness::Directedness,
+    graph_id::GraphId, pairs::Pair, util::OtherValue,
 };
 
 mod edge_id;
@@ -100,6 +100,7 @@ where
     type EdgeId = EdgeId<N, E, D>;
     type EdgeData = E;
     type Directedness = D;
+    type EdgeMultiplicity = MultipleEdges;
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         &self.node(id.clone()).data

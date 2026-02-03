@@ -3,7 +3,7 @@
 use std::{collections::HashSet, fmt::Debug};
 
 use graphitude::{
-    AdjacencyMatrix, EdgeId as EdgeIdTrait, Graph, GraphMut, NodeId as NodeIdTrait,
+    AdjacencyMatrix, EdgeId as EdgeIdTrait, Graph, GraphMut, NodeId as NodeIdTrait, SingleEdge,
     SymmetricHashAdjacencyMatrix, debug::format_debug_with, directedness::Undirected,
     graph_test_copy_from_with, graph_tests, tests::TestDataBuilder,
 };
@@ -66,6 +66,7 @@ impl Graph for StringGraph {
     type EdgeData = ();
     type EdgeId = EdgeId;
     type Directedness = Undirected;
+    type EdgeMultiplicity = SingleEdge;
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         &self.nodes.get(id).expect("Node does not exist").0
