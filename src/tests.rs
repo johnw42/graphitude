@@ -945,5 +945,21 @@ macro_rules! graph_test_copy_from_with {
             assert_eq!(g(source.edge_data(&e0)), *target.edge_data(&edge_map[&e0]));
             assert_eq!(g(source.edge_data(&e1)), *target.edge_data(&edge_map[&e1]));
         }
+
+        #[test]
+        fn test_edge_multiplicity() {
+            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
+            let mut graph = <$type>::new();
+            let n1 = graph.add_node(builder.new_node_data());
+            let n2 = graph.add_node(builder.new_node_data());
+            graph.add_edge(&n1, &n2, builder.new_edge_data());
+            graph.add_edge(&n1, &n2, builder.new_edge_data());
+
+            if graph.allows_parallel_edges() {
+                assert_eq!(graph.num_edges(), 2);
+            } else {
+                assert_eq!(graph.num_edges(), 1);
+            }
+        }
     };
 }

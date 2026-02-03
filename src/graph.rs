@@ -128,6 +128,10 @@ pub trait Graph: Sized {
         Self::Directedness::is_directed()
     }
 
+    fn allows_parallel_edges(&self) -> bool {
+        Self::EdgeMultiplicity::allows_parallel_edges()
+    }
+
     /// Creates a new graph view in which node and edge data are hidden.
     fn with_debug(&self) -> impl Graph + Debug {
         self.with_debug_formatting(|_| (), |_| ())
