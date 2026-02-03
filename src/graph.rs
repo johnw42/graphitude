@@ -1,3 +1,5 @@
+#[cfg(feature = "dot")]
+use std::io;
 use std::ops::Add;
 use std::{
     collections::{HashMap, HashSet},
@@ -5,10 +7,10 @@ use std::{
     hash::Hash,
 };
 
-use crate::EdgeMultiplicity;
 #[cfg(feature = "dot")]
-use crate::dot::parser_impl;
+use crate::dot::{parser, renderer};
 use crate::{
+    EdgeMultiplicity,
     debug_graph_view::DebugGraphView,
     directedness::{Directed, Directedness, Undirected},
     pairs::Pair,
@@ -132,12 +134,12 @@ pub trait Graph: Sized {
     }
 
     /// Creates a new graph view in which node and edge data are hidden.
-    fn with_debug(&self) -> impl Graph + Debug {
-        self.with_debug_formatting(|_| (), |_| ())
+    fn to_debug(&self) -> impl Graph + Debug {
+        self.to_debug_with(|_| (), |_| ())
     }
 
     /// Creates a new graph view with custom debug formatting for nodes and edges.
-    fn with_debug_formatting<N, E>(
+    fn to_debug_with<N, E>(
         &self,
         node_fmt: impl Fn(&Self::NodeData) -> N,
         edge_fmt: impl Fn(&Self::EdgeData) -> E,
@@ -149,35 +151,28 @@ pub trait Graph: Sized {
         DebugGraphView::<N, E, _, _>::new(self, node_fmt, edge_fmt)
     }
 
+    /// Writes a DOT representation of the graph to the given output.
     #[cfg(feature = "dot")]
-    fn generate_dot_file(&self) -> Vec<u8>
+    fn write_dot<D>(
+        &self,
+        generator: &D,
+        output: &mut impl io::Write,
+    ) -> Result<(), renderer::DotError<D::Error>>
     where
-        Self::NodeData: Debug,
-        Self::EdgeData: Debug,
+        D: renderer::DotGenerator<Self>,
     {
-        struct DefaultGenerator;
-        impl<G: Graph> crate::dot::generate::DotGenerator<G> for DefaultGenerator
-        where
-            G::NodeData: Debug,
-            G::EdgeData: Debug,
-        {
-            fn node_name(&self, _node_id: &G::NodeId, index: usize) -> String {
-                format!("n{}", index)
-            }
+        renderer::generate_dot_file(self, generator, output)
+    }
 
-            fn node_attrs(
-                &self,
-                node_id: &G::NodeId,
-                _name: &mut String,
-            ) -> Vec<crate::dot::attr::Attr> {
-                vec![crate::dot::attr::Attr::Label(format!("{:?}", node_id))]
-            }
-
-            fn edge_attrs(&self, edge_id: &G::EdgeId) -> Vec<crate::dot::attr::Attr> {
-                vec![crate::dot::attr::Attr::Label(format!("{:?}", edge_id))]
-            }
-        }
-        crate::dot::generate::generate_dot_file(self, &DefaultGenerator)
+    /// Generates a DOT representation of the graph as a String.
+    #[cfg(feature = "dot")]
+    fn to_dot_string<D>(&self, generator: &D) -> Result<String, renderer::DotError<D::Error>>
+    where
+        D: renderer::DotGenerator<Self>,
+    {
+        let mut output = Vec::new();
+        self.write_dot(generator, &mut output)?;
+        Ok(String::from_utf8(output).expect("Generated DOT is not valid UTF-8"))
     }
 
     /// Creates a new path starting from the given starting node.  This is a
@@ -713,11 +708,13 @@ pub trait GraphMut: Graph {
         let _ = &mut edge_id_callback;
     }
 
+    /// Parses a DOT representation of a graph from a string, using the given
+    /// graph builder to construct the graph.
     #[cfg(feature = "dot")]
-    fn new_from_dot<B>(data: &str, builder: &mut B) -> Result<Self, parser_impl::ParseError<B>>
+    fn from_dot_string<B>(data: &str, builder: &mut B) -> Result<Self, parser::ParseError<B>>
     where
-        B: parser_impl::GraphBuilder<NodeData = Self::NodeData, EdgeData = Self::EdgeData>,
+        B: parser::GraphBuilder<NodeData = Self::NodeData, EdgeData = Self::EdgeData>,
     {
-        parser_impl::parse_dot_into_graph(data, builder)
+        parser::parse_dot_into_graph(data, builder)
     }
 }

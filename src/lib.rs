@@ -56,7 +56,7 @@ pub use pairs::SortedPair;
 pub use tests::TestDataBuilder;
 
 #[cfg(feature = "dot")]
-pub use dot::parser_impl::{GraphBuilder, ParseError};
+pub use dot::parser::{GraphBuilder, ParseError};
 
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{
