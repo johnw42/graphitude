@@ -35,7 +35,6 @@ pub mod dot;
 pub mod edge_multiplicity;
 pub mod graph;
 pub mod linked_graph;
-pub mod mapping_result;
 pub mod object_graph;
 pub mod path;
 pub mod search;
@@ -53,7 +52,6 @@ pub use directedness::{Directed, Directedness, Undirected};
 pub use edge_multiplicity::{EdgeMultiplicity, MultipleEdges, SingleEdge};
 pub use graph::{EdgeId, Graph, GraphDirected, GraphMut, GraphUndirected, NodeId};
 pub use linked_graph::LinkedGraph;
-pub use mapping_result::MappingResult;
 pub use pairs::SortedPair;
 pub use tests::TestDataBuilder;
 

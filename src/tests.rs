@@ -279,17 +279,13 @@ macro_rules! graph_tests {
                     let num_edges = graph.num_edges();
 
                     graph.compact_with(
-                        Some(|r| {
-                            if let $crate::mapping_result::MappingResult::Remapped(old_id, new_id) =
-                                r
-                            {
-                                let removed = node_ids.remove(&old_id);
-                                assert!(removed);
-                                let inserted = node_ids.insert(new_id);
-                                assert!(inserted);
-                            }
-                        }),
-                        Some(|_| {}),
+                        |old_id, new_id| {
+                            let removed = node_ids.remove(old_id);
+                            assert!(removed);
+                            let inserted = node_ids.insert(new_id.clone());
+                            assert!(inserted);
+                        },
+                        |_, _| {},
                     );
                     assert_eq!(graph.num_nodes(), num_nodes);
                     assert_eq!(graph.num_edges(), num_edges);
@@ -321,17 +317,13 @@ macro_rules! graph_tests {
                     let num_edges = edge_ids.len();
 
                     graph.compact_with(
-                        Some(|_| {}),
-                        Some(|r| {
-                            if let $crate::mapping_result::MappingResult::Remapped(old_id, new_id) =
-                                r
-                            {
-                                let removed = edge_ids.remove(&old_id);
-                                assert!(removed);
-                                let inserted = edge_ids.insert(new_id);
-                                assert!(inserted);
-                            }
-                        }),
+                        |_, _| {},
+                        |old_id, new_id| {
+                            let removed = edge_ids.remove(&old_id);
+                            assert!(removed);
+                            let inserted = edge_ids.insert(new_id.clone());
+                            assert!(inserted);
+                        },
                     );
                     assert_eq!(graph.num_nodes(), num_nodes);
                     assert_eq!(graph.num_edges(), num_edges);
@@ -884,16 +876,12 @@ macro_rules! graph_tests {
             let mut nid_map = std::collections::HashMap::new();
             let mut eid_map = std::collections::HashMap::new();
             graph.compact_with(
-                Some(|result: $crate::MappingResult<<$type as Graph>::NodeId>| {
-                    if let $crate::MappingResult::Remapped(old_nid, new_nid) = result {
-                        nid_map.insert(old_nid.clone(), new_nid.clone());
-                    }
-                }),
-                Some(|result: $crate::MappingResult<<$type as Graph>::EdgeId>| {
-                    if let $crate::MappingResult::Remapped(old_eid, new_eid) = result {
-                        eid_map.insert(old_eid.clone(), new_eid.clone());
-                    }
-                }),
+                |old_nid, new_nid| {
+                    nid_map.insert(old_nid.clone(), new_nid.clone());
+                },
+                |old_eid, new_eid| {
+                    eid_map.insert(old_eid.clone(), new_eid.clone());
+                },
             );
             assert_eq!(graph.node_ids().count(), 2);
             assert_eq!(graph.edge_ids().count(), 2);

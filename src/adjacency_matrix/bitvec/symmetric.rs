@@ -424,7 +424,7 @@ mod tests {
                 // deterministic sparse pattern
                 if (i * 29 + j * 13) % 19 == 0 {
                     matrix.insert(i, j, i * nodes + j);
-                    if ((i+j) % 7) == 0 {
+                    if ((i + j) % 7) == 0 {
                         // insert both directions to test symmetry
                         matrix.insert(j, i, i * nodes + j);
                     }

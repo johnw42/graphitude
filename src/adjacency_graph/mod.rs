@@ -11,7 +11,6 @@ use crate::{
     directedness::Directedness,
     graph_id::GraphId,
     id_vec::{IdVec, IdVecKey},
-    mapping_result::MappingResult,
     pairs::Pair,
 };
 
@@ -65,10 +64,16 @@ where
     fn do_compact<F>(
         &mut self,
         mut compact_fn: F,
-        mut node_id_callback: Option<impl FnMut(MappingResult<NodeId<S>>)>,
-        mut edge_id_callback: Option<impl FnMut(MappingResult<EdgeId<S, D>>)>,
+        node_id_callback: &mut dyn FnMut(
+            &<AdjacencyGraph<N, E, D, S> as crate::graph::Graph>::NodeId,
+            &<AdjacencyGraph<N, E, D, S> as crate::graph::Graph>::NodeId,
+        ),
+        edge_id_callback: &mut dyn FnMut(
+            &<AdjacencyGraph<N, E, D, S> as crate::graph::Graph>::EdgeId,
+            &<AdjacencyGraph<N, E, D, S> as crate::graph::Graph>::EdgeId,
+        ),
     ) where
-        F: FnMut(&mut IdVec<N>, Option<&mut dyn FnMut(MappingResult<IdVecKey>)>),
+        F: FnMut(&mut IdVec<N>, &mut dyn FnMut(IdVecKey, Option<IdVecKey>)),
     {
         let old_compaction_count = self.compaction_count;
         let new_compaction_count = self.compaction_count.increment();
@@ -76,27 +81,22 @@ where
         // Compact nodes and build ID mapping.
         let mut id_vec_map: HashMap<IdVecKey, IdVecKey> = HashMap::with_capacity(self.nodes.len());
         let old_indexing = self.nodes.indexing();
-        compact_fn(
-            &mut self.nodes,
-            Some(&mut |result| {
-                if let MappingResult::Remapped(old_key, new_key) = result {
-                    id_vec_map.insert(old_key, new_key);
-                }
-            }),
-        );
+        compact_fn(&mut self.nodes, &mut |old_key, new_key_opt| {
+            if let Some(new_key) = new_key_opt {
+                id_vec_map.insert(old_key, new_key);
+            }
+        });
         let new_indexing = self.nodes.indexing();
 
         // Call node_id_callback for each node ID mapping
-        if let Some(ref mut cb) = node_id_callback {
-            for (&old_index, &new_index) in &id_vec_map {
-                let old_node_id = self
-                    .node_id(old_index)
-                    .with_compaction_count(old_compaction_count);
-                let new_node_id = self
-                    .node_id(new_index)
-                    .with_compaction_count(new_compaction_count);
-                cb(MappingResult::Remapped(old_node_id, new_node_id));
-            }
+        for (&old_index, &new_index) in &id_vec_map {
+            let old_node_id = self
+                .node_id(old_index)
+                .with_compaction_count(old_compaction_count);
+            let new_node_id = self
+                .node_id(new_index)
+                .with_compaction_count(new_compaction_count);
+            node_id_callback(&old_node_id, &new_node_id);
         }
 
         // Update adjacency matrix with new node indices.
@@ -121,15 +121,13 @@ where
                     new_indexing.zero_based_index(new_into),
                     data,
                 );
-                if let Some(ref mut cb) = edge_id_callback {
-                    let old_edge_id = self
-                        .edge_id(old_from, old_into)
-                        .with_compaction_count(old_compaction_count);
-                    let new_edge_id = self
-                        .edge_id(new_from, new_into)
-                        .with_compaction_count(new_compaction_count);
-                    cb(MappingResult::Remapped(old_edge_id, new_edge_id));
-                }
+                let old_edge_id = self
+                    .edge_id(old_from, old_into)
+                    .with_compaction_count(old_compaction_count);
+                let new_edge_id = self
+                    .edge_id(new_from, new_into)
+                    .with_compaction_count(new_compaction_count);
+                edge_id_callback(&old_edge_id, &new_edge_id);
             }
         }
 
@@ -375,41 +373,33 @@ where
     }
 
     fn compact(&mut self) {
-        self.compact_with::<fn(MappingResult<Self::NodeId>), fn(MappingResult<Self::EdgeId>)>(
-            None, None,
-        );
+        self.compact_with(|_, _| {}, |_, _| {});
     }
 
-    fn compact_with<F1, F2>(&mut self, node_id_callback: Option<F1>, edge_id_callback: Option<F2>)
-    where
-        F1: FnMut(MappingResult<Self::NodeId>),
-        F2: FnMut(MappingResult<Self::EdgeId>),
-    {
+    fn compact_with(
+        &mut self,
+        mut node_id_callback: impl FnMut(&Self::NodeId, &Self::NodeId),
+        mut edge_id_callback: impl FnMut(&Self::EdgeId, &Self::EdgeId),
+    ) {
         self.do_compact(
             |vec, cb| vec.compact_with(cb),
-            node_id_callback,
-            edge_id_callback,
+            &mut node_id_callback,
+            &mut edge_id_callback,
         );
     }
 
     fn shrink_to_fit(&mut self) {
-        self.shrink_to_fit_with::<fn(MappingResult<Self::NodeId>), fn(MappingResult<Self::EdgeId>)>(
-            None, None,
-        );
+        self.shrink_to_fit_with(|_, _| {}, |_, _| {});
     }
-
-    fn shrink_to_fit_with<F1, F2>(
+    fn shrink_to_fit_with(
         &mut self,
-        node_id_callback: Option<F1>,
-        edge_id_callback: Option<F2>,
-    ) where
-        F1: FnMut(MappingResult<Self::NodeId>),
-        F2: FnMut(MappingResult<Self::EdgeId>),
-    {
+        mut node_id_callback: impl FnMut(&Self::NodeId, &Self::NodeId),
+        mut edge_id_callback: impl FnMut(&Self::EdgeId, &Self::EdgeId),
+    ) {
         self.do_compact(
             |vec, cb| vec.shrink_to_fit_with(cb),
-            node_id_callback,
-            edge_id_callback,
+            &mut node_id_callback,
+            &mut edge_id_callback,
         );
     }
 }

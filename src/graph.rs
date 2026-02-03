@@ -8,7 +8,6 @@ use std::{
 use crate::EdgeMultiplicity;
 #[cfg(feature = "dot")]
 use crate::dot::parser_impl;
-use crate::mapping_result::MappingResult;
 use crate::{
     debug_graph_view::DebugGraphView,
     directedness::{Directed, Directedness, Undirected},
@@ -729,24 +728,18 @@ pub trait GraphMut: Graph {
     /// without reallocation.  Does nothing by default.  May invalidate existing
     /// NodeIds and EdgeIds.
     fn compact(&mut self) {
-        self.compact_with(
-            None::<fn(MappingResult<Self::NodeId>)>,
-            None::<fn(MappingResult<Self::EdgeId>)>,
-        );
+        self.compact_with(|_, _| {}, |_, _| {});
     }
 
     /// Compacts internal storage used by the graph to minimize memory usage
     /// without reallocation.  Does nothing by default.  May invalidate existing
     /// NodeIds and EdgeIds.  Calls a closure for each node ID mapping
     /// (old_id, new_id) and edge ID mapping (old_id, new_id) as they are created.
-    fn compact_with<F1, F2>(
+    fn compact_with(
         &mut self,
-        mut node_id_callback: Option<F1>,
-        mut edge_id_callback: Option<F2>,
-    ) where
-        F1: FnMut(MappingResult<Self::NodeId>),
-        F2: FnMut(MappingResult<Self::EdgeId>),
-    {
+        mut node_id_callback: impl FnMut(&'_ Self::NodeId, &'_ Self::NodeId),
+        mut edge_id_callback: impl FnMut(&'_ Self::EdgeId, &'_ Self::EdgeId),
+    ) {
         let _ = &mut node_id_callback;
         let _ = &mut edge_id_callback;
     }
@@ -754,23 +747,18 @@ pub trait GraphMut: Graph {
     /// Shrinks internal storage used by the graph to fit its current size.  May
     /// invalidate existing NodeIds and EdgeIds.  Does nothing by default.
     fn shrink_to_fit(&mut self) {
-        self.shrink_to_fit_with::<fn(MappingResult<Self::NodeId>), fn(MappingResult<Self::EdgeId>)>(
-            None, None,
-        );
+        self.shrink_to_fit_with(|_, _| {}, |_, _| {});
     }
 
     /// Shrinks internal storage used by the graph to fit its current size.  May
     /// invalidate existing NodeIds and EdgeIds.  Does nothing by default.
     /// Calls a closure for each node ID mapping (old_id, new_id)
     /// and edge ID mapping (old_id, new_id) as they are created.
-    fn shrink_to_fit_with<F1, F2>(
+    fn shrink_to_fit_with(
         &mut self,
-        mut node_id_callback: Option<F1>,
-        mut edge_id_callback: Option<F2>,
-    ) where
-        F1: FnMut(MappingResult<Self::NodeId>),
-        F2: FnMut(MappingResult<Self::EdgeId>),
-    {
+        mut node_id_callback: impl FnMut(&'_ Self::NodeId, &'_ Self::NodeId),
+        mut edge_id_callback: impl FnMut(&'_ Self::EdgeId, &'_ Self::EdgeId),
+    ) {
         let _ = &mut node_id_callback;
         let _ = &mut edge_id_callback;
     }
