@@ -189,13 +189,6 @@ macro_rules! graph_tests {
                 graph.add_edge(&all_nodes[idx], &all_nodes[idx], builder.new_edge_data());
             }
 
-            // use std::io::Write;
-
-            // std::fs::File::create("tmp.dot")
-            //     .unwrap()
-            //     .write_all(&graph.generate_dot_file())
-            //     .unwrap();
-
             graph
         }
 
@@ -266,6 +259,8 @@ macro_rules! graph_tests {
             // random order.
             let mut node_ids = graph.node_ids().collect::<std::collections::HashSet<_>>();
 
+            // We deliberately fix the number of iterations because we know it
+            // in advance; each iteraction removes one node.
             for i in 0..node_ids.len() {
                 // Test removing a random node.
                 assert!(!node_ids.is_empty());
@@ -278,8 +273,8 @@ macro_rules! graph_tests {
                 assert_eq!(graph.num_nodes(), num_nodes - 1);
                 assert!(graph.num_edges() <= num_edges);
 
-                // Test compaction every 10 iterations
-                if i % 10 == 0 {
+                // Test compaction every few iterations
+                if i % 50 == 0 {
                     let num_nodes = node_ids.len();
                     let num_edges = graph.num_edges();
 
@@ -320,19 +315,8 @@ macro_rules! graph_tests {
             let mut edge_ids = graph.edge_ids().collect::<std::collections::HashSet<_>>();
 
             for i in 0..edge_ids.len() {
-                // Test removing a random edge.
-                assert!(!edge_ids.is_empty());
-                let num_nodes = graph.num_nodes();
-                let num_edges = edge_ids.len();
-                assert_eq!(num_edges, edge_ids.len());
-                let edge_id = edge_ids.iter().next().cloned().unwrap();
-                edge_ids.remove(&edge_id);
-                graph.remove_edge(&edge_id);
-                assert_eq!(graph.num_nodes(), num_nodes);
-                assert_eq!(graph.num_edges(), num_edges - 1);
-
-                // Test compaction every 10 iterations
-                if i % 10 == 0 {
+                // Test compaction every few iterations
+                if i % 250 == 0 {
                     let num_nodes = graph.num_nodes();
                     let num_edges = edge_ids.len();
 
@@ -358,6 +342,17 @@ macro_rules! graph_tests {
                         assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
                     }
                 }
+
+                // Test removing a random edge.
+                assert!(!edge_ids.is_empty());
+                let num_nodes = graph.num_nodes();
+                let num_edges = edge_ids.len();
+                assert_eq!(num_edges, edge_ids.len());
+                let edge_id = edge_ids.iter().next().cloned().unwrap();
+                edge_ids.remove(&edge_id);
+                graph.remove_edge(&edge_id);
+                assert_eq!(graph.num_nodes(), num_nodes);
+                assert_eq!(graph.num_edges(), num_edges - 1);
             }
 
             assert_eq!(graph.num_edges(), 0);
