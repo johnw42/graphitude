@@ -204,11 +204,10 @@ where
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.assert_valid_node_id(into);
+        let into_key = into.key();
         self.adjacency
             .entries_in_col(self.nodes.zero_based_index(into.key()))
-            .map(|(from, _)| self.edge_id(self.nodes.key_from_index(from), into.key()))
-            .collect::<Vec<_>>()
-            .into_iter()
+            .map(move |(from, _)| self.edge_id(self.nodes.key_from_index(from), into_key))
     }
 
     fn edges_from<'a, 'b: 'a>(
@@ -216,11 +215,10 @@ where
         from: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.assert_valid_node_id(from);
+        let from_key = from.key();
         self.adjacency
             .entries_in_row(self.nodes.zero_based_index(from.key()))
-            .map(|(into, _)| self.edge_id(from.key(), self.nodes.key_from_index(into)))
-            .collect::<Vec<_>>()
-            .into_iter()
+            .map(move |(into, _)| self.edge_id(from_key, self.nodes.key_from_index(into)))
     }
 
     fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {

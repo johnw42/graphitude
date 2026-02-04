@@ -99,20 +99,16 @@ where
     }
 
     /// Iterates over all entries in the given row.
-    fn entries_in_row<'a>(
-        &'a self,
+    fn entries_in_row(
+        &self,
         row: Self::Index,
-    ) -> impl Iterator<Item = (Self::Index, &'a Self::Value)>
-    where
-        Self::Value: 'a;
+    ) -> impl Iterator<Item = (Self::Index, &'_ Self::Value)> + '_;
 
     /// Iterates over all entries in the given col.
-    fn entries_in_col<'a>(
-        &'a self,
+    fn entries_in_col(
+        &self,
         col: Self::Index,
-    ) -> impl Iterator<Item = (Self::Index, &'a Self::Value)>
-    where
-        Self::Value: 'a;
+    ) -> impl Iterator<Item = (Self::Index, &'_ Self::Value)> + '_;
 
     /// Reserves capacity for at least `additional` more rows and columns to be added.
     fn reserve(&mut self, _additional: usize) {

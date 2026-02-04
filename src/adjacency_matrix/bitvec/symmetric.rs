@@ -6,13 +6,13 @@ use super::symmetric_maxtrix_indexing::SymmetricMatrixIndexing;
 use crate::{
     SortedPair,
     adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric},
-    triangular::triangular,
 };
 
 /// Bitvec-based symmetric adjacency matrix for undirected graphs.
 ///
-/// Uses a packed triangular matrix representation where only the upper triangle
-/// is stored, providing memory-efficient storage for undirected graphs.
+/// Uses a packed triangular matrix representation for data storage, while the
+/// liveness bitvec is stored as a full matrix. This preserves memory savings
+/// for values while allowing O(1) liveness checks by row/col.
 /// Requires indices that can be converted to/from usize.
 pub struct SymmetricBitvecAdjacencyMatrix<I, V> {
     data: Vec<MaybeUninit<V>>,
@@ -28,11 +28,14 @@ where
     pub fn with_size(size: usize) -> Self {
         let capacity = size.next_power_of_two();
         let indexing = SymmetricMatrixIndexing::new(capacity);
-        let storage_size = indexing.storage_size();
-        let mut liveness = BitVec::with_capacity(storage_size);
-        liveness.resize(storage_size, false);
-        let mut data = Vec::with_capacity(storage_size);
-        data.resize_with(storage_size, MaybeUninit::uninit);
+        let data_storage_size = indexing.storage_size();
+        let full_storage_size = capacity
+            .checked_mul(capacity)
+            .expect("liveness matrix size overflow");
+        let mut liveness = BitVec::with_capacity(full_storage_size);
+        liveness.resize(full_storage_size, false);
+        let mut data = Vec::with_capacity(data_storage_size);
+        data.resize_with(data_storage_size, MaybeUninit::uninit);
         Self {
             data,
             liveness,
@@ -41,12 +44,28 @@ where
         }
     }
 
-    fn get_data_read(&self, index: usize) -> Option<V> {
-        self.liveness[index].then(|| self.unchecked_get_data_read(index))
+    fn liveness_index(&self, row: usize, col: usize) -> usize {
+        Self::liveness_index_for(self.indexing.size(), row, col)
     }
 
-    fn get_data_ref(&self, index: usize) -> Option<&V> {
-        self.liveness[index].then(|| self.unchecked_get_data_ref(index))
+    fn is_live(&self, row: usize, col: usize) -> bool {
+        let index = self.liveness_index(row, col);
+        self.liveness[index]
+    }
+
+    fn set_live(&mut self, row: usize, col: usize, live: bool) {
+        let index = self.liveness_index(row, col);
+        self.liveness.set(index, live);
+    }
+
+    fn get_data_read(&self, row: usize, col: usize, data_index: usize) -> Option<V> {
+        self.is_live(row, col)
+            .then(|| self.unchecked_get_data_read(data_index))
+    }
+
+    fn get_data_ref(&self, row: usize, col: usize, data_index: usize) -> Option<&V> {
+        self.is_live(row, col)
+            .then(|| self.unchecked_get_data_ref(data_index))
     }
 
     fn unchecked_get_data_read(&self, index: usize) -> V {
@@ -57,6 +76,14 @@ where
     fn unchecked_get_data_ref(&self, index: usize) -> &V {
         // SAFETY: Caller must ensure that the index is live.
         unsafe { self.data[index].assume_init_ref() }
+    }
+}
+
+impl<I, V> SymmetricBitvecAdjacencyMatrix<I, V> {
+    fn liveness_index_for(size: usize, row: usize, col: usize) -> usize {
+        debug_assert!(row < size, "liveness row out of bounds");
+        debug_assert!(col < size, "liveness col out of bounds");
+        row * size + col
     }
 }
 
@@ -83,27 +110,57 @@ where
         if self.indexing.index(i1, i2).is_none() {
             let required_size = (i2 + 1).next_power_of_two();
             if self.indexing.size() < required_size {
+                let old_size = self.indexing.size();
+                let old_liveness = std::mem::take(&mut self.liveness);
+
                 self.indexing = SymmetricMatrixIndexing::new(required_size);
-                let repr_size = self.indexing.storage_size();
-                self.liveness.resize(repr_size, false);
-                self.data.resize_with(repr_size, MaybeUninit::uninit);
+                let data_storage_size = self.indexing.storage_size();
+                let full_storage_size = required_size
+                    .checked_mul(required_size)
+                    .expect("liveness matrix size overflow");
+
+                let mut new_liveness = BitVec::with_capacity(full_storage_size);
+                new_liveness.resize(full_storage_size, false);
+                for row in 0..old_size {
+                    for col in 0..old_size {
+                        let old_index = Self::liveness_index_for(old_size, row, col);
+                        if old_liveness[old_index] {
+                            let new_index = Self::liveness_index_for(required_size, row, col);
+                            new_liveness.set(new_index, true);
+                        }
+                    }
+                }
+                self.liveness = new_liveness;
+                self.data
+                    .resize_with(data_storage_size, MaybeUninit::uninit);
             }
         }
         let index = self.indexing.unchecked_index(i1, i2);
-        let old_data = self.get_data_read(index);
-        self.liveness.set(index, true);
+        let old_data = self.get_data_read(i1, i2, index);
+        self.set_live(i1, i2, true);
+        if i1 != i2 {
+            self.set_live(i2, i1, true);
+        }
         self.data[index] = MaybeUninit::new(data);
         old_data
     }
 
     fn get(&self, row: I, col: I) -> Option<&V> {
-        self.get_data_ref(self.indexing.index(row.into(), col.into())?)
+        let row = row.into();
+        let col = col.into();
+        let index = self.indexing.index(row, col)?;
+        self.get_data_ref(row, col, index)
     }
 
     fn remove(&mut self, row: I, col: I) -> Option<V> {
-        let index = self.indexing.index(row.into(), col.into())?;
-        let was_live = self.liveness[index];
-        self.liveness.set(index, false);
+        let row = row.into();
+        let col = col.into();
+        let index = self.indexing.index(row, col)?;
+        let was_live = self.is_live(row, col);
+        self.set_live(row, col, false);
+        if row != col {
+            self.set_live(col, row, false);
+        }
         was_live.then(|| self.unchecked_get_data_read(index))
     }
 
@@ -111,9 +168,13 @@ where
     where
         V: 'a,
     {
-        self.liveness.iter_ones().map(|index| {
+        (0..self.indexing.storage_size()).filter_map(move |index| {
             let (i1, i2) = self.indexing.coordinates(index).into();
-            (i1.into(), i2.into(), self.unchecked_get_data_ref(index))
+            if self.is_live(i1, i2) {
+                Some((i1.into(), i2.into(), self.unchecked_get_data_ref(index)))
+            } else {
+                None
+            }
         })
     }
 
@@ -124,45 +185,35 @@ where
             indexing,
             ..
         } = self;
-        liveness
-            .into_iter()
-            .enumerate()
-            .filter_map(move |(index, bit)| {
-                if bit {
-                    let (i1, i2) = indexing.coordinates(index).into();
-                    Some((i1.into(), i2.into(), unsafe {
-                        data[index].assume_init_read()
-                    }))
-                } else {
-                    None
-                }
-            })
-    }
-
-    fn entries_in_row<'a>(&'a self, row: I) -> impl Iterator<Item = (I, &'a V)>
-    where
-        V: 'a,
-    {
-        let row_idx = row.into();
-        self.indexing.row(row_idx).filter_map(move |index| {
-            if self.liveness[index] {
-                let (i, j) = self.indexing.coordinates(index).into();
-                debug_assert!(i <= row_idx);
-                debug_assert!(i == row_idx || j == row_idx);
-                Some((
-                    if i == row_idx { j.into() } else { i.into() },
-                    self.unchecked_get_data_ref(index),
-                ))
+        let size = indexing.size();
+        (0..indexing.storage_size()).filter_map(move |index| {
+            let (i1, i2) = indexing.coordinates(index).into();
+            let live_index = Self::liveness_index_for(size, i1, i2);
+            if liveness[live_index] {
+                Some((i1.into(), i2.into(), unsafe {
+                    data[index].assume_init_read()
+                }))
             } else {
                 None
             }
         })
     }
 
-    fn entries_in_col<'a>(&'a self, col: I) -> impl Iterator<Item = (I, &'a V)>
-    where
-        V: 'a,
-    {
+    fn entries_in_row(&self, row: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
+        let row_idx = row.into();
+        let size = self.indexing.size();
+        let row_start = Self::liveness_index_for(size, row_idx, 0);
+        let row_end = row_start + size;
+        self.liveness[row_start..row_end]
+            .iter_ones()
+            .filter_map(move |col| {
+                let index = self.indexing.index(row_idx, col)?;
+                self.get_data_ref(row_idx, col, index)
+                    .map(|data| (col.into(), data))
+            })
+    }
+
+    fn entries_in_col(&self, col: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
         self.entries_in_row(col)
     }
 
@@ -174,21 +225,29 @@ where
         let current_capacity = self.indexing.size();
         if current_capacity < capacity {
             let new_indexing = SymmetricMatrixIndexing::new(capacity);
-            let new_storage_size = new_indexing.storage_size();
+            let new_data_storage_size = new_indexing.storage_size();
+            let new_full_storage_size = capacity
+                .checked_mul(capacity)
+                .expect("liveness matrix size overflow");
 
-            let mut new_liveness = BitVec::with_capacity(new_storage_size);
-            new_liveness.resize(new_storage_size, false);
+            let mut new_liveness = BitVec::with_capacity(new_full_storage_size);
+            new_liveness.resize(new_full_storage_size, false);
 
-            let mut new_data = Vec::with_capacity(new_storage_size);
-            new_data.resize_with(new_storage_size, MaybeUninit::uninit);
+            let mut new_data = Vec::with_capacity(new_data_storage_size);
+            new_data.resize_with(new_data_storage_size, MaybeUninit::uninit);
 
             // Copy existing data to the new storage
             for row in 0..current_capacity {
                 for col in 0..=row {
                     if let Some(old_index) = self.indexing.index(row, col) {
-                        if self.liveness[old_index] {
+                        if self.is_live(row, col) {
                             if let Some(new_index) = new_indexing.index(row, col) {
-                                new_liveness.set(new_index, true);
+                                let idx1 = Self::liveness_index_for(capacity, row, col);
+                                new_liveness.set(idx1, true);
+                                if row != col {
+                                    let idx2 = Self::liveness_index_for(capacity, col, row);
+                                    new_liveness.set(idx2, true);
+                                }
                                 // SAFETY: old_index is live, so data at that index is initialized
                                 new_data[new_index] = MaybeUninit::new(unsafe {
                                     self.data[old_index].assume_init_read()
@@ -224,8 +283,8 @@ where
                     if j > 0 && j % 5 == 0 {
                         write!(f, " ")?;
                     }
-                    let index = triangular(i) + j;
-                    if self.liveness[index] {
+                    let live_index = Self::liveness_index_for(self.indexing.size(), i, j);
+                    if self.liveness[live_index] {
                         write!(f, "1")?;
                     } else {
                         write!(f, "0")?;
@@ -241,8 +300,8 @@ where
                     if i >= 10 {
                         write!(f, "...")?;
                     }
-                    let index = triangular(i) + j;
-                    if self.liveness[index] {
+                    let live_index = Self::liveness_index_for(self.indexing.size(), i, j);
+                    if self.liveness[live_index] {
                         write!(f, "1")?;
                     } else {
                         write!(f, "0")?;
@@ -258,6 +317,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::triangular::triangular;
 
     #[test]
     fn test_insert_and_get() {
@@ -455,5 +515,20 @@ mod tests {
         }
 
         assert_eq!(matrix.iter().count(), 0);
+    }
+
+    #[test]
+    fn test_reserve_storage_size() {
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
+        let capacity = 7;
+
+        matrix.reserve(capacity);
+
+        let expected_data_storage = triangular(capacity);
+        let expected_liveness_storage = capacity * capacity;
+
+        assert_eq!(matrix.indexing.size(), capacity);
+        assert_eq!(matrix.data.len(), expected_data_storage);
+        assert_eq!(matrix.liveness.len(), expected_liveness_storage);
     }
 }

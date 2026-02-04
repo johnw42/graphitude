@@ -169,10 +169,7 @@ where
             })
     }
 
-    fn entries_in_row<'a>(&'a self, row: I) -> impl Iterator<Item = (I, &'a V)>
-    where
-        V: 'a,
-    {
+    fn entries_in_row(&self, row: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
         let row_start = self.index(row, 0.into()).expect("Invalid row index");
         let row_end = row_start + self.size;
         self.matrix[row_start..row_end]
@@ -180,10 +177,7 @@ where
             .map(move |index| (index.into(), self.unchecked_get_data_ref(row_start + index)))
     }
 
-    fn entries_in_col<'a>(&'a self, col: I) -> impl Iterator<Item = (I, &'a V)>
-    where
-        V: 'a,
-    {
+    fn entries_in_col(&self, col: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
         (0..self.size).filter_map(move |target_row| {
             self.get(target_row.into(), col)
                 .map(|data| (target_row.into(), data))

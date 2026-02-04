@@ -76,10 +76,7 @@ where
         })
     }
 
-    fn entries_in_row<'a>(&'a self, row: I) -> impl Iterator<Item = (I, &'a V)>
-    where
-        V: 'a,
-    {
+    fn entries_in_row(&self, row: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
         let forward_entries = self
             .entries
             .get(&row)
@@ -101,10 +98,7 @@ where
         forward_entries.chain(backward_entries)
     }
 
-    fn entries_in_col<'a>(&'a self, col: I) -> impl Iterator<Item = (I, &'a V)>
-    where
-        V: 'a,
-    {
+        fn entries_in_col(&self, col: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
         self.entries_in_row(col)
     }
 
