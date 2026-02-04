@@ -3,15 +3,15 @@ use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 /// Node and edge ID types for adjacency graphs.
 pub use self::ids::{EdgeId, NodeId};
 use crate::{
-    AdjacencyMatrix, Directed, Graph, GraphMut, SingleEdge,
+    AdjacencyMatrix,
     adjacency_matrix::{
         AdjacencyMatrixSelector, CompactionCount as _, HashStorage, SelectMatrix, Storage,
     },
     debug::format_debug,
-    directedness::Directedness,
     graph_id::GraphId,
     id_vec::{IdVec, IdVecKey},
     pairs::Pair,
+    prelude::*,
 };
 
 mod ids;
@@ -282,7 +282,7 @@ where
     }
 }
 
-impl<N, E, D, S> GraphMut for AdjacencyGraph<N, E, D, S>
+impl<N, E, D, S> GraphNew for AdjacencyGraph<N, E, D, S>
 where
     D: Directedness,
     S: Storage,
@@ -297,7 +297,14 @@ where
             id: GraphId::new(),
         }
     }
+}
 
+impl<N, E, D, S> GraphMut for AdjacencyGraph<N, E, D, S>
+where
+    D: Directedness,
+    S: Storage,
+    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
+{
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
         let index = self.nodes.insert(data);
         self.node_id(index)
@@ -447,7 +454,7 @@ mod tests {
             #[test]
             #[should_panic]
             fn test_check_node_id_panics_after_compaction() {
-                let mut graph: $type = GraphMut::new();
+                let mut graph: $type = GraphNew::new();
                 let n1 = graph.add_node(1);
                 graph.compact();
                 graph.assert_valid_node_id(&n1);
@@ -457,7 +464,7 @@ mod tests {
             #[test]
             #[should_panic]
             fn test_check_edge_id_panics_after_compaction() {
-                let mut graph: $type = GraphMut::new();
+                let mut graph: $type = GraphNew::new();
                 let n1 = graph.add_node(1);
                 let n2 = graph.add_node(2);
                 let e1 = graph.add_edge(&n1, &n2, "edge".to_string());

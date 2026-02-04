@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    EdgeId, Graph,
+    prelude::*,
     util::{FormatDebugAs, FormatDebugWith},
 };
 
@@ -131,7 +131,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{linked_graph::LinkedGraph, *};
+    use crate::{linked_graph::LinkedGraph, prelude::*};
 
     #[cfg(feature = "bitvec")]
     use crate::adjacency_graph::AdjacencyGraph;
@@ -165,7 +165,7 @@ mod tests {
     #[cfg(feature = "bitvec")]
     #[test]
     fn test_format_debug_with_undirected() {
-        type UndirectedGraph = AdjacencyGraph<&'static str, i32, directedness::Undirected>;
+        type UndirectedGraph = AdjacencyGraph<&'static str, i32, Undirected>;
         let mut graph = UndirectedGraph::new();
         let n1 = graph.add_node("B");
         let n2 = graph.add_node("A");

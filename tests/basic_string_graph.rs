@@ -120,14 +120,16 @@ impl Graph for StringGraph {
     }
 }
 
-impl GraphMut for StringGraph {
+impl GraphNew for StringGraph {
     fn new() -> Self {
         Self {
             nodes: HashSet::new(),
             edges: SymmetricHashAdjacencyMatrix::new(),
         }
     }
+}
 
+impl GraphMut for StringGraph {
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
         let id = NodeId(data);
         self.nodes.insert(id.clone());

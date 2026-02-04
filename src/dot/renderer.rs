@@ -1,10 +1,6 @@
 use std::{collections::HashMap, error::Error, io};
 
-use crate::{
-    directedness::Directedness,
-    dot::attr::Attr,
-    graph::{EdgeId, Graph},
-};
+use crate::{dot::attr::Attr, prelude::*};
 
 /// Validates if a string is a valid DOT identifier.
 /// Returns true if the identifier is valid.

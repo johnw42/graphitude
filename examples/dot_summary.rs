@@ -96,7 +96,7 @@ mod inner {
 
     fn parse_or_exit<G, B>(data: &str, builder: &mut B, label: &str) -> G
     where
-        G: Graph + GraphMut,
+        G: GraphNew,
         B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
     {
         match parse_dot_into_graph(data, builder) {

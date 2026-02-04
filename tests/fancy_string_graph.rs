@@ -121,7 +121,7 @@ impl Graph for StringGraph {
     }
 }
 
-impl GraphMut for StringGraph {
+impl GraphNew for StringGraph {
     fn new() -> Self {
         StringGraph {
             nodes: HashMap::new(),
@@ -129,7 +129,9 @@ impl GraphMut for StringGraph {
             next_edge_id: 0,
         }
     }
+}
 
+impl GraphMut for StringGraph {
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
         let id = NodeId(self.next_node_id);
         self.next_node_id += 1;

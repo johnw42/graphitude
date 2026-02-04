@@ -15,7 +15,11 @@ mod inner {
 
     use clap::{Parser, ValueEnum};
     use graphitude::{
-        dot::renderer::DotGenerator, linked_graph::LinkedGraph, prelude::*,
+        adjacency_graph::AdjacencyGraph,
+        adjacency_matrix::{AdjacencyMatrixSelector, HashStorage},
+        dot::renderer::DotGenerator,
+        linked_graph::LinkedGraph,
+        prelude::*,
         tests::generate_large_graph_with,
     };
 
@@ -28,6 +32,20 @@ mod inner {
         String,
         /// No data (unit type)
         None,
+    }
+
+    /// Graph kind selector for CLI
+    #[derive(Debug, Clone, Copy, ValueEnum)]
+    enum GraphKind {
+        Directed,
+        Undirected,
+    }
+
+    /// Graph implementation selector for CLI
+    #[derive(Debug, Clone, Copy, ValueEnum)]
+    enum GraphImpl {
+        Linked,
+        Adjacency,
     }
 
     /// Actual data stored in graph nodes and edges
@@ -63,6 +81,14 @@ mod inner {
         #[arg(short, long, default_value = "LargeGraph")]
         graph_name: String,
 
+        /// Graph kind (directed or undirected)
+        #[arg(long, value_enum, default_value = "directed")]
+        graph_kind: GraphKind,
+
+        /// Graph implementation (linked or adjacency)
+        #[arg(long, value_enum, default_value = "linked")]
+        graph_impl: GraphImpl,
+
         /// Node data type
         #[arg(long, value_enum, default_value = "i32")]
         node_type: DataType,
@@ -76,16 +102,17 @@ mod inner {
         edge_prefix: String,
     }
 
-    /// Type alias for a large directed graph with Data enum for nodes and edges.
-    type LargeGraph = LinkedGraph<Data, Data, Directed>;
-
     /// DOT generator that uses a configurable graph name and has access to the graph.
-    struct ConfigurableGenerator<'a> {
+    struct ConfigurableGenerator<'a, G> {
         graph_name: String,
-        graph: &'a LargeGraph,
+        graph: &'a G,
     }
 
-    impl<'a> DotGenerator<LargeGraph> for ConfigurableGenerator<'a> {
+    impl<'a, G> DotGenerator<G> for ConfigurableGenerator<'a, G>
+    where
+        G: Graph,
+        G::EdgeData: std::fmt::Display,
+    {
         type Error = std::convert::Infallible;
 
         fn graph_name(&self) -> Result<String, Self::Error> {
@@ -94,7 +121,7 @@ mod inner {
 
         fn edge_attrs(
             &self,
-            edge_id: &<LargeGraph as Graph>::EdgeId,
+            edge_id: &<G as Graph>::EdgeId,
         ) -> Result<Vec<graphitude::dot::attr::Attr>, Self::Error> {
             use graphitude::dot::attr::Attr;
 
@@ -109,44 +136,145 @@ mod inner {
         }
     }
 
-    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        let args = Args::parse();
+    trait DotGraph {
+        fn num_nodes(&self) -> usize;
+        fn num_edges(&self) -> usize;
+        fn write_dot(
+            &self,
+            graph_name: &str,
+            writer: &mut dyn Write,
+        ) -> Result<(), Box<dyn std::error::Error>>;
+    }
 
-        eprintln!("Generating large graph...");
+    impl<D> DotGraph for LinkedGraph<Data, Data, D>
+    where
+        D: Directedness,
+    {
+        fn num_nodes(&self) -> usize {
+            Graph::num_nodes(self)
+        }
 
-        // Create closures based on selected node and edge types
-        let node_type = args.node_type;
-        let edge_type = args.edge_type;
-        let edge_prefix = args.edge_prefix.clone();
+        fn num_edges(&self) -> usize {
+            Graph::num_edges(self)
+        }
 
-        let graph: LargeGraph = generate_large_graph_with(
-            move |i| match node_type {
-                DataType::I32 => Data::I32(i as i32),
-                DataType::String => Data::String(format!("n{}", i)),
-                DataType::None => Data::None,
-            },
-            move |i| match edge_type {
-                DataType::I32 => Data::I32(i as i32),
-                DataType::String => Data::String(format!("{}{}", edge_prefix, i)),
-                DataType::None => Data::None,
-            },
-        );
+        fn write_dot(
+            &self,
+            graph_name: &str,
+            writer: &mut dyn Write,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            let generator = ConfigurableGenerator {
+                graph_name: graph_name.to_string(),
+                graph: self,
+            };
+            let mut buffer = Vec::new();
+            Graph::write_dot(self, &generator, &mut buffer)
+                .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
+            writer.write_all(&buffer)?;
+            Ok(())
+        }
+    }
 
+    impl<D> DotGraph for AdjacencyGraph<Data, Data, D, HashStorage>
+    where
+        D: Directedness,
+        (D::Symmetry, HashStorage): AdjacencyMatrixSelector<usize, Data>,
+    {
+        fn num_nodes(&self) -> usize {
+            Graph::num_nodes(self)
+        }
+
+        fn num_edges(&self) -> usize {
+            Graph::num_edges(self)
+        }
+
+        fn write_dot(
+            &self,
+            graph_name: &str,
+            writer: &mut dyn Write,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            let generator = ConfigurableGenerator {
+                graph_name: graph_name.to_string(),
+                graph: self,
+            };
+            let mut buffer = Vec::new();
+            Graph::write_dot(self, &generator, &mut buffer)
+                .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
+            writer.write_all(&buffer)?;
+            Ok(())
+        }
+    }
+
+    fn node_data_for(i: usize, node_type: DataType) -> Data {
+        match node_type {
+            DataType::I32 => Data::I32(i as i32),
+            DataType::String => Data::String(format!("n{}", i)),
+            DataType::None => Data::None,
+        }
+    }
+
+    fn edge_data_for(i: usize, edge_type: DataType, edge_prefix: &str) -> Data {
+        match edge_type {
+            DataType::I32 => Data::I32(i as i32),
+            DataType::String => Data::String(format!("{}{}", edge_prefix, i)),
+            DataType::None => Data::None,
+        }
+    }
+
+    fn build_graph(
+        graph_kind: GraphKind,
+        graph_impl: GraphImpl,
+        node_type: DataType,
+        edge_type: DataType,
+        edge_prefix: &str,
+    ) -> Box<dyn DotGraph> {
+        match (graph_kind, graph_impl) {
+            (GraphKind::Directed, GraphImpl::Linked) => {
+                let graph: LinkedGraph<Data, Data, Directed> = generate_large_graph_with(
+                    |i| node_data_for(i, node_type),
+                    |i| edge_data_for(i, edge_type, edge_prefix),
+                );
+                Box::new(graph)
+            }
+            (GraphKind::Undirected, GraphImpl::Linked) => {
+                let graph: LinkedGraph<Data, Data, Undirected> = generate_large_graph_with(
+                    |i| node_data_for(i, node_type),
+                    |i| edge_data_for(i, edge_type, edge_prefix),
+                );
+                Box::new(graph)
+            }
+            (GraphKind::Directed, GraphImpl::Adjacency) => {
+                let graph: AdjacencyGraph<Data, Data, Directed, HashStorage> =
+                    generate_large_graph_with(
+                        |i| node_data_for(i, node_type),
+                        |i| edge_data_for(i, edge_type, edge_prefix),
+                    );
+                Box::new(graph)
+            }
+            (GraphKind::Undirected, GraphImpl::Adjacency) => {
+                let graph: AdjacencyGraph<Data, Data, Undirected, HashStorage> =
+                    generate_large_graph_with(
+                        |i| node_data_for(i, node_type),
+                        |i| edge_data_for(i, edge_type, edge_prefix),
+                    );
+                Box::new(graph)
+            }
+        }
+    }
+
+    fn write_graph_output(
+        graph: &dyn DotGraph,
+        args: &Args,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("Graph generated:");
         eprintln!("  Nodes: {}", graph.num_nodes());
         eprintln!("  Edges: {}", graph.num_edges());
 
-        let generator = ConfigurableGenerator {
-            graph_name: args.graph_name.clone(),
-            graph: &graph,
-        };
-
-        // Write to file or stdout
         match args.output {
             Some(ref path) => {
                 eprintln!("\nWriting to {}...", path);
                 let mut file = File::create(path)?;
-                graph.write_dot(&generator, &mut file)?;
+                graph.write_dot(&args.graph_name, &mut file)?;
                 eprintln!("DOT file written successfully!");
                 eprintln!("  Graph name: {}", args.graph_name);
                 eprintln!(
@@ -159,13 +287,31 @@ mod inner {
                 eprintln!("\nWriting to stdout...");
                 let stdout = io::stdout();
                 let mut handle = stdout.lock();
-                graph.write_dot(&generator, &mut handle)?;
+                graph.write_dot(&args.graph_name, &mut handle)?;
                 handle.flush()?;
                 eprintln!("\nDOT output written to stdout");
                 eprintln!("  Graph name: {}", args.graph_name);
                 eprintln!("\nThe graph is too large to visualize with dot; try Graphi instead.");
             }
         }
+
+        Ok(())
+    }
+
+    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+        let args = Args::parse();
+
+        eprintln!("Generating large graph...");
+
+        // Create closures based on selected node and edge types
+        let graph = build_graph(
+            args.graph_kind,
+            args.graph_impl,
+            args.node_type,
+            args.edge_type,
+            &args.edge_prefix,
+        );
+        write_graph_output(graph.as_ref(), &args)?;
 
         Ok(())
     }

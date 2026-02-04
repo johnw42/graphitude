@@ -1,6 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use crate::{Directedness, EdgeMultiplicity, Graph, GraphMut, LinkedGraph};
+use crate::{LinkedGraph, prelude::*};
 
 /// A view of a graph with transformed node and edge data, suitable for debugging.
 ///

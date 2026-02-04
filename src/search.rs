@@ -1,6 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 
-use super::{EdgeId, Graph};
+use super::prelude::*;
 
 const DEFAULT_HASH_SET_CAPACITY: usize = 64;
 

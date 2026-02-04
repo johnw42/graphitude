@@ -1,9 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
-use crate::{
-    Directed, Graph, GraphMut, MultipleEdges, debug::format_debug, directedness::Directedness,
-    graph_id::GraphId, pairs::Pair, util::OtherValue,
-};
+use crate::{debug::format_debug, graph_id::GraphId, pairs::Pair, prelude::*, util::OtherValue};
 
 mod edge_id;
 mod node_id;
@@ -276,7 +273,7 @@ where
     }
 }
 
-impl<N: Debug, E, D> GraphMut for LinkedGraph<N, E, D>
+impl<N: Debug, E, D> GraphNew for LinkedGraph<N, E, D>
 where
     D: Directedness,
 {
@@ -287,7 +284,12 @@ where
             directedness: PhantomData,
         }
     }
+}
 
+impl<N: Debug, E, D> GraphMut for LinkedGraph<N, E, D>
+where
+    D: Directedness,
+{
     fn clear(&mut self) {
         self.nodes.clear();
     }

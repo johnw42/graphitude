@@ -1,3 +1,4 @@
-pub use crate::directedness::{Directed, Directedness, Undirected};
-pub use crate::edge_multiplicity::{EdgeMultiplicity, MultipleEdges, SingleEdge};
-pub use crate::graph::{EdgeId, Graph, GraphDirected, GraphMut, GraphUndirected, NodeId};
+pub use crate::{
+    Directed, Directedness, EdgeId, EdgeMultiplicity, Graph, GraphDirected, GraphMut, GraphNew,
+    GraphUndirected, MultipleEdges, NodeId, SingleEdge, Undirected,
+};

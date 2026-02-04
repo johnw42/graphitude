@@ -200,7 +200,7 @@ where
 /// * `new_edge_data` - A closure that takes an index and returns edge data
 pub fn generate_large_graph_with<G, FN, FE>(mut new_node_data: FN, mut new_edge_data: FE) -> G
 where
-    G: GraphMut,
+    G: GraphMut + GraphNew,
     FN: FnMut(usize) -> G::NodeData,
     FE: FnMut(usize) -> G::EdgeData,
 {
@@ -331,6 +331,27 @@ where
         }
     }
 
+    // Add reciprocal edge loops between pairs of nodes
+    for i in 0..50 {
+        let idx1 = (i * 73 + 7) % all_nodes.len();
+        let idx2 = (i * 79 + 11) % all_nodes.len();
+        if idx1 == idx2 {
+            continue;
+        }
+        graph.add_edge(
+            &all_nodes[idx1],
+            &all_nodes[idx2],
+            new_edge_data(edge_counter),
+        );
+        edge_counter += 1;
+        graph.add_edge(
+            &all_nodes[idx2],
+            &all_nodes[idx1],
+            new_edge_data(edge_counter),
+        );
+        edge_counter += 1;
+    }
+
     // Add some self loops
     for i in 0..50 {
         let idx = (i * 71) % all_nodes.len();
@@ -352,7 +373,7 @@ where
 #[doc(hidden)]
 pub fn generate_large_graph<G>() -> G
 where
-    G: GraphMut + TestDataBuilder<Graph = G>,
+    G: GraphNew + TestDataBuilder<Graph = G>,
 {
     generate_large_graph_with(|i| G::new_node_data(i), |i| G::new_edge_data(i))
 }
@@ -503,33 +524,19 @@ macro_rules! graph_tests {
                 "Expected 410 nodes: 50 + 80 + 150 + 20 + 100 + 10"
             );
 
-            // The graph should have a significant number of edges
-            // Theoretical maximum (if no duplicates/replacements):
-            // - Cluster 1: ~735 edges (50 nodes, 60% of 1225 possible)
-            // - Cluster 2: ~960 edges (80 nodes, 30% of 3160 possible)
-            // - Cluster 3: ~894 edges (150 nodes, 8% of 11175 possible)
-            // - Hubs: ~20 * 410 * 4/7 ≈ 4686 edges (many duplicates/overlaps expected)
-            // - Scattered: ~100 * 2 = 200 edges (1-3 per node)
-            // - Bridges: 30 edges (3 edges per bridge)
-            // - Long-range: ~200 edges (some may be duplicates)
-            // - Self-loops: 50 edges
-            // Total theoretical max: ~7755 edges, but duplicates will reduce this
-
+            // The exact edge counts were verified via large_graph_to_dot + dot_summary.
+            const DIRECTED_EDGES: usize = 6454;
+            const UNDIRECTED_EDGES: usize = 6454;
             let num_edges = graph.num_edges();
-
-            // For implementations that replace duplicate edges, expect fewer edges
-            // For implementations that allow parallel edges, expect more edges
-            // Minimum: at least 2000 edges (conservative lower bound)
-            // Maximum: at most 10000 edges (very liberal upper bound)
-            assert!(
-                num_edges >= 2000,
-                "Expected at least 2000 edges, got {}",
-                num_edges
-            );
-            assert!(
-                num_edges <= 10000,
-                "Expected at most 10000 edges, got {}",
-                num_edges
+            let expected_edges = if graph.is_directed() {
+                DIRECTED_EDGES
+            } else {
+                UNDIRECTED_EDGES
+            };
+            assert_eq!(
+                num_edges, expected_edges,
+                "Expected {} edges, got {}",
+                expected_edges, num_edges
             );
 
             // Verify all nodes are valid
@@ -1205,7 +1212,7 @@ macro_rules! graph_tests {
 
         #[test]
         fn test_compaction() {
-            let mut graph: $type = GraphMut::new();
+            let mut graph: $type = $crate::GraphNew::new();
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
             let nd1 = builder.new_node_data();
             let nd2 = builder.new_node_data();

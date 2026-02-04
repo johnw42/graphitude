@@ -161,13 +161,8 @@ mod tests {
     macro_rules! tests {
         ($mod: ident,$type: ty) => {
             mod $mod {
-                #[allow(unused_imports)]
-                use crate::Directed;
-                use crate::Graph as _;
-                use crate::GraphMut as _;
-                #[allow(unused_imports)]
-                use crate::Undirected;
                 use crate::adjacency_graph::AdjacencyGraph;
+                use $crate::prelude::*;
 
                 #[test]
                 fn test_new_path() {

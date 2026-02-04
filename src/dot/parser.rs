@@ -4,7 +4,7 @@ use dot_parser::ast::{
     EdgeStmt, Graph as DotGraph, ID, NodeID, NodeStmt, Stmt, StmtList, Subgraph, either::Either,
 };
 
-use crate::{Graph, GraphMut, dot::attr::Attr};
+use crate::{dot::attr::Attr, prelude::*};
 
 /// Recursively extract all node IDs from a node/subgraph specification.
 /// Returns a vector of node ID strings.
@@ -131,7 +131,7 @@ fn parse_edge_attrs(edge_stmt: &EdgeStmt<(ID<'_>, ID<'_>)>) -> Result<Vec<Attr>,
 /// Returns `DotParseError::NodeNotFound` if an edge references a non-existent node.
 pub fn parse_dot_into_graph<G, B>(data: &str, builder: &mut B) -> Result<G, ParseError<B>>
 where
-    G: Graph + GraphMut,
+    G: Graph + GraphMut + GraphNew,
     B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
 {
     let dot_ast: DotGraph<_> = DotGraph::try_from(data)
