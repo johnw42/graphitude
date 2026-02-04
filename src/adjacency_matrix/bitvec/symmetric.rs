@@ -18,6 +18,7 @@ pub struct SymmetricBitvecAdjacencyMatrix<I, V> {
     data: Vec<MaybeUninit<V>>,
     liveness: BitVec,
     indexing: SymmetricMatrixIndexing,
+    entry_count: usize,
     index_type: PhantomData<I>,
 }
 
@@ -76,6 +77,7 @@ where
             data,
             liveness,
             indexing,
+            entry_count: 0,
             index_type: PhantomData,
         }
     }
@@ -141,6 +143,7 @@ where
             liveness: BitVec::new(),
             data: Vec::new(),
             indexing: SymmetricMatrixIndexing::new(0),
+            entry_count: 0,
             index_type: PhantomData,
         }
     }
@@ -182,6 +185,9 @@ where
             self.set_live(i2, i1, true);
         }
         self.data[index] = MaybeUninit::new(data);
+        if old_data.is_none() {
+            self.entry_count += 1;
+        }
         old_data
     }
 
@@ -201,7 +207,12 @@ where
         if row != col {
             self.set_live(col, row, false);
         }
-        was_live.then(|| self.unchecked_get_data_read(index))
+        if was_live {
+            self.entry_count -= 1;
+            Some(self.unchecked_get_data_read(index))
+        } else {
+            None
+        }
     }
 
     fn iter<'a>(&'a self) -> impl Iterator<Item = (I, I, &'a V)>
@@ -263,6 +274,11 @@ where
 
     fn clear(&mut self) {
         self.liveness.fill(false);
+        self.entry_count = 0;
+    }
+
+    fn len(&self) -> usize {
+        self.entry_count
     }
 
     fn reserve(&mut self, capacity: usize) {
@@ -429,6 +445,28 @@ mod tests {
     fn test_remove_nonexistent() {
         let mut matrix = SymmetricBitvecAdjacencyMatrix::<_, ()>::new();
         assert_eq!(matrix.remove(0, 1), None);
+    }
+
+    #[test]
+    fn test_len() {
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+        assert_eq!(matrix.len(), 0);
+        matrix.insert(0, 1, "edge");
+        assert_eq!(matrix.get(0, 1), Some(&"edge"));
+        assert_eq!(matrix.get(1, 0), Some(&"edge"));
+        assert_eq!(matrix.len(), 1);
+        matrix.insert(1, 0, "edge");
+        assert_eq!(matrix.get(0, 1), Some(&"edge"));
+        assert_eq!(matrix.get(1, 0), Some(&"edge"));
+        assert_eq!(matrix.len(), 1);
+        matrix.insert(2, 2, "loop");
+        assert_eq!(matrix.len(), 2);
+        matrix.remove(1, 0);
+        assert_eq!(matrix.get(0, 1), None);
+        assert_eq!(matrix.get(1, 0), None);
+        assert_eq!(matrix.len(), 1);
+        matrix.clear();
+        assert_eq!(matrix.len(), 0);
     }
 
     #[test]

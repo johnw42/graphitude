@@ -9,6 +9,7 @@ pub fn triangular(n: usize) -> usize {
 /// Inverse of the triangular number function.
 ///
 /// Returns the largest n such that `triangular(n) <= k`.
+#[allow(dead_code)]
 pub fn triangular_inv_floor(k: usize) -> usize {
     // n(n + 1) / 2 = k
     // n(n + 1) = 2k

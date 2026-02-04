@@ -14,6 +14,7 @@ pub struct AsymmetricBitvecAdjacencyMatrix<I, V> {
     matrix: BitVec,
     size: usize,
     log2_size: u32,
+    entry_count: usize,
     index_type: PhantomData<I>,
 }
 
@@ -32,6 +33,7 @@ where
             matrix,
             size: capacity,
             log2_size: capacity.trailing_zeros(),
+            entry_count: 0,
             index_type: PhantomData,
         }
     }
@@ -96,6 +98,7 @@ where
             size: 0,
             log2_size: 0,
             data: Vec::new(),
+            entry_count: 0,
             index_type: PhantomData,
         }
     }
@@ -117,6 +120,7 @@ where
                         std::mem::swap(old_datum, &mut new_self.data[new_start + old_col]);
                     }
                 }
+                new_self.entry_count = self.entry_count;
                 *self = new_self;
             }
         }
@@ -124,6 +128,9 @@ where
         let old_data = self.get_data_read(index);
         self.matrix.set(index, true);
         self.data[index] = MaybeUninit::new(data);
+        if old_data.is_none() {
+            self.entry_count += 1;
+        }
         old_data
     }
 
@@ -135,7 +142,12 @@ where
         let index = self.index(row, col)?;
         let was_live = self.is_live(index);
         self.matrix.set(index, false);
-        was_live.then(|| self.unchecked_get_data_read(index))
+        if was_live {
+            self.entry_count -= 1;
+            Some(self.unchecked_get_data_read(index))
+        } else {
+            None
+        }
     }
 
     fn iter<'a>(&'a self) -> impl Iterator<Item = (I, I, &'a V)>
@@ -186,6 +198,11 @@ where
 
     fn clear(&mut self) {
         self.matrix.fill(false);
+        self.entry_count = 0;
+    }
+
+    fn len(&self) -> usize {
+        self.entry_count
     }
 
     fn reserve(&mut self, capacity: usize) {
@@ -203,6 +220,7 @@ where
                     std::mem::swap(old_datum, &mut new_self.data[new_start + old_col]);
                 }
             }
+            new_self.entry_count = self.entry_count;
             *self = new_self;
         }
     }
@@ -294,6 +312,22 @@ mod tests {
                 .iter()
                 .any(|(row, col, val)| *row == 1 && *col == 0 && *val == "C")
         );
+    }
+
+    #[test]
+    fn test_len() {
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+        assert_eq!(matrix.len(), 0);
+        matrix.insert(0, 1, ());
+        assert_eq!(matrix.len(), 1);
+        matrix.insert(0, 1, ());
+        assert_eq!(matrix.len(), 1);
+        matrix.insert(2, 3, ());
+        assert_eq!(matrix.len(), 2);
+        matrix.remove(0, 1);
+        assert_eq!(matrix.len(), 1);
+        matrix.clear();
+        assert_eq!(matrix.len(), 0);
     }
 
     #[test]

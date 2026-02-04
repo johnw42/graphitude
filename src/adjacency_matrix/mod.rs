@@ -75,6 +75,11 @@ where
     /// flexible implementations.
     fn into_iter(self) -> impl Iterator<Item = (Self::Index, Self::Index, Self::Value)>;
 
+    /// Returns the number of entries in the adjacency matrix.
+    fn len(&self) -> usize {
+        self.iter().count()
+    }
+
     /// For internal use.  Gets the canonical indices for the given indices.  This will return a pair
     /// `(i1, i2)` such that for symmetric matrices, `i1 <= i2`.
     #[doc(hidden)]

@@ -178,6 +178,10 @@ where
         })
     }
 
+    fn num_edges(&self) -> usize {
+        self.adjacency.len()
+    }
+
     fn edges_between<'a, 'b: 'a>(
         &'a self,
         from: &'b Self::NodeId,

@@ -13,6 +13,7 @@ use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, HashStorage};
 pub struct AsymmetricHashAdjacencyMatrix<I, V> {
     edges: HashMap<I, HashMap<I, V>>,
     back_edges: HashMap<I, HashSet<I>>,
+    entry_count: usize,
 }
 
 impl<I, V> AdjacencyMatrix for AsymmetricHashAdjacencyMatrix<I, V>
@@ -28,6 +29,7 @@ where
         AsymmetricHashAdjacencyMatrix {
             edges: HashMap::new(),
             back_edges: HashMap::new(),
+            entry_count: 0,
         }
     }
 
@@ -36,7 +38,11 @@ where
             .entry(col.clone())
             .or_default()
             .insert(row.clone());
-        self.edges.entry(row).or_default().insert(col, data)
+        let old_data = self.edges.entry(row).or_default().insert(col, data);
+        if old_data.is_none() {
+            self.entry_count += 1;
+        }
+        old_data
     }
 
     fn get(&self, row: I, col: I) -> Option<&V> {
@@ -50,6 +56,7 @@ where
                     self.back_edges.remove(&col);
                 }
             }
+            self.entry_count -= 1;
             Some(value)
         } else {
             None
@@ -99,6 +106,11 @@ where
     fn clear(&mut self) {
         self.edges.clear();
         self.back_edges.clear();
+        self.entry_count = 0;
+    }
+
+    fn len(&self) -> usize {
+        self.entry_count
     }
 }
 
@@ -164,5 +176,21 @@ mod tests {
         assert!(entries.iter().any(|(row, _)| *row == 0));
         assert!(entries.iter().any(|(row, _)| *row == 1));
         assert!(entries.iter().any(|(row, _)| *row == 2));
+    }
+
+    #[test]
+    fn test_len() {
+        let mut matrix = AsymmetricHashAdjacencyMatrix::new();
+        assert_eq!(matrix.len(), 0);
+        matrix.insert(0, 1, "edge");
+        assert_eq!(matrix.len(), 1);
+        matrix.insert(0, 1, "edge");
+        assert_eq!(matrix.len(), 1);
+        matrix.insert(1, 0, "edge");
+        assert_eq!(matrix.len(), 2);
+        matrix.remove(0, 1);
+        assert_eq!(matrix.len(), 1);
+        matrix.clear();
+        assert_eq!(matrix.len(), 0);
     }
 }

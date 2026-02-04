@@ -58,6 +58,7 @@ impl SymmetricMatrixIndexing {
 
     /// Returns the `(column, row)` coordinates corresponding to the given
     /// index, where `column <= row`.
+    #[allow(dead_code)]
     pub fn coordinates(&self, index: usize) -> SortedPair<usize> {
         let row = triangular_inv_floor(index);
         let col = index - triangular(row);
@@ -65,6 +66,7 @@ impl SymmetricMatrixIndexing {
     }
 
     /// Returns an iterator over the indices in row `i` of the symmetric matrix.
+    #[allow(dead_code)]
     pub fn row(&self, i: usize) -> impl Iterator<Item = usize> + '_ {
         let (range, iter) = self.row_with_range(i);
         range.chain(iter)
@@ -72,6 +74,7 @@ impl SymmetricMatrixIndexing {
 
     /// Returns a tuple containing the range of indices for row `i` and an
     /// iterator over the remaining indices in that row.
+    #[allow(dead_code)]
     pub fn row_with_range(&self, i: usize) -> (Range<usize>, impl Iterator<Item = usize> + '_) {
         let start = self.index(i, 0).unwrap();
         let end = self.index(i, i).unwrap();

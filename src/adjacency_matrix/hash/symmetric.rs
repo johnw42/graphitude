@@ -21,6 +21,7 @@ where
     entries: HashMap<I, HashMap<I, V>>,
     // Invariant: for any (col, row) in reverse_entries, col >= row, and entries contains (row, col).
     reverse_entries: HashMap<I, HashSet<I>>,
+    entry_count: usize,
 }
 
 impl<I, V> AdjacencyMatrix for SymmetricHashAdjacencyMatrix<I, V>
@@ -36,6 +37,7 @@ where
         Self {
             entries: HashMap::new(),
             reverse_entries: HashMap::new(),
+            entry_count: 0,
         }
     }
 
@@ -45,7 +47,11 @@ where
             .entry(i2.clone())
             .or_default()
             .insert(i1.clone());
-        self.entries.entry(i1).or_default().insert(i2, data)
+        let old_data = self.entries.entry(i1).or_default().insert(i2, data);
+        if old_data.is_none() {
+            self.entry_count += 1;
+        }
+        old_data
     }
 
     fn get(&self, row: I, col: I) -> Option<&V> {
@@ -55,7 +61,12 @@ where
 
     fn remove(&mut self, row: I, col: I) -> Option<V> {
         let (i1, i2) = sort_pair(row, col);
-        self.entries.get_mut(&i1).and_then(|m| m.remove(&i2))
+        if let Some(value) = self.entries.get_mut(&i1).and_then(|m| m.remove(&i2)) {
+            self.entry_count -= 1;
+            Some(value)
+        } else {
+            None
+        }
     }
 
     fn iter<'a>(&'a self) -> impl Iterator<Item = (I, I, &'a V)>
@@ -98,12 +109,18 @@ where
         forward_entries.chain(backward_entries)
     }
 
-        fn entries_in_col(&self, col: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
+    fn entries_in_col(&self, col: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
         self.entries_in_row(col)
     }
 
     fn clear(&mut self) {
         self.entries.clear();
+        self.reverse_entries.clear();
+        self.entry_count = 0;
+    }
+
+    fn len(&self) -> usize {
+        self.entry_count
     }
 }
 
@@ -182,5 +199,27 @@ mod tests {
         matrix.insert(2, 0, "b");
         let entries: Vec<_> = matrix.entries_in_col(0).collect();
         assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn test_len() {
+        let mut matrix = SymmetricHashAdjacencyMatrix::new();
+        assert_eq!(matrix.len(), 0);
+        matrix.insert(0, 1, "edge");
+        assert_eq!(matrix.get(0, 1), Some(&"edge"));
+        assert_eq!(matrix.get(1, 0), Some(&"edge"));
+        assert_eq!(matrix.len(), 1);
+        matrix.insert(1, 0, "edge");
+        assert_eq!(matrix.get(0, 1), Some(&"edge"));
+        assert_eq!(matrix.get(1, 0), Some(&"edge"));
+        assert_eq!(matrix.len(), 1);
+        matrix.insert(2, 2, "loop");
+        assert_eq!(matrix.len(), 2);
+        matrix.remove(1, 0);
+        assert_eq!(matrix.get(0, 1), None);
+        assert_eq!(matrix.get(1, 0), None);
+        assert_eq!(matrix.len(), 1);
+        matrix.clear();
+        assert_eq!(matrix.len(), 0);
     }
 }
