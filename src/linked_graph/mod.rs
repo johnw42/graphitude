@@ -177,6 +177,49 @@ where
         }
     }
 
+    /// Gets an iterator over the edges between two nodes.
+    fn edges_between<'a, 'b: 'a>(
+        &'a self,
+        from: &'b Self::NodeId,
+        into: &'b Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+        let from = from.clone();
+        let into = into.clone();
+        self.node(from.clone())
+            .edges_out
+            .iter()
+            .filter_map(move |edge| {
+                let (edge_source, edge_target) = edge.ends.clone().into();
+                let matches = if D::is_directed() {
+                    edge_source == from && edge_target == into
+                } else {
+                    (edge_source == from && edge_target == into)
+                        || (edge_source == into && edge_target == from)
+                };
+                matches.then(|| self.edge_id(edge))
+            })
+    }
+
+    /// Checks if there is at least one edge from one node to another.
+    fn has_edge(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
+        let from = from.clone();
+        let into = into.clone();
+        self.node(from.clone()).edges_out.iter().any(|edge| {
+            let (edge_source, edge_target) = edge.ends.clone().into();
+            if D::is_directed() {
+                edge_source == from && edge_target == into
+            } else {
+                (edge_source == from && edge_target == into)
+                    || (edge_source == into && edge_target == from)
+            }
+        })
+    }
+
+    /// Checks if there is at least one edge between two nodes.
+    fn has_edge_between(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
+        self.has_edge(from, into)
+    }
+
     fn num_edges_into(&self, into: &Self::NodeId) -> usize {
         if D::is_directed() {
             self.node(into.clone()).edges_in.len()

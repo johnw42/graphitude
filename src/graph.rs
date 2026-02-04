@@ -130,8 +130,19 @@ pub trait Graph: Sized {
         Self::Directedness::is_directed()
     }
 
+    /// Returns true if the graph allows parallel edges between the same pair of nodes.
     fn allows_parallel_edges(&self) -> bool {
         Self::EdgeMultiplicity::allows_parallel_edges()
+    }
+
+    /// Checks if the graph is empty (has no nodes or edges).
+    fn is_empty(&self) -> bool {
+        if self.node_ids().next().is_none() {
+            debug_assert!(self.edge_ids().next().is_none());
+            true
+        } else {
+            false
+        }
     }
 
     /// Creates a new graph view in which node and edge data are hidden.
@@ -493,6 +504,14 @@ pub trait Graph: Sized {
         }
 
         result
+    }
+
+    /// Returns true if the graph implementation is known to be very slow for
+    /// large graphs (e.g., due to using a dense adjacency matrix).  This is mainly
+    /// intended to be used to skip certain tests that would take an unreasonable
+    /// amount of time to complete.
+    fn is_very_slow(&self) -> bool {
+        false
     }
 }
 

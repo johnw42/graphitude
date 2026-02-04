@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{Graph, GraphMut};
+use crate::prelude::*;
 
 /// State tracker for generating sequential test data.
 ///
@@ -240,6 +240,67 @@ where
     generate_large_graph_with(|i| G::new_node_data(i), |i| G::new_edge_data(i))
 }
 
+/// Checks the internal consistency of a graph.
+#[doc(hidden)]
+pub fn check_graph_consistency<G: Graph>(graph: &G) {
+    if graph.is_very_slow() {
+        eprintln!("Skipping consistency check for very slow graph implementation.");
+        return;
+    }
+
+    // Verify all nodes are valid
+    for node_id in graph.node_ids() {
+        assert_eq!(graph.check_valid_node_id(&node_id), Ok(()));
+        assert_eq!(
+            graph.num_edges_from(&node_id),
+            graph.edges_from(&node_id).count()
+        );
+        assert_eq!(
+            graph.num_edges_into(&node_id),
+            graph.edges_into(&node_id).count()
+        );
+        assert_eq!(
+            graph.has_edge_from(&node_id),
+            graph.num_edges_from(&node_id) > 0
+        );
+        assert_eq!(
+            graph.has_edge_into(&node_id),
+            graph.num_edges_into(&node_id) > 0
+        );
+    }
+
+    // Verify all edges are valid
+    for edge_id in graph.edge_ids() {
+        assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
+        assert!(graph.has_edge(&edge_id.source(), &edge_id.target()));
+        assert!(
+            graph
+                .edges_between(&edge_id.source(), &edge_id.target())
+                .any(|e| e == edge_id)
+        );
+        assert!(graph.edges_from(&edge_id.source()).any(|e| e == edge_id));
+        assert!(graph.edges_into(&edge_id.target()).any(|e| e == edge_id));
+        assert_eq!(
+            graph.num_edges_from(&edge_id.source()),
+            graph.edges_from(&edge_id.source()).count()
+        );
+        assert_eq!(
+            graph.num_edges_into(&edge_id.target()),
+            graph.edges_into(&edge_id.target()).count()
+        );
+    }
+
+    // Verify counts are correct
+    assert_eq!(graph.node_ids().count(), graph.num_nodes(),);
+    assert_eq!(graph.edge_ids().count(), graph.num_edges(),);
+
+    // Check is_empty consistency
+    assert_eq!(graph.is_empty(), graph.num_nodes() == 0);
+
+    // If there are edges, there must be nodes
+    assert!(graph.num_nodes() > 0 || graph.num_edges() == 0);
+}
+
 /// Macro to generate standard graph tests for a given graph type.
 #[macro_export]
 macro_rules! graph_tests {
@@ -332,7 +393,7 @@ macro_rules! graph_tests {
                 assert_eq!(graph.num_nodes(), num_nodes - 1);
                 assert!(graph.num_edges() <= num_edges);
 
-                // Test compaction every few iterations
+                // Test compaction periodically
                 if i % 50 == 0 {
                     let num_nodes = node_ids.len();
                     let num_edges = graph.num_edges();
@@ -354,11 +415,13 @@ macro_rules! graph_tests {
                     for edge_id in graph.edge_ids() {
                         assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
                     }
+                    $crate::tests::check_graph_consistency(&graph);
                 }
             }
 
             assert_eq!(graph.num_nodes(), 0);
             assert_eq!(graph.num_edges(), 0);
+            assert!(graph.is_empty());
         }
 
         #[test]
@@ -370,7 +433,7 @@ macro_rules! graph_tests {
             let mut edge_ids = graph.edge_ids().collect::<std::collections::HashSet<_>>();
 
             for i in 0..edge_ids.len() {
-                // Test compaction every few iterations
+                // Test compaction periodically
                 if i % 250 == 0 {
                     let num_nodes = graph.num_nodes();
                     let num_edges = edge_ids.len();
@@ -392,6 +455,8 @@ macro_rules! graph_tests {
                     for edge_id in graph.edge_ids() {
                         assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
                     }
+
+                    $crate::tests::check_graph_consistency(&graph);
                 }
 
                 // Test removing a random edge.
@@ -751,6 +816,7 @@ macro_rules! graph_tests {
 
             assert_eq!(graph.node_ids().count(), 0);
             assert_eq!(graph.edge_ids().count(), 0);
+            assert!(graph.is_empty());
         }
 
         #[test]

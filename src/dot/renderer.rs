@@ -216,7 +216,9 @@ where
     }
 
     // Blank line between nodes and edges
-    writeln!(output).map_err(DotError::IoError)?;
+    if graph.num_edges() > 0 && graph.num_nodes() > 0 {
+        writeln!(output).map_err(DotError::IoError)?;
+    }
 
     // Write edges
     for edge_id in graph.edge_ids() {

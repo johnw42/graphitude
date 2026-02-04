@@ -114,6 +114,10 @@ impl Graph for StringGraph {
             Err("EdgeId not found in graph")
         }
     }
+
+    fn is_very_slow(&self) -> bool {
+        true
+    }
 }
 
 impl GraphMut for StringGraph {
