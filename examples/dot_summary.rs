@@ -154,23 +154,15 @@ mod inner {
     #[derive(Debug, Default, Clone)]
     struct NodeInfo {
         id: String,
-        label: Option<String>,
-        color: Option<String>,
-        other_attrs: Vec<(String, String)>,
+        attrs: Vec<(String, String)>,
     }
 
     impl std::fmt::Display for NodeInfo {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "{}", self.id)?;
-            if let Some(label) = &self.label {
-                write!(f, " [label=\"{}\"]", label)?;
-            }
-            if let Some(color) = &self.color {
-                write!(f, " [color={}]", color)?;
-            }
-            if !self.other_attrs.is_empty() {
+            if !self.attrs.is_empty() {
                 write!(f, " [")?;
-                for (i, (k, v)) in self.other_attrs.iter().enumerate() {
+                for (i, (k, v)) in self.attrs.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
@@ -184,30 +176,19 @@ mod inner {
 
     #[derive(Debug, Default, Clone)]
     struct EdgeInfo {
-        label: Option<String>,
-        color: Option<String>,
-        weight: Option<String>,
-        other_attrs: Vec<(String, String)>,
+        attrs: Vec<(String, String)>,
     }
 
     impl std::fmt::Display for EdgeInfo {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let mut parts = Vec::new();
-            if let Some(label) = &self.label {
-                parts.push(format!("label=\"{}\"", label));
-            }
-            if let Some(color) = &self.color {
-                parts.push(format!("color={}", color));
-            }
-            if let Some(weight) = &self.weight {
-                parts.push(format!("weight={}", weight));
-            }
-            for (k, v) in &self.other_attrs {
-                parts.push(format!("{}={}", k, v));
-            }
-            if parts.is_empty() {
+            if self.attrs.is_empty() {
                 write!(f, "(no attributes)")
             } else {
+                let parts: Vec<String> = self
+                    .attrs
+                    .iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect();
                 write!(f, "{}", parts.join(", "))
             }
         }
@@ -226,43 +207,24 @@ mod inner {
             id: &str,
             attrs: &[Attr],
         ) -> Result<Self::NodeData, Self::Error> {
-            let mut node = NodeInfo {
+            let node_attrs: Vec<(String, String)> = attrs
+                .iter()
+                .map(|attr| (attr.name().to_string(), attr.value()))
+                .collect();
+
+            Ok(NodeInfo {
                 id: id.to_string(),
-                label: None,
-                color: None,
-                other_attrs: Vec::new(),
-            };
-
-            for attr in attrs {
-                let key = attr.name().to_string();
-                let value = attr.value();
-
-                match key.as_str() {
-                    "label" => node.label = Some(value),
-                    "color" => node.color = Some(value),
-                    _ => node.other_attrs.push((key, value)),
-                }
-            }
-
-            Ok(node)
+                attrs: node_attrs,
+            })
         }
 
         fn make_edge_data(&mut self, attrs: &[Attr]) -> Result<Self::EdgeData, Self::Error> {
-            let mut edge = EdgeInfo::default();
+            let edge_attrs: Vec<(String, String)> = attrs
+                .iter()
+                .map(|attr| (attr.name().to_string(), attr.value()))
+                .collect();
 
-            for attr in attrs {
-                let key = attr.name().to_string();
-                let value = attr.value();
-
-                match key.as_str() {
-                    "label" => edge.label = Some(value),
-                    "color" => edge.color = Some(value),
-                    "weight" => edge.weight = Some(value),
-                    _ => edge.other_attrs.push((key, value)),
-                }
-            }
-
-            Ok(edge)
+            Ok(EdgeInfo { attrs: edge_attrs })
         }
 
         fn make_implicit_node_data(
@@ -271,9 +233,7 @@ mod inner {
         ) -> Result<Self::NodeData, Self::Error> {
             Ok(NodeInfo {
                 id: node_id.to_string(),
-                label: None,
-                color: None,
-                other_attrs: Vec::new(),
+                attrs: Vec::new(),
             })
         }
     }
