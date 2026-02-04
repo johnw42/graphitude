@@ -21,6 +21,42 @@ pub struct SymmetricBitvecAdjacencyMatrix<I, V> {
     index_type: PhantomData<I>,
 }
 
+struct LiveOnesIter {
+    liveness: BitVec,
+    next_index: usize,
+    current_word: usize,
+}
+
+impl LiveOnesIter {
+    fn new(liveness: BitVec) -> Self {
+        let current_word = liveness.as_raw_slice().first().copied().unwrap_or(0);
+        Self {
+            liveness,
+            next_index: 0,
+            current_word,
+        }
+    }
+}
+
+impl Iterator for LiveOnesIter {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let words = self.liveness.as_raw_slice();
+        while self.current_word == 0 {
+            self.next_index += 1;
+            if self.next_index >= words.len() {
+                return None;
+            }
+            self.current_word = words[self.next_index];
+        }
+
+        let bit = self.current_word.trailing_zeros() as usize;
+        self.current_word &= self.current_word - 1;
+        Some(self.next_index * usize::BITS as usize + bit)
+    }
+}
+
 impl<I, V> SymmetricBitvecAdjacencyMatrix<I, V>
 where
     I: Into<usize> + From<usize> + Clone + Copy + Eq,
@@ -84,6 +120,10 @@ impl<I, V> SymmetricBitvecAdjacencyMatrix<I, V> {
         debug_assert!(row < size, "liveness row out of bounds");
         debug_assert!(col < size, "liveness col out of bounds");
         row * size + col
+    }
+
+    fn row_col_for_live_index(size: usize, live_index: usize) -> (usize, usize) {
+        (live_index / size, live_index % size)
     }
 }
 
@@ -168,13 +208,15 @@ where
     where
         V: 'a,
     {
-        (0..self.indexing.storage_size()).filter_map(move |index| {
-            let (i1, i2) = self.indexing.coordinates(index).into();
-            if self.is_live(i1, i2) {
-                Some((i1.into(), i2.into(), self.unchecked_get_data_ref(index)))
-            } else {
-                None
+        let size = self.indexing.size();
+        self.liveness.iter_ones().filter_map(move |live_index| {
+            let (row, col) = Self::row_col_for_live_index(size, live_index);
+            if row > col {
+                return None;
             }
+            let index = self.indexing.unchecked_index(row, col);
+            self.get_data_ref(row, col, index)
+                .map(|data| (row.into(), col.into(), data))
         })
     }
 
@@ -186,16 +228,18 @@ where
             ..
         } = self;
         let size = indexing.size();
-        (0..indexing.storage_size()).filter_map(move |index| {
-            let (i1, i2) = indexing.coordinates(index).into();
-            let live_index = Self::liveness_index_for(size, i1, i2);
-            if liveness[live_index] {
-                Some((i1.into(), i2.into(), unsafe {
-                    data[index].assume_init_read()
-                }))
-            } else {
-                None
+        // We can't just call liveness.iter_ones() here because into_iter owns
+        // the BitVec, and returning an iterator that borrows it would be
+        // self-referential. Collecting allocates; this bit-scan avoids that.
+        LiveOnesIter::new(liveness).filter_map(move |live_index| {
+            let (row, col) = Self::row_col_for_live_index(size, live_index);
+            if row > col {
+                return None;
             }
+            let index = indexing.unchecked_index(row, col);
+            Some((row.into(), col.into(), unsafe {
+                data[index].assume_init_read()
+            }))
         })
     }
 

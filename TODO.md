@@ -10,3 +10,4 @@
 [ ] Get rid of the dot builder type and move the functionality to a trait implemented by the graph itself
 [ ] Make a graph construction proxy trait for use with newtype wrappers around graph types, with default implementations of GraphMut methods that delegate to the inner graph
 [x] add handling for data types defined at https://graphviz.org/doc/info/attrs.html
+[ ] Propose adding a consuming iter_ones (e.g., into_iter_ones) to bitvec
