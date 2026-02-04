@@ -8,6 +8,29 @@ use crate::{
     graph::{EdgeId, Graph},
 };
 
+/// Validates if a string is a valid DOT identifier.
+/// Returns true if the identifier is valid.
+fn is_valid_dot_id(s: &str) -> bool {
+    if s.is_empty() {
+        return false;
+    }
+
+    let mut chars = s.chars();
+    let first = chars.next().unwrap();
+
+    // Must start with letter or underscore
+    if !first.is_ascii_alphabetic() && first != '_' {
+        // Or be a valid number literal - try parsing as f64
+        if first.is_ascii_digit() || first == '-' || first == '.' {
+            return s.parse::<f64>().is_ok();
+        }
+        return false;
+    }
+
+    // Remaining characters must be alphanumeric or underscore
+    s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 /// Errors that can occur during DOT file generation.
 #[derive(Debug, thiserror::Error)]
 pub enum DotError<E> {
@@ -92,8 +115,9 @@ where
         ) -> Result<Self, DotError<D::Error>> {
             // Validate graph name
             let graph_name = generator.graph_name().map_err(DotError::Generator)?;
-            ::dot::Id::new(graph_name.as_str())
-                .map_err(|()| DotError::InvalidId(graph_name.clone()))?;
+            if !is_valid_dot_id(&graph_name) {
+                return Err(DotError::InvalidId(graph_name));
+            }
 
             // Pre-generate and validate all node names and attributes
             let mut node_info = HashMap::new();
@@ -106,7 +130,9 @@ where
                     .map_err(DotError::Generator)?;
 
                 // Validate the node name is a valid DOT identifier
-                ::dot::Id::new(name.as_str()).map_err(|()| DotError::InvalidId(name.clone()))?;
+                if !is_valid_dot_id(&name) {
+                    return Err(DotError::InvalidId(name));
+                }
 
                 node_info.insert(node_id.clone(), NodeInfo { name, attrs });
             }
@@ -131,32 +157,6 @@ where
 
     let wrapper = GraphWrapper::new(graph, generator)?;
 
-    // Check if a string needs to be quoted in DOT format
-    fn needs_quoting(s: &str) -> bool {
-        if s.is_empty() {
-            return true;
-        }
-
-        // Check if it's a valid unquoted identifier
-        // Must start with letter or underscore, contain only alphanumeric or underscore
-        let mut chars = s.chars();
-        let first = chars.next().unwrap();
-
-        if !first.is_ascii_alphabetic() && first != '_' {
-            // Numbers at the start are OK for numeric literals
-            if !first.is_ascii_digit() {
-                return true;
-            }
-            // If it starts with a digit, check if it's a valid number
-            return !s
-                .chars()
-                .all(|c| c.is_ascii_digit() || c == '.' || c == '-');
-        }
-
-        // Check remaining characters
-        !s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-    }
-
     // Escape a string for use in DOT format (only called when quoting is needed)
     fn escape_dot_string(s: &str) -> String {
         s.replace('\\', "\\\\")
@@ -167,7 +167,7 @@ where
 
     // Format a value for DOT output, adding quotes only if needed
     fn format_dot_value(s: &str) -> String {
-        if needs_quoting(s) {
+        if !is_valid_dot_id(s) {
             format!("\"{}\"", escape_dot_string(s))
         } else {
             s.to_string()
