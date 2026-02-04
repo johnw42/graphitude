@@ -1,6 +1,5 @@
 use std::{collections::HashMap, error::Error};
 
-use derivative::Derivative;
 use dot_parser::ast::{
     EdgeStmt, Graph as DotGraph, ID, NodeID, NodeStmt, Stmt, StmtList, Subgraph, either::Either,
 };
@@ -41,7 +40,7 @@ fn extract_node_ids(either: &Either<NodeID, Subgraph<(ID<'_>, ID<'_>)>>) -> Vec<
 }
 
 /// Errors that can occur during DOT format parsing.
-#[derive(thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum ParseError<B: GraphBuilder> {
     /// Failed to parse the DOT format data.

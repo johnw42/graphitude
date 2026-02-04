@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::Graph;
+use crate::{Graph, GraphMut};
 
 /// State tracker for generating sequential test data.
 ///
@@ -46,8 +46,6 @@ pub struct InternalBuilderImpl<G>(BuilderState, PhantomData<G>);
 impl<G> InternalBuilderImpl<G>
 where
     G: Graph + TestDataBuilder<Graph = G>,
-    G::NodeData: Clone + Eq,
-    G::EdgeData: Clone + Eq,
 {
     pub fn new() -> Self {
         Self(BuilderState { v: 0, e: 0 }, PhantomData)
@@ -64,6 +62,184 @@ where
     }
 }
 
+/// Generates a large graph with an irregular structure using custom closures
+/// for node and edge data generation.
+///
+/// The graph structure includes:
+/// - Cluster 1: Dense cluster (50 nodes, ~60% connectivity)
+/// - Cluster 2: Medium cluster (80 nodes, ~30% connectivity)
+/// - Cluster 3: Large sparse cluster (150 nodes, ~8% connectivity)
+/// - Hub nodes (20 nodes with many connections)
+/// - Scattered nodes (100 nodes with few connections)
+/// - Bridge nodes connecting clusters (10 nodes)
+/// - Long-range connections between random nodes
+/// - Self loops
+///
+/// The resulting graph has approximately 500 nodes and 2000 edges.
+///
+/// # Arguments
+///
+/// * `new_node_data` - A closure that takes an index and returns node data
+/// * `new_edge_data` - A closure that takes an index and returns edge data
+pub fn generate_large_graph_with<G, FN, FE>(mut new_node_data: FN, mut new_edge_data: FE) -> G
+where
+    G: GraphMut,
+    FN: FnMut(usize) -> G::NodeData,
+    FE: FnMut(usize) -> G::EdgeData,
+{
+    let mut graph = G::new();
+    let mut node_counter = 0;
+    let mut edge_counter = 0;
+
+    // Create an irregular graph with ~500 nodes and ~2000 edges
+    // Structure includes: clusters, hubs, sparse regions, and bridges
+
+    let mut all_nodes = Vec::new();
+
+    // Cluster 1: Dense cluster (50 nodes, highly connected)
+    let cluster1_start = all_nodes.len();
+    for _ in 0..50 {
+        let node = graph.add_node(new_node_data(node_counter));
+        node_counter += 1;
+        all_nodes.push(node);
+    }
+    // Connect nodes within cluster 1 with ~60% density
+    for i in cluster1_start..all_nodes.len() {
+        for j in (i + 1)..all_nodes.len() {
+            if (i * 7 + j * 11) % 10 < 6 {
+                graph.add_edge(&all_nodes[i], &all_nodes[j], new_edge_data(edge_counter));
+                edge_counter += 1;
+            }
+        }
+    }
+
+    // Cluster 2: Medium cluster (80 nodes, moderately connected)
+    let cluster2_start = all_nodes.len();
+    for _ in 0..80 {
+        let node = graph.add_node(new_node_data(node_counter));
+        node_counter += 1;
+        all_nodes.push(node);
+    }
+    // Connect nodes within cluster 2 with ~30% density
+    for i in cluster2_start..all_nodes.len() {
+        for j in (i + 1)..all_nodes.len() {
+            if (i * 13 + j * 17) % 10 < 3 {
+                graph.add_edge(&all_nodes[i], &all_nodes[j], new_edge_data(edge_counter));
+                edge_counter += 1;
+            }
+        }
+    }
+
+    // Cluster 3: Large sparse cluster (150 nodes, sparsely connected)
+    let cluster3_start = all_nodes.len();
+    for _ in 0..150 {
+        let node = graph.add_node(new_node_data(node_counter));
+        node_counter += 1;
+        all_nodes.push(node);
+    }
+    // Connect nodes within cluster 3 with ~8% density
+    for i in cluster3_start..all_nodes.len() {
+        for j in (i + 1)..all_nodes.len() {
+            if (i * 19 + j * 23) % 100 < 8 {
+                graph.add_edge(&all_nodes[i], &all_nodes[j], new_edge_data(edge_counter));
+                edge_counter += 1;
+            }
+        }
+    }
+
+    // Add hub nodes (20 nodes with many connections)
+    let hubs_start = all_nodes.len();
+    for _ in 0..20 {
+        let hub = graph.add_node(new_node_data(node_counter));
+        node_counter += 1;
+        all_nodes.push(hub.clone());
+
+        // Connect each hub to random existing nodes
+        for i in 0..all_nodes.len() - 1 {
+            if (hubs_start * 29 + i * 31) % 7 < 4 {
+                graph.add_edge(&hub, &all_nodes[i], new_edge_data(edge_counter));
+                edge_counter += 1;
+            }
+        }
+    }
+
+    // Add scattered nodes (100 nodes with few connections)
+    let scattered_start = all_nodes.len();
+    for _ in 0..100 {
+        let node = graph.add_node(new_node_data(node_counter));
+        node_counter += 1;
+        all_nodes.push(node.clone());
+
+        // Connect to 1-3 random other nodes
+        let num_connections = ((scattered_start + all_nodes.len()) % 3) + 1;
+        for c in 0..num_connections {
+            let target_idx =
+                (scattered_start * 37 + all_nodes.len() * 41 + c * 43) % (all_nodes.len() - 1);
+            graph.add_edge(&node, &all_nodes[target_idx], new_edge_data(edge_counter));
+            edge_counter += 1;
+        }
+    }
+
+    // Add bridge nodes connecting clusters (10 nodes)
+    for i in 0..10 {
+        let bridge = graph.add_node(new_node_data(node_counter));
+        node_counter += 1;
+
+        // Connect to nodes from different clusters
+        let idx1 = (i * 47) % (cluster2_start - cluster1_start) + cluster1_start;
+        let idx2 = (i * 53) % (cluster3_start - cluster2_start) + cluster2_start;
+        let idx3 = (i * 59) % (hubs_start - cluster3_start) + cluster3_start;
+
+        graph.add_edge(&bridge, &all_nodes[idx1], new_edge_data(edge_counter));
+        edge_counter += 1;
+        graph.add_edge(&bridge, &all_nodes[idx2], new_edge_data(edge_counter));
+        edge_counter += 1;
+        graph.add_edge(&bridge, &all_nodes[idx3], new_edge_data(edge_counter));
+        edge_counter += 1;
+
+        all_nodes.push(bridge);
+    }
+
+    // Add some long-range connections between random nodes
+    for i in 0..200 {
+        let idx1 = (i * 61) % all_nodes.len();
+        let idx2 = (i * 67 + 100) % all_nodes.len();
+        if idx1 != idx2 {
+            graph.add_edge(
+                &all_nodes[idx1],
+                &all_nodes[idx2],
+                new_edge_data(edge_counter),
+            );
+            edge_counter += 1;
+        }
+    }
+
+    // Add some self loops
+    for i in 0..50 {
+        let idx = (i * 71) % all_nodes.len();
+        graph.add_edge(
+            &all_nodes[idx],
+            &all_nodes[idx],
+            new_edge_data(edge_counter),
+        );
+        edge_counter += 1;
+    }
+
+    graph
+}
+
+/// Generates a large graph using the `TestDataBuilder` trait for data generation.
+///
+/// This is a convenience wrapper around [`generate_large_graph_with`] that uses
+/// the TestDataBuilder trait to provide node and edge data.
+#[doc(hidden)]
+pub fn generate_large_graph<G>() -> G
+where
+    G: GraphMut + TestDataBuilder<Graph = G>,
+{
+    generate_large_graph_with(|i| G::new_node_data(i), |i| G::new_edge_data(i))
+}
+
 /// Macro to generate standard graph tests for a given graph type.
 #[macro_export]
 macro_rules! graph_tests {
@@ -75,126 +251,9 @@ macro_rules! graph_tests {
         }
     };
     ($type:ty) => {
-        fn generate_large_graph() -> $type {
-            let mut builder = $crate::tests::InternalBuilderImpl::<$type>::new();
-            let mut graph = <$type>::new();
-
-            // Create an irregular graph with ~500 nodes and ~2000 edges
-            // Structure includes: clusters, hubs, sparse regions, and bridges
-
-            let mut all_nodes = Vec::new();
-
-            // Cluster 1: Dense cluster (50 nodes, highly connected)
-            let cluster1_start = all_nodes.len();
-            for _ in 0..50 {
-                let node = graph.add_node(builder.new_node_data());
-                all_nodes.push(node);
-            }
-            // Connect nodes within cluster 1 with ~60% density
-            for i in cluster1_start..all_nodes.len() {
-                for j in (i + 1)..all_nodes.len() {
-                    if (i * 7 + j * 11) % 10 < 6 {
-                        graph.add_edge(&all_nodes[i], &all_nodes[j], builder.new_edge_data());
-                    }
-                }
-            }
-
-            // Cluster 2: Medium cluster (80 nodes, moderately connected)
-            let cluster2_start = all_nodes.len();
-            for _ in 0..80 {
-                let node = graph.add_node(builder.new_node_data());
-                all_nodes.push(node);
-            }
-            // Connect nodes within cluster 2 with ~30% density
-            for i in cluster2_start..all_nodes.len() {
-                for j in (i + 1)..all_nodes.len() {
-                    if (i * 13 + j * 17) % 10 < 3 {
-                        graph.add_edge(&all_nodes[i], &all_nodes[j], builder.new_edge_data());
-                    }
-                }
-            }
-
-            // Cluster 3: Large sparse cluster (150 nodes, sparsely connected)
-            let cluster3_start = all_nodes.len();
-            for _ in 0..150 {
-                let node = graph.add_node(builder.new_node_data());
-                all_nodes.push(node);
-            }
-            // Connect nodes within cluster 3 with ~8% density
-            for i in cluster3_start..all_nodes.len() {
-                for j in (i + 1)..all_nodes.len() {
-                    if (i * 19 + j * 23) % 100 < 8 {
-                        graph.add_edge(&all_nodes[i], &all_nodes[j], builder.new_edge_data());
-                    }
-                }
-            }
-
-            // Add hub nodes (20 nodes with many connections)
-            let hubs_start = all_nodes.len();
-            for _ in 0..20 {
-                let hub = graph.add_node(builder.new_node_data());
-                all_nodes.push(hub.clone());
-
-                // Connect each hub to random existing nodes
-                for i in 0..all_nodes.len() - 1 {
-                    if (hubs_start * 29 + i * 31) % 7 < 4 {
-                        graph.add_edge(&hub, &all_nodes[i], builder.new_edge_data());
-                    }
-                }
-            }
-
-            // Add scattered nodes (100 nodes with few connections)
-            let scattered_start = all_nodes.len();
-            for _ in 0..100 {
-                let node = graph.add_node(builder.new_node_data());
-                all_nodes.push(node.clone());
-
-                // Connect to 1-3 random other nodes
-                let num_connections = ((scattered_start + all_nodes.len()) % 3) + 1;
-                for c in 0..num_connections {
-                    let target_idx = (scattered_start * 37 + all_nodes.len() * 41 + c * 43)
-                        % (all_nodes.len() - 1);
-                    graph.add_edge(&node, &all_nodes[target_idx], builder.new_edge_data());
-                }
-            }
-
-            // Add bridge nodes connecting clusters (10 nodes)
-            for i in 0..10 {
-                let bridge = graph.add_node(builder.new_node_data());
-
-                // Connect to nodes from different clusters
-                let idx1 = (i * 47) % (cluster2_start - cluster1_start) + cluster1_start;
-                let idx2 = (i * 53) % (cluster3_start - cluster2_start) + cluster2_start;
-                let idx3 = (i * 59) % (hubs_start - cluster3_start) + cluster3_start;
-
-                graph.add_edge(&bridge, &all_nodes[idx1], builder.new_edge_data());
-                graph.add_edge(&bridge, &all_nodes[idx2], builder.new_edge_data());
-                graph.add_edge(&bridge, &all_nodes[idx3], builder.new_edge_data());
-
-                all_nodes.push(bridge);
-            }
-
-            // Add some long-range connections between random nodes
-            for i in 0..200 {
-                let idx1 = (i * 61) % all_nodes.len();
-                let idx2 = (i * 67 + 100) % all_nodes.len();
-                if idx1 != idx2 {
-                    graph.add_edge(&all_nodes[idx1], &all_nodes[idx2], builder.new_edge_data());
-                }
-            }
-
-            // Add some self loops
-            for i in 0..50 {
-                let idx = (i * 71) % all_nodes.len();
-                graph.add_edge(&all_nodes[idx], &all_nodes[idx], builder.new_edge_data());
-            }
-
-            graph
-        }
-
         #[test]
         fn test_large_graph_structure() {
-            let graph = generate_large_graph();
+            let graph = $crate::tests::generate_large_graph::<$type>();
 
             // Verify basic structure
             assert_eq!(
@@ -253,7 +312,7 @@ macro_rules! graph_tests {
 
         #[test]
         fn test_deconstruct_large_graph_by_nodes() {
-            let mut graph = generate_large_graph();
+            let mut graph = $crate::tests::generate_large_graph::<$type>();
 
             // We use a hash set instead of a vec so the nodes are removed in
             // random order.
@@ -285,7 +344,7 @@ macro_rules! graph_tests {
                             let inserted = node_ids.insert(new_id.clone());
                             assert!(inserted);
                         },
-                        |_, _| {},
+                        |_, _new_e| {},
                     );
                     assert_eq!(graph.num_nodes(), num_nodes);
                     assert_eq!(graph.num_edges(), num_edges);
@@ -304,7 +363,7 @@ macro_rules! graph_tests {
 
         #[test]
         fn test_deconstruct_large_graph_by_edges() {
-            let mut graph = generate_large_graph();
+            let mut graph = $crate::tests::generate_large_graph::<$type>();
 
             // We use a hash set instead of a vec so the edges are removed in
             // random order.

@@ -3,6 +3,7 @@ use std::error::Error;
 use std::io;
 
 use crate::{
+    directedness::Directedness,
     dot::attr::Attr,
     graph::{EdgeId, Graph},
 };
@@ -73,9 +74,14 @@ where
         attrs: Vec<Attr>,
     }
 
+    struct EdgeInfo {
+        attrs: Vec<Attr>,
+    }
+
     struct GraphWrapper<'a, G: Graph> {
-        graph: &'a G,
+        _phantom: std::marker::PhantomData<&'a G>,
         node_info: HashMap<G::NodeId, NodeInfo>,
+        edge_info: HashMap<G::EdgeId, EdgeInfo>,
         graph_name: String,
     }
 
@@ -105,72 +111,157 @@ where
                 node_info.insert(node_id.clone(), NodeInfo { name, attrs });
             }
 
+            // Pre-generate edge attributes
+            let mut edge_info = HashMap::new();
+            for edge_id in graph.edge_ids() {
+                let attrs = generator
+                    .edge_attrs(&edge_id)
+                    .map_err(DotError::Generator)?;
+                edge_info.insert(edge_id.clone(), EdgeInfo { attrs });
+            }
+
             Ok(Self {
-                graph,
+                _phantom: std::marker::PhantomData,
                 node_info,
+                edge_info,
                 graph_name,
             })
         }
     }
 
-    impl<'a, G> ::dot::Labeller<'a, G::NodeId, G::EdgeId> for GraphWrapper<'a, G>
-    where
-        G: Graph,
-    {
-        fn graph_id(&'a self) -> ::dot::Id<'a> {
-            // Safe to unwrap since we validated this in new()
-            ::dot::Id::new(self.graph_name.as_str()).expect("Graph name was pre-validated")
-        }
-
-        fn node_id(&'a self, n: &G::NodeId) -> ::dot::Id<'a> {
-            let info = self.node_info.get(n).expect("Node ID should exist in map");
-            // Safe to unwrap since we validated all names in new()
-            ::dot::Id::new(info.name.as_str()).expect("Node name was pre-validated")
-        }
-
-        fn node_label(&'a self, n: &G::NodeId) -> ::dot::LabelText<'a> {
-            let info = self.node_info.get(n).expect("Node ID should exist in map");
-
-            // Build label from attributes if present
-            if info.attrs.is_empty() {
-                ::dot::LabelText::LabelStr(info.name.clone().into())
-            } else {
-                let attr_strs: Vec<String> = info
-                    .attrs
-                    .iter()
-                    .map(|a| format!("{}={}", a.name(), a.value()))
-                    .collect();
-                ::dot::LabelText::LabelStr(attr_strs.join(", ").into())
-            }
-        }
-
-        fn edge_label(&'a self, _e: &G::EdgeId) -> ::dot::LabelText<'a> {
-            // Note: edge attributes are not pre-generated since they don't affect validation
-            ::dot::LabelText::LabelStr("".into())
-        }
-    }
-
-    impl<'a, G> ::dot::GraphWalk<'a, G::NodeId, G::EdgeId> for GraphWrapper<'a, G>
-    where
-        G: Graph,
-    {
-        fn nodes(&'a self) -> ::dot::Nodes<'a, G::NodeId> {
-            self.graph.node_ids().collect::<Vec<_>>().into()
-        }
-
-        fn edges(&'a self) -> ::dot::Edges<'a, G::EdgeId> {
-            self.graph.edge_ids().collect::<Vec<_>>().into()
-        }
-
-        fn source(&'a self, edge: &G::EdgeId) -> G::NodeId {
-            edge.source()
-        }
-
-        fn target(&'a self, edge: &G::EdgeId) -> G::NodeId {
-            edge.target()
-        }
-    }
-
     let wrapper = GraphWrapper::new(graph, generator)?;
-    ::dot::render(&wrapper, output).map_err(DotError::IoError)
+
+    // Check if a string needs to be quoted in DOT format
+    fn needs_quoting(s: &str) -> bool {
+        if s.is_empty() {
+            return true;
+        }
+
+        // Check if it's a valid unquoted identifier
+        // Must start with letter or underscore, contain only alphanumeric or underscore
+        let mut chars = s.chars();
+        let first = chars.next().unwrap();
+
+        if !first.is_ascii_alphabetic() && first != '_' {
+            // Numbers at the start are OK for numeric literals
+            if !first.is_ascii_digit() {
+                return true;
+            }
+            // If it starts with a digit, check if it's a valid number
+            return !s
+                .chars()
+                .all(|c| c.is_ascii_digit() || c == '.' || c == '-');
+        }
+
+        // Check remaining characters
+        !s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    }
+
+    // Escape a string for use in DOT format (only called when quoting is needed)
+    fn escape_dot_string(s: &str) -> String {
+        s.replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r")
+    }
+
+    // Format a value for DOT output, adding quotes only if needed
+    fn format_dot_value(s: &str) -> String {
+        if needs_quoting(s) {
+            format!("\"{}\"", escape_dot_string(s))
+        } else {
+            s.to_string()
+        }
+    }
+
+    // Custom DOT renderer that properly handles optional attributes
+    let is_directed = G::Directedness::is_directed();
+    let graph_type = if is_directed { "digraph" } else { "graph" };
+    let edge_op = if is_directed { "->" } else { "--" };
+
+    // Write graph header
+    writeln!(output, "{} {} {{", graph_type, wrapper.graph_name).map_err(DotError::IoError)?;
+
+    // Write nodes
+    for node_id in graph.node_ids() {
+        let node_info = wrapper
+            .node_info
+            .get(&node_id)
+            .expect("Node ID should exist in map");
+        write!(output, "    {}", node_info.name).map_err(DotError::IoError)?;
+
+        // Write node attributes if any
+        if !node_info.attrs.is_empty() {
+            write!(output, " [").map_err(DotError::IoError)?;
+            for (i, attr) in node_info.attrs.iter().enumerate() {
+                if i > 0 {
+                    write!(output, ", ").map_err(DotError::IoError)?;
+                }
+                write!(
+                    output,
+                    "{} = {}",
+                    attr.name(),
+                    format_dot_value(&attr.value())
+                )
+                .map_err(DotError::IoError)?;
+            }
+            write!(output, "]").map_err(DotError::IoError)?;
+        } else {
+            // Default label is the node name
+            write!(output, " [label = {}]", format_dot_value(&node_info.name))
+                .map_err(DotError::IoError)?;
+        }
+
+        writeln!(output, ";").map_err(DotError::IoError)?;
+    }
+
+    // Blank line between nodes and edges
+    writeln!(output).map_err(DotError::IoError)?;
+
+    // Write edges
+    for edge_id in graph.edge_ids() {
+        let source_id = edge_id.source();
+        let target_id = edge_id.target();
+        let source_info = wrapper
+            .node_info
+            .get(&source_id)
+            .expect("Source node should exist");
+        let target_info = wrapper
+            .node_info
+            .get(&target_id)
+            .expect("Target node should exist");
+        let edge_info = wrapper
+            .edge_info
+            .get(&edge_id)
+            .expect("Edge ID should exist in map");
+
+        write!(
+            output,
+            "    {} {} {}",
+            source_info.name, edge_op, target_info.name
+        )
+        .map_err(DotError::IoError)?;
+
+        // Write edge attributes if any - omit entirely if no attributes
+        if !edge_info.attrs.is_empty() {
+            write!(output, " [").map_err(DotError::IoError)?;
+            for (i, attr) in edge_info.attrs.iter().enumerate() {
+                if i > 0 {
+                    write!(output, ", ").map_err(DotError::IoError)?;
+                }
+                write!(
+                    output,
+                    "{} = {}",
+                    attr.name(),
+                    format_dot_value(&attr.value())
+                )
+                .map_err(DotError::IoError)?;
+            }
+            write!(output, "]").map_err(DotError::IoError)?;
+        }
+
+        writeln!(output, ";").map_err(DotError::IoError)?;
+    }
+
+    writeln!(output, "}}").map_err(DotError::IoError)
 }
