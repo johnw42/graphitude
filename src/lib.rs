@@ -37,6 +37,7 @@ pub mod graph;
 pub mod linked_graph;
 pub mod object_graph;
 pub mod path;
+pub mod prelude;
 pub mod search;
 pub mod tests;
 

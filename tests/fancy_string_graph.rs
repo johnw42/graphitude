@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 
 use graphitude::{
-    Directed, EdgeId as EdgeIdTrait, Graph, GraphMut, MultipleEdges, NodeId as NodeIdTrait,
-    graph_test_copy_from_with, graph_tests, tests::TestDataBuilder,
+    EdgeId as EdgeIdTrait,
+    NodeId as NodeIdTrait,
+    graph_test_copy_from_with,
+    graph_tests,
+    prelude::*,
+    tests::TestDataBuilder,
 };
 
 struct StringGraph {

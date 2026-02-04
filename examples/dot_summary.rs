@@ -13,13 +13,12 @@ mod inner {
 
     use clap::Parser;
     use graphitude::{
-        EdgeId, Graph, GraphMut,
-        directedness::{Directed, Undirected},
         dot::{
             attr::Attr,
             parser::{GraphBuilder, parse_dot_into_graph},
         },
         linked_graph::LinkedGraph,
+        prelude::*,
     };
 
     /// Read a DOT file or stdin, validate it, and print a summary.

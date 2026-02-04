@@ -30,8 +30,7 @@
 //!
 //! Reference: <https://graphviz.org/doc/info/attrs.html>
 
-use std::fmt;
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
 /// A 2D point with x and y coordinates (in inches or points).
 ///

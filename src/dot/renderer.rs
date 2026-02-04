@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-use std::error::Error;
-use std::io;
+use std::{collections::HashMap, error::Error, io};
 
 use crate::{
     directedness::Directedness,

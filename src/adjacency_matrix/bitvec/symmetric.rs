@@ -1,15 +1,13 @@
-use std::fmt::Debug;
-use std::hash::Hash;
-use std::marker::PhantomData;
-use std::mem::MaybeUninit;
+use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::MaybeUninit};
 
 use bitvec::vec::BitVec;
 
 use super::symmetric_maxtrix_indexing::SymmetricMatrixIndexing;
-use crate::SortedPair;
-use crate::triangular::triangular;
-
-use crate::adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric};
+use crate::{
+    SortedPair,
+    adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric},
+    triangular::triangular,
+};
 
 /// Bitvec-based symmetric adjacency matrix for undirected graphs.
 ///

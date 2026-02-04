@@ -1,11 +1,12 @@
-#[cfg(feature = "dot")]
-use std::io;
-use std::ops::Add;
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
     hash::Hash,
+    ops::Add,
 };
+
+#[cfg(feature = "dot")]
+use std::io;
 
 #[cfg(feature = "dot")]
 use crate::dot::{parser, renderer};

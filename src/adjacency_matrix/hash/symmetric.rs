@@ -1,6 +1,8 @@
-use std::collections::HashSet;
-use std::fmt::Debug;
-use std::{collections::HashMap, hash::Hash};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    hash::Hash,
+};
 
 use crate::util::sort_pair;
 
