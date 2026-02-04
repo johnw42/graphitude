@@ -61,12 +61,20 @@ where
 
     fn remove(&mut self, row: I, col: I) -> Option<V> {
         let (i1, i2) = sort_pair(row, col);
-        if let Some(value) = self.entries.get_mut(&i1).and_then(|m| m.remove(&i2)) {
-            self.entry_count -= 1;
-            Some(value)
-        } else {
-            None
+        let value = self.entries.get_mut(&i1).and_then(|m| m.remove(&i2))?;
+        if let Some(targets) = self.entries.get(&i1) {
+            if targets.is_empty() {
+                self.entries.remove(&i1);
+            }
         }
+        if let Some(sources) = self.reverse_entries.get_mut(&i2) {
+            sources.remove(&i1);
+            if sources.is_empty() {
+                self.reverse_entries.remove(&i2);
+            }
+        }
+        self.entry_count -= 1;
+        Some(value)
     }
 
     fn iter<'a>(&'a self) -> impl Iterator<Item = (I, I, &'a V)>
