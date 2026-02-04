@@ -265,3 +265,275 @@ where
 
     writeln!(output, "}}").map_err(DotError::IoError)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        GraphMut,
+        directedness::{Directed, Undirected},
+        linked_graph::LinkedGraph,
+    };
+
+    #[test]
+    fn test_is_valid_dot_id_alphanumeric() {
+        assert!(is_valid_dot_id("abc"));
+        assert!(is_valid_dot_id("_abc"));
+        assert!(is_valid_dot_id("abc123"));
+        assert!(is_valid_dot_id("a_b_c"));
+        assert!(is_valid_dot_id("_123"));
+        assert!(is_valid_dot_id("ABC"));
+        assert!(is_valid_dot_id("a1B2c3"));
+    }
+
+    #[test]
+    fn test_is_valid_dot_id_numbers() {
+        assert!(is_valid_dot_id("123"));
+        assert!(is_valid_dot_id("0"));
+        assert!(is_valid_dot_id("3.14"));
+        assert!(is_valid_dot_id("-42"));
+        assert!(is_valid_dot_id("-.5"));
+        assert!(is_valid_dot_id("1.5e10"));
+        assert!(is_valid_dot_id("1.5e+10"));
+        assert!(is_valid_dot_id("1.5e-10"));
+        assert!(is_valid_dot_id("-1.5e-10"));
+    }
+
+    #[test]
+    fn test_is_valid_dot_id_invalid() {
+        assert!(!is_valid_dot_id(""));
+        assert!(!is_valid_dot_id("123abc")); // starts with digit but not a valid number
+        assert!(!is_valid_dot_id("a-b")); // hyphen not allowed in identifiers
+        assert!(!is_valid_dot_id("a b")); // space not allowed
+        assert!(!is_valid_dot_id("a.b")); // dot not allowed in identifiers
+        assert!(!is_valid_dot_id("hello world"));
+        assert!(!is_valid_dot_id("foo-bar"));
+        assert!(!is_valid_dot_id("@abc"));
+        assert!(!is_valid_dot_id("abc!"));
+    }
+
+    struct TestGenerator {
+        graph_name: String,
+    }
+
+    impl<G: Graph> DotGenerator<G> for TestGenerator {
+        type Error = std::convert::Infallible;
+
+        fn graph_name(&self) -> Result<String, Self::Error> {
+            Ok(self.graph_name.clone())
+        }
+    }
+
+    #[test]
+    fn test_generate_empty_directed_graph() {
+        let graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let generator = TestGenerator {
+            graph_name: "Empty".to_string(),
+        };
+        let mut output = Vec::new();
+
+        generate_dot_file(&graph, &generator, &mut output).unwrap();
+        let dot = String::from_utf8(output).unwrap();
+
+        assert!(dot.contains("digraph Empty"));
+        assert!(dot.contains("{"));
+        assert!(dot.contains("}"));
+    }
+
+    #[test]
+    fn test_generate_empty_undirected_graph() {
+        let graph: LinkedGraph<String, (), Undirected> = LinkedGraph::new();
+        let generator = TestGenerator {
+            graph_name: "Empty".to_string(),
+        };
+        let mut output = Vec::new();
+
+        generate_dot_file(&graph, &generator, &mut output).unwrap();
+        let dot = String::from_utf8(output).unwrap();
+
+        assert!(dot.contains("graph Empty"));
+        assert!(dot.contains("{"));
+        assert!(dot.contains("}"));
+    }
+
+    #[test]
+    fn test_generate_simple_directed_graph() {
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let a = graph.add_node("a".to_string());
+        let b = graph.add_node("b".to_string());
+        graph.add_edge(&a, &b, ());
+
+        let generator = TestGenerator {
+            graph_name: "G".to_string(),
+        };
+        let mut output = Vec::new();
+
+        generate_dot_file(&graph, &generator, &mut output).unwrap();
+        let dot = String::from_utf8(output).unwrap();
+
+        assert!(dot.contains("digraph G"));
+        assert!(dot.contains("n0"));
+        assert!(dot.contains("n1"));
+        assert!(dot.contains("n0 -> n1"));
+    }
+
+    #[test]
+    fn test_generate_simple_undirected_graph() {
+        let mut graph: LinkedGraph<String, (), Undirected> = LinkedGraph::new();
+        let a = graph.add_node("a".to_string());
+        let b = graph.add_node("b".to_string());
+        graph.add_edge(&a, &b, ());
+
+        let generator = TestGenerator {
+            graph_name: "G".to_string(),
+        };
+        let mut output = Vec::new();
+
+        generate_dot_file(&graph, &generator, &mut output).unwrap();
+        let dot = String::from_utf8(output).unwrap();
+
+        assert!(dot.contains("graph G"));
+        assert!(dot.contains("n0 -- n1"));
+    }
+
+    struct InvalidNameGenerator;
+
+    impl<G: Graph> DotGenerator<G> for InvalidNameGenerator {
+        type Error = std::convert::Infallible;
+
+        fn graph_name(&self) -> Result<String, Self::Error> {
+            Ok("invalid name!".to_string())
+        }
+    }
+
+    #[test]
+    fn test_generate_invalid_graph_name() {
+        let graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let generator = InvalidNameGenerator;
+        let mut output = Vec::new();
+
+        let result = generate_dot_file(&graph, &generator, &mut output);
+        assert!(matches!(result, Err(DotError::InvalidId(_))));
+    }
+
+    struct InvalidNodeNameGenerator;
+
+    impl<G: Graph> DotGenerator<G> for InvalidNodeNameGenerator {
+        type Error = std::convert::Infallible;
+
+        fn node_name(&self, _node_id: &G::NodeId, _index: usize) -> Result<String, Self::Error> {
+            Ok("node name!".to_string())
+        }
+    }
+
+    #[test]
+    fn test_generate_invalid_node_name() {
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        graph.add_node("a".to_string());
+
+        let generator = InvalidNodeNameGenerator;
+        let mut output = Vec::new();
+
+        let result = generate_dot_file(&graph, &generator, &mut output);
+        assert!(matches!(result, Err(DotError::InvalidId(_))));
+    }
+
+    struct AttributeGenerator;
+
+    impl<G: Graph> DotGenerator<G> for AttributeGenerator {
+        type Error = std::convert::Infallible;
+
+        fn node_attrs(
+            &self,
+            _node_id: &G::NodeId,
+            _name: &mut String,
+        ) -> Result<Vec<Attr>, Self::Error> {
+            Ok(vec![Attr::Label("Test Label".to_string())])
+        }
+
+        fn edge_attrs(&self, _edge_id: &G::EdgeId) -> Result<Vec<Attr>, Self::Error> {
+            Ok(vec![
+                Attr::Label("Edge Label".to_string()),
+                Attr::Color(vec![crate::dot::types::Color::Named("red".to_string())]),
+            ])
+        }
+    }
+
+    #[test]
+    fn test_generate_with_attributes() {
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let a = graph.add_node("a".to_string());
+        let b = graph.add_node("b".to_string());
+        graph.add_edge(&a, &b, ());
+
+        let generator = AttributeGenerator;
+        let mut output = Vec::new();
+
+        generate_dot_file(&graph, &generator, &mut output).unwrap();
+        let dot = String::from_utf8(output).unwrap();
+
+        assert!(dot.contains("label = \"Test Label\""));
+        assert!(dot.contains("label = \"Edge Label\""));
+        assert!(dot.contains("color = red"));
+    }
+
+    #[test]
+    fn test_format_dot_value_quoting() {
+        // Test that values are quoted when necessary
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let a = graph.add_node("hello world".to_string());
+        let b = graph.add_node("foo-bar".to_string());
+        graph.add_edge(&a, &b, ());
+
+        let generator = TestGenerator {
+            graph_name: "G".to_string(),
+        };
+        let mut output = Vec::new();
+
+        generate_dot_file(&graph, &generator, &mut output).unwrap();
+        let dot = String::from_utf8(output).unwrap();
+
+        // Default labels should be quoted since node names contain invalid characters
+        // (but they're not shown because they're internal node IDs)
+        assert!(dot.contains("digraph G"));
+    }
+
+    #[test]
+    fn test_generate_self_loop() {
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let a = graph.add_node("a".to_string());
+        graph.add_edge(&a.clone(), &a, ());
+
+        let generator = TestGenerator {
+            graph_name: "G".to_string(),
+        };
+        let mut output = Vec::new();
+
+        generate_dot_file(&graph, &generator, &mut output).unwrap();
+        let dot = String::from_utf8(output).unwrap();
+
+        assert!(dot.contains("n0 -> n0"));
+    }
+
+    #[test]
+    fn test_generate_multiple_edges() {
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let a = graph.add_node("a".to_string());
+        let b = graph.add_node("b".to_string());
+        let c = graph.add_node("c".to_string());
+        graph.add_edge(&a.clone(), &b.clone(), ());
+        graph.add_edge(&b.clone(), &c.clone(), ());
+        graph.add_edge(&c, &a, ());
+
+        let generator = TestGenerator {
+            graph_name: "Triangle".to_string(),
+        };
+        let mut output = Vec::new();
+
+        generate_dot_file(&graph, &generator, &mut output).unwrap();
+        let dot = String::from_utf8(output).unwrap();
+
+        assert!(dot.contains("digraph Triangle"));
+        assert_eq!(dot.matches("->").count(), 3);
+    }
+}

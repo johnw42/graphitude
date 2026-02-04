@@ -793,4 +793,175 @@ mod tests {
         // Total: 8 edges
         assert_eq!(graph.num_edges(), 8);
     }
+
+    #[test]
+    fn test_parse_error_malformed_syntax() {
+        let invalid_inputs = vec![
+            "digraph { a -> }",     // Missing target
+            "digraph { -> b }",     // Missing source
+            "digraph G { a -> b",   // Missing closing brace
+            "digraph { a [label }", // Malformed attribute
+        ];
+
+        for dot in invalid_inputs {
+            let mut builder = SimpleBuilder;
+            let result: Result<LinkedGraph<String, (), Directed>, _> =
+                parse_dot_into_graph(dot, &mut builder);
+            assert!(result.is_err(), "Expected error for input: {}", dot);
+        }
+    }
+
+    #[test]
+    fn test_parse_multiple_attributes() {
+        let dot = r#"
+            digraph G {
+                a [label="Node A", color=red, shape=box];
+                b [label="Node B", color=blue];
+                a -> b [label="Edge", weight=5, color=green];
+            }
+        "#;
+
+        let mut builder = SimpleBuilder;
+        let graph: LinkedGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
+
+        assert_eq!(graph.num_nodes(), 2);
+        assert_eq!(graph.num_edges(), 1);
+
+        let nodes: Vec<_> = graph
+            .node_ids()
+            .map(|id| graph.node_data(&id).clone())
+            .collect();
+
+        // Verify multiple attributes are parsed
+        let node_a = nodes.iter().find(|n| n.starts_with("a")).unwrap();
+        assert!(node_a.contains("label"));
+        assert!(node_a.contains("color"));
+        assert!(node_a.contains("shape"));
+    }
+
+    #[test]
+    fn test_parse_parallel_edges() {
+        let dot = r#"
+            digraph G {
+                a -> b;
+                a -> b;
+                a -> b;
+            }
+        "#;
+
+        let mut builder = SimpleBuilder;
+        let graph: LinkedGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
+
+        assert_eq!(graph.num_nodes(), 2);
+        // LinkedGraph allows parallel edges
+        assert_eq!(graph.num_edges(), 3);
+    }
+
+    #[test]
+    fn test_parse_quoted_identifiers() {
+        let dot = r#"
+            digraph G {
+                "node 1";
+                "node-2";
+                "node 1" -> "node-2";
+            }
+        "#;
+
+        let mut builder = SimpleBuilder;
+        let graph: LinkedGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
+
+        assert_eq!(graph.num_nodes(), 2);
+        assert_eq!(graph.num_edges(), 1);
+
+        let nodes: Vec<_> = graph
+            .node_ids()
+            .map(|id| graph.node_data(&id).clone())
+            .collect();
+
+        // Verify quoted identifiers are handled
+        assert!(
+            nodes
+                .iter()
+                .any(|n| n.contains("node 1") || n.contains("node-1"))
+        );
+        assert!(
+            nodes
+                .iter()
+                .any(|n| n.contains("node-2") || n.contains("node 2"))
+        );
+    }
+
+    #[test]
+    fn test_parse_numeric_node_ids() {
+        let dot = r#"
+            digraph G {
+                123;
+                456;
+                123 -> 456;
+            }
+        "#;
+
+        let mut builder = SimpleBuilder;
+        let graph: LinkedGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
+
+        assert_eq!(graph.num_nodes(), 2);
+        assert_eq!(graph.num_edges(), 1);
+    }
+
+    #[test]
+    fn test_parse_long_edge_chain() {
+        let dot = r#"
+            digraph G {
+                a -> b -> c -> d -> e -> f;
+            }
+        "#;
+
+        let mut builder = SimpleBuilder;
+        let graph: LinkedGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
+
+        assert_eq!(graph.num_nodes(), 6);
+        assert_eq!(graph.num_edges(), 5); // a->b, b->c, c->d, d->e, e->f
+    }
+
+    #[test]
+    fn test_parse_mixed_explicit_and_implicit_nodes() {
+        let dot = r#"
+            digraph G {
+                a [label="Explicit A"];
+                b [label="Explicit B"];
+                a -> c;
+                c -> b;
+                d -> e;
+            }
+        "#;
+
+        let mut builder = SimpleBuilder;
+        let graph: LinkedGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
+
+        // a, b are explicit; c, d, e are implicit
+        assert_eq!(graph.num_nodes(), 5);
+        assert_eq!(graph.num_edges(), 3);
+
+        let nodes: Vec<_> = graph
+            .node_ids()
+            .map(|id| graph.node_data(&id).clone())
+            .collect();
+
+        // Explicit nodes should have attributes
+        let node_a = nodes.iter().find(|n| n.starts_with("a")).unwrap();
+        assert!(node_a.contains("Explicit A"));
+
+        // Implicit nodes should not have attributes (just the ID)
+        let node_c = nodes
+            .iter()
+            .find(|n| n.starts_with("c") && !n.starts_with("ca"))
+            .unwrap();
+        assert_eq!(node_c, "c");
+    }
 }
