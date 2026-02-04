@@ -79,6 +79,12 @@ pub trait DotGenerator<G: Graph> {
         let _ = edge_id;
         Ok(vec![])
     }
+
+    /// Returns true if the graph is directed, false if undirected.
+    /// By default, this uses the graph's directedness.
+    fn is_directed(&self) -> bool {
+        G::Directedness::is_directed()
+    }
 }
 
 // Generates a DOT representation for any `Graph` implementation.
@@ -175,7 +181,7 @@ where
     }
 
     // Custom DOT renderer that properly handles optional attributes
-    let is_directed = G::Directedness::is_directed();
+    let is_directed = generator.is_directed();
     let graph_type = if is_directed { "digraph" } else { "graph" };
     let edge_op = if is_directed { "->" } else { "--" };
 
