@@ -15,9 +15,7 @@ mod inner {
 
     use clap::{Parser, ValueEnum};
     use graphitude::{
-        dot::renderer::DotGenerator,
-        linked_graph::LinkedGraph,
-        prelude::*,
+        dot::renderer::DotGenerator, linked_graph::LinkedGraph, prelude::*,
         tests::generate_large_graph_with,
     };
 
