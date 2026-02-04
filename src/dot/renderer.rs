@@ -210,10 +210,6 @@ where
                 .map_err(DotError::IoError)?;
             }
             write!(output, "]").map_err(DotError::IoError)?;
-        } else {
-            // Default label is the node name
-            write!(output, " [label = {}]", format_dot_value(&node_info.name))
-                .map_err(DotError::IoError)?;
         }
 
         writeln!(output, ";").map_err(DotError::IoError)?;
