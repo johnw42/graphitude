@@ -136,73 +136,24 @@ mod inner {
         }
     }
 
-    trait DotGraph {
-        fn num_nodes(&self) -> usize;
-        fn num_edges(&self) -> usize;
-        fn write_dot(
-            &self,
-            graph_name: &str,
-            writer: &mut dyn Write,
-        ) -> Result<(), Box<dyn std::error::Error>>;
-    }
-
-    impl<D> DotGraph for LinkedGraph<Data, Data, D>
+    fn write_graph_dot<G>(
+        graph: &G,
+        graph_name: &str,
+        writer: &mut dyn Write,
+    ) -> Result<(), Box<dyn std::error::Error>>
     where
-        D: Directedness,
+        G: Graph,
+        G::EdgeData: std::fmt::Display,
     {
-        fn num_nodes(&self) -> usize {
-            Graph::num_nodes(self)
-        }
-
-        fn num_edges(&self) -> usize {
-            Graph::num_edges(self)
-        }
-
-        fn write_dot(
-            &self,
-            graph_name: &str,
-            writer: &mut dyn Write,
-        ) -> Result<(), Box<dyn std::error::Error>> {
-            let generator = ConfigurableGenerator {
-                graph_name: graph_name.to_string(),
-                graph: self,
-            };
-            let mut buffer = Vec::new();
-            Graph::write_dot(self, &generator, &mut buffer)
-                .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
-            writer.write_all(&buffer)?;
-            Ok(())
-        }
-    }
-
-    impl<D> DotGraph for AdjacencyGraph<Data, Data, D, HashStorage>
-    where
-        D: Directedness,
-        (D::Symmetry, HashStorage): AdjacencyMatrixSelector<usize, Data>,
-    {
-        fn num_nodes(&self) -> usize {
-            Graph::num_nodes(self)
-        }
-
-        fn num_edges(&self) -> usize {
-            Graph::num_edges(self)
-        }
-
-        fn write_dot(
-            &self,
-            graph_name: &str,
-            writer: &mut dyn Write,
-        ) -> Result<(), Box<dyn std::error::Error>> {
-            let generator = ConfigurableGenerator {
-                graph_name: graph_name.to_string(),
-                graph: self,
-            };
-            let mut buffer = Vec::new();
-            Graph::write_dot(self, &generator, &mut buffer)
-                .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
-            writer.write_all(&buffer)?;
-            Ok(())
-        }
+        let generator = ConfigurableGenerator {
+            graph_name: graph_name.to_string(),
+            graph,
+        };
+        let mut buffer = Vec::new();
+        Graph::write_dot(graph, &generator, &mut buffer)
+            .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })?;
+        writer.write_all(&buffer)?;
+        Ok(())
     }
 
     fn node_data_for(i: usize, node_type: DataType) -> Data {
@@ -221,51 +172,40 @@ mod inner {
         }
     }
 
-    fn build_graph(
-        graph_kind: GraphKind,
-        graph_impl: GraphImpl,
+    fn build_linked_graph<D>(
         node_type: DataType,
         edge_type: DataType,
         edge_prefix: &str,
-    ) -> Box<dyn DotGraph> {
-        match (graph_kind, graph_impl) {
-            (GraphKind::Directed, GraphImpl::Linked) => {
-                let graph: LinkedGraph<Data, Data, Directed> = generate_large_graph_with(
-                    |i| node_data_for(i, node_type),
-                    |i| edge_data_for(i, edge_type, edge_prefix),
-                );
-                Box::new(graph)
-            }
-            (GraphKind::Undirected, GraphImpl::Linked) => {
-                let graph: LinkedGraph<Data, Data, Undirected> = generate_large_graph_with(
-                    |i| node_data_for(i, node_type),
-                    |i| edge_data_for(i, edge_type, edge_prefix),
-                );
-                Box::new(graph)
-            }
-            (GraphKind::Directed, GraphImpl::Adjacency) => {
-                let graph: AdjacencyGraph<Data, Data, Directed, HashStorage> =
-                    generate_large_graph_with(
-                        |i| node_data_for(i, node_type),
-                        |i| edge_data_for(i, edge_type, edge_prefix),
-                    );
-                Box::new(graph)
-            }
-            (GraphKind::Undirected, GraphImpl::Adjacency) => {
-                let graph: AdjacencyGraph<Data, Data, Undirected, HashStorage> =
-                    generate_large_graph_with(
-                        |i| node_data_for(i, node_type),
-                        |i| edge_data_for(i, edge_type, edge_prefix),
-                    );
-                Box::new(graph)
-            }
-        }
+    ) -> LinkedGraph<Data, Data, D>
+    where
+        D: Directedness,
+    {
+        generate_large_graph_with(
+            |i| node_data_for(i, node_type),
+            |i| edge_data_for(i, edge_type, edge_prefix),
+        )
     }
 
-    fn write_graph_output(
-        graph: &dyn DotGraph,
-        args: &Args,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn build_adjacency_graph<D>(
+        node_type: DataType,
+        edge_type: DataType,
+        edge_prefix: &str,
+    ) -> AdjacencyGraph<Data, Data, D, HashStorage>
+    where
+        D: Directedness,
+        (D::Symmetry, HashStorage): AdjacencyMatrixSelector<usize, Data>,
+    {
+        generate_large_graph_with(
+            |i| node_data_for(i, node_type),
+            |i| edge_data_for(i, edge_type, edge_prefix),
+        )
+    }
+
+    fn write_graph_output<G>(graph: &G, args: &Args) -> Result<(), Box<dyn std::error::Error>>
+    where
+        G: Graph,
+        G::EdgeData: std::fmt::Display,
+    {
         eprintln!("Graph generated:");
         eprintln!("  Nodes: {}", graph.num_nodes());
         eprintln!("  Edges: {}", graph.num_edges());
@@ -274,7 +214,7 @@ mod inner {
             Some(ref path) => {
                 eprintln!("\nWriting to {}...", path);
                 let mut file = File::create(path)?;
-                graph.write_dot(&args.graph_name, &mut file)?;
+                write_graph_dot(graph, &args.graph_name, &mut file)?;
                 eprintln!("DOT file written successfully!");
                 eprintln!("  Graph name: {}", args.graph_name);
                 eprintln!(
@@ -287,7 +227,7 @@ mod inner {
                 eprintln!("\nWriting to stdout...");
                 let stdout = io::stdout();
                 let mut handle = stdout.lock();
-                graph.write_dot(&args.graph_name, &mut handle)?;
+                write_graph_dot(graph, &args.graph_name, &mut handle)?;
                 handle.flush()?;
                 eprintln!("\nDOT output written to stdout");
                 eprintln!("  Graph name: {}", args.graph_name);
@@ -303,15 +243,41 @@ mod inner {
 
         eprintln!("Generating large graph...");
 
-        // Create closures based on selected node and edge types
-        let graph = build_graph(
-            args.graph_kind,
-            args.graph_impl,
-            args.node_type,
-            args.edge_type,
-            &args.edge_prefix,
-        );
-        write_graph_output(graph.as_ref(), &args)?;
+        // Create graph based on directedness and implementation type
+        match (args.graph_kind, args.graph_impl) {
+            (GraphKind::Directed, GraphImpl::Linked) => {
+                let graph = build_linked_graph::<Directed>(
+                    args.node_type,
+                    args.edge_type,
+                    &args.edge_prefix,
+                );
+                write_graph_output(&graph, &args)?;
+            }
+            (GraphKind::Undirected, GraphImpl::Linked) => {
+                let graph = build_linked_graph::<Undirected>(
+                    args.node_type,
+                    args.edge_type,
+                    &args.edge_prefix,
+                );
+                write_graph_output(&graph, &args)?;
+            }
+            (GraphKind::Directed, GraphImpl::Adjacency) => {
+                let graph = build_adjacency_graph::<Directed>(
+                    args.node_type,
+                    args.edge_type,
+                    &args.edge_prefix,
+                );
+                write_graph_output(&graph, &args)?;
+            }
+            (GraphKind::Undirected, GraphImpl::Adjacency) => {
+                let graph = build_adjacency_graph::<Undirected>(
+                    args.node_type,
+                    args.edge_type,
+                    &args.edge_prefix,
+                );
+                write_graph_output(&graph, &args)?;
+            }
+        }
 
         Ok(())
     }

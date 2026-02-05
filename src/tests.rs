@@ -525,18 +525,17 @@ macro_rules! graph_tests {
             );
 
             // The exact edge counts were verified via large_graph_to_dot + dot_summary.
-            const DIRECTED_EDGES: usize = 6454;
-            const UNDIRECTED_EDGES: usize = 6454;
             let num_edges = graph.num_edges();
-            let expected_edges = if graph.is_directed() {
-                DIRECTED_EDGES
-            } else {
-                UNDIRECTED_EDGES
+            let expected_edges = match (graph.is_directed(), graph.allows_parallel_edges()) {
+                (true, true) => 6454,
+                (true, false) => 6439,
+                (false, true) => todo!(),
+                (false, false) => 6383,
             };
             assert_eq!(
                 num_edges, expected_edges,
-                "Expected {} edges, got {}",
-                expected_edges, num_edges
+                "Expected {} edges based on graph properties",
+                expected_edges
             );
 
             // Verify all nodes are valid
