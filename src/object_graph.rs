@@ -180,8 +180,8 @@ mod tests {
         assert_eq!(second_neighbors.len(), 1);
         assert_eq!(graph.node_data(&second_neighbors[0]).value, 3);
 
-        assert!(graph.has_edge(&root_id, &neighbors[0]));
-        assert!(!graph.has_edge(&root_id, &second_neighbors[0]));
+        assert!(graph.has_edge_from_into(&root_id, &neighbors[0]));
+        assert!(!graph.has_edge_from_into(&root_id, &second_neighbors[0]));
     }
 
     #[cfg(feature = "pathfinding")]

@@ -141,7 +141,7 @@ mod tests {
         let mut graph = LinkedGraph::<&str, i32>::new();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
-        graph.add_edge(&n1, &n2, 10);
+        graph.add_new_edge(&n1, &n2, 10);
 
         // Single-line output.
         let output = format!("{:?}", &graph);

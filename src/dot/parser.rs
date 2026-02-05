@@ -49,6 +49,12 @@ pub enum ParseError<B: GraphBuilder> {
     /// A node ID referenced in an edge was not found in the graph.
     #[error("Node not found: {0}")]
     NodeNotFound(String),
+    /// A duplicate node ID was found in the DOT data.
+    #[error("Duplicate node ID found: {0}")]
+    DuplicateNode(String),
+    /// A parallel edge was found in the DOT data, and the graph does not support parallel edges.
+    #[error("Duplicate edge found between nodes: {0} and {1}")]
+    DuplicateEdge(String, String),
     /// An error occurred in the graph builder.
     #[error("Builder error: {0}")]
     Builder(#[source] B::Error),
@@ -155,7 +161,9 @@ where
             match stmt {
                 Stmt::NodeStmt(node_stmt) => {
                     let node_id_str = node_stmt.node.id.to_string();
-                    if !node_map.contains_key(&node_id_str) {
+                    if node_map.contains_key(&node_id_str) {
+                        return Err(ParseError::DuplicateNode(node_id_str));
+                    } else {
                         let attrs = parse_node_attrs(node_stmt).map_err(ParseError::ParseError)?;
                         let node_data = builder
                             .make_node_data(&node_id_str, &attrs)
@@ -200,7 +208,11 @@ where
                                         .make_implicit_node_data(&node_id_str)
                                         .map_err(ParseError::Builder)?;
                                     let new_node_id = graph.add_node(node_data);
-                                    node_map.insert(node_id_str, new_node_id);
+                                    let inserted = node_map.insert(node_id_str, new_node_id);
+                                    debug_assert!(
+                                        inserted.is_none(),
+                                        "Node ID should not already exist in map"
+                                    );
                                 }
                             }
                             Ok(())
@@ -243,34 +255,51 @@ where
             match stmt {
                 Stmt::EdgeStmt(edge_stmt) => {
                     // Get all node IDs from the source (handles both single nodes and subgraphs)
-                    let from_node_ids: Vec<G::NodeId> = extract_node_ids(&edge_stmt.from)
-                        .iter()
-                        .filter_map(|id_str| node_map.get(id_str).cloned())
+                    let from_node_ids: Vec<(String, G::NodeId)> = extract_node_ids(&edge_stmt.from)
+                        .into_iter()
+                        .filter_map(|id_str| {
+                            node_map
+                                .get(&id_str)
+                                .cloned()
+                                .map(|node_id| (id_str, node_id))
+                        })
                         .collect();
 
                     // Process edge chain: from -> next.to -> next.next.to -> ...
-                    for from_id in &from_node_ids {
+                    for (from_id_string, from_id) in from_node_ids {
                         let mut current_from = from_id.clone();
                         let mut current_rhs = Some(&edge_stmt.next);
 
                         while let Some(rhs) = current_rhs {
-                            let to_node_ids: Vec<G::NodeId> = extract_node_ids(&rhs.to)
-                                .iter()
-                                .filter_map(|id_str| node_map.get(id_str).cloned())
+                            let to_node_ids: Vec<(String, G::NodeId)> = extract_node_ids(&rhs.to)
+                                .into_iter()
+                                .filter_map(|id_str| {
+                                    node_map
+                                        .get(&id_str)
+                                        .cloned()
+                                        .map(|node_id| (id_str, node_id))
+                                })
                                 .collect();
 
-                            for to_id in &to_node_ids {
+                            for (to_id_string, to_id) in to_node_ids.iter() {
                                 let attrs =
                                     parse_edge_attrs(edge_stmt).map_err(ParseError::ParseError)?;
                                 let edge_data = builder
                                     .make_edge_data(&attrs)
                                     .map_err(ParseError::Builder)?;
-                                graph.add_edge(&current_from, to_id, edge_data);
+                                if let AddEdgeResult::Updated(_) =
+                                    graph.add_edge(&current_from, &to_id, edge_data)
+                                {
+                                    return Err(ParseError::DuplicateEdge(
+                                        from_id_string.clone(),
+                                        to_id_string.clone(),
+                                    ));
+                                }
                             }
 
                             // For edge chains, the "to" becomes the "from" for the next segment
                             // Use the first node if it's a subgraph
-                            if let Some(first_to) = to_node_ids.first() {
+                            if let Some((_, first_to)) = to_node_ids.first() {
                                 current_from = first_to.clone();
                             }
 
@@ -963,5 +992,33 @@ mod tests {
             .find(|n| n.starts_with("c") && !n.starts_with("ca"))
             .unwrap();
         assert_eq!(node_c, "c");
+    }
+
+    #[test]
+    fn test_duplicate_edges() {
+        let dot = r#"
+            digraph G {
+                a -> b;
+                a -> b;
+            }
+        "#;
+
+        let mut builder = SimpleBuilder;
+        let result: Result<LinkedGraph<String, (), Directed>, _> =
+            parse_dot_into_graph(dot, &mut builder);
+
+        // Depending on the implementation, this might allow parallel edges or return an error
+        // If it allows parallel edges, it should have 2 edges; if not, it should return an error
+        match result {
+            Ok(graph) => {
+                assert_eq!(graph.num_nodes(), 2);
+                assert_eq!(graph.num_edges(), 2); // Parallel edges allowed
+            }
+            Err(ParseError::DuplicateEdge(from, to)) => {
+                assert_eq!(from, "a");
+                assert_eq!(to, "b");
+            }
+            Err(e) => panic!("Unexpected error: {:?}", e),
+        }
     }
 }

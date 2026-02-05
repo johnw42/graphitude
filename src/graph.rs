@@ -11,11 +11,10 @@ use std::io;
 #[cfg(feature = "dot")]
 use crate::dot::{parser, renderer};
 use crate::{
-    EdgeMultiplicity,
     debug_graph_view::DebugGraphView,
-    directedness::{Directed, Directedness, Undirected},
     pairs::Pair,
     path::Path,
+    prelude::*,
     search::{BfsIterator, DfsIterator},
     util::{OtherValue, other_value},
 };
@@ -92,6 +91,24 @@ pub trait EdgeId: Eq + Hash + Clone + Debug {
     }
 }
 
+/// Return type of [`Graph::add_or_update_edge`].
+pub enum AddEdgeResult<I, D> {
+    /// A new edge was added with the given ID.
+    Added(I),
+    /// An existing edge was updated with new data, and the old data is returned.
+    Updated(D),
+}
+
+impl<I, D> AddEdgeResult<I, D> {
+    /// Returns the new edge ID if the result was `Added`, otherwise panics.
+    pub fn unwrap(self) -> I {
+        match self {
+            AddEdgeResult::Added(id) => id,
+            AddEdgeResult::Updated(_) => panic!("Called unwrap on an Updated edge result"),
+        }
+    }
+}
+
 /// A trait representing a directed or undirected graph data structure.  Methods
 /// that return iterators over nodes or edges return them in an unspecified
 /// order unless otherwise noted.
@@ -117,7 +134,7 @@ pub trait EdgeId: Eq + Hash + Clone + Debug {
 /// - [`Self::num_edges_into`]
 /// - [`Self::has_edge_from`]
 /// - [`Self::has_edge_into`]
-pub trait Graph: Sized {
+pub trait Graph {
     type Directedness: Directedness;
     type EdgeMultiplicity: EdgeMultiplicity;
     type NodeData;
@@ -172,6 +189,7 @@ pub trait Graph: Sized {
     ) -> Result<(), renderer::DotError<D::Error>>
     where
         D: renderer::DotGenerator<Self>,
+        Self: Sized,
     {
         renderer::generate_dot_file(self, generator, output)
     }
@@ -181,6 +199,7 @@ pub trait Graph: Sized {
     fn to_dot_string<D>(&self, generator: &D) -> Result<String, renderer::DotError<D::Error>>
     where
         D: renderer::DotGenerator<Self>,
+        Self: Sized,
     {
         let mut output = Vec::new();
         self.write_dot(generator, &mut output)?;
@@ -352,8 +371,8 @@ pub trait Graph: Sized {
         })
     }
 
-    /// Gets an iterator over the edges between two nodes.
-    fn edges_between<'a, 'b: 'a>(
+    /// Gets an iterator over the edges from one node into another.
+    fn edges_from_into<'a, 'b: 'a>(
         &'a self,
         from: &'b Self::NodeId,
         into: &'b Self::NodeId,
@@ -367,16 +386,6 @@ pub trait Graph: Sized {
         })
     }
 
-    /// Gets the number of edges from one node to another.
-    fn num_edges_between(&self, from: &Self::NodeId, into: &Self::NodeId) -> usize {
-        self.edges_between(from, into).into_iter().count()
-    }
-
-    /// Checks if there is at least one edge from one node to another.
-    fn has_edge(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
-        self.edges_between(from, into).next().is_some()
-    }
-
     /// Checks if there is at least one outgoing edge from the given node.
     fn has_edge_from(&self, from: &Self::NodeId) -> bool {
         self.edges_from(from).next().is_some()
@@ -387,9 +396,9 @@ pub trait Graph: Sized {
         self.edges_into(into).next().is_some()
     }
 
-    /// Checks if there is an edge between two nodes.
-    fn has_edge_between(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
-        self.edges_between(from, into).next().is_some()
+    /// Checks if there at least one edge from one node to another.
+    fn has_edge_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
+        self.edges_from_into(from, into).next().is_some()
     }
 
     /// Gets the number of edges in the graph.
@@ -405,6 +414,11 @@ pub trait Graph: Sized {
     /// Gets the number of outgoing edges from a given node.
     fn num_edges_from(&self, from: &Self::NodeId) -> usize {
         self.edges_from(from).into_iter().count()
+    }
+
+    /// Gets the number of edges from one node into another.
+    fn num_edges_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> usize {
+        self.edges_from_into(from, into).into_iter().count()
     }
 
     // Searches
@@ -568,7 +582,7 @@ pub trait GraphNew: GraphMut {
     #[cfg(feature = "dot")]
     fn from_dot_string<B>(data: &str, builder: &mut B) -> Result<Self, parser::ParseError<B>>
     where
-        Self: GraphMut,
+        Self: GraphMut + Sized,
         B: parser::GraphBuilder<NodeData = Self::NodeData, EdgeData = Self::EdgeData>,
     {
         parser::parse_dot_into_graph(data, builder)
@@ -595,28 +609,36 @@ pub trait GraphMut: Graph {
     fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData;
 
     /// Adds an edge with the given data between two nodes and returns the
-    /// `EdgeId`.  If an edge already exists between the two nodes, and the
-    /// graph does not support parallel edges, the old edge is replaced.
-    /// Use [`Self::add_or_replace_edge`] to get the old edge data as well.
+    /// `EdgeId`.  Use [`Self::add_edge`] for graphs that do not
+    /// support parallel edges.
+    fn add_new_edge(
+        &mut self,
+        from: &Self::NodeId,
+        to: &Self::NodeId,
+        data: Self::EdgeData,
+    ) -> Self::EdgeId
+    where
+        Self::EdgeMultiplicity: EdgeMultiplicity<Impl = MultipleEdges>,
+    {
+        match self.add_edge(from, to, data) {
+            AddEdgeResult::Added(eid) => eid,
+            AddEdgeResult::Updated(_) => {
+                unreachable!("Edge already exists between {:?} and {:?}", from, to)
+            }
+        }
+    }
+
+    /// Add an edge if possible, or replaces the data of an existing edge.  If
+    /// no edge exists, or the graph supports parallel edges, the new edge is
+    /// added and and its edge ID is returned.  Otherwise, the data of the
+    /// existing edge is replaced with the new data, and the old data is
+    /// returned.
     fn add_edge(
         &mut self,
         from: &Self::NodeId,
         to: &Self::NodeId,
         data: Self::EdgeData,
-    ) -> Self::EdgeId {
-        self.add_or_replace_edge(from, to, data).0
-    }
-
-    /// Adds an edge with the given data between two nodes and returns the
-    /// `EdgeId`.  If an edge already exists between the two nodes, and the
-    /// graph does not support parallel edges, the old edge is replaced and its
-    /// data is returned as well.
-    fn add_or_replace_edge(
-        &mut self,
-        from: &Self::NodeId,
-        to: &Self::NodeId,
-        data: Self::EdgeData,
-    ) -> (Self::EdgeId, Option<Self::EdgeData>);
+    ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData>;
 
     /// Remove an edge between two nodes, returning its data.
     fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData;
@@ -641,7 +663,7 @@ pub trait GraphMut: Graph {
         mut map_edge: G,
     ) -> HashMap<S::NodeId, Self::NodeId>
     where
-        S: Graph,
+        S: Graph + ?Sized,
         F: FnMut(&S::NodeData) -> Self::NodeData,
         G: FnMut(&S::EdgeData) -> Self::EdgeData,
     {
@@ -679,7 +701,7 @@ pub trait GraphMut: Graph {
                 && let Some(to2) = node_map.get(&to1)
             {
                 let eid2 = self
-                    .edges_between(from2, to2)
+                    .edges_from_into(from2, to2)
                     .find(|_| true)
                     .expect("missing edge");
                 edge_map.insert(eid, eid2);

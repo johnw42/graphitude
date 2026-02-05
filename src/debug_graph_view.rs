@@ -26,7 +26,7 @@ where
     /// Creates a new `DebugGraphView` by transforming the data from the source graph.
     pub fn new<G, NF, EF>(graph: &G, node_fn: NF, edge_fn: EF) -> Self
     where
-        G: Graph<Directedness = D, EdgeMultiplicity = M>,
+        G: Graph<Directedness = D, EdgeMultiplicity = M> + ?Sized,
         NF: Fn(&G::NodeData) -> N,
         EF: Fn(&G::EdgeData) -> E,
     {
@@ -69,12 +69,12 @@ where
         self.inner.edge_data(id)
     }
 
-    fn edges_between<'a, 'b: 'a>(
+    fn edges_from_into<'a, 'b: 'a>(
         &'a self,
         from: &'b Self::NodeId,
         to: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.inner.edges_between(from, to)
+        self.inner.edges_from_into(from, to)
     }
 }
 
@@ -127,8 +127,8 @@ mod tests {
         let n2 = graph.add_node("B");
         let n3 = graph.add_node("C");
 
-        graph.add_edge(&n1, &n2, 100);
-        graph.add_edge(&n2, &n3, 200);
+        graph.add_new_edge(&n1, &n2, 100);
+        graph.add_new_edge(&n2, &n3, 200);
 
         let view = DebugGraphView::new(&graph, |&s| s, |&e| e);
 
@@ -160,7 +160,7 @@ mod tests {
         let n1 = graph.add_node(());
         let n2 = graph.add_node(());
 
-        graph.add_edge(&n1, &n2, 5);
+        graph.add_new_edge(&n1, &n2, 5);
 
         // Transform by multiplying by 10
         let view = DebugGraphView::new(&graph, |_| (), |&e| e * 10);
@@ -175,7 +175,7 @@ mod tests {
         let n1 = graph.add_node(42);
         let n2 = graph.add_node(100);
 
-        graph.add_edge(&n1, &n2, 3.14);
+        graph.add_new_edge(&n1, &n2, 3.14);
 
         // Transform types: i32 -> String, f64 -> bool
         let view = DebugGraphView::new(&graph, |&n| format!("Node_{}", n), |&e| e > 2.0);
@@ -197,13 +197,13 @@ mod tests {
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
 
-        graph.add_edge(&n1, &n2, 1);
-        graph.add_edge(&n1, &n2, 2);
+        graph.add_new_edge(&n1, &n2, 1);
+        graph.add_new_edge(&n1, &n2, 2);
 
         let view = DebugGraphView::new(&graph, |&s| s, |&e| e);
 
         let node_ids: Vec<_> = view.node_ids().collect();
-        let edges_between: Vec<_> = view.edges_between(&node_ids[0], &node_ids[1]).collect();
+        let edges_between: Vec<_> = view.edges_from_into(&node_ids[0], &node_ids[1]).collect();
         assert_eq!(edges_between.len(), 2);
     }
 
@@ -213,7 +213,7 @@ mod tests {
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
-        graph.add_edge(&n1, &n2, "edge");
+        graph.add_new_edge(&n1, &n2, "edge");
 
         let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
 
@@ -229,7 +229,7 @@ mod tests {
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
-        graph.add_edge(&n1, &n2, "edge");
+        graph.add_new_edge(&n1, &n2, "edge");
 
         let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
 
@@ -245,7 +245,7 @@ mod tests {
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
-        graph.add_edge(&n1, &n2, "edge");
+        graph.add_new_edge(&n1, &n2, "edge");
 
         let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
 

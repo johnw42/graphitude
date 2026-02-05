@@ -72,7 +72,7 @@ impl Graph for StringGraph {
         &self.nodes.get(id).expect("Node does not exist").0
     }
 
-    fn num_edges_between(&self, from: &Self::NodeId, into: &Self::NodeId) -> usize {
+    fn num_edges_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> usize {
         self.edges
             .get(from.clone(), into.clone())
             .into_iter()
@@ -136,14 +136,16 @@ impl GraphMut for StringGraph {
         id
     }
 
-    fn add_or_replace_edge(
+    fn add_edge(
         &mut self,
         from: &Self::NodeId,
         into: &Self::NodeId,
         data: Self::EdgeData,
-    ) -> (Self::EdgeId, Option<Self::EdgeData>) {
-        let old_data = self.edges.insert(from.clone(), into.clone(), data);
-        (self.edge_id(from.clone(), into.clone()), old_data)
+    ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
+        match self.edges.insert(from.clone(), into.clone(), data) {
+            Some(old_data) => AddEdgeResult::Updated(old_data),
+            None => AddEdgeResult::Added(self.edge_id(from.clone(), into.clone())),
+        }
     }
 
     fn remove_node(&mut self, id: &Self::NodeId) -> String {
@@ -200,7 +202,7 @@ fn test_format_debug_with() {
     // Add nodes in non-sorted order.
     let n1 = graph.add_node("B".to_string());
     let n2 = graph.add_node("A".to_string());
-    graph.add_edge(&n1, &n2, ());
+    graph.add_edge(&n1, &n2, ()).unwrap();
 
     // Single-line output - nodes show data (not zero-sized), edges don't (zero-sized)
     let output = format!("{:?}", &graph);

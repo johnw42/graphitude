@@ -359,7 +359,7 @@ mod tests {
         let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
-        graph.add_edge(&a, &b, ());
+        graph.add_new_edge(&a, &b, ());
 
         let generator = TestGenerator {
             graph_name: "G".to_string(),
@@ -381,7 +381,7 @@ mod tests {
         let mut graph: LinkedGraph<String, (), Undirected> = LinkedGraph::new();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
-        graph.add_edge(&a, &b, ());
+        graph.add_new_edge(&a, &b, ());
 
         let generator = TestGenerator {
             graph_name: "G".to_string(),
@@ -466,7 +466,7 @@ mod tests {
         let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
-        graph.add_edge(&a, &b, ());
+        graph.add_new_edge(&a, &b, ());
 
         let generator = AttributeGenerator;
         let mut output = Vec::new();
@@ -485,7 +485,7 @@ mod tests {
         let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
         let a = graph.add_node("hello world".to_string());
         let b = graph.add_node("foo-bar".to_string());
-        graph.add_edge(&a, &b, ());
+        graph.add_new_edge(&a, &b, ());
 
         let generator = TestGenerator {
             graph_name: "G".to_string(),
@@ -504,7 +504,7 @@ mod tests {
     fn test_generate_self_loop() {
         let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
         let a = graph.add_node("a".to_string());
-        graph.add_edge(&a.clone(), &a, ());
+        graph.add_new_edge(&a.clone(), &a, ());
 
         let generator = TestGenerator {
             graph_name: "G".to_string(),
@@ -523,9 +523,9 @@ mod tests {
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         let c = graph.add_node("c".to_string());
-        graph.add_edge(&a.clone(), &b.clone(), ());
-        graph.add_edge(&b.clone(), &c.clone(), ());
-        graph.add_edge(&c, &a, ());
+        graph.add_new_edge(&a.clone(), &b.clone(), ());
+        graph.add_new_edge(&b.clone(), &c.clone(), ());
+        graph.add_new_edge(&c, &a, ());
 
         let generator = TestGenerator {
             graph_name: "Triangle".to_string(),

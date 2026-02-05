@@ -1,6 +1,9 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
-use crate::{debug::format_debug, graph_id::GraphId, pairs::Pair, prelude::*, util::OtherValue};
+use crate::{
+    debug::format_debug, graph::AddEdgeResult, graph_id::GraphId, pairs::Pair, prelude::*,
+    util::OtherValue,
+};
 
 mod edge_id;
 mod node_id;
@@ -103,7 +106,6 @@ where
         &self.node(id.clone()).data
     }
 
-    /// Gets an iterator over all node identifiers in the graph in insertion order.
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
         self.nodes.iter().map(|node| self.node_id(node))
     }
@@ -112,8 +114,6 @@ where
         &self.edge(id.clone()).data
     }
 
-    /// Gets an iterator over all edge identifiers in the graph in insertion order of the
-    /// source nodes and the insertion order of the edges from each source node.
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
         if D::is_directed() {
             // For directed graphs, just iterate normally
@@ -136,8 +136,6 @@ where
         }
     }
 
-    /// Gets an iterator over the edges outgoing from the given node in
-    /// insertion order of the edges outgoing from the given node.
     fn edges_from<'a, 'b: 'a>(
         &'a self,
         from: &'b Self::NodeId,
@@ -148,8 +146,6 @@ where
             .map(|edge| self.edge_id(edge))
     }
 
-    /// Gets an iterator over the edges incoming to the given node in
-    /// insertion order of the edges incoming to the given node.
     fn edges_into<'a, 'b: 'a>(
         &'a self,
         into: &'b Self::NodeId,
@@ -174,8 +170,7 @@ where
         }
     }
 
-    /// Gets an iterator over the edges between two nodes.
-    fn edges_between<'a, 'b: 'a>(
+    fn edges_from_into<'a, 'b: 'a>(
         &'a self,
         from: &'b Self::NodeId,
         into: &'b Self::NodeId,
@@ -197,8 +192,7 @@ where
             })
     }
 
-    /// Checks if there is at least one edge from one node to another.
-    fn has_edge(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
+    fn has_edge_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
         let from = from.clone();
         let into = into.clone();
         self.node(from.clone()).edges_out.iter().any(|edge| {
@@ -210,11 +204,6 @@ where
                     || (edge_source == into && edge_target == from)
             }
         })
-    }
-
-    /// Checks if there is at least one edge between two nodes.
-    fn has_edge_between(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
-        self.has_edge(from, into)
     }
 
     fn num_edges_into(&self, into: &Self::NodeId) -> usize {
@@ -306,12 +295,12 @@ where
         nid
     }
 
-    fn add_or_replace_edge(
+    fn add_edge(
         &mut self,
         from: &Self::NodeId,
         into: &Self::NodeId,
         data: Self::EdgeData,
-    ) -> (Self::EdgeId, Option<Self::EdgeData>) {
+    ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
         let from = from.clone();
         let into = into.clone();
         let ends = D::Pair::from((from, into));
@@ -338,7 +327,7 @@ where
             self.node_mut(into).edges_out.push(edge);
         }
 
-        (eid, None)
+        AddEdgeResult::Added(eid)
     }
 
     fn remove_node(&mut self, nid: &Self::NodeId) -> N {

@@ -145,12 +145,12 @@ impl GraphMut for StringGraph {
         id
     }
 
-    fn add_or_replace_edge(
+    fn add_edge(
         &mut self,
         from: &Self::NodeId,
         to: &Self::NodeId,
         data: Self::EdgeData,
-    ) -> (Self::EdgeId, Option<Self::EdgeData>) {
+    ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
         assert!(self.nodes.contains_key(to), "Invalid 'to' node ID");
         let edge_index = self.next_edge_id;
         self.next_edge_id += 1;
@@ -163,7 +163,7 @@ impl GraphMut for StringGraph {
                 data: data,
                 index: edge_index,
             });
-        (EdgeId(*from, *to, edge_index), None)
+        AddEdgeResult::Added(EdgeId(from.clone(), to.clone(), edge_index))
     }
 
     fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData {

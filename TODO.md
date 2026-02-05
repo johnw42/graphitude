@@ -12,3 +12,6 @@
 [x] add handling for data types defined at https://graphviz.org/doc/info/attrs.html
 [ ] Propose adding a consuming iter_ones (e.g., into_iter_ones) to bitvec, and use it instead of a custom iterator
 [ ] Get rid of log2_size
+[ ] Support different edge multiplicities in LinkedGraph and AdjacencyGraph
+[ ] Speed up/fix edge removal in AdjacencyGraph by clearing the row+column of a removed node in a single call
+[ ] Add a reflect adjacency bitmap for directed adjacency graphs

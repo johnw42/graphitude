@@ -8,7 +8,7 @@ const DEFAULT_HASH_SET_CAPACITY: usize = 64;
 ///
 /// Visits nodes in breadth-first order starting from one or more root nodes.
 /// Each node is visited at most once.
-pub struct BfsIterator<'g, G: Graph> {
+pub struct BfsIterator<'g, G: Graph + ?Sized> {
     graph: &'g G,
     visited: HashSet<G::NodeId>,
     queue: VecDeque<G::NodeId>,
@@ -16,7 +16,7 @@ pub struct BfsIterator<'g, G: Graph> {
 
 impl<'g, G> BfsIterator<'g, G>
 where
-    G: Graph,
+    G: Graph + ?Sized,
 {
     pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
         Self {
@@ -103,7 +103,7 @@ where
 ///
 /// Visits nodes in depth-first order starting from one or more root nodes.
 /// Each node is visited at most once.
-pub struct DfsIterator<'g, G: Graph> {
+pub struct DfsIterator<'g, G: Graph + ?Sized> {
     graph: &'g G,
     visited: HashSet<G::NodeId>,
     stack: Vec<G::NodeId>,
@@ -111,7 +111,7 @@ pub struct DfsIterator<'g, G: Graph> {
 
 impl<'g, G> DfsIterator<'g, G>
 where
-    G: Graph,
+    G: Graph + ?Sized,
 {
     pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
         let mut stack = start;

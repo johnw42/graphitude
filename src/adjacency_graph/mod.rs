@@ -182,7 +182,7 @@ where
         self.adjacency.len()
     }
 
-    fn edges_between<'a, 'b: 'a>(
+    fn edges_from_into<'a, 'b: 'a>(
         &'a self,
         from: &'b Self::NodeId,
         into: &'b Self::NodeId,
@@ -310,18 +310,20 @@ where
         self.node_id(index)
     }
 
-    fn add_or_replace_edge(
+    fn add_edge(
         &mut self,
         from: &Self::NodeId,
         into: &Self::NodeId,
         data: Self::EdgeData,
-    ) -> (Self::EdgeId, Option<Self::EdgeData>) {
-        let old_data = self.adjacency.insert(
+    ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
+        match self.adjacency.insert(
             self.nodes.zero_based_index(from.key()),
             self.nodes.zero_based_index(into.key()),
             data,
-        );
-        (self.edge_id(from.key(), into.key()), old_data)
+        ) {
+            Some(data) => AddEdgeResult::Updated(data),
+            None => AddEdgeResult::Added(self.edge_id(from.key(), into.key())),
+        }
     }
 
     fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData {
@@ -360,15 +362,6 @@ where
     fn clear(&mut self) {
         self.nodes.clear();
         self.adjacency.clear();
-    }
-
-    fn add_edge(
-        &mut self,
-        from: &Self::NodeId,
-        to: &Self::NodeId,
-        data: Self::EdgeData,
-    ) -> Self::EdgeId {
-        self.add_or_replace_edge(from, to, data).0
     }
 
     fn reserve(&mut self, additional_nodes: usize, _additional_edges: usize) {
@@ -467,9 +460,10 @@ mod tests {
                 let mut graph: $type = GraphNew::new();
                 let n1 = graph.add_node(1);
                 let n2 = graph.add_node(2);
-                let e1 = graph.add_edge(&n1, &n2, "edge".to_string());
-                graph.compact();
-                graph.assert_valid_edge_id(&e1);
+                if let AddEdgeResult::Added(e1) = graph.add_edge(&n1, &n2, "edge".to_string()) {
+                    graph.compact();
+                    graph.assert_valid_edge_id(&e1);
+                }
             }
         };
     }

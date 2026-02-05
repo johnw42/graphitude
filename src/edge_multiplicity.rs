@@ -8,17 +8,20 @@ pub struct MultipleEdges;
 ///
 /// This trait is implemented by [`SingleEdge`] and [`MultipleEdges`] marker types
 /// to provide compile-time specialization of graph behavior.
-pub trait EdgeMultiplicity: Sized {
+pub trait EdgeMultiplicity {
+    type Impl: EdgeMultiplicity<Impl = Self>;
     fn allows_parallel_edges() -> bool;
 }
 
 impl EdgeMultiplicity for SingleEdge {
+    type Impl = SingleEdge;
     fn allows_parallel_edges() -> bool {
         false
     }
 }
 
 impl EdgeMultiplicity for MultipleEdges {
+    type Impl = MultipleEdges;
     fn allows_parallel_edges() -> bool {
         true
     }
