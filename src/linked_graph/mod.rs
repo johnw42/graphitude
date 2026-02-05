@@ -41,7 +41,7 @@ where
     directedness: PhantomData<D>,
 }
 
-impl<N: Debug, E, D> LinkedGraph<N, E, D>
+impl<N, E, D> LinkedGraph<N, E, D>
 where
     D: Directedness,
 {
@@ -91,7 +91,7 @@ where
     }
 }
 
-impl<N: Debug, E, D> Graph for LinkedGraph<N, E, D>
+impl<N, E, D> Graph for LinkedGraph<N, E, D>
 where
     D: Directedness,
 {
@@ -262,7 +262,7 @@ where
     }
 }
 
-impl<N: Debug, E, D> GraphNew for LinkedGraph<N, E, D>
+impl<N, E, D> GraphNew for LinkedGraph<N, E, D>
 where
     D: Directedness,
 {
@@ -275,7 +275,7 @@ where
     }
 }
 
-impl<N: Debug, E, D> GraphMut for LinkedGraph<N, E, D>
+impl<N, E, D> GraphMut for LinkedGraph<N, E, D>
 where
     D: Directedness,
 {
@@ -406,7 +406,7 @@ where
 
 impl<N, E, D> Clone for LinkedGraph<N, E, D>
 where
-    N: Clone + Debug,
+    N: Clone,
     E: Clone,
     D: Directedness,
 {

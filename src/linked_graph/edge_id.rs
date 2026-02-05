@@ -60,7 +60,7 @@ impl<N, E, D: Directedness> Ord for EdgeId<N, E, D> {
     }
 }
 
-impl<N: Debug, E, D: Directedness> crate::graph::EdgeId for EdgeId<N, E, D> {
+impl<N, E, D: Directedness> crate::graph::EdgeId for EdgeId<N, E, D> {
     type NodeId = NodeId<N, E, D>;
     type Directedness = D;
 

@@ -14,4 +14,5 @@
 [ ] Get rid of log2_size
 [ ] Support different edge multiplicities in LinkedGraph and AdjacencyGraph
 [ ] Speed up/fix edge removal in AdjacencyGraph by clearing the row+column of a removed node in a single call
-[ ] Add a reflect adjacency bitmap for directed adjacency graphs
+[ ] Add a reflected adjacency bitmap for directed adjacency graphs
+[ ] Clean up TODOs in code
