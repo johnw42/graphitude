@@ -151,10 +151,22 @@ mod tests {
     fn test_row_iterator() {
         let smi = SymmetricMatrixIndexing::new(4);
         let row_0: Vec<_> = smi.row(0).map(|index| smi.coordinates(index)).collect();
-        assert_eq!(row_0, vec![(0, 0), (0, 1), (0, 2), (0, 3)]);
+        assert_eq!(
+            row_0,
+            [(0, 0), (0, 1), (0, 2), (0, 3)]
+                .into_iter()
+                .map(SortedPair::from)
+                .collect::<Vec<_>>()
+        );
 
         let row_2: Vec<_> = smi.row(2).map(|index| smi.coordinates(index)).collect();
-        assert_eq!(row_2, vec![(0, 2), (1, 2), (2, 2), (2, 3)]);
+        assert_eq!(
+            row_2,
+            [(0, 2), (1, 2), (2, 2), (2, 3)]
+                .into_iter()
+                .map(SortedPair::from)
+                .collect::<Vec<_>>()
+        );
 
         // Verify that the row iterator produces correct indices
         // according to a more straightforward method.

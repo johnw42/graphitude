@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::{
     debug::format_debug, graph::AddEdgeResult, graph_id::GraphId, pairs::Pair, prelude::*,
@@ -14,12 +14,14 @@ pub use node_id::NodeId;
 struct Node<N, E, D: Directedness> {
     data: N,
     edges_out: Vec<Arc<Edge<N, E, D>>>,
+    // Only maintained for directed graphs, since for undirected graphs
+    // edges_out is sufficient to find all edges.
     edges_in: Vec<EdgeId<N, E, D>>,
     directedness: PhantomData<D>,
 }
 
 struct Edge<N, E, D: Directedness> {
-    data: E,
+    data: UnsafeCell<E>,
     ends: D::Pair<NodeId<N, E, D>>,
     directedness: PhantomData<D>,
 }
@@ -32,18 +34,20 @@ struct Edge<N, E, D: Directedness> {
 /// * `N` - The type of data stored in nodes
 /// * `E` - The type of data stored in edges
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
-pub struct LinkedGraph<N, E, D = Directed>
+pub struct LinkedGraph<N, E, D = Directed, M = MultipleEdges>
 where
     D: Directedness,
+    M: EdgeMultiplicity,
 {
     nodes: Vec<Arc<Node<N, E, D>>>,
     id: GraphId,
-    directedness: PhantomData<D>,
+    phantom: PhantomData<(M, D)>,
 }
 
-impl<N, E, D> LinkedGraph<N, E, D>
+impl<N, E, D, M> LinkedGraph<N, E, D, M>
 where
     D: Directedness,
+    M: EdgeMultiplicity,
 {
     fn node_id(&self, ptr: &Arc<Node<N, E, D>>) -> NodeId<N, E, D> {
         NodeId {
@@ -91,16 +95,17 @@ where
     }
 }
 
-impl<N, E, D> Graph for LinkedGraph<N, E, D>
+impl<N, E, D, M> Graph for LinkedGraph<N, E, D, M>
 where
     D: Directedness,
+    M: EdgeMultiplicity,
 {
     type NodeId = NodeId<N, E, D>;
     type NodeData = N;
     type EdgeId = EdgeId<N, E, D>;
     type EdgeData = E;
     type Directedness = D;
-    type EdgeMultiplicity = MultipleEdges;
+    type EdgeMultiplicity = M;
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         &self.node(id.clone()).data
@@ -111,7 +116,10 @@ where
     }
 
     fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
-        &self.edge(id.clone()).data
+        let edge = self.edge(id.clone());
+        // SAFETY: There can be no mutable references to the data, the graph
+        // owns all its data, and there are no mutable references to the graph.
+        unsafe { &*edge.data.get() }
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
@@ -262,22 +270,24 @@ where
     }
 }
 
-impl<N, E, D> GraphNew for LinkedGraph<N, E, D>
+impl<N, E, D, M> GraphNew for LinkedGraph<N, E, D, M>
 where
     D: Directedness,
+    M: EdgeMultiplicity,
 {
     fn new() -> Self {
         Self {
             nodes: Vec::new(),
             id: GraphId::new(),
-            directedness: PhantomData,
+            phantom: PhantomData,
         }
     }
 }
 
-impl<N, E, D> GraphMut for LinkedGraph<N, E, D>
+impl<N, E, D, M> GraphMut for LinkedGraph<N, E, D, M>
 where
     D: Directedness,
+    M: EdgeMultiplicity,
 {
     fn clear(&mut self) {
         self.nodes.clear();
@@ -303,24 +313,41 @@ where
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
         let from = from.clone();
         let into = into.clone();
+        if !self.allows_parallel_edges() {
+            debug_assert!(self.edges_from_into(&from, &into).count() <= 1);
+            if let Some(edge) = self
+                .node_mut(from.clone())
+                .edges_out
+                .iter_mut()
+                .find(|edge| edge.ends == (from.clone(), into.clone()).into())
+            {
+                let mut old_data = data;
+                // SAFETY: There can be no mutable references to the data, the graph
+                // owns all its data, and we have &mut self, so no other references
+                // to the graph or edge data can exist.
+                std::mem::swap(unsafe { &mut *edge.data.get() }, &mut old_data);
+                return AddEdgeResult::Updated(old_data);
+            }
+            debug_assert_eq!(self.edges_from_into(&from, &into).count(), 0);
+        }
+
         let ends = D::Pair::from((from, into));
         let (from, into) = ends.clone().into();
 
         let edge = Arc::new(Edge {
-            data,
+            data: UnsafeCell::new(data),
             ends,
             directedness: PhantomData,
         });
         let eid = self.edge_id(&edge);
 
-        // SAFETY: Calling node_mut is safe here because we have &mut self,
-        // so no other references to the nodes can exist.
-        // TODO: Make sure this is true!
         // Always add to the sorted "from" node's edges_out
         self.node_mut(from.clone()).edges_out.push(edge.clone());
 
         if D::is_directed() {
-            // For directed graphs, add to the "into" node's edges_in
+            // For directed graphs, add to the "into" node's edges_in.  We don't
+            // maintain edges_in for undirected graphs since it's redundant with
+            // edges_out.
             self.node_mut(into).edges_in.push(eid.clone());
         } else if from != into {
             // For undirected graphs (non-self-loop), add to the other node's edges_out
@@ -401,14 +428,16 @@ where
         Arc::into_inner(edge)
             .expect("Edge has multiple references")
             .data
+            .into_inner()
     }
 }
 
-impl<N, E, D> Clone for LinkedGraph<N, E, D>
+impl<N, E, D, M> Clone for LinkedGraph<N, E, D, M>
 where
     N: Clone,
     E: Clone,
     D: Directedness,
+    M: EdgeMultiplicity,
 {
     fn clone(&self) -> Self {
         let mut new_graph = LinkedGraph::new();
@@ -417,11 +446,12 @@ where
     }
 }
 
-impl<N, E, D> Debug for LinkedGraph<N, E, D>
+impl<N, E, D, M> Debug for LinkedGraph<N, E, D, M>
 where
     N: Debug,
     E: Debug,
     D: Directedness,
+    M: EdgeMultiplicity,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "LinkedGraph")
@@ -433,46 +463,58 @@ mod tests {
     use super::*;
     use crate::{tests::TestDataBuilder, *};
 
-    mod directed {
-        use super::*;
+    impl<D, M> TestDataBuilder for LinkedGraph<i32, String, D, M>
+    where
+        D: Directedness,
+        M: EdgeMultiplicity,
+    {
+        type Graph = Self;
 
-        impl TestDataBuilder for LinkedGraph<i32, String, Directed> {
-            type Graph = Self;
-
-            fn new_edge_data(i: usize) -> String {
-                format!("e{}", i)
-            }
-
-            fn new_node_data(i: usize) -> i32 {
-                i as i32
-            }
+        fn new_edge_data(i: usize) -> String {
+            format!("e{}", i)
         }
 
-        graph_tests!(LinkedGraph<i32, String, Directed>);
+        fn new_node_data(i: usize) -> i32 {
+            i as i32
+        }
+    }
+
+    mod directed_multiple {
+        use super::*;
+
+        graph_tests!(LinkedGraph<i32, String, Directed, MultipleEdges>);
         graph_test_copy_from_with!(
-            LinkedGraph<i32, String, Directed>,
+            LinkedGraph<i32, String, Directed, MultipleEdges>,
             |data| data * 2,
             |data| format!("{}-copied", data));
     }
 
-    mod undirected {
+    mod directed_single {
         use super::*;
 
-        impl TestDataBuilder for LinkedGraph<i32, String, Undirected> {
-            type Graph = Self;
-
-            fn new_edge_data(i: usize) -> String {
-                format!("e{}", i)
-            }
-
-            fn new_node_data(i: usize) -> i32 {
-                i as i32
-            }
-        }
-
-        graph_tests!(LinkedGraph<i32, String, Undirected>);
+        graph_tests!(LinkedGraph<i32, String, Directed, SingleEdge>);
         graph_test_copy_from_with!(
-            LinkedGraph<i32, String, Undirected>,
+            LinkedGraph<i32, String, Directed, SingleEdge>,
+            |data| data * 2,
+            |data| format!("{}-copied", data));
+    }
+
+    mod undirected_multiple {
+        use super::*;
+
+        graph_tests!(LinkedGraph<i32, String, Undirected, MultipleEdges>);
+        graph_test_copy_from_with!(
+            LinkedGraph<i32, String, Undirected, MultipleEdges>,
+            |data| data * 2,
+            |data| format!("{}-copied", data));
+    }
+
+    mod undirected_single {
+        use super::*;
+
+        graph_tests!(LinkedGraph<i32, String, Undirected, SingleEdge>);
+        graph_test_copy_from_with!(
+            LinkedGraph<i32, String, Undirected, SingleEdge>,
             |data| data * 2,
             |data| format!("{}-copied", data));
     }

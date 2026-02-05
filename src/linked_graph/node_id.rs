@@ -15,7 +15,7 @@ pub struct NodeId<N, E, D: Directedness> {
 
 impl<N, E, D: Directedness> Debug for NodeId<N, E, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NodeId({:?})", self.ptr)
+        write!(f, "NodeId({:?})", self.ptr.as_ptr())
     }
 }
 

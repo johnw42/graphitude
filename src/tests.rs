@@ -1,6 +1,6 @@
 use std::{
     cell::RefCell,
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
     sync::Once,
     time::{Duration, Instant},
@@ -220,6 +220,7 @@ where
         node_counter += 1;
         all_nodes.push(node);
     }
+
     // Connect nodes within cluster 1 with ~60% density
     for i in cluster1_start..all_nodes.len() {
         for j in (i + 1)..all_nodes.len() {
@@ -435,6 +436,27 @@ pub fn check_graph_consistency<G: Graph>(graph: &G) {
 
     // Verify all edges are valid
     for edge_id in graph.edge_ids() {
+        assert_eq!(
+            graph
+                .edges_from_into(&edge_id.target(), &edge_id.source())
+                .count(),
+            graph
+                .edges_from_into(&edge_id.target(), &edge_id.source())
+                .collect::<HashSet<_>>()
+                .len()
+        );
+
+        if !graph.is_directed() {
+            assert!(graph.has_edge_from_into(&edge_id.target(), &edge_id.source()))
+        }
+        if !graph.allows_parallel_edges() {
+            dbg!(&edge_id.source(), &edge_id.target());
+            assert_eq!(
+                graph.num_edges_from_into(&edge_id.source(), &edge_id.target()),
+                1
+            );
+        }
+
         {
             let _span = info_span!("check_valid_edge_id").entered();
             let valid = graph.check_valid_edge_id(&edge_id);
@@ -517,6 +539,8 @@ macro_rules! graph_tests {
         fn test_large_graph_structure() {
             let graph = $crate::tests::generate_large_graph::<$type>();
 
+            $crate::tests::check_graph_consistency(&graph);
+
             // Verify basic structure
             assert_eq!(
                 graph.num_nodes(),
@@ -527,8 +551,9 @@ macro_rules! graph_tests {
             // The exact edge counts were verified via large_graph_to_dot + dot_summary.
             let num_edges = graph.num_edges();
             let expected_edges = match (graph.is_directed(), graph.allows_parallel_edges()) {
-                (_, true) => 6454,
+                (true, true) => 6454,
                 (true, false) => 6439,
+                (false, true) => 6454,
                 (false, false) => 6383,
             };
             assert_eq!(
