@@ -44,6 +44,7 @@ pub mod tests;
 mod graph_id;
 mod id_vec;
 mod pairs;
+mod test_util;
 mod util;
 
 #[cfg(feature = "bitvec")]

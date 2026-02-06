@@ -1,7 +1,6 @@
 use std::{hash::Hash, marker::PhantomData, mem::MaybeUninit};
 
 use bitvec::vec::BitVec;
-use tracing_subscriber::field::debug;
 
 use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, BitvecStorage};
 
@@ -84,6 +83,17 @@ where
     }
 }
 
+impl<I, V> Drop for AsymmetricBitvecAdjacencyMatrix<I, V> {
+    fn drop(&mut self) {
+        // Drop all initialized values
+        for index in self.matrix.iter_ones() {
+            unsafe {
+                self.data[index].assume_init_drop();
+            }
+        }
+    }
+}
+
 impl<I, V> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<I, V>
 where
     I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord,
@@ -121,6 +131,8 @@ where
                     }
                 }
                 new_self.entry_count = self.entry_count;
+                // Clear old matrix bits to prevent double-drop
+                self.matrix.fill(false);
                 *self = new_self;
             }
         }
@@ -160,21 +172,22 @@ where
         })
     }
 
-    fn into_iter(self) -> impl Iterator<Item = (Self::Index, Self::Index, Self::Value)> {
-        let Self {
-            matrix, data, size, ..
-        } = self;
-        matrix
-            .into_iter()
-            .enumerate()
-            .filter_map(move |(index, bit)| {
-                if bit {
-                    let (row, col) = Self::coordinates_with(size, index);
-                    Some((row, col, unsafe { data[index].assume_init_read() }))
-                } else {
-                    None
-                }
-            })
+    fn into_iter(mut self) -> impl Iterator<Item = (Self::Index, Self::Index, Self::Value)> {
+        let size = self.size;
+        let mut result = Vec::new();
+
+        // Collect all live entries
+        for index in self.matrix.iter_ones() {
+            let (row, col) = Self::coordinates_with(size, index);
+            // SAFETY: index is live (from iter_ones)
+            let value = unsafe { self.data[index].assume_init_read() };
+            result.push((row, col, value));
+        }
+
+        // Mark all as dead to prevent double-drop in Drop impl
+        self.matrix.fill(false);
+
+        result.into_iter()
     }
 
     fn entries_in_row(&self, row: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
@@ -193,8 +206,18 @@ where
     }
 
     fn clear(&mut self) {
+        // Drop all initialized values before clearing
+        for index in self.matrix.iter_ones() {
+            unsafe {
+                self.data[index].assume_init_drop();
+            }
+        }
         self.matrix.fill(false);
         self.entry_count = 0;
+    }
+
+    fn clear_row_and_column(&mut self, _row: Self::Index, _col: Self::Index) {
+        todo!()
     }
 
     fn len(&self) -> usize {
@@ -217,6 +240,9 @@ where
                 }
             }
             new_self.entry_count = self.entry_count;
+            // Clear old matrix bits to prevent double-drop
+            // Data has been swapped to new_self, so old entries are uninitialized
+            self.matrix.fill(false);
             *self = new_self;
         }
     }
@@ -224,6 +250,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::test_util::DropCounter;
+
     use super::*;
 
     #[test]
@@ -370,5 +398,99 @@ mod tests {
         }
 
         assert_eq!(matrix.iter().count(), 0);
+    }
+
+    #[test]
+    fn test_drop_initialized_values() {
+        let counter = DropCounter::new();
+
+        {
+            let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+
+            // Insert some values
+            matrix.insert(0, 1, counter.new_value());
+            matrix.insert(2, 3, counter.new_value());
+            matrix.insert(5, 7, counter.new_value());
+
+            // Replace one value (should drop the old one)
+            matrix.insert(0, 1, counter.new_value());
+
+            // Remove one value (should drop it)
+            matrix.remove(2, 3);
+
+            // At this point:
+            // - 1 drop from the replaced value at (0,1)
+            // - 1 drop from the removed value at (2,3)
+            // Total so far: 2 drops
+            assert_eq!(counter.drop_count(), 2);
+
+            // Matrix still holds 2 values: (0,1) and (5,7)
+        } // Matrix dropped here - should drop remaining 2 values
+
+        // Total drops: 2 (from operations) + 2 (from matrix drop) = 4
+        assert_eq!(counter.drop_count(), 4);
+    }
+
+    #[test]
+    fn test_no_double_drop_after_into_iter() {
+        let counter = DropCounter::new();
+
+        {
+            let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+
+            // Insert some values
+            matrix.insert(0, 1, counter.new_value());
+            matrix.insert(2, 3, counter.new_value());
+            matrix.insert(5, 7, counter.new_value());
+
+            assert_eq!(counter.drop_count(), 0);
+            // Consume matrix with into_iter
+            let collected: Vec<_> = matrix.into_iter().collect();
+            assert_eq!(collected.len(), 3);
+
+            // Values should still be alive in collected
+            assert_eq!(counter.drop_count(), 0);
+
+            // Drop the collected values
+            drop(collected);
+
+            // Now all 3 values should be dropped exactly once
+            assert_eq!(counter.drop_count(), 3);
+        }
+
+        // Matrix was consumed by into_iter, so no additional drops
+        assert_eq!(counter.drop_count(), 3);
+    }
+
+    #[test]
+    fn test_no_double_drop_after_clear() {
+        let counter = DropCounter::new();
+
+        {
+            let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+
+            // Insert some values
+            matrix.insert(0, 1, counter.new_value());
+            matrix.insert(2, 3, counter.new_value());
+            matrix.insert(5, 7, counter.new_value());
+
+            assert_eq!(counter.drop_count(), 0);
+
+            // Clear should drop all values
+            matrix.clear();
+
+            // All 3 values should be dropped by clear()
+            assert_eq!(counter.drop_count(), 3);
+
+            // Add new values after clear
+            matrix.insert(1, 2, counter.new_value());
+            matrix.insert(3, 4, counter.new_value());
+
+            // Still 3 drops (new values not dropped yet)
+            assert_eq!(counter.drop_count(), 3);
+        } // Matrix dropped here - should drop the 2 new values
+
+        // Total: 3 (from clear) + 2 (from matrix drop) = 5
+        assert_eq!(counter.drop_count(), 5);
     }
 }

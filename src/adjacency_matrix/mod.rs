@@ -56,6 +56,9 @@ where
     /// Clears all entries from the adjacency matrix.
     fn clear(&mut self);
 
+    /// Clears all entries in the given row and column.
+    fn clear_row_and_column(&mut self, row: Self::Index, col: Self::Index);
+
     /// Gets a reference to the data associated with the entry at `row` and `col`, if it exists.
     fn get(&self, row: Self::Index, col: Self::Index) -> Option<&Self::Value>;
 
