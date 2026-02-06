@@ -88,7 +88,7 @@ impl<I, V> SymmetricBitvecAdjacencyMatrix<I, V> {
         row * size + col
     }
 
-    fn row_col_for_live_index(size: usize, live_index: usize) -> (usize, usize) {
+    fn row_col_for_index(size: usize, live_index: usize) -> (usize, usize) {
         (live_index / size, live_index % size)
     }
 }
@@ -99,7 +99,7 @@ impl<I, V> Drop for SymmetricBitvecAdjacencyMatrix<I, V> {
         // Only drop each unique entry once (row <= col)
         let size = self.indexing.size();
         for live_index in self.liveness.iter_ones() {
-            let (row, col) = Self::row_col_for_live_index(size, live_index);
+            let (row, col) = Self::row_col_for_index(size, live_index);
             if row <= col {
                 if let Some(index) = self.indexing.index(row, col) {
                     unsafe {
@@ -203,7 +203,7 @@ where
     {
         let size = self.indexing.size();
         self.liveness.iter_ones().filter_map(move |live_index| {
-            let (row, col) = Self::row_col_for_live_index(size, live_index);
+            let (row, col) = Self::row_col_for_index(size, live_index);
             if row > col {
                 return None;
             }
@@ -219,7 +219,7 @@ where
 
         // Collect all live entries
         for live_index in self.liveness.iter_ones() {
-            let (row, col) = Self::row_col_for_live_index(size, live_index);
+            let (row, col) = Self::row_col_for_index(size, live_index);
             if row <= col {
                 let index = self.indexing.unchecked_index(row, col);
                 // SAFETY: live_index is from iter_ones, so this entry is initialized
@@ -256,7 +256,7 @@ where
         // Drop all initialized values
         let size = self.indexing.size();
         for live_index in self.liveness.iter_ones() {
-            let (row, col) = Self::row_col_for_live_index(size, live_index);
+            let (row, col) = Self::row_col_for_index(size, live_index);
             if row <= col {
                 if let Some(index) = self.indexing.index(row, col) {
                     unsafe {
@@ -320,10 +320,68 @@ where
         }
     }
 
-    fn clear_row_and_column(&mut self, _row: Self::Index, _col: Self::Index) {
-        // For symmetric matrices, row and col are the same due to symmetry
-        // This method is only needed for the AsymmetricBitvecAdjacencyMatrix
-        // For symmetric case, this would be the same as remove(row, col)
+    fn clear_row_and_column(&mut self, row: Self::Index, col: Self::Index) {
+        let row_idx = row.into();
+        let col_idx = col.into();
+
+        if row_idx >= self.indexing.size() || col_idx >= self.indexing.size() {
+            return;
+        }
+
+        let size = self.indexing.size();
+
+        // Collect indices to clear from row row_idx
+        let row_start = Self::liveness_index_for(size, row_idx, 0);
+        let row_end = row_start + size;
+        let row_entries: Vec<_> = self.liveness[row_start..row_end].iter_ones().collect();
+
+        // Clear all entries in row row_idx
+        for col_offset in row_entries {
+            // Drop the data (only stored once in canonical form)
+            let (i1, i2) = if row_idx <= col_offset {
+                (row_idx, col_offset)
+            } else {
+                (col_offset, row_idx)
+            };
+            if let Some(data_index) = self.indexing.index(i1, i2) {
+                unsafe {
+                    self.data[data_index].assume_init_drop();
+                }
+            }
+            // Clear both directions in liveness
+            self.liveness.set(row_start + col_offset, false);
+            let reflected_index = Self::liveness_index_for(size, col_offset, row_idx);
+            self.liveness.set(reflected_index, false);
+            self.entry_count -= 1;
+        }
+
+        // Clear all entries in row col_idx (skip if same as row_idx to avoid double-clearing)
+        if col_idx != row_idx {
+            let col_row_start = Self::liveness_index_for(size, col_idx, 0);
+            let col_row_end = col_row_start + size;
+            let col_entries: Vec<_> = self.liveness[col_row_start..col_row_end]
+                .iter_ones()
+                .collect();
+
+            for col_offset in col_entries {
+                // Drop the data (only stored once in canonical form)
+                let (i1, i2) = if col_idx <= col_offset {
+                    (col_idx, col_offset)
+                } else {
+                    (col_offset, col_idx)
+                };
+                if let Some(data_index) = self.indexing.index(i1, i2) {
+                    unsafe {
+                        self.data[data_index].assume_init_drop();
+                    }
+                }
+                // Clear both directions in liveness
+                self.liveness.set(col_row_start + col_offset, false);
+                let reflected_index = Self::liveness_index_for(size, col_offset, col_idx);
+                self.liveness.set(reflected_index, false);
+                self.entry_count -= 1;
+            }
+        }
     }
 }
 
@@ -707,5 +765,146 @@ mod tests {
 
         // Total: 3 (from clear) + 2 (from matrix drop) = 5
         assert_eq!(counter.drop_count(), 5);
+    }
+
+    #[test]
+    fn test_clear_row_and_column() {
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+
+        // Build a symmetric matrix
+        // Edges involving node 2: (0,2), (1,2), (2,3), (2,4)
+        // These should all be removed when clearing row/col 2
+        matrix.insert(0, 2, "edge_0_2");
+        matrix.insert(1, 2, "edge_1_2");
+        matrix.insert(2, 3, "edge_2_3");
+        matrix.insert(2, 4, "edge_2_4");
+
+        // Add some other edges that should remain
+        matrix.insert(0, 1, "edge_0_1");
+        matrix.insert(3, 4, "edge_3_4");
+
+        assert_eq!(matrix.len(), 6);
+
+        // Clear row 2 and column 2 (which are the same in symmetric matrix)
+        matrix.clear_row_and_column(2, 2);
+
+        // Should have removed all edges involving node 2
+        assert_eq!(matrix.len(), 2);
+
+        // Verify edges involving node 2 are gone
+        assert_eq!(matrix.get(0, 2), None);
+        assert_eq!(matrix.get(2, 0), None);
+        assert_eq!(matrix.get(1, 2), None);
+        assert_eq!(matrix.get(2, 1), None);
+        assert_eq!(matrix.get(2, 3), None);
+        assert_eq!(matrix.get(3, 2), None);
+        assert_eq!(matrix.get(2, 4), None);
+        assert_eq!(matrix.get(4, 2), None);
+
+        // Verify other edges remain
+        assert_eq!(matrix.get(0, 1), Some(&"edge_0_1"));
+        assert_eq!(matrix.get(1, 0), Some(&"edge_0_1"));
+        assert_eq!(matrix.get(3, 4), Some(&"edge_3_4"));
+        assert_eq!(matrix.get(4, 3), Some(&"edge_3_4"));
+    }
+
+    #[test]
+    fn test_clear_row_and_column_with_different_indices() {
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+
+        // Build a graph with edges
+        matrix.insert(0, 1, "a");
+        matrix.insert(0, 2, "b");
+        matrix.insert(1, 2, "c");
+        matrix.insert(1, 3, "d");
+        matrix.insert(2, 3, "e");
+        matrix.insert(3, 4, "f");
+
+        assert_eq!(matrix.len(), 6);
+
+        // Clear row 1 and column 2 (should remove all edges involving nodes 1 or 2)
+        matrix.clear_row_and_column(1, 2);
+
+        // Edges involving node 1: (0,1), (1,2), (1,3)
+        // Edges involving node 2: (0,2), (1,2), (2,3)
+        // Union: (0,1), (0,2), (1,2), (1,3), (2,3) = 5 edges removed
+        // Remaining: (3,4)
+        assert_eq!(matrix.len(), 1);
+        assert_eq!(matrix.get(3, 4), Some(&"f"));
+
+        // Verify all edges involving 1 or 2 are gone
+        assert_eq!(matrix.get(0, 1), None);
+        assert_eq!(matrix.get(0, 2), None);
+        assert_eq!(matrix.get(1, 2), None);
+        assert_eq!(matrix.get(1, 3), None);
+        assert_eq!(matrix.get(2, 3), None);
+    }
+
+    #[test]
+    fn test_clear_row_and_column_drops_values() {
+        let counter = DropCounter::new();
+
+        {
+            let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+
+            // Add edges involving node 1
+            matrix.insert(0, 1, counter.new_value());
+            matrix.insert(1, 2, counter.new_value());
+            matrix.insert(1, 3, counter.new_value());
+
+            // Add other edges
+            matrix.insert(0, 2, counter.new_value());
+            matrix.insert(2, 3, counter.new_value());
+
+            assert_eq!(counter.drop_count(), 0);
+            assert_eq!(matrix.len(), 5);
+
+            // Clear row 1 and column 1
+            matrix.clear_row_and_column(1, 1);
+
+            // Should have dropped 3 values (edges involving node 1)
+            assert_eq!(counter.drop_count(), 3);
+            assert_eq!(matrix.len(), 2);
+        } // Drop remaining 2 values
+
+        assert_eq!(counter.drop_count(), 5);
+    }
+
+    #[test]
+    fn test_clear_row_and_column_self_loop() {
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+
+        // Add a self-loop and other edges
+        matrix.insert(1, 1, "self_loop");
+        matrix.insert(0, 1, "edge_0_1");
+        matrix.insert(1, 2, "edge_1_2");
+        matrix.insert(0, 2, "edge_0_2");
+
+        assert_eq!(matrix.len(), 4);
+
+        // Clear row 1 and column 1
+        matrix.clear_row_and_column(1, 1);
+
+        // Should remove self-loop and edges to node 1
+        assert_eq!(matrix.len(), 1);
+        assert_eq!(matrix.get(0, 2), Some(&"edge_0_2"));
+        assert_eq!(matrix.get(1, 1), None);
+        assert_eq!(matrix.get(0, 1), None);
+        assert_eq!(matrix.get(1, 2), None);
+    }
+
+    #[test]
+    fn test_clear_row_and_column_out_of_bounds() {
+        let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+
+        matrix.insert(0, 1, "test");
+        matrix.insert(1, 2, "test2");
+
+        // Should not panic or affect existing entries
+        matrix.clear_row_and_column(100, 200);
+
+        assert_eq!(matrix.len(), 2);
+        assert_eq!(matrix.get(0, 1), Some(&"test"));
+        assert_eq!(matrix.get(1, 2), Some(&"test2"));
     }
 }

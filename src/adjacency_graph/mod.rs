@@ -327,26 +327,30 @@ where
     }
 
     fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData {
-        for into in self
-            .adjacency
-            .entries_in_row(self.nodes.zero_based_index(id.key()))
-            .map(|(to, _)| to)
-            .collect::<Vec<_>>()
-        {
-            self.adjacency
-                .remove(self.nodes.zero_based_index(id.key()), into);
-        }
-        if self.is_directed() {
-            for from in self
-                .adjacency
-                .entries_in_col(self.nodes.zero_based_index(id.key()))
-                .map(|(to, _)| to)
-                .collect::<Vec<_>>()
-            {
-                self.adjacency
-                    .remove(from, self.nodes.zero_based_index(id.key()));
-            }
-        }
+        // for into in self
+        //     .adjacency
+        //     .entries_in_row(self.nodes.zero_based_index(id.key()))
+        //     .map(|(to, _)| to)
+        //     .collect::<Vec<_>>()
+        // {
+        //     self.adjacency
+        //         .remove(self.nodes.zero_based_index(id.key()), into);
+        // }
+        // if self.is_directed() {
+        //     for from in self
+        //         .adjacency
+        //         .entries_in_col(self.nodes.zero_based_index(id.key()))
+        //         .map(|(to, _)| to)
+        //         .collect::<Vec<_>>()
+        //     {
+        //         self.adjacency
+        //             .remove(from, self.nodes.zero_based_index(id.key()));
+        //     }
+        // }
+        self.adjacency.clear_row_and_column(
+            self.nodes.zero_based_index(id.key()),
+            self.nodes.zero_based_index(id.key()),
+        );
         self.nodes.remove(id.key()).expect("invalid node ID")
     }
 

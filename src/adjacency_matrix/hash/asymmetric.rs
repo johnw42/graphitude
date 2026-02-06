@@ -89,9 +89,28 @@ where
             .flat_map(|targets| targets.iter().map(|(col, data)| (col.clone(), data)))
     }
 
-    fn clear_row_and_column(&mut self, _row: I, _col: I) {
-        // Hash-based implementations don't need special cleanup
-        // Entries are dropped normally when removed from the HashMap
+    fn clear_row_and_column(&mut self, row: I, col: I) {
+        if let Some(removed) = self.edges.remove(&row) {
+            if let Some(back_edges) = self.back_edges.get_mut(&col) {
+                back_edges.remove(&row);
+                if back_edges.is_empty() {
+                    self.back_edges.remove(&col);
+                }
+            }
+            self.entry_count -= removed.len();
+        }
+        if let Some(removed) = self.back_edges.remove(&col) {
+            for source in removed {
+                if let Some(targets) = self.edges.get_mut(&source) {
+                    if targets.remove(&col).is_some() {
+                        self.entry_count -= 1;
+                    }
+                    if targets.is_empty() {
+                        self.edges.remove(&source);
+                    }
+                }
+            }
+        }
     }
 
     fn entries_in_col(&self, col: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {

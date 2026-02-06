@@ -11,7 +11,8 @@ use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, BitvecStorage};
 /// Requires indices that can be converted to/from usize.
 pub struct AsymmetricBitvecAdjacencyMatrix<I, V> {
     data: Vec<MaybeUninit<V>>,
-    matrix: BitVec,
+    liveness: BitVec,
+    reflected_liveness: BitVec,
     size: usize,
     entry_count: usize,
     index_type: PhantomData<I>,
@@ -23,13 +24,16 @@ where
 {
     fn with_size(size: usize) -> Self {
         let capacity = size.next_power_of_two();
-        let mut matrix = BitVec::with_capacity(capacity * capacity);
-        matrix.resize(capacity * capacity, false);
+        let mut liveness = BitVec::with_capacity(capacity * capacity);
+        liveness.resize(capacity * capacity, false);
+        let mut reflected_liveness = BitVec::with_capacity(capacity * capacity);
+        reflected_liveness.resize(capacity * capacity, false);
         let mut data = Vec::with_capacity(capacity * capacity);
         data.resize_with(capacity * capacity, MaybeUninit::uninit);
         AsymmetricBitvecAdjacencyMatrix {
             data,
-            matrix,
+            liveness,
+            reflected_liveness,
             size: capacity,
             entry_count: 0,
             index_type: PhantomData,
@@ -42,7 +46,7 @@ where
     }
 
     fn is_live(&self, index: usize) -> bool {
-        self.matrix[index]
+        self.liveness[index]
     }
 
     fn get_data_read(&self, index: usize) -> Option<V> {
@@ -86,7 +90,7 @@ where
 impl<I, V> Drop for AsymmetricBitvecAdjacencyMatrix<I, V> {
     fn drop(&mut self) {
         // Drop all initialized values
-        for index in self.matrix.iter_ones() {
+        for index in self.liveness.iter_ones() {
             unsafe {
                 self.data[index].assume_init_drop();
             }
@@ -105,7 +109,8 @@ where
 
     fn new() -> Self {
         Self {
-            matrix: BitVec::new(),
+            liveness: BitVec::new(),
+            reflected_liveness: BitVec::new(),
             size: 0,
             data: Vec::new(),
             entry_count: 0,
@@ -121,8 +126,8 @@ where
                 for old_row in 0..self.size {
                     let old_start = self.unchecked_index(old_row.into(), 0.into());
                     let new_start = new_self.unchecked_index(old_row.into(), 0.into());
-                    new_self.matrix[new_start..new_start + self.size]
-                        .copy_from_bitslice(&self.matrix[old_start..old_start + self.size]);
+                    new_self.liveness[new_start..new_start + self.size]
+                        .copy_from_bitslice(&self.liveness[old_start..old_start + self.size]);
                     for (old_col, old_datum) in self.data[old_start..old_start + self.size]
                         .iter_mut()
                         .enumerate()
@@ -130,15 +135,26 @@ where
                         std::mem::swap(old_datum, &mut new_self.data[new_start + old_col]);
                     }
                 }
+                for old_col in 0..self.size {
+                    let old_start = self.unchecked_index(old_col.into(), 0.into());
+                    let new_start = new_self.unchecked_index(old_col.into(), 0.into());
+                    new_self.reflected_liveness[new_start..new_start + self.size]
+                        .copy_from_bitslice(
+                            &self.reflected_liveness[old_start..old_start + self.size],
+                        );
+                }
                 new_self.entry_count = self.entry_count;
                 // Clear old matrix bits to prevent double-drop
-                self.matrix.fill(false);
+                self.liveness.fill(false);
+                self.reflected_liveness.fill(false);
                 *self = new_self;
             }
         }
         let index = self.unchecked_index(row, col);
         let old_data = self.get_data_read(index);
-        self.matrix.set(index, true);
+        self.liveness.set(index, true);
+        let reflected_index = self.unchecked_index(col, row);
+        self.reflected_liveness.set(reflected_index, true);
         self.data[index] = MaybeUninit::new(data);
         if old_data.is_none() {
             self.entry_count += 1;
@@ -153,7 +169,10 @@ where
     fn remove(&mut self, row: I, col: I) -> Option<V> {
         let index = self.index(row, col)?;
         let was_live = self.is_live(index);
-        self.matrix.set(index, false);
+        self.liveness.set(index, false);
+        let reflected_index = self.unchecked_index(col, row);
+        debug_assert_eq!(self.reflected_liveness[reflected_index], was_live);
+        self.reflected_liveness.set(reflected_index, false);
         if was_live {
             self.entry_count -= 1;
             Some(self.unchecked_get_data_read(index))
@@ -166,7 +185,7 @@ where
     where
         V: 'a,
     {
-        self.matrix.iter_ones().map(|index| {
+        self.liveness.iter_ones().map(|index| {
             let (row, col) = self.coordinates(index);
             (row, col, self.unchecked_get_data_ref(index))
         })
@@ -177,7 +196,7 @@ where
         let mut result = Vec::new();
 
         // Collect all live entries
-        for index in self.matrix.iter_ones() {
+        for index in self.liveness.iter_ones() {
             let (row, col) = Self::coordinates_with(size, index);
             // SAFETY: index is live (from iter_ones)
             let value = unsafe { self.data[index].assume_init_read() };
@@ -185,7 +204,8 @@ where
         }
 
         // Mark all as dead to prevent double-drop in Drop impl
-        self.matrix.fill(false);
+        self.liveness.fill(false);
+        self.reflected_liveness.fill(false);
 
         result.into_iter()
     }
@@ -193,31 +213,72 @@ where
     fn entries_in_row(&self, row: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
         let row_start = self.index(row, 0.into()).expect("Invalid row index");
         let row_end = row_start + self.size;
-        self.matrix[row_start..row_end]
+        self.liveness[row_start..row_end]
             .iter_ones()
             .map(move |index| (index.into(), self.unchecked_get_data_ref(row_start + index)))
     }
 
     fn entries_in_col(&self, col: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
-        (0..self.size).filter_map(move |target_row| {
-            self.get(target_row.into(), col)
-                .map(|data| (target_row.into(), data))
-        })
+        let col_start = self.index(col, 0.into()).expect("Invalid column index");
+        let col_end = col_start + self.size;
+        self.reflected_liveness[col_start..col_end]
+            .iter_ones()
+            .map(move |index| {
+                (
+                    index.into(),
+                    self.unchecked_get_data_ref(index * self.size + col.into()),
+                )
+            })
     }
 
     fn clear(&mut self) {
         // Drop all initialized values before clearing
-        for index in self.matrix.iter_ones() {
+        for index in self.liveness.iter_ones() {
             unsafe {
                 self.data[index].assume_init_drop();
             }
         }
-        self.matrix.fill(false);
+        self.liveness.fill(false);
+        self.reflected_liveness.fill(false);
         self.entry_count = 0;
     }
 
-    fn clear_row_and_column(&mut self, _row: Self::Index, _col: Self::Index) {
-        todo!()
+    fn clear_row_and_column(&mut self, row: Self::Index, col: Self::Index) {
+        let row_idx = row.into();
+        let col_idx = col.into();
+
+        if row_idx >= self.size || col_idx >= self.size {
+            return;
+        }
+
+        // Clear all entries in the given row
+        let row_start = self.unchecked_index(row, 0.into());
+        let row_end = row_start + self.size;
+        for col_offset in self.liveness[row_start..row_end].iter_ones() {
+            let index = row_start + col_offset;
+            unsafe {
+                self.data[index].assume_init_drop();
+            }
+            // Update reflected_liveness: reflected_liveness[col*size + row] corresponds to liveness[row*size + col]
+            let reflected_index = col_offset * self.size + row_idx;
+            self.reflected_liveness.set(reflected_index, false);
+            self.entry_count -= 1;
+        }
+        self.liveness[row_start..row_end].fill(false);
+
+        // Clear all entries in the given column
+        let col_start = self.unchecked_index(col, 0.into());
+        let col_end = col_start + self.size;
+        for row_offset in self.reflected_liveness[col_start..col_end].iter_ones() {
+            // reflected_liveness[col*size + row] corresponds to liveness[row*size + col]
+            let data_index = row_offset * self.size + col_idx;
+            unsafe {
+                self.data[data_index].assume_init_drop();
+            }
+            self.liveness.set(data_index, false);
+            self.entry_count -= 1;
+        }
+        self.reflected_liveness[col_start..col_end].fill(false);
     }
 
     fn len(&self) -> usize {
@@ -228,21 +289,30 @@ where
         if self.size < capacity {
             let mut new_self = Self::with_size(capacity);
             for old_row in 0..self.size {
-                let old_start = self.unchecked_index(old_row.into(), 0.into());
-                let new_start = new_self.unchecked_index(old_row.into(), 0.into());
-                new_self.matrix[new_start..new_start + self.size]
-                    .copy_from_bitslice(&self.matrix[old_start..old_start + self.size]);
-                for (old_col, old_datum) in self.data[old_start..old_start + self.size]
+                let old_row_start = self.unchecked_index(old_row.into(), 0.into());
+                let new_row_start = new_self.unchecked_index(old_row.into(), 0.into());
+                new_self.liveness[new_row_start..new_row_start + self.size]
+                    .copy_from_bitslice(&self.liveness[old_row_start..old_row_start + self.size]);
+                for (old_col, old_datum) in self.data[old_row_start..old_row_start + self.size]
                     .iter_mut()
                     .enumerate()
                 {
-                    std::mem::swap(old_datum, &mut new_self.data[new_start + old_col]);
+                    std::mem::swap(old_datum, &mut new_self.data[new_row_start + old_col]);
                 }
+            }
+            for old_col in 0..self.size {
+                let old_col_start = self.unchecked_index(old_col.into(), 0.into());
+                let new_col_start = new_self.unchecked_index(old_col.into(), 0.into());
+                new_self.reflected_liveness[new_col_start..new_col_start + self.size]
+                    .copy_from_bitslice(
+                        &self.reflected_liveness[old_col_start..old_col_start + self.size],
+                    );
             }
             new_self.entry_count = self.entry_count;
             // Clear old matrix bits to prevent double-drop
             // Data has been swapped to new_self, so old entries are uninitialized
-            self.matrix.fill(false);
+            self.liveness.fill(false);
+            self.reflected_liveness.fill(false);
             *self = new_self;
         }
     }
@@ -492,5 +562,124 @@ mod tests {
 
         // Total: 3 (from clear) + 2 (from matrix drop) = 5
         assert_eq!(counter.drop_count(), 5);
+    }
+
+    #[test]
+    fn test_clear_row_and_column() {
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+
+        // Build a 5x5 matrix with various entries
+        // Row 2: (2,0), (2,1), (2,3), (2,4)
+        // Col 3: (0,3), (1,3), (2,3), (4,3)
+        for i in 0..5 {
+            for j in 0..5 {
+                if i == 2 || j == 3 {
+                    matrix.insert(i, j, format!("({},{})", i, j));
+                }
+            }
+        }
+
+        // Should have entries in row 2 and column 3
+        assert_eq!(matrix.len(), 9); // 5 in row 2 + 5 in col 3 - 1 overlap at (2,3)
+
+        // Clear row 2 and column 3
+        matrix.clear_row_and_column(2, 3);
+
+        // All entries in row 2 and column 3 should be gone
+        assert_eq!(matrix.len(), 0);
+
+        // Verify specific entries are removed
+        assert_eq!(matrix.get(2, 0), None);
+        assert_eq!(matrix.get(2, 1), None);
+        assert_eq!(matrix.get(2, 3), None);
+        assert_eq!(matrix.get(0, 3), None);
+        assert_eq!(matrix.get(1, 3), None);
+        assert_eq!(matrix.get(4, 3), None);
+    }
+
+    #[test]
+    fn test_clear_row_and_column_preserves_other_entries() {
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+
+        // Add entries in a cross pattern centered at (2,2)
+        // Row 2: (2,0), (2,1), (2,2), (2,3), (2,4)
+        // Col 2: (0,2), (1,2), (2,2), (3,2), (4,2)
+        // Plus some other entries that shouldn't be affected
+        for i in 0..5 {
+            matrix.insert(2, i, format!("R2-{}", i));
+            matrix.insert(i, 2, format!("C2-{}", i));
+        }
+        matrix.insert(0, 0, "corner".to_string());
+        matrix.insert(4, 4, "corner2".to_string());
+        matrix.insert(1, 3, "other".to_string());
+
+        let initial_len = matrix.len();
+        assert_eq!(initial_len, 12); // 5 + 5 - 1 (overlap) + 3 others
+
+        // Clear row 2 and column 2
+        matrix.clear_row_and_column(2, 2);
+
+        // Should have removed 9 entries (5 in row + 5 in col - 1 overlap)
+        assert_eq!(matrix.len(), 3);
+
+        // Verify other entries still exist
+        assert_eq!(matrix.get(0, 0), Some(&"corner".to_string()));
+        assert_eq!(matrix.get(4, 4), Some(&"corner2".to_string()));
+        assert_eq!(matrix.get(1, 3), Some(&"other".to_string()));
+
+        // Verify row 2 and col 2 are cleared
+        for i in 0..5 {
+            assert_eq!(matrix.get(2, i), None);
+            assert_eq!(matrix.get(i, 2), None);
+        }
+    }
+
+    #[test]
+    fn test_clear_row_and_column_drops_values() {
+        let counter = DropCounter::new();
+
+        {
+            let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+
+            // Add entries in row 1 and column 1
+            matrix.insert(1, 0, counter.new_value());
+            matrix.insert(1, 2, counter.new_value());
+            matrix.insert(0, 1, counter.new_value());
+            matrix.insert(2, 1, counter.new_value());
+            matrix.insert(1, 1, counter.new_value()); // overlap
+
+            // Add other entries that should not be dropped
+            matrix.insert(0, 0, counter.new_value());
+            matrix.insert(2, 2, counter.new_value());
+
+            assert_eq!(counter.drop_count(), 0);
+            assert_eq!(matrix.len(), 7);
+
+            // Clear row 1 and column 1
+            matrix.clear_row_and_column(1, 1);
+
+            // Should have dropped 5 values (from row 1 and col 1)
+            assert_eq!(counter.drop_count(), 5);
+            assert_eq!(matrix.len(), 2);
+
+            // Other entries still alive
+        } // Drop remaining 2 values
+
+        assert_eq!(counter.drop_count(), 7);
+    }
+
+    #[test]
+    fn test_clear_row_and_column_out_of_bounds() {
+        let mut matrix = AsymmetricBitvecAdjacencyMatrix::new();
+
+        matrix.insert(0, 0, "test");
+        matrix.insert(1, 1, "test2");
+
+        // Should not panic or affect existing entries
+        matrix.clear_row_and_column(100, 200);
+
+        assert_eq!(matrix.len(), 2);
+        assert_eq!(matrix.get(0, 0), Some(&"test"));
+        assert_eq!(matrix.get(1, 1), Some(&"test2"));
     }
 }

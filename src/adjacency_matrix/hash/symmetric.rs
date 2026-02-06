@@ -95,9 +95,16 @@ where
         })
     }
 
-    fn clear_row_and_column(&mut self, _row: I, _col: I) {
-        // Hash-based implementations don't need special cleanup
-        // Entries are dropped normally when removed from the HashMap
+    fn clear_row_and_column(&mut self, row: I, col: I) {
+        let mut to_remove = Vec::with_capacity(self.entry_count);
+        for key1 in [row.clone(), col.clone()] {
+            for (key2, _) in self.entries_in_col(key1.clone()) {
+                to_remove.push((key1.clone(), key2));
+            }
+        }
+        for (key1, key2) in to_remove {
+            self.remove(key1, key2);
+        }
     }
 
     fn entries_in_row(&self, row: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
@@ -119,6 +126,7 @@ where
                             .map(|v| (i1.clone(), v))
                     })
                 });
+
         forward_entries.chain(backward_entries)
     }
 
@@ -234,5 +242,78 @@ mod tests {
         assert_eq!(matrix.len(), 1);
         matrix.clear();
         assert_eq!(matrix.len(), 0);
+    }
+
+    #[test]
+    fn test_clear_row_and_column() {
+        let mut matrix = SymmetricHashAdjacencyMatrix::new();
+
+        // Build a symmetric matrix
+        // Edges involving node 2: (0,2), (1,2), (2,3), (2,4)
+        // These should all be removed when clearing row/col 2
+        matrix.insert(0, 2, "edge_0_2");
+        matrix.insert(1, 2, "edge_1_2");
+        matrix.insert(2, 3, "edge_2_3");
+        matrix.insert(2, 4, "edge_2_4");
+
+        // Add some other edges that should remain
+        matrix.insert(0, 1, "edge_0_1");
+        matrix.insert(3, 4, "edge_3_4");
+
+        assert_eq!(matrix.len(), 6);
+
+        // Clear row 2 and column 2 (which are the same in symmetric matrix)
+        matrix.clear_row_and_column(2, 2);
+
+        // Should have removed all edges involving node 2
+        assert_eq!(matrix.len(), 2);
+
+        // Verify edges involving node 2 are gone
+        assert_eq!(matrix.get(0, 2), None);
+        assert_eq!(matrix.get(2, 0), None);
+        assert_eq!(matrix.get(1, 2), None);
+        assert_eq!(matrix.get(2, 1), None);
+        assert_eq!(matrix.get(2, 3), None);
+        assert_eq!(matrix.get(3, 2), None);
+        assert_eq!(matrix.get(2, 4), None);
+        assert_eq!(matrix.get(4, 2), None);
+
+        // Verify other edges remain
+        assert_eq!(matrix.get(0, 1), Some(&"edge_0_1"));
+        assert_eq!(matrix.get(1, 0), Some(&"edge_0_1"));
+        assert_eq!(matrix.get(3, 4), Some(&"edge_3_4"));
+        assert_eq!(matrix.get(4, 3), Some(&"edge_3_4"));
+    }
+
+    #[test]
+    fn test_clear_row_and_column_with_different_indices() {
+        let mut matrix = SymmetricHashAdjacencyMatrix::new();
+
+        // Build a graph with edges
+        matrix.insert(0, 1, "a");
+        matrix.insert(0, 2, "b");
+        matrix.insert(1, 2, "c");
+        matrix.insert(1, 3, "d");
+        matrix.insert(2, 3, "e");
+        matrix.insert(3, 4, "f");
+
+        assert_eq!(matrix.len(), 6);
+
+        // Clear row 1 and column 2 (should remove all edges involving nodes 1 or 2)
+        matrix.clear_row_and_column(1, 2);
+
+        // Edges involving node 1: (0,1), (1,2), (1,3)
+        // Edges involving node 2: (0,2), (1,2), (2,3)
+        // Union: (0,1), (0,2), (1,2), (1,3), (2,3) = 5 edges removed
+        // Remaining: (3,4)
+        assert_eq!(matrix.len(), 1);
+        assert_eq!(matrix.get(3, 4), Some(&"f"));
+
+        // Verify all edges involving 1 or 2 are gone
+        assert_eq!(matrix.get(0, 1), None);
+        assert_eq!(matrix.get(0, 2), None);
+        assert_eq!(matrix.get(1, 2), None);
+        assert_eq!(matrix.get(1, 3), None);
+        assert_eq!(matrix.get(2, 3), None);
     }
 }
