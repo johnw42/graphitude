@@ -1,6 +1,7 @@
 use std::{hash::Hash, marker::PhantomData, mem::MaybeUninit};
 
 use bitvec::vec::BitVec;
+use tracing_subscriber::field::debug;
 
 use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, BitvecStorage};
 
@@ -13,7 +14,6 @@ pub struct AsymmetricBitvecAdjacencyMatrix<I, V> {
     data: Vec<MaybeUninit<V>>,
     matrix: BitVec,
     size: usize,
-    log2_size: u32,
     entry_count: usize,
     index_type: PhantomData<I>,
 }
@@ -32,7 +32,6 @@ where
             data,
             matrix,
             size: capacity,
-            log2_size: capacity.trailing_zeros(),
             entry_count: 0,
             index_type: PhantomData,
         }
@@ -69,15 +68,17 @@ where
 
     /// Gets the linear index for the entry at `row` and `col` without bounds checking.
     fn unchecked_index(&self, row: I, col: I) -> usize {
-        (row.into() << self.log2_size) + col.into()
+        (row.into() * self.size) + col.into()
     }
 
     fn coordinates(&self, index: usize) -> (I, I) {
-        Self::coordinates_with(self.log2_size, self.size, index)
+        Self::coordinates_with(self.size, index)
     }
 
-    fn coordinates_with(log2_size: u32, size: usize, index: usize) -> (I, I) {
-        let row = index >> log2_size;
+    fn coordinates_with(size: usize, index: usize) -> (I, I) {
+        debug_assert_eq!(size, 1 << size.trailing_zeros());
+        debug_assert_eq!(index % size, index & (size - 1));
+        let row = index / size;
         let col = index & (size - 1);
         (row.into(), col.into())
     }
@@ -96,7 +97,6 @@ where
         Self {
             matrix: BitVec::new(),
             size: 0,
-            log2_size: 0,
             data: Vec::new(),
             entry_count: 0,
             index_type: PhantomData,
@@ -162,18 +162,14 @@ where
 
     fn into_iter(self) -> impl Iterator<Item = (Self::Index, Self::Index, Self::Value)> {
         let Self {
-            matrix,
-            data,
-            log2_size,
-            size,
-            ..
+            matrix, data, size, ..
         } = self;
         matrix
             .into_iter()
             .enumerate()
             .filter_map(move |(index, bit)| {
                 if bit {
-                    let (row, col) = Self::coordinates_with(log2_size, size, index);
+                    let (row, col) = Self::coordinates_with(size, index);
                     Some((row, col, unsafe { data[index].assume_init_read() }))
                 } else {
                     None
