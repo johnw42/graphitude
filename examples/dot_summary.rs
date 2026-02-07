@@ -49,7 +49,7 @@ mod inner {
             }
         };
 
-        let mut builder = AttributeBuilder::default();
+        let mut builder = AttributeBuilder;
 
         if directed {
             let graph: LinkedGraph<NodeInfo, EdgeInfo, Directed> =

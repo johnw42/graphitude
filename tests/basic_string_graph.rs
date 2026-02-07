@@ -184,9 +184,7 @@ impl Debug for StringGraph {
 impl TestDataBuilder for StringGraph {
     type Graph = Self;
 
-    fn new_edge_data(_i: usize) -> () {
-        ()
-    }
+    fn new_edge_data(_i: usize) {}
 
     fn new_node_data(i: usize) -> String {
         format!("v{}", i)

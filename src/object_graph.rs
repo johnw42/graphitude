@@ -127,9 +127,9 @@ where
         &'a self,
         from: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.neighbors(&from)
+        self.neighbors(from)
             .into_iter()
-            .map(move |to| self.make_edge_id(&from, &to))
+            .map(move |to| self.make_edge_id(from, &to))
     }
 
     fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
@@ -243,7 +243,5 @@ mod tests {
         assert_eq!(values(&id3), vec![1, 2, 3]);
         assert_eq!(paths.get(&id4).unwrap().1, 1);
         assert_eq!(values(&id4), vec![1, 4]);
-
-        (&node1, &node2, &node3, &node4);
     }
 }

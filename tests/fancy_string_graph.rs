@@ -84,7 +84,7 @@ impl Graph for StringGraph {
         self.nodes.iter().flat_map(|(from_id, node)| {
             node.edges_out
                 .iter()
-                .map(move |edge| EdgeId(from_id.clone(), edge.target.clone(), edge.index))
+                .map(move |edge| EdgeId(*from_id, edge.target, edge.index))
         })
     }
 
@@ -159,11 +159,11 @@ impl GraphMut for StringGraph {
             .expect("Invalid 'from' node ID")
             .edges_out
             .push(Edge {
-                target: to.clone(),
-                data: data,
+                target: *to,
+                data,
                 index: edge_index,
             });
-        AddEdgeResult::Added(EdgeId(from.clone(), to.clone(), edge_index))
+        AddEdgeResult::Added(EdgeId(*from, *to, edge_index))
     }
 
     fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData {
@@ -181,8 +181,8 @@ impl GraphMut for StringGraph {
             .iter()
             .position(|e| e.target == *to && e.index == *index)
             .expect("Invalid edge ID");
-        let data = node.edges_out.remove(pos).data;
-        data
+
+        node.edges_out.remove(pos).data
     }
 }
 

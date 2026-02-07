@@ -62,10 +62,10 @@ where
     fn remove(&mut self, row: I, col: I) -> Option<V> {
         let (i1, i2) = sort_pair(row, col);
         let value = self.entries.get_mut(&i1).and_then(|m| m.remove(&i2))?;
-        if let Some(targets) = self.entries.get(&i1) {
-            if targets.is_empty() {
-                self.entries.remove(&i1);
-            }
+        if let Some(targets) = self.entries.get(&i1)
+            && targets.is_empty()
+        {
+            self.entries.remove(&i1);
         }
         if let Some(sources) = self.reverse_entries.get_mut(&i2) {
             sources.remove(&i1);

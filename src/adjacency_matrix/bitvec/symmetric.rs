@@ -100,11 +100,11 @@ impl<I, V> Drop for SymmetricBitvecAdjacencyMatrix<I, V> {
         let size = self.indexing.size();
         for live_index in self.liveness.iter_ones() {
             let (row, col) = Self::row_col_for_index(size, live_index);
-            if row <= col {
-                if let Some(index) = self.indexing.index(row, col) {
-                    unsafe {
-                        self.data[index].assume_init_drop();
-                    }
+            if row <= col
+                && let Some(index) = self.indexing.index(row, col)
+            {
+                unsafe {
+                    self.data[index].assume_init_drop();
                 }
             }
         }
@@ -257,11 +257,11 @@ where
         let size = self.indexing.size();
         for live_index in self.liveness.iter_ones() {
             let (row, col) = Self::row_col_for_index(size, live_index);
-            if row <= col {
-                if let Some(index) = self.indexing.index(row, col) {
-                    unsafe {
-                        self.data[index].assume_init_drop();
-                    }
+            if row <= col
+                && let Some(index) = self.indexing.index(row, col)
+            {
+                unsafe {
+                    self.data[index].assume_init_drop();
                 }
             }
         }
@@ -291,21 +291,19 @@ where
             // Copy existing data to the new storage
             for row in 0..current_capacity {
                 for col in 0..=row {
-                    if let Some(old_index) = self.indexing.index(row, col) {
-                        if self.is_live(row, col) {
-                            if let Some(new_index) = new_indexing.index(row, col) {
-                                let idx1 = Self::liveness_index_for(capacity, row, col);
-                                new_liveness.set(idx1, true);
-                                if row != col {
-                                    let idx2 = Self::liveness_index_for(capacity, col, row);
-                                    new_liveness.set(idx2, true);
-                                }
-                                // SAFETY: old_index is live, so data at that index is initialized
-                                new_data[new_index] = MaybeUninit::new(unsafe {
-                                    self.data[old_index].assume_init_read()
-                                });
-                            }
+                    if let Some(old_index) = self.indexing.index(row, col)
+                        && self.is_live(row, col)
+                        && let Some(new_index) = new_indexing.index(row, col)
+                    {
+                        let idx1 = Self::liveness_index_for(capacity, row, col);
+                        new_liveness.set(idx1, true);
+                        if row != col {
+                            let idx2 = Self::liveness_index_for(capacity, col, row);
+                            new_liveness.set(idx2, true);
                         }
+                        // SAFETY: old_index is live, so data at that index is initialized
+                        new_data[new_index] =
+                            MaybeUninit::new(unsafe { self.data[old_index].assume_init_read() });
                     }
                 }
             }

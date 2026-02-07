@@ -43,6 +43,16 @@ where
     compaction_count: S::CompactionCount,
 }
 
+type NodeIdCallback<'a, N, E, D, S> = dyn for<'b> FnMut(
+        &'b <AdjacencyGraph<N, E, D, S> as Graph>::NodeId,
+        &'b <AdjacencyGraph<N, E, D, S> as Graph>::NodeId,
+    ) + 'a;
+
+type EdgeIdCallback<'a, N, E, D, S> = dyn for<'b> FnMut(
+        &'b <AdjacencyGraph<N, E, D, S> as Graph>::EdgeId,
+        &'b <AdjacencyGraph<N, E, D, S> as Graph>::EdgeId,
+    ) + 'a;
+
 impl<N, E, D, S> AdjacencyGraph<N, E, D, S>
 where
     D: Directedness,
@@ -64,14 +74,8 @@ where
     fn do_compact<F>(
         &mut self,
         mut compact_fn: F,
-        node_id_callback: &mut dyn FnMut(
-            &<AdjacencyGraph<N, E, D, S> as crate::graph::Graph>::NodeId,
-            &<AdjacencyGraph<N, E, D, S> as crate::graph::Graph>::NodeId,
-        ),
-        edge_id_callback: &mut dyn FnMut(
-            &<AdjacencyGraph<N, E, D, S> as crate::graph::Graph>::EdgeId,
-            &<AdjacencyGraph<N, E, D, S> as crate::graph::Graph>::EdgeId,
-        ),
+        node_id_callback: &mut NodeIdCallback<'_, N, E, D, S>,
+        edge_id_callback: &mut EdgeIdCallback<'_, N, E, D, S>,
     ) where
         F: FnMut(&mut IdVec<N>, &mut dyn FnMut(IdVecKey, Option<IdVecKey>)),
     {
@@ -150,7 +154,7 @@ where
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         self.assert_valid_node_id(id);
-        &self.nodes.get(id.key()).expect("no such node")
+        self.nodes.get(id.key()).expect("no such node")
     }
 
     fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
@@ -160,8 +164,7 @@ where
     fn edge_data(&self, eid: &Self::EdgeId) -> &Self::EdgeData {
         self.assert_valid_edge_id(eid);
         let (from, to) = eid.keys().into();
-        &self
-            .adjacency
+        self.adjacency
             .get(
                 self.nodes.zero_based_index(from),
                 self.nodes.zero_based_index(to),

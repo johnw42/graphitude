@@ -50,7 +50,7 @@ impl<N, E, D: Directedness> Hash for EdgeId<N, E, D> {
 
 impl<N, E, D: Directedness> PartialOrd for EdgeId<N, E, D> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.ptr.as_ptr().cmp(&other.ptr.as_ptr()))
+        Some(self.cmp(other))
     }
 }
 

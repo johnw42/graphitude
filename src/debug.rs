@@ -11,7 +11,11 @@ use crate::{
 /// Formats a graph for debug output with automatic node numbering.
 ///
 /// Nodes are labeled with sequential numbers (0, 1, 2, ...) and both node and edge data are displayed.
-pub fn format_debug<'g, G>(graph: &'g G, fmt: &mut Formatter<'_>, name: &str) -> std::fmt::Result
+pub fn format_debug<'g, 'f, G>(
+    graph: &'g G,
+    fmt: &mut Formatter<'f>,
+    name: &str,
+) -> std::fmt::Result
 where
     G: Graph,
     G::NodeData: Debug,
@@ -41,9 +45,9 @@ where
 /// * `node_tag` - A function to generate labels for node IDs
 /// * `node_data_fn` - Function to format node data; data is omitted if NodeData is zero-sized
 /// * `edge_data_fn` - Function to format edge data; data is omitted if EdgeData is zero-sized
-pub fn format_debug_with<'g, G, T, N, E, NF, EF>(
+pub fn format_debug_with<'g, 'f, G, T, N, E, NF, EF>(
     graph: &'g G,
-    fmt: &mut Formatter<'_>,
+    fmt: &mut Formatter<'f>,
     name: &str,
     node_tag: &mut T,
     node_data_fn: &NF,

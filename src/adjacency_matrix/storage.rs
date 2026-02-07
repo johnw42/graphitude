@@ -11,9 +11,7 @@ pub(crate) trait CompactionCount:
 }
 
 impl CompactionCount for () {
-    fn increment(self) -> Self {
-        ()
-    }
+    fn increment(self) -> Self {}
 }
 
 impl CompactionCount for usize {

@@ -175,6 +175,7 @@ mod tests {
         let n1 = graph.add_node(42);
         let n2 = graph.add_node(100);
 
+        #[allow(clippy::approx_constant)]
         graph.add_new_edge(&n1, &n2, 3.14);
 
         // Transform types: i32 -> String, f64 -> bool

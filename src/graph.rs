@@ -119,7 +119,7 @@ impl<I, D> AddEdgeResult<I, D> {
 ///
 /// - [`Self::maybe_check_valid_node_id`]
 /// - [`Self::maybe_check_valid_edge_id`]
-//
+///
 /// For the sake of performance, it is recommended that implementations of this
 /// trait implement the following methods that have default implementions with a
 /// more efficient implementation that calls [`Self::maybe_check_valid_node_id`] or
@@ -408,17 +408,17 @@ pub trait Graph {
 
     /// Gets the number of incoming edges to a given node.
     fn num_edges_into(&self, into: &Self::NodeId) -> usize {
-        self.edges_into(into).into_iter().count()
+        self.edges_into(into).count()
     }
 
     /// Gets the number of outgoing edges from a given node.
     fn num_edges_from(&self, from: &Self::NodeId) -> usize {
-        self.edges_from(from).into_iter().count()
+        self.edges_from(from).count()
     }
 
     /// Gets the number of edges from one node into another.
     fn num_edges_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> usize {
-        self.edges_from_into(from, into).into_iter().count()
+        self.edges_from_into(from, into).count()
     }
 
     // Searches
@@ -484,7 +484,7 @@ pub trait Graph {
 
                     let should_update = distances
                         .get(&neighbor)
-                        .map_or(true, |&old_dist| new_dist < old_dist);
+                        .is_none_or(|&old_dist| new_dist < old_dist);
 
                     if should_update {
                         distances.insert(neighbor.clone(), new_dist);

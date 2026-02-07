@@ -51,10 +51,11 @@ where
 
     fn remove(&mut self, row: I, col: I) -> Option<V> {
         if let Some(value) = self.edges.get_mut(&row).and_then(|m| m.remove(&col)) {
-            if let Some(back_edges) = self.back_edges.get_mut(&col) {
-                if back_edges.remove(&row) && back_edges.is_empty() {
-                    self.back_edges.remove(&col);
-                }
+            if let Some(back_edges) = self.back_edges.get_mut(&col)
+                && back_edges.remove(&row)
+                && back_edges.is_empty()
+            {
+                self.back_edges.remove(&col);
             }
             self.entry_count -= 1;
             Some(value)

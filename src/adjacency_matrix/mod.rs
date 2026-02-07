@@ -1,4 +1,3 @@
-#![cfg(feature = "bitvec")]
 use std::{fmt::Debug, hash::Hash};
 
 use crate::{
@@ -22,6 +21,8 @@ pub use storage::{BitvecStorage, HashStorage, Storage};
 pub use symmetry::{Asymmetric, Symmetric, Symmetry};
 
 pub(crate) use storage::CompactionCount;
+
+type Pair<T> = <<T as AdjacencyMatrix>::Symmetry as Symmetry>::Pair<<T as AdjacencyMatrix>::Index>;
 
 /// Trait for adjacency matrix data structures.
 ///
@@ -83,6 +84,10 @@ where
         self.iter().count()
     }
 
+    fn is_empty(&self) -> bool {
+        self.iter().next().is_none()
+    }
+
     /// For internal use.  Gets the canonical indices for the given indices.  This will return a pair
     /// `(i1, i2)` such that for symmetric matrices, `i1 <= i2`.
     #[doc(hidden)]
@@ -98,10 +103,7 @@ where
         &self,
         row: Self::Index,
         col: Self::Index,
-    ) -> Option<(
-        <<Self as AdjacencyMatrix>::Symmetry as Symmetry>::Pair<Self::Index>,
-        &'_ Self::Value,
-    )> {
+    ) -> Option<(Pair<Self>, &'_ Self::Value)> {
         self.get(row.clone(), col.clone())
             .map(|data| (Self::entry_indices(row.clone(), col.clone()), data))
     }

@@ -1532,7 +1532,7 @@ mod tests {
             let attr = Attr::parse(name, value).unwrap();
             let formatted = attr.to_string();
             assert!(formatted.starts_with(name));
-            assert!(formatted.contains(value) || formatted.contains(&value));
+            assert!(formatted.contains(value) || formatted.contains(value));
         }
     }
 }

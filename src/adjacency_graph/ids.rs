@@ -111,7 +111,7 @@ impl<S: Storage, D: Directedness> crate::graph::EdgeId for EdgeId<S, D> {
 
     fn source(&self) -> NodeId<S> {
         NodeId::new(
-            self.inner.payload.first().clone(),
+            *self.inner.payload.first(),
             self.inner.graph_id,
             self.inner.compaction_count,
         )
@@ -119,7 +119,7 @@ impl<S: Storage, D: Directedness> crate::graph::EdgeId for EdgeId<S, D> {
 
     fn target(&self) -> NodeId<S> {
         NodeId::new(
-            self.inner.payload.second().clone(),
+            *self.inner.payload.second(),
             self.inner.graph_id,
             self.inner.compaction_count,
         )

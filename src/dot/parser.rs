@@ -1,4 +1,7 @@
-use std::{collections::HashMap, error::Error};
+use std::{
+    collections::{HashMap, hash_map::Entry},
+    error::Error,
+};
 
 use dot_parser::ast::{
     EdgeStmt, Graph as DotGraph, ID, NodeID, NodeStmt, Stmt, StmtList, Subgraph, either::Either,
@@ -161,15 +164,19 @@ where
             match stmt {
                 Stmt::NodeStmt(node_stmt) => {
                     let node_id_str = node_stmt.node.id.to_string();
-                    if node_map.contains_key(&node_id_str) {
-                        return Err(ParseError::DuplicateNode(node_id_str));
-                    } else {
-                        let attrs = parse_node_attrs(node_stmt).map_err(ParseError::ParseError)?;
-                        let node_data = builder
-                            .make_node_data(&node_id_str, &attrs)
-                            .map_err(ParseError::Builder)?;
-                        let new_node_id = graph.add_node(node_data);
-                        node_map.insert(node_id_str, new_node_id);
+                    match node_map.entry(node_id_str) {
+                        Entry::Occupied(entry) => {
+                            return Err(ParseError::DuplicateNode(entry.key().clone()));
+                        }
+                        Entry::Vacant(entry) => {
+                            let attrs =
+                                parse_node_attrs(node_stmt).map_err(ParseError::ParseError)?;
+                            let node_data = builder
+                                .make_node_data(entry.key(), &attrs)
+                                .map_err(ParseError::Builder)?;
+                            let new_node_id = graph.add_node(node_data);
+                            entry.insert(new_node_id);
+                        }
                     }
                 }
                 Stmt::Subgraph(subgraph) => {
@@ -202,17 +209,16 @@ where
                     let mut collect_node_ids =
                         |node: &Either<NodeID, _>| -> Result<(), ParseError<B>> {
                             for node_id_str in extract_node_ids(node) {
-                                if !node_map.contains_key(&node_id_str) {
-                                    // Create implicit node using builder
-                                    let node_data = builder
-                                        .make_implicit_node_data(&node_id_str)
-                                        .map_err(ParseError::Builder)?;
-                                    let new_node_id = graph.add_node(node_data);
-                                    let inserted = node_map.insert(node_id_str, new_node_id);
-                                    debug_assert!(
-                                        inserted.is_none(),
-                                        "Node ID should not already exist in map"
-                                    );
+                                match node_map.entry(node_id_str.clone()) {
+                                    Entry::Occupied(_) => {} // Node already exists, do nothing
+                                    Entry::Vacant(entry) => {
+                                        // Create implicit node using builder
+                                        let node_data = builder
+                                            .make_implicit_node_data(entry.key())
+                                            .map_err(ParseError::Builder)?;
+                                        let new_node_id = graph.add_node(node_data);
+                                        entry.insert(new_node_id);
+                                    }
                                 }
                             }
                             Ok(())
@@ -288,7 +294,7 @@ where
                                     .make_edge_data(&attrs)
                                     .map_err(ParseError::Builder)?;
                                 if let AddEdgeResult::Updated(_) =
-                                    graph.add_edge(&current_from, &to_id, edge_data)
+                                    graph.add_edge(&current_from, to_id, edge_data)
                                 {
                                     return Err(ParseError::DuplicateEdge(
                                         from_id_string.clone(),

@@ -159,13 +159,11 @@ where
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         if D::is_directed() {
-            // For directed graphs, use edges_in
-            self.node(into.clone())
-                .edges_in
-                .iter()
-                .cloned()
-                .collect::<Vec<_>>()
-                .into_iter()
+            // For directed graphs, use edges_in.  We need to collect to avoid
+            // borrowing issues with self.node() below since edges_in contains
+            // EdgeIds which borrow self.
+            #[allow(clippy::unnecessary_to_owned)]
+            self.node(into.clone()).edges_in.to_vec().into_iter()
         } else {
             // For undirected graphs, edges_into is the same as edges_from
             // since edges appear in both nodes' edges_out lists

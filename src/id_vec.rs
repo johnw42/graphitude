@@ -19,9 +19,9 @@ use bitvec::vec::BitVec;
 pub struct IdVecKey(usize);
 
 // Needed for AdjacencyGraph implementation.
-impl Into<usize> for IdVecKey {
-    fn into(self) -> usize {
-        self.0
+impl From<IdVecKey> for usize {
+    fn from(val: IdVecKey) -> Self {
+        val.0
     }
 }
 
@@ -320,7 +320,7 @@ where
 #[cfg(test)]
 thread_local! {
 static DROPPED_ENTRIES: RefCell<Vec<usize>> =
-    RefCell::new(Vec::new());
+    const { RefCell::new(Vec::new()) };
 }
 
 impl<T> Drop for IdVec<T> {

@@ -117,6 +117,7 @@ where
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn normalize_graph_structure<G>(
     graph: &G,
 ) -> (
