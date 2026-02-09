@@ -199,7 +199,7 @@ mod tests {
     use super::*;
 
     fn create_simple_graph() -> AdjacencyGraph<usize, ()> {
-        let mut graph = AdjacencyGraph::new();
+        let mut graph = AdjacencyGraph::default();
         let n0 = graph.add_node(0);
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
@@ -211,7 +211,7 @@ mod tests {
     }
 
     fn create_cyclic_graph() -> AdjacencyGraph<usize, ()> {
-        let mut graph = AdjacencyGraph::new();
+        let mut graph = AdjacencyGraph::default();
         let n0 = graph.add_node(0);
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);

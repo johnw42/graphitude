@@ -166,7 +166,7 @@ mod tests {
 
                 #[test]
                 fn test_new_path() {
-                    let mut graph = <$type>::new();
+                    let mut graph = <$type>::default();
                     let n1 = graph.add_node("n1");
                     let path = graph.new_path(&n1);
                     assert_eq!(path.first_node(), n1);
@@ -175,7 +175,7 @@ mod tests {
 
                 #[test]
                 fn test_add_edge() {
-                    let mut graph = <$type>::new();
+                    let mut graph = <$type>::default();
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let e1 = graph.add_edge(&n1, &n2, "e1").unwrap();
@@ -190,7 +190,7 @@ mod tests {
 
                 #[test]
                 fn test_nodes_with_edges() {
-                    let mut graph = <$type>::new();
+                    let mut graph = <$type>::default();
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let n3 = graph.add_node("n3");
@@ -211,7 +211,7 @@ mod tests {
 
                 #[test]
                 fn test_extend_with() {
-                    let mut graph = <$type>::new();
+                    let mut graph = <$type>::default();
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let n3 = graph.add_node("n3");
@@ -232,7 +232,7 @@ mod tests {
 
                 #[test]
                 fn test_extend() {
-                    let mut graph = <$type>::new();
+                    let mut graph = <$type>::default();
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let n3 = graph.add_node("n3");
@@ -248,7 +248,7 @@ mod tests {
 
                 #[test]
                 fn test_debug() {
-                    let mut graph = <$type>::new();
+                    let mut graph = <$type>::default();
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let n3 = graph.add_node("n3");

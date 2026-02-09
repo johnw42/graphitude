@@ -54,8 +54,7 @@ mod triangular;
 pub use directedness::{Directed, DirectednessTrait, Undirected};
 pub use edge_multiplicity::{EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
 pub use graph::{
-    AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphNew, GraphUndirected,
-    NodeIdTrait,
+    AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphUndirected, NodeIdTrait,
 };
 pub use linked_graph::LinkedGraph;
 pub use pairs::SortedPair;

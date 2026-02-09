@@ -268,12 +268,12 @@ where
     }
 }
 
-impl<N, E, D, M> GraphNew for LinkedGraph<N, E, D, M>
+impl<N, E, D, M> Default for LinkedGraph<N, E, D, M>
 where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
 {
-    fn new() -> Self {
+    fn default() -> Self {
         Self {
             nodes: Vec::new(),
             id: GraphId::new(),
@@ -438,7 +438,7 @@ where
     M: EdgeMultiplicityTrait,
 {
     fn clone(&self) -> Self {
-        let mut new_graph = LinkedGraph::new();
+        let mut new_graph = LinkedGraph::default();
         new_graph.copy_from(self);
         new_graph
     }

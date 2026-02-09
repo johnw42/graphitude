@@ -140,13 +140,13 @@ fn parse_edge_attrs(edge_stmt: &EdgeStmt<(ID<'_>, ID<'_>)>) -> Result<Vec<Attr>,
 /// Returns `DotParseError::NodeNotFound` if an edge references a non-existent node.
 pub fn parse_dot_into_graph<G, B>(data: &str, builder: &mut B) -> Result<G, ParseError<B>>
 where
-    G: Graph + GraphMut + GraphNew,
+    G: Graph + GraphMut + Default,
     B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
 {
     let dot_ast: DotGraph<_> = DotGraph::try_from(data)
         .map_err(|e| ParseError::ParseError(format!("Failed to parse DOT data: {:?}", e)))?;
 
-    let mut graph = G::new();
+    let mut graph = G::default();
     let mut node_map: HashMap<String, G::NodeId> = HashMap::new();
 
     // First pass: create all explicit nodes (including those in subgraphs)

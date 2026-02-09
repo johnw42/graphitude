@@ -30,7 +30,7 @@ where
         NF: Fn(&G::NodeData) -> N,
         EF: Fn(&G::EdgeData) -> E,
     {
-        let mut inner = LinkedGraph::new();
+        let mut inner = LinkedGraph::default();
         inner.copy_from_with(graph, node_fn, edge_fn);
         Self {
             inner,
@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn test_new_empty_graph() {
-        let graph: LinkedGraph<i32, ()> = LinkedGraph::new();
+        let graph: LinkedGraph<i32, ()> = LinkedGraph::default();
         let view = DebugGraphView::new(&graph, |&n| n, |_| ());
 
         assert_eq!(view.node_ids().count(), 0);
@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_new_with_nodes() {
-        let mut graph: LinkedGraph<i32, ()> = LinkedGraph::new();
+        let mut graph: LinkedGraph<i32, ()> = LinkedGraph::default();
         let _n1 = graph.add_node(10);
         let _n2 = graph.add_node(20);
         let _n3 = graph.add_node(30);
@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn test_new_with_edges() {
-        let mut graph: LinkedGraph<&str, i32> = LinkedGraph::new();
+        let mut graph: LinkedGraph<&str, i32> = LinkedGraph::default();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
         let n3 = graph.add_node("C");
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_node_transformation() {
-        let mut graph: LinkedGraph<i32, ()> = LinkedGraph::new();
+        let mut graph: LinkedGraph<i32, ()> = LinkedGraph::default();
         graph.add_node(1);
         graph.add_node(2);
         graph.add_node(3);
@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn test_edge_transformation() {
-        let mut graph: LinkedGraph<(), i32> = LinkedGraph::new();
+        let mut graph: LinkedGraph<(), i32> = LinkedGraph::default();
         let n1 = graph.add_node(());
         let n2 = graph.add_node(());
 
@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_type_transformation() {
-        let mut graph: LinkedGraph<i32, f64> = LinkedGraph::new();
+        let mut graph: LinkedGraph<i32, f64> = LinkedGraph::default();
         let n1 = graph.add_node(42);
         let n2 = graph.add_node(100);
 
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_edges_between() {
-        let mut graph: LinkedGraph<&str, i32> = LinkedGraph::new();
+        let mut graph: LinkedGraph<&str, i32> = LinkedGraph::default();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
 
@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn test_debug_format_directed() {
-        let mut graph: LinkedGraph<i32, &str> = LinkedGraph::new();
+        let mut graph: LinkedGraph<i32, &str> = LinkedGraph::default();
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_debug_format_undirected() {
-        let mut graph: LinkedGraph<i32, &str, Undirected> = LinkedGraph::new();
+        let mut graph: LinkedGraph<i32, &str, Undirected> = LinkedGraph::default();
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_debug_format_alternate() {
-        let mut graph: LinkedGraph<i32, &str> = LinkedGraph::new();
+        let mut graph: LinkedGraph<i32, &str> = LinkedGraph::default();
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 

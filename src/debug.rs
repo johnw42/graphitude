@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_format_debug() {
-        let mut graph = LinkedGraph::<&str, i32>::new();
+        let mut graph = LinkedGraph::<&str, i32>::default();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
         graph.add_new_edge(&n1, &n2, 10);
@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn test_format_debug_with_undirected() {
         type UndirectedGraph = AdjacencyGraph<&'static str, i32, Undirected>;
-        let mut graph = UndirectedGraph::new();
+        let mut graph = UndirectedGraph::default();
         let n1 = graph.add_node("B");
         let n2 = graph.add_node("A");
         let n3 = graph.add_node("C");

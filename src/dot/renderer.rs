@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_generate_empty_directed_graph() {
-        let graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let graph: LinkedGraph<String, (), Directed> = LinkedGraph::default();
         let generator = TestGenerator {
             graph_name: "Empty".to_string(),
         };
@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_generate_empty_undirected_graph() {
-        let graph: LinkedGraph<String, (), Undirected> = LinkedGraph::new();
+        let graph: LinkedGraph<String, (), Undirected> = LinkedGraph::default();
         let generator = TestGenerator {
             graph_name: "Empty".to_string(),
         };
@@ -356,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_generate_simple_directed_graph() {
-        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::default();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_new_edge(&a, &b, ());
@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_generate_simple_undirected_graph() {
-        let mut graph: LinkedGraph<String, (), Undirected> = LinkedGraph::new();
+        let mut graph: LinkedGraph<String, (), Undirected> = LinkedGraph::default();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_new_edge(&a, &b, ());
@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn test_generate_invalid_graph_name() {
-        let graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let graph: LinkedGraph<String, (), Directed> = LinkedGraph::default();
         let generator = InvalidNameGenerator;
         let mut output = Vec::new();
 
@@ -430,7 +430,7 @@ mod tests {
 
     #[test]
     fn test_generate_invalid_node_name() {
-        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::default();
         graph.add_node("a".to_string());
 
         let generator = InvalidNodeNameGenerator;
@@ -463,7 +463,7 @@ mod tests {
 
     #[test]
     fn test_generate_with_attributes() {
-        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::default();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_new_edge(&a, &b, ());
@@ -482,7 +482,7 @@ mod tests {
     #[test]
     fn test_format_dot_value_quoting() {
         // Test that values are quoted when necessary
-        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::default();
         let a = graph.add_node("hello world".to_string());
         let b = graph.add_node("foo-bar".to_string());
         graph.add_new_edge(&a, &b, ());
@@ -502,7 +502,7 @@ mod tests {
 
     #[test]
     fn test_generate_self_loop() {
-        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::default();
         let a = graph.add_node("a".to_string());
         graph.add_new_edge(&a.clone(), &a, ());
 
@@ -519,7 +519,7 @@ mod tests {
 
     #[test]
     fn test_generate_multiple_edges() {
-        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::new();
+        let mut graph: LinkedGraph<String, (), Directed> = LinkedGraph::default();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         let c = graph.add_node("c".to_string());

@@ -306,13 +306,13 @@ where
     }
 }
 
-impl<N, E, D, S> GraphNew for AdjacencyGraph<N, E, D, S>
+impl<N, E, D, S> Default for AdjacencyGraph<N, E, D, S>
 where
     D: DirectednessTrait,
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
-    fn new() -> Self {
+    fn default() -> Self {
         Self {
             nodes: NodeVec::default(),
             adjacency: SelectMatrix::<D::Symmetry, S, usize, E>::new(),
@@ -479,7 +479,7 @@ mod tests {
             #[test]
             #[should_panic]
             fn test_check_node_id_panics_after_compaction() {
-                let mut graph: $type = GraphNew::new();
+                let mut graph: $type = Default::default();
                 let n1 = graph.add_node(1);
                 graph.compact();
                 graph.assert_valid_node_id(&n1);
@@ -489,7 +489,7 @@ mod tests {
             #[test]
             #[should_panic]
             fn test_check_edge_id_panics_after_compaction() {
-                let mut graph: $type = GraphNew::new();
+                let mut graph: $type = Default::default();
                 let n1 = graph.add_node(1);
                 let n2 = graph.add_node(2);
                 if let AddEdgeResult::Added(e1) = graph.add_edge(&n1, &n2, "edge".to_string()) {

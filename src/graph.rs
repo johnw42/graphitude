@@ -573,22 +573,6 @@ pub trait GraphUndirected: Graph {
 
 impl<G> GraphUndirected for G where G: Graph<Directedness = Undirected> {}
 
-pub trait GraphNew: GraphMut {
-    /// Creates a new, empty graph.
-    fn new() -> Self;
-
-    /// Parses a DOT representation of a graph from a string, using the given
-    /// graph builder to construct the graph.
-    #[cfg(feature = "dot")]
-    fn from_dot_string<B>(data: &str, builder: &mut B) -> Result<Self, parser::ParseError<B>>
-    where
-        Self: GraphMut + Sized,
-        B: parser::GraphBuilder<NodeData = Self::NodeData, EdgeData = Self::EdgeData>,
-    {
-        parser::parse_dot_into_graph(data, builder)
-    }
-}
-
 /// A trait for graphs that support mutation operations.
 ///
 /// This trait extends [`Graph`] with methods for adding and removing nodes and edges.
@@ -761,5 +745,16 @@ pub trait GraphMut: Graph {
     ) {
         let _ = &mut node_id_callback;
         let _ = &mut edge_id_callback;
+    }
+
+    /// Parses a DOT representation of a graph from a string, using the given
+    /// graph builder to construct the graph.
+    #[cfg(feature = "dot")]
+    fn from_dot_string<B>(data: &str, builder: &mut B) -> Result<Self, parser::ParseError<B>>
+    where
+        Self: Default + Sized,
+        B: parser::GraphBuilder<NodeData = Self::NodeData, EdgeData = Self::EdgeData>,
+    {
+        parser::parse_dot_into_graph(data, builder)
     }
 }

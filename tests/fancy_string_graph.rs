@@ -5,6 +5,7 @@ use graphitude::{
     tests::TestDataBuilder,
 };
 
+#[derive(Default)]
 struct StringGraph {
     nodes: HashMap<NodeId, Node>,
     next_node_id: usize,
@@ -118,16 +119,6 @@ impl Graph for StringGraph {
 
     fn is_very_slow(&self) -> bool {
         true
-    }
-}
-
-impl GraphNew for StringGraph {
-    fn new() -> Self {
-        StringGraph {
-            nodes: HashMap::new(),
-            next_node_id: 0,
-            next_edge_id: 0,
-        }
     }
 }
 

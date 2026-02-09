@@ -1,13 +1,7 @@
-use std::{
-    cell::RefCell,
-    collections::{BTreeMap, HashMap, HashSet},
-    marker::PhantomData,
-};
+use std::{collections::HashSet, marker::PhantomData};
 
 use crate::prelude::*;
 use crate::tracing_support::{TimingScope, info_span, init_tracing, set_timing_scope};
-
-thread_local! {}
 
 /// State tracker for generating sequential test data.
 ///
@@ -92,11 +86,11 @@ impl<G> Default for InternalBuilderImpl<G> {
 /// * `new_edge_data` - A closure that takes an index and returns edge data
 pub fn generate_large_graph_with<G, FN, FE>(mut new_node_data: FN, mut new_edge_data: FE) -> G
 where
-    G: GraphMut + GraphNew,
+    G: GraphMut + Default,
     FN: FnMut(usize) -> G::NodeData,
     FE: FnMut(usize) -> G::EdgeData,
 {
-    let mut graph = G::new();
+    let mut graph = G::default();
     let mut node_counter = 0;
     let mut edge_counter = 0;
 
@@ -267,7 +261,7 @@ where
 #[doc(hidden)]
 pub fn generate_large_graph<G>() -> G
 where
-    G: GraphNew + TestDataBuilder<Graph = G>,
+    G: GraphMut + Default + TestDataBuilder<Graph = G>,
 {
     generate_large_graph_with(|i| G::new_node_data(i), |i| G::new_edge_data(i))
 }
@@ -632,7 +626,7 @@ macro_rules! graph_tests {
 
         #[test]
         fn test_new_graph_is_empty() {
-            let graph: $type = <$type>::new();
+            let graph: $type = <$type>::default();
             assert_eq!(graph.num_nodes(), 0);
             assert_eq!(graph.num_edges(), 0);
         }
@@ -640,7 +634,7 @@ macro_rules! graph_tests {
         #[test]
         fn test_node_data_retrieval() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let vd1 = builder.new_node_data();
             let n1 = graph.add_node(vd1.clone());
             assert_eq!(*graph.node_data(&n1), vd1);
@@ -652,7 +646,7 @@ macro_rules! graph_tests {
             use $crate::EdgeIdTrait;
 
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let vd1 = builder.new_node_data();
             let vd2 = builder.new_node_data();
             let vd3 = builder.new_node_data();
@@ -737,7 +731,7 @@ macro_rules! graph_tests {
         #[test]
         fn test_edge_ids() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let vd1 = builder.new_node_data();
             let vd2 = builder.new_node_data();
             let vd3 = builder.new_node_data();
@@ -759,7 +753,7 @@ macro_rules! graph_tests {
         #[test]
         fn test_node_removal() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let vd1 = builder.new_node_data();
             let vd2 = builder.new_node_data();
             let ed1 = builder.new_edge_data();
@@ -785,7 +779,7 @@ macro_rules! graph_tests {
         #[test]
         fn test_remove_node_cleans_edges() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let vd1 = builder.new_node_data();
             let vd2 = builder.new_node_data();
             let ed1 = builder.new_edge_data();
@@ -812,7 +806,7 @@ macro_rules! graph_tests {
             use std::collections::HashSet;
 
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let n0 = graph.add_node(builder.new_node_data());
             let n1 = graph.add_node(builder.new_node_data());
             let n2 = graph.add_node(builder.new_node_data());
@@ -877,7 +871,7 @@ macro_rules! graph_tests {
         #[test]
         fn test_edges_into() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let vd1 = builder.new_node_data();
             let vd2 = builder.new_node_data();
             let ed1 = builder.new_edge_data();
@@ -909,7 +903,7 @@ macro_rules! graph_tests {
         #[test]
         fn test_edges_between() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let vd1 = builder.new_node_data();
             let vd2 = builder.new_node_data();
             let ed1 = builder.new_edge_data();
@@ -936,14 +930,14 @@ macro_rules! graph_tests {
         #[test]
         fn test_copy_from() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut source = <$type>::new();
+            let mut source = <$type>::default();
             let n1 = source.add_node(builder.new_node_data());
             let n2 = source.add_node(builder.new_node_data());
             let n3 = source.add_node(builder.new_node_data());
             let e1 = source.add_edge(&n1, &n2, builder.new_edge_data()).unwrap();
             let e2 = source.add_edge(&n2, &n3, builder.new_edge_data()).unwrap();
 
-            let mut target = <$type>::new();
+            let mut target = <$type>::default();
             let node_map = target.copy_from(&source);
             let edge_map = target.make_edge_map(&source, &node_map);
 
@@ -959,7 +953,7 @@ macro_rules! graph_tests {
         #[test]
         fn test_clear() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let n1 = graph.add_node(builder.new_node_data());
             let n2 = graph.add_node(builder.new_node_data());
             graph.add_edge(&n1, &n2, builder.new_edge_data());
@@ -980,7 +974,7 @@ macro_rules! graph_tests {
             use $crate::EdgeIdTrait;
 
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let n0 = graph.add_node(builder.new_node_data());
             let n1 = graph.add_node(builder.new_node_data());
             let n2 = graph.add_node(builder.new_node_data());
@@ -1084,7 +1078,7 @@ macro_rules! graph_tests {
         #[cfg(feature = "pathfinding")]
         fn test_shortest_paths() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let n0 = graph.add_node(builder.new_node_data());
             let n1 = graph.add_node(builder.new_node_data());
             let n2 = graph.add_node(builder.new_node_data());
@@ -1119,7 +1113,7 @@ macro_rules! graph_tests {
         #[cfg(feature = "pathfinding")]
         fn test_shortest_paths_disconnected() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let n0 = graph.add_node(builder.new_node_data());
             let n1 = graph.add_node(builder.new_node_data());
             let n2 = graph.add_node(builder.new_node_data());
@@ -1134,7 +1128,7 @@ macro_rules! graph_tests {
 
         #[test]
         fn test_compaction() {
-            let mut graph: $type = $crate::GraphNew::new();
+            let mut graph: $type = Default::default();
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
             let nd1 = builder.new_node_data();
             let nd2 = builder.new_node_data();
@@ -1184,13 +1178,13 @@ macro_rules! graph_test_copy_from_with {
         #[test]
         fn test_copy_from_with() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut source = <$type>::new();
+            let mut source = <$type>::default();
             let n1 = source.add_node(builder.new_node_data());
             let n2 = source.add_node(builder.new_node_data());
             let n3 = source.add_node(builder.new_node_data());
             let e0 = source.add_edge(&n1, &n2, builder.new_edge_data()).unwrap();
             let e1 = source.add_edge(&n2, &n3, builder.new_edge_data()).unwrap();
-            let mut target = <$type>::new();
+            let mut target = <$type>::default();
 
             // Extra boxing here works around being unable to declare a variable
             // of an `impl` type.  This allows the caller of the macro to use
@@ -1215,7 +1209,7 @@ macro_rules! graph_test_copy_from_with {
         #[test]
         fn test_edge_multiplicity() {
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
-            let mut graph = <$type>::new();
+            let mut graph = <$type>::default();
             let n1 = graph.add_node(builder.new_node_data());
             let n2 = graph.add_node(builder.new_node_data());
             graph.add_edge(&n1, &n2, builder.new_edge_data());
