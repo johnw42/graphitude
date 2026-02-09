@@ -18,11 +18,12 @@ mod symmetry;
 mod storage;
 
 pub use storage::{BitvecStorage, HashStorage, Storage};
-pub use symmetry::{Asymmetric, Symmetric, Symmetry};
+pub use symmetry::{Asymmetric, Symmetric, SymmetryTrait};
 
 pub(crate) use storage::CompactionCount;
 
-type Pair<T> = <<T as AdjacencyMatrix>::Symmetry as Symmetry>::Pair<<T as AdjacencyMatrix>::Index>;
+type Pair<T> =
+    <<T as AdjacencyMatrix>::Symmetry as SymmetryTrait>::Pair<<T as AdjacencyMatrix>::Index>;
 
 /// Trait for adjacency matrix data structures.
 ///
@@ -34,7 +35,7 @@ where
 {
     type Index: Hash + Eq + Clone + Ord;
     type Value;
-    type Symmetry: Symmetry;
+    type Symmetry: SymmetryTrait;
     type Storage: Storage;
 
     /// Creates a new, empty adjacency matrix.
@@ -94,7 +95,7 @@ where
     fn entry_indices(
         i1: Self::Index,
         i2: Self::Index,
-    ) -> <Self::Symmetry as Symmetry>::Pair<Self::Index> {
+    ) -> <Self::Symmetry as SymmetryTrait>::Pair<Self::Index> {
         (i1, i2).into()
     }
 
@@ -138,7 +139,7 @@ where
 
 /// Trait for selecting an adjacency matrix implementation based on symmetry and storage.
 ///
-/// This trait maps combinations of [`Symmetry`] and [`Storage`] types to concrete
+/// This trait maps combinations of [`SymmetryTrait`] and [`Storage`] types to concrete
 /// adjacency matrix implementations.
 pub trait AdjacencyMatrixSelector<I, V>
 where

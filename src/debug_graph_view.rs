@@ -11,7 +11,7 @@ use crate::{LinkedGraph, prelude::*};
 /// Note: This view always represents a directed graph, regardless of the source graph's
 /// directedness. Edges are copied as-is from the source, so each edge in the source
 /// graph becomes one directed edge in the view.
-pub struct DebugGraphView<N, E, D: Directedness, M: EdgeMultiplicity> {
+pub struct DebugGraphView<N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> {
     inner: LinkedGraph<N, E, D>,
     multiplicity: PhantomData<M>,
 }
@@ -20,8 +20,8 @@ impl<N, E, D, M> DebugGraphView<N, E, D, M>
 where
     N: Debug,
     E: Debug,
-    D: Directedness,
-    M: EdgeMultiplicity,
+    D: DirectednessTrait,
+    M: EdgeMultiplicityTrait,
 {
     /// Creates a new `DebugGraphView` by transforming the data from the source graph.
     pub fn new<G, NF, EF>(graph: &G, node_fn: NF, edge_fn: EF) -> Self
@@ -43,8 +43,8 @@ impl<N, E, D, M> Graph for DebugGraphView<N, E, D, M>
 where
     N: Debug,
     E: Debug,
-    D: Directedness,
-    M: EdgeMultiplicity,
+    D: DirectednessTrait,
+    M: EdgeMultiplicityTrait,
 {
     type Directedness = D;
     type EdgeMultiplicity = M;
@@ -82,8 +82,8 @@ impl<N, E, D, M> Debug for DebugGraphView<N, E, D, M>
 where
     N: Debug,
     E: Debug,
-    D: Directedness,
-    M: EdgeMultiplicity,
+    D: DirectednessTrait,
+    M: EdgeMultiplicityTrait,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.inner, f)

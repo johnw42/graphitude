@@ -50,10 +50,11 @@ mod util;
 #[cfg(feature = "bitvec")]
 mod triangular;
 
-pub use directedness::{Directed, Directedness, Undirected};
-pub use edge_multiplicity::{EdgeMultiplicity, MultipleEdges, SingleEdge};
+pub use directedness::{Directed, DirectednessTrait, Undirected};
+pub use edge_multiplicity::{EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
 pub use graph::{
-    AddEdgeResult, EdgeId, Graph, GraphDirected, GraphMut, GraphNew, GraphUndirected, NodeId,
+    AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphNew, GraphUndirected,
+    NodeIdTrait,
 };
 pub use linked_graph::LinkedGraph;
 pub use pairs::SortedPair;
@@ -64,7 +65,7 @@ pub use dot::parser::{GraphBuilder, ParseError};
 
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{
-    AdjacencyMatrix, Asymmetric, BitvecStorage, HashStorage, Storage, Symmetric, Symmetry,
+    AdjacencyMatrix, Asymmetric, BitvecStorage, HashStorage, Storage, Symmetric, SymmetryTrait,
     bitvec::{
         asymmetric::AsymmetricBitvecAdjacencyMatrix, symmetric::SymmetricBitvecAdjacencyMatrix,
     },

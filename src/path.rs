@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once, marker::PhantomData
 
 use derivative::Derivative;
 
-use crate::{Directedness, EdgeId, pairs::Pair};
+use crate::{DirectednessTrait, EdgeIdTrait, pairs::Pair};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
@@ -14,13 +14,13 @@ use crate::{Directedness, EdgeId, pairs::Pair};
     Hash(bound = "E: Hash, E::NodeId: Hash"),
     Debug(bound = "E: Debug, E::NodeId: Debug")
 )]
-pub struct Path<E: EdgeId> {
+pub struct Path<E: EdgeIdTrait> {
     edges: Vec<E>,
     nodes: Vec<E::NodeId>,
     _phantom: PhantomData<E>,
 }
 
-impl<E: EdgeId> Path<E> {
+impl<E: EdgeIdTrait> Path<E> {
     /// Creates a new path starting at the given node.
     pub fn new(start: E::NodeId) -> Self {
         Self {
@@ -129,7 +129,7 @@ impl<E: EdgeId> Path<E> {
     }
 }
 
-impl<E: EdgeId> PartialOrd for Path<E> {
+impl<E: EdgeIdTrait> PartialOrd for Path<E> {
     /// A path is "less than" another path if its last node matches the
     /// other's first node, and "greater than" if its first node matches the
     /// other's last node. If neither condition is met and the paths are not
@@ -147,7 +147,7 @@ impl<E: EdgeId> PartialOrd for Path<E> {
     }
 }
 
-impl<E: EdgeId> Extend<E> for Path<E> {
+impl<E: EdgeIdTrait> Extend<E> for Path<E> {
     fn extend<T: IntoIterator<Item = E>>(&mut self, iter: T) {
         for edge_id in iter {
             self.add_edge(edge_id);

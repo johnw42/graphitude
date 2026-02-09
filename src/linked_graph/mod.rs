@@ -11,7 +11,7 @@ mod node_id;
 pub use edge_id::EdgeId;
 pub use node_id::NodeId;
 
-struct Node<N, E, D: Directedness> {
+struct Node<N, E, D: DirectednessTrait> {
     data: N,
     edges_out: Vec<Arc<Edge<N, E, D>>>,
     // Only maintained for directed graphs, since for undirected graphs
@@ -20,7 +20,7 @@ struct Node<N, E, D: Directedness> {
     directedness: PhantomData<D>,
 }
 
-struct Edge<N, E, D: Directedness> {
+struct Edge<N, E, D: DirectednessTrait> {
     data: UnsafeCell<E>,
     ends: D::Pair<NodeId<N, E, D>>,
     directedness: PhantomData<D>,
@@ -36,8 +36,8 @@ struct Edge<N, E, D: Directedness> {
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
 pub struct LinkedGraph<N, E, D = Directed, M = MultipleEdges>
 where
-    D: Directedness,
-    M: EdgeMultiplicity,
+    D: DirectednessTrait,
+    M: EdgeMultiplicityTrait,
 {
     nodes: Vec<Arc<Node<N, E, D>>>,
     id: GraphId,
@@ -46,8 +46,8 @@ where
 
 impl<N, E, D, M> LinkedGraph<N, E, D, M>
 where
-    D: Directedness,
-    M: EdgeMultiplicity,
+    D: DirectednessTrait,
+    M: EdgeMultiplicityTrait,
 {
     fn node_id(&self, ptr: &Arc<Node<N, E, D>>) -> NodeId<N, E, D> {
         NodeId {
@@ -97,8 +97,8 @@ where
 
 impl<N, E, D, M> Graph for LinkedGraph<N, E, D, M>
 where
-    D: Directedness,
-    M: EdgeMultiplicity,
+    D: DirectednessTrait,
+    M: EdgeMultiplicityTrait,
 {
     type NodeId = NodeId<N, E, D>;
     type NodeData = N;
@@ -270,8 +270,8 @@ where
 
 impl<N, E, D, M> GraphNew for LinkedGraph<N, E, D, M>
 where
-    D: Directedness,
-    M: EdgeMultiplicity,
+    D: DirectednessTrait,
+    M: EdgeMultiplicityTrait,
 {
     fn new() -> Self {
         Self {
@@ -284,8 +284,8 @@ where
 
 impl<N, E, D, M> GraphMut for LinkedGraph<N, E, D, M>
 where
-    D: Directedness,
-    M: EdgeMultiplicity,
+    D: DirectednessTrait,
+    M: EdgeMultiplicityTrait,
 {
     fn clear(&mut self) {
         self.nodes.clear();
@@ -434,8 +434,8 @@ impl<N, E, D, M> Clone for LinkedGraph<N, E, D, M>
 where
     N: Clone,
     E: Clone,
-    D: Directedness,
-    M: EdgeMultiplicity,
+    D: DirectednessTrait,
+    M: EdgeMultiplicityTrait,
 {
     fn clone(&self) -> Self {
         let mut new_graph = LinkedGraph::new();
@@ -448,8 +448,8 @@ impl<N, E, D, M> Debug for LinkedGraph<N, E, D, M>
 where
     N: Debug,
     E: Debug,
-    D: Directedness,
-    M: EdgeMultiplicity,
+    D: DirectednessTrait,
+    M: EdgeMultiplicityTrait,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "LinkedGraph")
@@ -463,8 +463,8 @@ mod tests {
 
     impl<D, M> TestDataBuilder for LinkedGraph<i32, String, D, M>
     where
-        D: Directedness,
-        M: EdgeMultiplicity,
+        D: DirectednessTrait,
+        M: EdgeMultiplicityTrait,
     {
         type Graph = Self;
 

@@ -7,7 +7,7 @@ use crate::{
 ///
 /// Implemented by [`Symmetric`] and [`Asymmetric`] marker types.
 ///
-pub trait Symmetry {
+pub trait SymmetryTrait {
     /// Pair type used for indexing entries in the adjacency matrix.
     type Pair<T: Ord + Clone>: Pair<T> + Clone;
 }
@@ -15,10 +15,10 @@ pub trait Symmetry {
 pub struct Symmetric;
 pub struct Asymmetric;
 
-impl Symmetry for Symmetric {
+impl SymmetryTrait for Symmetric {
     type Pair<T: Ord + Clone> = SortedPair<T>;
 }
 
-impl Symmetry for Asymmetric {
+impl SymmetryTrait for Asymmetric {
     type Pair<T: Ord + Clone> = OrderedPair<T>;
 }

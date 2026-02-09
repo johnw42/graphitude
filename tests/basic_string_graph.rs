@@ -3,7 +3,7 @@
 use std::{collections::HashSet, fmt::Debug};
 
 use graphitude::{
-    AdjacencyMatrix, EdgeId as EdgeIdTrait, NodeId as NodeIdTrait, SymmetricHashAdjacencyMatrix,
+    AdjacencyMatrix, EdgeIdTrait, NodeIdTrait, SymmetricHashAdjacencyMatrix,
     debug::format_debug_with, graph_test_copy_from_with, graph_tests, prelude::*,
     tests::TestDataBuilder,
 };

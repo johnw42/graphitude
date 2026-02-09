@@ -25,12 +25,12 @@ use crate::{
 /// as node identifiers.  This has the unfortunately side-effect of preventing
 /// the use of primitive types (e.g., `usize`, `u32`, etc.) as node identifiers,
 /// since they do not implement this trait.  To work around this, you can define
-/// a newtype wrapper around the primitive type and implement `NodeId` for the
+/// a newtype wrapper around the primitive type and implement `NodeIdTrait` for the
 /// newtype.
-pub trait NodeId: Eq + Hash + Clone + Debug + Ord {}
+pub trait NodeIdTrait: Eq + Hash + Clone + Debug + Ord {}
 
 /// Return type of [`EdgeId::other_end`].
-pub enum OtherEnd<N: NodeId> {
+pub enum OtherEnd<N: NodeIdTrait> {
     /// The source node of the edge for which a target was passed.
     Source(N),
     /// The target node of the edge for which a source was passed.
@@ -39,7 +39,7 @@ pub enum OtherEnd<N: NodeId> {
     SelfLoop(N),
 }
 
-impl<N: NodeId> OtherEnd<N> {
+impl<N: NodeIdTrait> OtherEnd<N> {
     /// Consumes the `OtherEnd`, returning the inner node ID.
     pub fn into_inner(self) -> N {
         match self {
@@ -60,9 +60,9 @@ impl<N: NodeId> OtherEnd<N> {
 /// - If `Directedness` is `Undirected`, then the source must always be less than or
 ///   equal to the target, according to the `Ord` implementation of the `NodeId`
 ///   type.
-pub trait EdgeId: Eq + Hash + Clone + Debug {
-    type NodeId: NodeId;
-    type Directedness: Directedness;
+pub trait EdgeIdTrait: Eq + Hash + Clone + Debug {
+    type NodeId: NodeIdTrait;
+    type Directedness: DirectednessTrait;
 
     /// Gets the source node of the edge.
     fn source(&self) -> Self::NodeId {
@@ -75,7 +75,7 @@ pub trait EdgeId: Eq + Hash + Clone + Debug {
     }
 
     /// Gets both ends of the edge as a tuple (source, target).
-    fn ends(&self) -> <Self::Directedness as Directedness>::Pair<Self::NodeId> {
+    fn ends(&self) -> <Self::Directedness as DirectednessTrait>::Pair<Self::NodeId> {
         (self.source(), self.target()).into()
     }
 
@@ -135,12 +135,12 @@ impl<I, D> AddEdgeResult<I, D> {
 /// - [`Self::has_edge_from`]
 /// - [`Self::has_edge_into`]
 pub trait Graph {
-    type Directedness: Directedness;
-    type EdgeMultiplicity: EdgeMultiplicity;
+    type Directedness: DirectednessTrait;
+    type EdgeMultiplicity: EdgeMultiplicityTrait;
     type NodeData;
-    type NodeId: NodeId;
+    type NodeId: NodeIdTrait;
     type EdgeData;
-    type EdgeId: EdgeId<NodeId = Self::NodeId, Directedness = Self::Directedness>;
+    type EdgeId: EdgeIdTrait<NodeId = Self::NodeId, Directedness = Self::Directedness>;
 
     /// Returns true if the graph is directed.
     fn is_directed(&self) -> bool {
@@ -618,7 +618,7 @@ pub trait GraphMut: Graph {
         data: Self::EdgeData,
     ) -> Self::EdgeId
     where
-        Self::EdgeMultiplicity: EdgeMultiplicity<Impl = MultipleEdges>,
+        Self::EdgeMultiplicity: EdgeMultiplicityTrait<Impl = MultipleEdges>,
     {
         match self.add_edge(from, to, data) {
             AddEdgeResult::Added(eid) => eid,

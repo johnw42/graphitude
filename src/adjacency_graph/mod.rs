@@ -32,7 +32,7 @@ mod ids;
 /// * `S` - The storage type ([`HashStorage`] or [`BitvecStorage`](crate::adjacency_matrix::BitvecStorage))
 pub struct AdjacencyGraph<N, E, D = Directed, S = HashStorage>
 where
-    D: Directedness,
+    D: DirectednessTrait,
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
@@ -55,7 +55,7 @@ type EdgeIdCallback<'a, N, E, D, S> = dyn for<'b> FnMut(
 
 impl<N, E, D, S> AdjacencyGraph<N, E, D, S>
 where
-    D: Directedness,
+    D: DirectednessTrait,
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
@@ -141,7 +141,7 @@ where
 
 impl<N, E, D, S> Graph for AdjacencyGraph<N, E, D, S>
 where
-    D: Directedness,
+    D: DirectednessTrait,
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
@@ -287,7 +287,7 @@ where
 
 impl<N, E, D, S> GraphNew for AdjacencyGraph<N, E, D, S>
 where
-    D: Directedness,
+    D: DirectednessTrait,
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
@@ -304,7 +304,7 @@ where
 
 impl<N, E, D, S> GraphMut for AdjacencyGraph<N, E, D, S>
 where
-    D: Directedness,
+    D: DirectednessTrait,
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
@@ -417,7 +417,7 @@ impl<N, E, D, S> Debug for AdjacencyGraph<N, E, D, S>
 where
     N: Debug,
     E: Debug,
-    D: Directedness,
+    D: DirectednessTrait,
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
@@ -433,7 +433,7 @@ mod tests {
 
     impl<D, S> TestDataBuilder for AdjacencyGraph<i32, String, D, S>
     where
-        D: Directedness,
+        D: DirectednessTrait,
         S: Storage,
         (D::Symmetry, S): AdjacencyMatrixSelector<usize, String>,
     {

@@ -22,7 +22,7 @@ use super::Graph;
 )]
 pub struct NodeId<'g, N>(*const N, PhantomData<&'g N>);
 
-impl<'a, N> crate::graph::NodeId for NodeId<'a, N> {}
+impl<'a, N> crate::graph::NodeIdTrait for NodeId<'a, N> {}
 
 impl<'a, N> From<&'a N> for NodeId<'a, N> {
     fn from(v: &'a N) -> Self {
@@ -86,7 +86,7 @@ where
     }
 }
 
-impl<'a, N: Debug> crate::graph::EdgeId for (NodeId<'a, N>, NodeId<'a, N>) {
+impl<'a, N: Debug> crate::graph::EdgeIdTrait for (NodeId<'a, N>, NodeId<'a, N>) {
     type NodeId = NodeId<'a, N>;
     type Directedness = Directed;
 

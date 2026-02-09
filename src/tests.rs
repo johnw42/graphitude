@@ -752,7 +752,7 @@ macro_rules! graph_tests {
         #[test]
         fn test_edge_creation() {
             use std::collections::HashSet;
-            use $crate::EdgeId;
+            use $crate::EdgeIdTrait;
 
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
             let mut graph = <$type>::new();
@@ -1080,7 +1080,7 @@ macro_rules! graph_tests {
         #[test]
         fn test_successors() {
             use std::collections::HashSet;
-            use $crate::EdgeId;
+            use $crate::EdgeIdTrait;
 
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
             let mut graph = <$type>::new();
