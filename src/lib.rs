@@ -32,12 +32,11 @@ pub mod debug_graph_view;
 pub mod directedness;
 #[cfg(feature = "dot")]
 pub mod dot;
+pub mod edge_ends;
 pub mod edge_multiplicity;
 pub mod graph;
 pub mod linked_graph;
 pub mod object_graph;
-#[doc(hidden)]
-pub mod pairs;
 pub mod path;
 pub mod prelude;
 pub mod search;
@@ -65,7 +64,7 @@ pub use dot::parser::{GraphBuilder, ParseError};
 
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{
-    AdjacencyMatrix, Asymmetric, BitvecStorage, HashStorage, Storage, Symmetric, SymmetryTrait,
+    AdjacencyMatrix, BitvecStorage, HashStorage, Storage,
     bitvec::{
         asymmetric::AsymmetricBitvecAdjacencyMatrix, symmetric::SymmetricBitvecAdjacencyMatrix,
     },

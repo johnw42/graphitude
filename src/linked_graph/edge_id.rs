@@ -5,32 +5,28 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use crate::{directedness::DirectednessTrait, graph_id::GraphId, pairs::Pair};
+use derivative::Derivative;
+
+use crate::{
+    EdgeIdTrait, directedness::DirectednessTrait, edge_ends::EdgeEndsTrait as _, graph_id::GraphId,
+};
 
 use super::{Edge, NodeId};
 
 /// Edge identifier for [`LinkedGraph`](super::LinkedGraph).
 ///
 /// Contains a weak pointer to the edge data and a graph ID for safety checks.
+#[derive(Derivative)]
+#[derivative(Clone(bound = "D: Clone"))]
 pub struct EdgeId<N, E, D: DirectednessTrait> {
     pub(super) ptr: Weak<Edge<N, E, D>>,
     pub(super) graph_id: GraphId,
-    pub(super) directedness: PhantomData<D>,
+    pub(super) directedness: D,
 }
 
 impl<N, E, D: DirectednessTrait> Debug for EdgeId<N, E, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "EdgeId({:?})", self.ptr)
-    }
-}
-
-impl<N, E, D: DirectednessTrait> Clone for EdgeId<N, E, D> {
-    fn clone(&self) -> Self {
-        EdgeId {
-            ptr: Weak::clone(&self.ptr),
-            graph_id: self.graph_id,
-            directedness: PhantomData,
-        }
     }
 }
 
@@ -60,9 +56,13 @@ impl<N, E, D: DirectednessTrait> Ord for EdgeId<N, E, D> {
     }
 }
 
-impl<N, E, D: DirectednessTrait> crate::graph::EdgeIdTrait for EdgeId<N, E, D> {
+impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
     type NodeId = NodeId<N, E, D>;
     type Directedness = D;
+
+    fn directedness(&self) -> Self::Directedness {
+        self.directedness
+    }
 
     fn source(&self) -> NodeId<N, E, D> {
         self.ptr
@@ -71,7 +71,7 @@ impl<N, E, D: DirectednessTrait> crate::graph::EdgeIdTrait for EdgeId<N, E, D> {
                 ptr: Arc::downgrade(
                     &edge
                         .ends
-                        .first()
+                        .source()
                         .ptr
                         .upgrade()
                         .expect("Source node dangling"),
@@ -89,7 +89,7 @@ impl<N, E, D: DirectednessTrait> crate::graph::EdgeIdTrait for EdgeId<N, E, D> {
                 ptr: Arc::downgrade(
                     &edge
                         .ends
-                        .second()
+                        .target()
                         .ptr
                         .upgrade()
                         .expect("Target node dangling"),

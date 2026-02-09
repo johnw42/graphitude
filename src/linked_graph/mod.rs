@@ -1,8 +1,8 @@
 use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::{
-    debug::format_debug, graph::AddEdgeResult, graph_id::GraphId, pairs::Pair, prelude::*,
-    util::OtherValue,
+    debug::format_debug, directedness::StaticDirectedness, edge_ends::EdgeEndsTrait as _,
+    graph::AddEdgeResult, graph_id::GraphId, prelude::*, util::OtherValue,
 };
 
 mod edge_id;
@@ -22,7 +22,7 @@ struct Node<N, E, D: DirectednessTrait> {
 
 struct Edge<N, E, D: DirectednessTrait> {
     data: UnsafeCell<E>,
-    ends: D::Pair<NodeId<N, E, D>>,
+    ends: D::EdgeEnds<NodeId<N, E, D>>,
     directedness: PhantomData<D>,
 }
 
@@ -41,7 +41,8 @@ where
 {
     nodes: Vec<Arc<Node<N, E, D>>>,
     id: GraphId,
-    phantom: PhantomData<(M, D)>,
+    directedness: D,
+    phantom: PhantomData<M>,
 }
 
 impl<N, E, D, M> LinkedGraph<N, E, D, M>
@@ -61,7 +62,7 @@ where
         EdgeId {
             ptr: Arc::downgrade(ptr),
             graph_id: self.id,
-            directedness: PhantomData,
+            directedness: self.directedness,
         }
     }
 
@@ -107,6 +108,10 @@ where
     type Directedness = D;
     type EdgeMultiplicity = M;
 
+    fn directedness(&self) -> Self::Directedness {
+        self.directedness
+    }
+
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         &self.node(id).data
     }
@@ -123,7 +128,7 @@ where
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
-        if D::is_directed() {
+        if self.is_directed() {
             // For directed graphs, just iterate normally
             self.nodes
                 .iter()
@@ -158,7 +163,7 @@ where
         &'a self,
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        if D::is_directed() {
+        if self.is_directed() {
             // For directed graphs, use edges_in.  We need to collect to avoid
             // borrowing issues with self.node() below since edges_in contains
             // EdgeIds which borrow self.
@@ -183,7 +188,7 @@ where
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.node(from).edges_out.iter().filter_map(move |edge| {
             let (edge_source, edge_target) = edge.ends.values();
-            let matches = if D::is_directed() {
+            let matches = if self.is_directed() {
                 edge_source == from && edge_target == into
             } else {
                 (edge_source == from && edge_target == into)
@@ -196,7 +201,7 @@ where
     fn has_edge_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
         self.node(from).edges_out.iter().any(|edge| {
             let (edge_source, edge_target) = edge.ends.values();
-            if D::is_directed() {
+            if self.is_directed() {
                 edge_source == from && edge_target == into
             } else {
                 (edge_source == from && edge_target == into)
@@ -206,7 +211,7 @@ where
     }
 
     fn num_edges_into(&self, into: &Self::NodeId) -> usize {
-        if D::is_directed() {
+        if self.is_directed() {
             self.node(into).edges_in.len()
         } else {
             self.node(into).edges_out.len()
@@ -263,13 +268,14 @@ where
 
 impl<N, E, D, M> Default for LinkedGraph<N, E, D, M>
 where
-    D: DirectednessTrait,
+    D: StaticDirectedness,
     M: EdgeMultiplicityTrait,
 {
     fn default() -> Self {
         Self {
             nodes: Vec::new(),
             id: GraphId::new(),
+            directedness: D::default(),
             phantom: PhantomData,
         }
     }
@@ -308,7 +314,7 @@ where
                 .node_mut(from)
                 .edges_out
                 .iter_mut()
-                .find(|edge| edge.ends == (from.clone(), into.clone()).into())
+                .find(|edge| edge.ends.source() == from && edge.ends.target() == into)
             {
                 let mut old_data = data;
                 // SAFETY: There can be no mutable references to the data, the graph
@@ -320,7 +326,7 @@ where
             debug_assert_eq!(self.edges_from_into(from, into).count(), 0);
         }
 
-        let ends = D::Pair::from((from.clone(), into.clone()));
+        let ends = self.directedness().make_pair((from.clone(), into.clone()));
         let (from, into) = ends.clone().into_values();
 
         let edge = Arc::new(Edge {
@@ -333,7 +339,7 @@ where
         // Always add to the sorted "from" node's edges_out
         self.node_mut(&from).edges_out.push(edge.clone());
 
-        if D::is_directed() {
+        if self.is_directed() {
             // For directed graphs, add to the "into" node's edges_in.  We don't
             // maintain edges_in for undirected graphs since it's redundant with
             // edges_out.
@@ -360,7 +366,7 @@ where
             match edge.ends.other_value(nid) {
                 OtherValue::First(other_nid) | OtherValue::Second(other_nid) => {
                     let other_node = self.node_mut(other_nid);
-                    if D::is_directed() {
+                    if self.is_directed() {
                         // For directed graphs, remove from edges_in
                         other_node.edges_in.retain(|eid| *eid != self.edge_id(edge));
                     } else {
@@ -374,11 +380,11 @@ where
             };
         }
 
-        if D::is_directed() {
+        if self.is_directed() {
             // For directed graphs, also remove incoming edges from source nodes' edges_out
             for eid in &node.edges_in {
                 let edge = self.edge(eid);
-                let from_nid = edge.ends.first();
+                let from_nid = edge.ends.source();
                 if *from_nid != *nid {
                     let from_node = self.node_mut(&from_nid.clone());
                     from_node
@@ -404,7 +410,7 @@ where
             .edges_out
             .retain(|edge| *eid != self.edge_id(edge));
 
-        if D::is_directed() {
+        if self.is_directed() {
             // For directed graphs, remove from target node's edges_in
             let to_node = self.node_mut(into_nid);
             to_node.edges_in.retain(|eid2| *eid != *eid2);
@@ -425,7 +431,7 @@ impl<N, E, D, M> Clone for LinkedGraph<N, E, D, M>
 where
     N: Clone,
     E: Clone,
-    D: DirectednessTrait,
+    D: StaticDirectedness,
     M: EdgeMultiplicityTrait,
 {
     fn clone(&self) -> Self {

@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once, marker::PhantomData
 
 use derivative::Derivative;
 
-use crate::{DirectednessTrait, EdgeIdTrait, pairs::Pair};
+use crate::{DirectednessTrait, EdgeIdTrait, edge_ends::EdgeEndsTrait as _};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
@@ -91,7 +91,7 @@ impl<E: EdgeIdTrait> Path<E> {
 
         let next_node = if source == last {
             target
-        } else if !E::Directedness::is_directed() && target == last {
+        } else if !edge_id.directedness().is_directed() && target == last {
             // For undirected graphs, edge can be traversed in either direction
             source
         } else {

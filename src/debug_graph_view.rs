@@ -53,6 +53,10 @@ where
     type EdgeData = E;
     type EdgeId = <LinkedGraph<N, E, D> as Graph>::EdgeId;
 
+    fn directedness(&self) -> Self::Directedness {
+        self.inner.directedness()
+    }
+
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
         self.inner.node_ids()
     }

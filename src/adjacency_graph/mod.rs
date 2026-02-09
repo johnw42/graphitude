@@ -7,11 +7,11 @@ use crate::{
     adjacency_matrix::{
         AdjacencyMatrixSelector, CompactionCount as _, HashStorage, SelectMatrix, Storage,
     },
-    automap::Automap,
-    automap::trait_def::AutomapIndexing,
+    automap::{Automap, trait_def::AutomapIndexing},
     debug::format_debug,
+    directedness::StaticDirectedness,
+    edge_ends::EdgeEndsTrait,
     graph_id::GraphId,
-    pairs::Pair,
     prelude::*,
 };
 
@@ -44,12 +44,12 @@ mod ids;
 /// * `S` - The storage type ([`HashStorage`] or [`BitvecStorage`](crate::adjacency_matrix::BitvecStorage))
 pub struct AdjacencyGraph<N, E, D = Directed, S = HashStorage>
 where
-    D: DirectednessTrait,
+    D: StaticDirectedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
+    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     nodes: NodeVec<N>,
-    adjacency: <(D::Symmetry, S) as AdjacencyMatrixSelector<usize, E>>::Matrix,
+    adjacency: <(D, S) as AdjacencyMatrixSelector<usize, E>>::Matrix,
     directedness: PhantomData<D>,
     id: GraphId,
     compaction_count: S::CompactionCount,
@@ -67,9 +67,9 @@ type EdgeIdCallback<'a, N, E, D, S> = dyn for<'b> FnMut(
 
 impl<N, E, D, S> AdjacencyGraph<N, E, D, S>
 where
-    D: DirectednessTrait,
+    D: StaticDirectedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
+    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     /// Creates a `NodeId` for the given `AutomapKey`.
     fn node_id(&self, key: OffsetAutomapKey) -> NodeId<S> {
@@ -78,7 +78,11 @@ where
 
     /// Creates an `EdgeId` for the given `AutomapKey` pair.
     fn edge_id(&self, from: OffsetAutomapKey, into: OffsetAutomapKey) -> EdgeId<S, D> {
-        EdgeId::new((from, into).into(), self.id, self.compaction_count)
+        EdgeId::new(
+            D::default().make_pair(from, into),
+            self.id,
+            self.compaction_count,
+        )
     }
 
     /// Internal function to perform compaction or shrinking of the graph.
@@ -154,9 +158,9 @@ where
 
 impl<N, E, D, S> Graph for AdjacencyGraph<N, E, D, S>
 where
-    D: DirectednessTrait,
+    D: StaticDirectedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
+    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     type EdgeData = E;
     type EdgeId = EdgeId<S, D>;
@@ -164,6 +168,10 @@ where
     type NodeId = NodeId<S>;
     type Directedness = D;
     type EdgeMultiplicity = SingleEdge;
+
+    fn directedness(&self) -> Self::Directedness {
+        D::default()
+    }
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         self.assert_valid_node_id(id);
@@ -212,11 +220,9 @@ where
                 indexing.key_to_index(into.key()),
             )
             .into_iter()
-            .map(move |(indicies, _)| {
-                self.edge_id(
-                    indexing.index_to_key(indicies.clone().into_first()),
-                    indexing.index_to_key(indicies.into_second()),
-                )
+            .map(move |(indices, _)| {
+                let ends = indices.into_values();
+                self.edge_id(indexing.index_to_key(ends.0), indexing.index_to_key(ends.1))
             })
     }
 
@@ -274,12 +280,11 @@ where
         if self.compaction_count != id.compaction_count() {
             return Err("EdgeId compaction counter does not match");
         }
+        let (source, target) = id.keys().into_values();
+        let indexing = self.nodes.indexing();
         if self
             .adjacency
-            .get(
-                self.nodes.indexing().key_to_index(id.keys().into_first()),
-                self.nodes.indexing().key_to_index(id.keys().into_second()),
-            )
+            .get(indexing.key_to_index(source), indexing.key_to_index(target))
             .is_none()
         {
             return Err("EdgeId not found in adjacency matrix");
@@ -301,14 +306,14 @@ where
 
 impl<N, E, D, S> Default for AdjacencyGraph<N, E, D, S>
 where
-    D: DirectednessTrait,
+    D: StaticDirectedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
+    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     fn default() -> Self {
         Self {
             nodes: NodeVec::default(),
-            adjacency: SelectMatrix::<D::Symmetry, S, usize, E>::new(),
+            adjacency: SelectMatrix::<D, S, usize, E>::new(),
             directedness: PhantomData,
             compaction_count: S::CompactionCount::default(),
             id: GraphId::new(),
@@ -318,9 +323,9 @@ where
 
 impl<N, E, D, S> GraphMut for AdjacencyGraph<N, E, D, S>
 where
-    D: DirectednessTrait,
+    D: StaticDirectedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
+    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
         let index = self.nodes.insert(data);
@@ -344,39 +349,16 @@ where
     }
 
     fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData {
-        // for into in self
-        //     .adjacency
-        //     .entries_in_row(self.nodes.indexing().zero_based_index(id.key()))
-        //     .map(|(to, _)| to)
-        //     .collect::<Vec<_>>()
-        // {
-        //     self.adjacency
-        //         .remove(self.nodes.indexing().zero_based_index(id.key()), into);
-        // }
-        // if self.is_directed() {
-        //     for from in self
-        //         .adjacency
-        //         .entries_in_col(self.nodes.indexing().zero_based_index(id.key()))
-        //         .map(|(to, _)| to)
-        //         .collect::<Vec<_>>()
-        //     {
-        //         self.adjacency
-        //             .remove(from, self.nodes.indexing().zero_based_index(id.key()));
-        //     }
-        // }
-        self.adjacency.clear_row_and_column(
-            self.nodes.indexing().key_to_index(id.key()),
-            self.nodes.indexing().key_to_index(id.key()),
-        );
+        let row_col = self.nodes.indexing().key_to_index(id.key());
+        self.adjacency.clear_row_and_column(row_col, row_col);
         self.nodes.remove(id.key()).expect("invalid node ID")
     }
 
     fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData {
+        let (source, target) = id.keys().into_values();
+        let indexing = self.nodes.indexing();
         self.adjacency
-            .remove(
-                self.nodes.indexing().key_to_index(id.keys().into_first()),
-                self.nodes.indexing().key_to_index(id.keys().into_second()),
-            )
+            .remove(indexing.key_to_index(source), indexing.key_to_index(target))
             .expect("Invalid edge ID")
     }
 
@@ -431,9 +413,9 @@ impl<N, E, D, S> Debug for AdjacencyGraph<N, E, D, S>
 where
     N: Debug,
     E: Debug,
-    D: DirectednessTrait,
+    D: StaticDirectedness,
     S: Storage,
-    (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
+    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "AdjacencyGraph")

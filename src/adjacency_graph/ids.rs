@@ -3,12 +3,13 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 use derivative::Derivative;
 
 use crate::{
-    DirectednessTrait, Storage, automap::OffsetAutomapKey, graph_id::GraphId, pairs::Pair,
+    DirectednessTrait, EdgeIdTrait, Storage, automap::OffsetAutomapKey,
+    directedness::StaticDirectedness, edge_ends::EdgeEndsTrait as _, graph_id::GraphId,
 };
 
 #[derive(Derivative)]
 #[derivative(
-    Clone(bound = "T: Clone"),
+    Clone(bound = ""),
     Hash(bound = "T: Hash"),
     // Comparing the graph_id and compaction_count is unfortunate, because
     // it changes the semantics of equality based on whether error checking
@@ -19,13 +20,13 @@ use crate::{
     PartialOrd(bound = "T: Ord"),
     Ord(bound = "T: Ord")
 )]
-pub struct NodeIdOrEdgeId<S: Storage, T> {
+pub struct NodeIdOrEdgeId<S: Storage, T: Clone> {
     payload: T,
     pub compaction_count: S::CompactionCount,
     pub graph_id: GraphId,
 }
 
-impl<S: Storage, T> NodeIdOrEdgeId<S, T> {
+impl<S: Storage, T: Clone> NodeIdOrEdgeId<S, T> {
     pub fn new(payload: T, graph_id: GraphId, compaction_count: S::CompactionCount) -> Self {
         Self {
             payload,
@@ -52,13 +53,13 @@ pub type NodeId<S> = NodeIdOrEdgeId<S, OffsetAutomapKey>;
     Ord(bound = "")
 )]
 pub struct EdgeId<S: Storage, D: DirectednessTrait> {
-    inner: NodeIdOrEdgeId<S, D::Pair<OffsetAutomapKey>>,
+    inner: NodeIdOrEdgeId<S, D::EdgeEnds<OffsetAutomapKey>>,
     _directedness: PhantomData<D>,
 }
 
 impl<S: Storage, D: DirectednessTrait> EdgeId<S, D> {
     pub fn new(
-        payload: D::Pair<OffsetAutomapKey>,
+        payload: D::EdgeEnds<OffsetAutomapKey>,
         graph_id: GraphId,
         compaction_count: S::CompactionCount,
     ) -> Self {
@@ -68,7 +69,7 @@ impl<S: Storage, D: DirectednessTrait> EdgeId<S, D> {
         }
     }
 
-    pub fn keys(&self) -> D::Pair<OffsetAutomapKey> {
+    pub fn keys(&self) -> D::EdgeEnds<OffsetAutomapKey> {
         self.inner.payload.clone()
     }
 
@@ -100,20 +101,24 @@ impl<S: Storage> Debug for NodeId<S> {
     }
 }
 
-impl<S: Storage, D: DirectednessTrait> crate::graph::EdgeIdTrait for EdgeId<S, D> {
+impl<S: Storage, D: StaticDirectedness> EdgeIdTrait for EdgeId<S, D> {
     type NodeId = NodeId<S>;
     type Directedness = D;
 
-    fn ends(&self) -> D::Pair<NodeId<S>> {
-        let (from_key, to_key) = self.inner.payload.clone().into_values();
-        let from = NodeId::new(from_key, self.inner.graph_id, self.inner.compaction_count);
-        let to = NodeId::new(to_key, self.inner.graph_id, self.inner.compaction_count);
-        (from, to).into()
+    fn directedness(&self) -> Self::Directedness {
+        D::default()
+    }
+
+    fn ends(&self) -> D::EdgeEnds<NodeId<S>> {
+        let (from_key, to_key) = self.inner.payload.values();
+        let from = NodeId::new(*from_key, self.inner.graph_id, self.inner.compaction_count);
+        let to = NodeId::new(*to_key, self.inner.graph_id, self.inner.compaction_count);
+        self.directedness().make_pair(from, to)
     }
 
     fn source(&self) -> NodeId<S> {
         NodeId::new(
-            *self.inner.payload.first(),
+            *self.inner.payload.source(),
             self.inner.graph_id,
             self.inner.compaction_count,
         )
@@ -121,7 +126,7 @@ impl<S: Storage, D: DirectednessTrait> crate::graph::EdgeIdTrait for EdgeId<S, D
 
     fn target(&self) -> NodeId<S> {
         NodeId::new(
-            *self.inner.payload.second(),
+            *self.inner.payload.target(),
             self.inner.graph_id,
             self.inner.compaction_count,
         )
@@ -130,6 +135,6 @@ impl<S: Storage, D: DirectednessTrait> crate::graph::EdgeIdTrait for EdgeId<S, D
 
 impl<S: Storage, D: DirectednessTrait> Debug for EdgeId<S, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EdgeId{:?}", self.inner.payload)
+        write!(f, "EdgeId{:?}", self.inner.payload.values())
     }
 }

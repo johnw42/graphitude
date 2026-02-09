@@ -1,9 +1,12 @@
 use std::{fmt::Debug, hash::Hash};
 
 use crate::{
-    AsymmetricBitvecAdjacencyMatrix, AsymmetricHashAdjacencyMatrix, SymmetricBitvecAdjacencyMatrix,
-    SymmetricHashAdjacencyMatrix,
+    AsymmetricBitvecAdjacencyMatrix, AsymmetricHashAdjacencyMatrix, DirectednessTrait,
+    SymmetricBitvecAdjacencyMatrix, SymmetricHashAdjacencyMatrix, directedness::StaticDirectedness,
+    edge_ends::EdgeEndsTrait,
 };
+#[cfg(feature = "bitvec")]
+use crate::{Directed, Undirected};
 
 /// Bitvec-based adjacency matrix implementations.
 pub mod bitvec;
@@ -11,19 +14,16 @@ pub mod bitvec;
 /// Hash-based adjacency matrix implementations.
 pub mod hash;
 
-/// Symmetry types for adjacency matrices.
-mod symmetry;
-
 /// Storage types for adjacency matrices.
 mod storage;
 
 pub use storage::{BitvecStorage, HashStorage, Storage};
-pub use symmetry::{Asymmetric, Symmetric, SymmetryTrait};
 
 pub(crate) use storage::CompactionCount;
 
-type Pair<T> =
-    <<T as AdjacencyMatrix>::Symmetry as SymmetryTrait>::Pair<<T as AdjacencyMatrix>::Index>;
+type Index<M: AdjacencyMatrix> = <M as AdjacencyMatrix>::Index;
+type Pair<M: AdjacencyMatrix> =
+    <<M as AdjacencyMatrix>::Directedness as DirectednessTrait>::EdgeEnds<Index<M>>;
 
 /// Trait for adjacency matrix data structures.
 ///
@@ -33,9 +33,9 @@ pub trait AdjacencyMatrix
 where
     Self: Sized,
 {
-    type Index: Hash + Eq + Clone + Ord;
+    type Index: Hash + Eq + Clone + Ord + Debug;
     type Value;
-    type Symmetry: SymmetryTrait;
+    type Directedness: StaticDirectedness;
     type Storage: Storage;
 
     /// Creates a new, empty adjacency matrix.
@@ -92,11 +92,8 @@ where
     /// For internal use.  Gets the canonical indices for the given indices.  This will return a pair
     /// `(i1, i2)` such that for symmetric matrices, `i1 <= i2`.
     #[doc(hidden)]
-    fn entry_indices(
-        i1: Self::Index,
-        i2: Self::Index,
-    ) -> <Self::Symmetry as SymmetryTrait>::Pair<Self::Index> {
-        (i1, i2).into()
+    fn entry_indices(i1: Self::Index, i2: Self::Index) -> Pair<Self> {
+        <Pair<Self>>::new((i1, i2), Self::Directedness::default())
     }
 
     /// Gets the entry at the given row and col.
@@ -149,7 +146,7 @@ where
 }
 
 #[cfg(feature = "bitvec")]
-impl<I, V> AdjacencyMatrixSelector<I, V> for (Asymmetric, BitvecStorage)
+impl<I, V> AdjacencyMatrixSelector<I, V> for (Directed, BitvecStorage)
 where
     I: Into<usize> + From<usize> + Copy + Eq + Hash + Ord,
 {
@@ -157,21 +154,21 @@ where
 }
 
 #[cfg(feature = "bitvec")]
-impl<I, V> AdjacencyMatrixSelector<I, V> for (Symmetric, BitvecStorage)
+impl<I, V> AdjacencyMatrixSelector<I, V> for (Undirected, BitvecStorage)
 where
     I: Into<usize> + From<usize> + Copy + Eq + Hash + Ord,
 {
     type Matrix = SymmetricBitvecAdjacencyMatrix<I, V>;
 }
 
-impl<I, V> AdjacencyMatrixSelector<I, V> for (Symmetric, HashStorage)
+impl<I, V> AdjacencyMatrixSelector<I, V> for (Directed, HashStorage)
 where
     I: Hash + Eq + Copy + Ord + Debug,
 {
     type Matrix = SymmetricHashAdjacencyMatrix<I, V>;
 }
 
-impl<I, V> AdjacencyMatrixSelector<I, V> for (Asymmetric, HashStorage)
+impl<I, V> AdjacencyMatrixSelector<I, V> for (Undirected, HashStorage)
 where
     I: Hash + Eq + Copy + Ord,
 {
@@ -180,10 +177,10 @@ where
 
 /// Type alias for selecting an adjacency matrix implementation.
 ///
-/// Resolves to the appropriate matrix type based on the symmetry and storage parameters.
+/// Resolves to the appropriate matrix type based on the directedness and storage parameters.
 /// # Type Parameters
-/// * `Sym` - The symmetry type ([`Symmetric`] or [`Asymmetric`])
-/// * `Stor` - The storage type ([`BitvecStorage`] or [`HashStorage`])
+/// * `D` - The directedness type ([`Directed`] or [`Undirected`])
+/// * `S` - The storage type ([`BitvecStorage`] or [`HashStorage`])
 /// * `I` - The index type
 /// * `V` - The value type
-pub type SelectMatrix<Sym, Stor, I, V> = <(Sym, Stor) as AdjacencyMatrixSelector<I, V>>::Matrix;
+pub type SelectMatrix<D, S, I, V> = <(D, S) as AdjacencyMatrixSelector<I, V>>::Matrix;

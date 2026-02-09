@@ -40,40 +40,50 @@ pub enum OtherValue<T> {
     Both(T),
 }
 
+impl<T> OtherValue<T> {
+    /// Extracts the inner value regardless of which variant it is. This is
+    /// useful when you just want the "other" value without caring about which
+    /// one it was.
+    pub fn into_inner(self) -> T {
+        match self {
+            OtherValue::First(value) | OtherValue::Second(value) | OtherValue::Both(value) => value,
+        }
+    }
+}
+
 /// Given two values and a target value, determines which of the two values is
 /// the "other" one (i.e., not equal to the target).
 ///
 /// # Panics
 ///
 /// Panics if the target doesn't match either of the two values.
-pub fn other_value<T: Eq + Debug>((a, b): (T, T), value: T) -> OtherValue<T> {
-    if a == value {
-        if b == value {
+pub fn other_value<T: Eq>((a, b): (T, T), target: &T) -> OtherValue<T> {
+    if a == *target {
+        if b == *target {
             OtherValue::Both(b)
         } else {
             OtherValue::Second(b)
         }
-    } else if b == value {
+    } else if b == *target {
         OtherValue::First(a)
     } else {
-        panic!("Value {:?} doesn't match either {:?} or {:?}", value, a, b);
+        panic!("Neither value matches the target");
     }
 }
 
 #[macro_export]
 macro_rules! static_dynamic_enum {
-    ($trait:ident = $static_trait:ident | $dynamic_trait:ident; $vis:vis enum $name:ident { $($value:ident),+ }) => {
-        $vis trait $static_trait {}
-        $vis trait $dynamic_trait {}
+    ($vis:vis trait $static_trait:ident : $trait:ident { $($member:tt)* }; $vis2:vis enum $name:ident { $($value:ident),+ $(,)?}) => {
+        $vis trait $static_trait: $trait { $($member)* }
 
+        #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
         $vis enum $name {
             $($value),+
         }
 
-        $($vis struct $value;)+
-
-        $(impl $static_trait for $value {})+
-
-        impl $dynamic_trait for $name {}
+        $(
+            #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+            $vis struct $value;
+        )+
     };
 }

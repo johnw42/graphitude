@@ -12,12 +12,12 @@ use std::io;
 use crate::dot::{parser, renderer};
 use crate::{
     debug_graph_view::DebugGraphView,
-    pairs::Pair,
+    edge_ends::EdgeEndsTrait,
     path::Path,
     prelude::*,
     search::{BfsIterator, DfsIterator},
     util::OtherValue,
-};
+}; // Import the trait that defines EdgeEnds::new
 
 /// A trait representing a node identifier in a graph.
 ///
@@ -50,6 +50,9 @@ impl<N: NodeIdTrait> OtherEnd<N> {
     }
 }
 
+pub type EdgeEnds<E: EdgeIdTrait> =
+    <<E as EdgeIdTrait>::Directedness as DirectednessTrait>::EdgeEnds<<E as EdgeIdTrait>::NodeId>;
+
 /// A trait representing an edge identifier in a graph.  When Directedness is
 /// `Directed`, the source and target are distinct; when Directedness is
 /// `Undirected`, the source and target are always be ordered such that
@@ -64,30 +67,21 @@ pub trait EdgeIdTrait: Eq + Hash + Clone + Debug {
     type NodeId: NodeIdTrait;
     type Directedness: DirectednessTrait;
 
+    fn directedness(&self) -> Self::Directedness;
+
     /// Gets the source node of the edge.
     fn source(&self) -> Self::NodeId {
-        self.ends().into_first()
+        self.ends().into_source()
     }
 
     /// Gets the target node of the edge.
     fn target(&self) -> Self::NodeId {
-        self.ends().into_second()
+        self.ends().into_target()
     }
 
-    /// Gets both ends of the edge as a tuple (source, target).
-    fn ends(&self) -> <Self::Directedness as DirectednessTrait>::Pair<Self::NodeId> {
-        (self.source(), self.target()).into()
-    }
-
-    /// Given one end of the edge, returns the other end.  Returns `None` if the
-    /// edge is a self-loop.  Panics if the given node is not an endpoint of the
-    /// edge.
-    fn other_end(&self, node_id: Self::NodeId) -> OtherEnd<Self::NodeId> {
-        match self.ends().other_value(&node_id) {
-            OtherValue::First(node) => OtherEnd::Source(node.clone()),
-            OtherValue::Second(node) => OtherEnd::Target(node.clone()),
-            OtherValue::Both(node) => OtherEnd::SelfLoop(node.clone()),
-        }
+    /// Gets both ends of the edge.
+    fn ends(&self) -> EdgeEnds<Self> {
+        self.directedness().make_pair(self.source(), self.target())
     }
 }
 
@@ -142,9 +136,11 @@ pub trait Graph {
     type EdgeData;
     type EdgeId: EdgeIdTrait<NodeId = Self::NodeId, Directedness = Self::Directedness>;
 
+    fn directedness(&self) -> Self::Directedness;
+
     /// Returns true if the graph is directed.
     fn is_directed(&self) -> bool {
-        Self::Directedness::is_directed()
+        self.directedness().is_directed()
     }
 
     /// Returns true if the graph allows parallel edges between the same pair of nodes.
@@ -290,7 +286,7 @@ pub trait Graph {
     {
         let mut visited = HashSet::new();
         self.edges_from(node).filter_map(move |eid| {
-            let nid = if Self::Directedness::is_directed() {
+            let nid = if self.directedness().is_directed() {
                 eid.target()
             } else {
                 let (source, target) = (eid.source(), eid.target());
@@ -356,7 +352,7 @@ pub trait Graph {
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(|eid| {
             let (source, target) = (eid.source(), eid.target());
-            source == *from || !Self::Directedness::is_directed() && target == *from
+            source == *from || !self.directedness().is_directed() && target == *from
         })
     }
 
@@ -367,7 +363,7 @@ pub trait Graph {
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(|eid| {
             let (source, target) = (eid.source(), eid.target());
-            target == *into || !Self::Directedness::is_directed() && source == *into
+            target == *into || !self.directedness().is_directed() && source == *into
         })
     }
 
@@ -380,7 +376,7 @@ pub trait Graph {
         self.edge_ids().filter(move |eid| {
             let (edge_source, edge_target) = (eid.source(), eid.target());
             (edge_source == *from && edge_target == *into)
-                || (!Self::Directedness::is_directed()
+                || (!self.directedness().is_directed()
                     && edge_source == *into
                     && edge_target == *from)
         })
@@ -477,18 +473,19 @@ pub trait Graph {
 
             // Update distances to neighbors
             for edge_id in self.edges_from(&current_node) {
-                let neighbor = edge_id.other_end(current_node.clone()).into_inner();
+                let ends = edge_id.ends();
+                let neighbor = ends.other_value(&current_node).into_inner();
                 if unvisited.contains(&neighbor) {
                     let edge_distance = distance_fn(&edge_id);
                     let new_dist = current_dist + edge_distance;
 
                     let should_update = distances
-                        .get(&neighbor)
+                        .get(neighbor)
                         .is_none_or(|&old_dist| new_dist < old_dist);
 
                     if should_update {
                         distances.insert(neighbor.clone(), new_dist);
-                        predecessors.insert(neighbor, (edge_id, current_node.clone()));
+                        predecessors.insert(neighbor.clone(), (edge_id, current_node.clone()));
                     }
                 }
             }

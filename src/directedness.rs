@@ -1,64 +1,68 @@
 use std::{fmt::Debug, hash::Hash};
 
-use crate::pairs::{OrderedPair, Pair, SortedPair};
-
-#[cfg(feature = "bitvec")]
-use crate::{
-    AdjacencyMatrix, AsymmetricHashAdjacencyMatrix, SymmetricHashAdjacencyMatrix,
-    adjacency_matrix::{Asymmetric, Symmetric, SymmetryTrait},
-};
-
-/// Marker type representing directed graph edges.
-pub struct Directed;
-
-/// Marker type representing undirected graph edges.
-pub struct Undirected;
+use crate::edge_ends::{DirectedEnds, EdgeEnds, EdgeEndsTrait, UndirectedEnds};
 
 /// Trait defining the directedness behavior of graph edges.
 ///
-/// This trait is implemented by [`Directed`] and [`Undirected`] marker types
-/// to provide compile-time specialization of graph behavior.
-pub trait DirectednessTrait: Sized {
-    #[cfg(feature = "bitvec")]
-    type Symmetry: SymmetryTrait;
-    #[cfg(feature = "bitvec")]
-    type AdjacencyMatrix<K, N>: AdjacencyMatrix<Index = K, Value = N>
-    where
-        K: Eq + Hash + Clone + Ord + Debug;
+/// This trait is implemented by [`Directed`] and [`Undirected`] marker types to
+/// provide compile-time specialization of graph behavior, as well as by the
+/// [`Directedness`] enum for dynamic directedness.
+pub trait DirectednessTrait:
+    Copy + Clone + Debug + PartialEq + Eq + Hash + PartialOrd + Ord
+{
+    type EdgeEnds<T: Clone + Eq + Ord + Debug + Hash>: EdgeEndsTrait<T, Self>;
 
-    type Pair<T: Eq + Hash + Clone + Debug + Ord>: Pair<T> + Eq + Hash + Clone + Debug + Ord;
+    fn is_directed(&self) -> bool;
 
-    fn is_directed() -> bool;
+    fn make_pair<T: Clone + Eq + Ord + Debug + Hash>(&self, from: T, into: T) -> Self::EdgeEnds<T> {
+        Self::EdgeEnds::new(from, into, *self)
+    }
 }
 
+pub trait StaticDirectedness: DirectednessTrait + Default {
+    const IS_DIRECTED: bool;
+}
+
+#[derive(Clone, Copy, Default, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Directed;
+
 impl DirectednessTrait for Directed {
-    #[cfg(feature = "bitvec")]
-    type Symmetry = Asymmetric;
-    #[cfg(feature = "bitvec")]
-    type AdjacencyMatrix<K, N>
-        = AsymmetricHashAdjacencyMatrix<K, N>
-    where
-        K: Eq + Hash + Clone + Ord + Debug;
+    type EdgeEnds<T: Clone + Eq + Ord + Debug + Hash> = DirectedEnds<T>;
 
-    type Pair<T: Eq + Hash + Clone + Debug + Ord> = OrderedPair<T>;
-
-    fn is_directed() -> bool {
+    fn is_directed(&self) -> bool {
         true
     }
 }
 
+impl StaticDirectedness for Directed {
+    const IS_DIRECTED: bool = true;
+}
+
+#[derive(Clone, Copy, Default, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Undirected;
+
 impl DirectednessTrait for Undirected {
-    #[cfg(feature = "bitvec")]
-    type Symmetry = Symmetric;
-    #[cfg(feature = "bitvec")]
-    type AdjacencyMatrix<K, N>
-        = SymmetricHashAdjacencyMatrix<K, N>
-    where
-        K: Eq + Hash + Clone + Ord + Debug;
+    type EdgeEnds<T: Clone + Eq + Ord + Debug + Hash> = UndirectedEnds<T>;
 
-    type Pair<T: Eq + Hash + Clone + Debug + Ord> = SortedPair<T>;
-
-    fn is_directed() -> bool {
+    fn is_directed(&self) -> bool {
         false
+    }
+}
+
+impl StaticDirectedness for Undirected {
+    const IS_DIRECTED: bool = false;
+}
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Directedness {
+    Directed,
+    Undirected,
+}
+
+impl DirectednessTrait for Directedness {
+    type EdgeEnds<T: Clone + Eq + Ord + Debug + Hash> = EdgeEnds<T, Self>;
+
+    fn is_directed(&self) -> bool {
+        matches!(self, Directedness::Directed)
     }
 }

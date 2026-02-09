@@ -87,7 +87,7 @@ impl SymmetricMatrixIndexing {
 
 #[cfg(test)]
 mod tests {
-    use crate::pairs::Pair;
+    use crate::pairs::PairTrait;
 
     use super::*;
 
