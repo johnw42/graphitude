@@ -16,7 +16,7 @@ use crate::{
     path::Path,
     prelude::*,
     search::{BfsIterator, DfsIterator},
-    util::{OtherValue, other_value},
+    util::OtherValue,
 };
 
 /// A trait representing a node identifier in a graph.

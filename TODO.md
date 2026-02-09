@@ -17,5 +17,5 @@
 [ ] Support different edge multiplicities in AdjacencyGraph
 [x] Speed up/fix edge removal in AdjacencyGraph by clearing the row+column of a removed node in a single call
 [x] Add a reflected adjacency bitmap for directed adjacency graphs
-[ ] Store regular and reflected data in a single bitvec
+[x] Store regular and reflected data in a single bitvec
 [ ] Clean up TODOs in code

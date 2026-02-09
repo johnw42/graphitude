@@ -303,7 +303,7 @@ where
         data: Self::EdgeData,
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
         if !self.allows_parallel_edges() {
-            debug_assert!(self.edges_from_into(&from, &into).count() <= 1);
+            debug_assert!(self.edges_from_into(from, into).count() <= 1);
             if let Some(edge) = self
                 .node_mut(from)
                 .edges_out
@@ -317,7 +317,7 @@ where
                 std::mem::swap(unsafe { &mut *edge.data.get() }, &mut old_data);
                 return AddEdgeResult::Updated(old_data);
             }
-            debug_assert_eq!(self.edges_from_into(&from, &into).count(), 0);
+            debug_assert_eq!(self.edges_from_into(from, into).count(), 0);
         }
 
         let ends = D::Pair::from((from.clone(), into.clone()));
@@ -359,7 +359,7 @@ where
             // For undirected graphs, the "other" node could be either edge.from or edge.into
             match edge.ends.other_value(nid) {
                 OtherValue::First(other_nid) | OtherValue::Second(other_nid) => {
-                    let other_node = self.node_mut(&other_nid);
+                    let other_node = self.node_mut(other_nid);
                     if D::is_directed() {
                         // For directed graphs, remove from edges_in
                         other_node.edges_in.retain(|eid| *eid != self.edge_id(edge));
@@ -399,18 +399,18 @@ where
         let (from_nid, into_nid) = edge.ends.values();
 
         // Remove from source node's edges_out
-        let from_node = self.node_mut(&from_nid);
+        let from_node = self.node_mut(from_nid);
         from_node
             .edges_out
             .retain(|edge| *eid != self.edge_id(edge));
 
         if D::is_directed() {
             // For directed graphs, remove from target node's edges_in
-            let to_node = self.node_mut(&into_nid);
+            let to_node = self.node_mut(into_nid);
             to_node.edges_in.retain(|eid2| *eid != *eid2);
         } else if from_nid != into_nid {
             // For undirected graphs (non-self-loop), remove from target node's edges_out
-            let to_node = self.node_mut(&into_nid);
+            let to_node = self.node_mut(into_nid);
             to_node.edges_out.retain(|edge| *eid != self.edge_id(edge));
         }
 
@@ -444,67 +444,5 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "LinkedGraph")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{tests::TestDataBuilder, *};
-
-    impl<D, M> TestDataBuilder for LinkedGraph<i32, String, D, M>
-    where
-        D: DirectednessTrait,
-        M: EdgeMultiplicityTrait,
-    {
-        type Graph = Self;
-
-        fn new_edge_data(i: usize) -> String {
-            format!("e{}", i)
-        }
-
-        fn new_node_data(i: usize) -> i32 {
-            i as i32
-        }
-    }
-
-    mod directed_multiple {
-        use super::*;
-
-        graph_tests!(LinkedGraph<i32, String, Directed, MultipleEdges>);
-        graph_test_copy_from_with!(
-            LinkedGraph<i32, String, Directed, MultipleEdges>,
-            |data| data * 2,
-            |data| format!("{}-copied", data));
-    }
-
-    mod directed_single {
-        use super::*;
-
-        graph_tests!(LinkedGraph<i32, String, Directed, SingleEdge>);
-        graph_test_copy_from_with!(
-            LinkedGraph<i32, String, Directed, SingleEdge>,
-            |data| data * 2,
-            |data| format!("{}-copied", data));
-    }
-
-    mod undirected_multiple {
-        use super::*;
-
-        graph_tests!(LinkedGraph<i32, String, Undirected, MultipleEdges>);
-        graph_test_copy_from_with!(
-            LinkedGraph<i32, String, Undirected, MultipleEdges>,
-            |data| data * 2,
-            |data| format!("{}-copied", data));
-    }
-
-    mod undirected_single {
-        use super::*;
-
-        graph_tests!(LinkedGraph<i32, String, Undirected, SingleEdge>);
-        graph_test_copy_from_with!(
-            LinkedGraph<i32, String, Undirected, SingleEdge>,
-            |data| data * 2,
-            |data| format!("{}-copied", data));
     }
 }

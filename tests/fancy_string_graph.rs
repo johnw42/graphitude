@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use graphitude::{
-    EdgeIdTrait, NodeIdTrait, graph_test_copy_from_with, graph_tests, prelude::*,
-    tests::TestDataBuilder,
-};
+use graphitude::{EdgeIdTrait, NodeIdTrait, graph_tests, prelude::*, tests::TestDataBuilder};
 
 #[derive(Default)]
 struct StringGraph {
@@ -189,8 +186,8 @@ impl TestDataBuilder for StringGraph {
     }
 }
 
-graph_tests!(StringGraph);
-graph_test_copy_from_with!(
+graph_tests!(
+    tests,
     StringGraph,
     |data| format!("{}-copied", data),
     |data| format!("{}-copied", data)
