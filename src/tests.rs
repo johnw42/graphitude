@@ -2,123 +2,12 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, HashMap, HashSet},
     marker::PhantomData,
-    sync::Once,
-    time::{Duration, Instant},
-};
-
-use tracing::info_span;
-use tracing_subscriber::{
-    Layer, Registry, layer::Context, layer::SubscriberExt, registry::LookupSpan,
-    util::SubscriberInitExt,
 };
 
 use crate::prelude::*;
+use crate::tracing_support::{TimingScope, info_span, init_tracing, set_timing_scope};
 
-thread_local! {
-    #[allow(clippy::type_complexity)]
-    static TIMING_SCOPES: RefCell<HashMap<TimingScope, BTreeMap<&'static str, (Duration, usize)>>> =
-        RefCell::new(HashMap::new());
-    static TIMING_SCOPE: RefCell<TimingScope> = const { RefCell::new(TimingScope::Test) };
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum TimingScope {
-    Test,
-    Consistency,
-}
-
-pub struct TimingScopeGuard {
-    previous: TimingScope,
-}
-
-impl Drop for TimingScopeGuard {
-    fn drop(&mut self) {
-        TIMING_SCOPE.with(|scope| {
-            *scope.borrow_mut() = self.previous;
-        });
-    }
-}
-
-pub fn set_timing_scope(scope: TimingScope) -> TimingScopeGuard {
-    let previous = TIMING_SCOPE.with(|current| {
-        let mut current = current.borrow_mut();
-        let prev = *current;
-        *current = scope;
-        prev
-    });
-    TimingScopeGuard { previous }
-}
-
-struct TimingLayer;
-
-impl<S> Layer<S> for TimingLayer
-where
-    S: tracing::Subscriber + for<'a> LookupSpan<'a>,
-{
-    fn on_new_span(
-        &self,
-        _attrs: &tracing::span::Attributes<'_>,
-        id: &tracing::Id,
-        ctx: Context<'_, S>,
-    ) {
-        if let Some(span) = ctx.span(id) {
-            span.extensions_mut().insert(Instant::now());
-        }
-    }
-
-    fn on_close(&self, id: tracing::Id, ctx: Context<'_, S>) {
-        if let Some(span) = ctx.span(&id) {
-            let name = span.metadata().name();
-            if let Some(start) = span.extensions().get::<Instant>() {
-                let elapsed = start.elapsed();
-                let scope = TIMING_SCOPE.with(|scope| *scope.borrow());
-                TIMING_SCOPES.with(|totals| {
-                    let mut totals = totals.borrow_mut();
-                    let entries = totals.entry(scope).or_insert_with(BTreeMap::new);
-                    let entry = entries.entry(name).or_insert((Duration::ZERO, 0));
-                    entry.0 += elapsed;
-                    entry.1 += 1;
-                });
-            }
-        }
-    }
-}
-
-fn init_tracing() {
-    static INIT: Once = Once::new();
-    INIT.call_once(|| {
-        let _ = Registry::default().with(TimingLayer).try_init();
-    });
-}
-
-#[doc(hidden)]
-pub fn dump_method_timings() {
-    dump_scope_timings(TimingScope::Test);
-    dump_scope_timings(TimingScope::Consistency);
-}
-
-#[doc(hidden)]
-pub fn reset_method_timings() {
-    init_tracing();
-    TIMING_SCOPES.with(|totals| totals.borrow_mut().clear());
-}
-
-fn dump_scope_timings(scope: TimingScope) {
-    TIMING_SCOPES.with(|totals| {
-        let totals = totals.borrow();
-        let label = format!("{scope:?} timings (desc):");
-        let Some(entries) = totals.get(&scope) else {
-            eprintln!("{}", label);
-            return;
-        };
-        let mut entries: Vec<_> = entries.iter().collect();
-        entries.sort_by(|a, b| b.1.0.cmp(&a.1.0));
-        eprintln!("{}", label);
-        for (name, (duration, count)) in entries {
-            eprintln!("  {name}: {:?} ({}x)", duration, count);
-        }
-    });
-}
+thread_local! {}
 
 /// State tracker for generating sequential test data.
 ///
@@ -587,12 +476,16 @@ macro_rules! graph_tests {
 
         #[test]
         fn test_deconstruct_large_graph_by_nodes() {
-            $crate::tests::reset_method_timings();
-            let _scope = $crate::tests::set_timing_scope($crate::tests::TimingScope::Test);
-            let test_span = tracing::info_span!("test_deconstruct_large_graph_by_nodes");
+            use $crate::tracing_support::{
+                TimingScope, dump_method_timings, info_span, reset_method_timings, set_timing_scope,
+            };
+
+            reset_method_timings();
+            let _scope = set_timing_scope(TimingScope::Test);
+            let test_span = info_span!("test_deconstruct_large_graph_by_nodes");
             let _test_guard = test_span.entered();
             let mut graph = {
-                let _span = tracing::info_span!("generate_large_graph").entered();
+                let _span = info_span!("generate_large_graph").entered();
                 $crate::tests::generate_large_graph::<$type>()
             };
 
@@ -602,7 +495,7 @@ macro_rules! graph_tests {
 
             // We deliberately fix the number of iterations because we know it
             // in advance; each iteraction removes one node.
-            let _remove_loop_span = tracing::info_span!("remove_nodes_loop").entered();
+            let _remove_loop_span = info_span!("remove_nodes_loop").entered();
             for i in 0..node_ids.len() {
                 // Test removing a random node.
                 assert!(!node_ids.is_empty());
@@ -612,7 +505,7 @@ macro_rules! graph_tests {
                 let node_id = node_ids.iter().next().cloned().unwrap();
                 node_ids.remove(&node_id);
                 {
-                    let _span = tracing::info_span!("remove_node").entered();
+                    let _span = info_span!("remove_node").entered();
                     graph.remove_node(&node_id);
                 }
                 assert_eq!(graph.num_nodes(), num_nodes - 1);
@@ -624,7 +517,7 @@ macro_rules! graph_tests {
                     let num_edges = graph.num_edges();
 
                     {
-                        let _span = tracing::info_span!("compact").entered();
+                        let _span = info_span!("compact").entered();
                         graph.compact_with(
                             |old_id, new_id| {
                                 let removed = node_ids.remove(old_id);
@@ -638,7 +531,7 @@ macro_rules! graph_tests {
                     assert_eq!(graph.num_nodes(), num_nodes);
                     assert_eq!(graph.num_edges(), num_edges);
                     {
-                        let _span = tracing::info_span!("check_valid_ids").entered();
+                        let _span = info_span!("check_valid_ids").entered();
                         for node_id in graph.node_ids() {
                             assert_eq!(graph.check_valid_node_id(&node_id), Ok(()));
                         }
@@ -647,7 +540,7 @@ macro_rules! graph_tests {
                         }
                     }
                     {
-                        let _span = tracing::info_span!("check_graph_consistency").entered();
+                        let _span = info_span!("check_graph_consistency").entered();
                         $crate::tests::check_graph_consistency(&graph);
                     }
                 }
@@ -658,17 +551,21 @@ macro_rules! graph_tests {
             assert_eq!(graph.num_edges(), 0);
             assert!(graph.is_empty());
             drop(_test_guard);
-            $crate::tests::dump_method_timings();
+            dump_method_timings();
         }
 
         #[test]
         fn test_deconstruct_large_graph_by_edges() {
-            $crate::tests::reset_method_timings();
-            let _scope = $crate::tests::set_timing_scope($crate::tests::TimingScope::Test);
-            let test_span = tracing::info_span!("test_deconstruct_large_graph_by_edges");
+            use $crate::tracing_support::{
+                TimingScope, dump_method_timings, info_span, reset_method_timings, set_timing_scope,
+            };
+
+            reset_method_timings();
+            let _scope = set_timing_scope(TimingScope::Test);
+            let test_span = info_span!("test_deconstruct_large_graph_by_edges");
             let _test_guard = test_span.entered();
             let mut graph = {
-                let _span = tracing::info_span!("generate_large_graph").entered();
+                let _span = info_span!("generate_large_graph").entered();
                 $crate::tests::generate_large_graph::<$type>()
             };
 
@@ -676,7 +573,7 @@ macro_rules! graph_tests {
             // random order.
             let mut edge_ids = graph.edge_ids().collect::<std::collections::HashSet<_>>();
 
-            let _remove_loop_span = tracing::info_span!("remove_edges_loop").entered();
+            let _remove_loop_span = info_span!("remove_edges_loop").entered();
             for i in 0..edge_ids.len() {
                 // Test compaction periodically
                 if i % 250 == 0 {
@@ -684,7 +581,7 @@ macro_rules! graph_tests {
                     let num_edges = edge_ids.len();
 
                     {
-                        let _span = tracing::info_span!("compact").entered();
+                        let _span = info_span!("compact").entered();
                         graph.compact_with(
                             |_, _| {},
                             |old_id, new_id| {
@@ -698,7 +595,7 @@ macro_rules! graph_tests {
                     assert_eq!(graph.num_nodes(), num_nodes);
                     assert_eq!(graph.num_edges(), num_edges);
                     {
-                        let _span = tracing::info_span!("check_valid_ids").entered();
+                        let _span = info_span!("check_valid_ids").entered();
                         for node_id in graph.node_ids() {
                             assert_eq!(graph.check_valid_node_id(&node_id), Ok(()));
                         }
@@ -707,7 +604,7 @@ macro_rules! graph_tests {
                         }
                     }
                     {
-                        let _span = tracing::info_span!("check_graph_consistency").entered();
+                        let _span = info_span!("check_graph_consistency").entered();
                         $crate::tests::check_graph_consistency(&graph);
                     }
                 }
@@ -720,7 +617,7 @@ macro_rules! graph_tests {
                 let edge_id = edge_ids.iter().next().cloned().unwrap();
                 edge_ids.remove(&edge_id);
                 {
-                    let _span = tracing::info_span!("remove_edge").entered();
+                    let _span = info_span!("remove_edge").entered();
                     graph.remove_edge(&edge_id);
                 }
                 assert_eq!(graph.num_nodes(), num_nodes);
@@ -730,7 +627,7 @@ macro_rules! graph_tests {
 
             assert_eq!(graph.num_edges(), 0);
             drop(_test_guard);
-            $crate::tests::dump_method_timings();
+            dump_method_timings();
         }
 
         #[test]

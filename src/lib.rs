@@ -40,6 +40,7 @@ pub mod path;
 pub mod prelude;
 pub mod search;
 pub mod tests;
+pub mod tracing_support;
 
 mod graph_id;
 mod id_vec;
