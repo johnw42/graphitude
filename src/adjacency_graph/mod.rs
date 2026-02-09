@@ -9,11 +9,22 @@ use crate::{
     },
     debug::format_debug,
     graph_id::GraphId,
+    id_vec::IdVec,
     id_vec::trait_def::IdVecIndexing,
-    id_vec::{IdVec, IdVecKey, OffsetIdVec},
     pairs::Pair,
     prelude::*,
 };
+
+#[cfg(not(feature = "bitvec"))]
+use crate::id_vec::indexed::{IdVecKey, IndexedIdVec};
+#[cfg(feature = "bitvec")]
+use crate::id_vec::{IdVecKey, OffsetIdVec};
+
+// Use OffsetIdVec when bitvec feature is enabled, otherwise use IndexedIdVec
+#[cfg(feature = "bitvec")]
+type NodeVec<N> = OffsetIdVec<N>;
+#[cfg(not(feature = "bitvec"))]
+type NodeVec<N> = IndexedIdVec<N>;
 
 mod ids;
 
@@ -37,7 +48,7 @@ where
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
-    nodes: OffsetIdVec<N>,
+    nodes: NodeVec<N>,
     adjacency: <(D::Symmetry, S) as AdjacencyMatrixSelector<usize, E>>::Matrix,
     directedness: PhantomData<D>,
     id: GraphId,
@@ -78,7 +89,7 @@ where
         node_id_callback: &mut NodeIdCallback<'_, N, E, D, S>,
         edge_id_callback: &mut EdgeIdCallback<'_, N, E, D, S>,
     ) where
-        F: FnMut(&mut OffsetIdVec<N>, &mut dyn FnMut(IdVecKey, Option<IdVecKey>)),
+        F: FnMut(&mut NodeVec<N>, &mut dyn FnMut(IdVecKey, Option<IdVecKey>)),
     {
         let old_compaction_count = self.compaction_count;
         let new_compaction_count = self.compaction_count.increment();
@@ -303,7 +314,7 @@ where
 {
     fn new() -> Self {
         Self {
-            nodes: OffsetIdVec::default(),
+            nodes: NodeVec::default(),
             adjacency: SelectMatrix::<D::Symmetry, S, usize, E>::new(),
             directedness: PhantomData,
             compaction_count: S::CompactionCount::default(),
