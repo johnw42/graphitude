@@ -177,43 +177,9 @@ impl<T> super::trait_def::IdVec<T> for IndexedIdVec<T> {
 mod tests {
     use super::super::trait_def::IdVec;
     use super::*;
+    use crate::idvec_tests;
 
-    #[test]
-    fn test_insert_and_get() {
-        let mut vec = IndexedIdVec::default();
-        let k1 = vec.insert("hello");
-        let k2 = vec.insert("world");
-
-        assert_eq!(vec.get(k1), Some(&"hello"));
-        assert_eq!(vec.get(k2), Some(&"world"));
-    }
-
-    #[test]
-    fn test_get_mut() {
-        let mut vec = IndexedIdVec::default();
-        let k1 = vec.insert(42);
-
-        if let Some(val) = vec.get_mut(k1) {
-            *val = 100;
-        }
-
-        assert_eq!(vec.get(k1), Some(&100));
-    }
-
-    #[test]
-    fn test_remove() {
-        let mut vec = IndexedIdVec::default();
-        let k1 = vec.insert("a");
-        let k2 = vec.insert("b");
-        let k3 = vec.insert("c");
-
-        assert_eq!(vec.len(), 3);
-        assert_eq!(vec.remove(k2), Some("b"));
-        assert_eq!(vec.len(), 2);
-        assert_eq!(vec.get(k2), None);
-        assert_eq!(vec.get(k1), Some(&"a"));
-        assert_eq!(vec.get(k3), Some(&"c"));
-    }
+    idvec_tests!(IndexedIdVec<i32>, i32, |i: i32| i);
 
     #[test]
     fn test_remove_first() {
@@ -244,20 +210,9 @@ mod tests {
     }
 
     #[test]
-    fn test_clear() {
-        let mut vec = IndexedIdVec::default();
-        vec.insert("a");
-        vec.insert("b");
-        assert_eq!(vec.len(), 2);
-
-        vec.clear();
-        assert_eq!(vec.len(), 0);
-    }
-
-    #[test]
     fn test_invalid_key() {
         let mut vec = IndexedIdVec::default();
-        let _k1 = vec.insert("hello");
+        let _k1 = vec.insert(0);
 
         let invalid_key = IdVecKey(999);
         assert_eq!(vec.get(invalid_key), None);
