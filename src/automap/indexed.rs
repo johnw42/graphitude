@@ -1,26 +1,31 @@
+use crate::automap::{
+    Automap,
+    trait_def::{AutomapIndexing, AutomapKeyTrait},
+};
+
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct IdVecKey(usize);
+pub struct IndexedAutomapKey(usize);
 
-impl super::trait_def::IdVecKeyTrait for IdVecKey {}
+impl AutomapKeyTrait for IndexedAutomapKey {}
 
-/// Helper struct for indexing into an `IndexedIdVec`.
-pub struct IndexedIdVecIndexing;
+/// Helper struct for indexing into an `IndexedAutomap`.
+pub struct IndexedAutomapIndexing;
 
-impl super::trait_def::IdVecIndexing for IndexedIdVecIndexing {
-    type Key = IdVecKey;
+impl AutomapIndexing for IndexedAutomapIndexing {
+    type Key = IndexedAutomapKey;
 
-    /// For IndexedIdVec, keys are already zero-based indices.
-    fn zero_based_index(&self, index: IdVecKey) -> usize {
+    /// For IndexedAutomap, keys are already zero-based indices.
+    fn key_to_index(&self, index: IndexedAutomapKey) -> usize {
         index.0
     }
 
-    /// For IndexedIdVec, keys are already zero-based indices.
-    fn key_from_index(&self, index: usize) -> IdVecKey {
-        IdVecKey(index)
+    /// For IndexedAutomap, keys are already zero-based indices.
+    fn index_to_key(&self, index: usize) -> IndexedAutomapKey {
+        IndexedAutomapKey(index)
     }
 }
 
-/// An `IdVec` implementation that maintains a mapping from stable keys to
+/// An `Automap` implementation that maintains a mapping from stable keys to
 /// values using a dense index mapping. This allows for O(1) insertions and
 /// removals by swapping removed elements with the last element in the data
 /// vector, while keeping track of the logical position of each element through
@@ -31,7 +36,7 @@ impl super::trait_def::IdVecIndexing for IndexedIdVecIndexing {
 /// `data` vector is moved to fill the gap, with its logical ID updated
 /// accordingly. This approach allows for efficient memory usage and fast
 /// operations while maintaining stable keys for accessing values.
-pub struct IndexedIdVec<T> {
+pub struct IndexedAutomap<T> {
     /// The data with reverse indices, stored in arbitrary order.
     /// Each element is (value, reverse_index) where reverse_index maps back to the logical position.
     data: Vec<(T, usize)>,
@@ -39,7 +44,7 @@ pub struct IndexedIdVec<T> {
     index: Vec<Option<usize>>,
 }
 
-impl<T> Default for IndexedIdVec<T> {
+impl<T> Default for IndexedAutomap<T> {
     fn default() -> Self {
         Self {
             data: Vec::new(),
@@ -48,24 +53,24 @@ impl<T> Default for IndexedIdVec<T> {
     }
 }
 
-impl<T> super::trait_def::IdVec<T> for IndexedIdVec<T> {
-    type Key = IdVecKey;
-    type Indexing = IndexedIdVecIndexing;
+impl<T> Automap<T> for IndexedAutomap<T> {
+    type Key = IndexedAutomapKey;
+    type Indexing = IndexedAutomapIndexing;
 
-    fn insert(&mut self, value: T) -> IdVecKey {
+    fn insert(&mut self, value: T) -> IndexedAutomapKey {
         let id = self.index.len();
         self.data.push((value, id));
         self.index.push(Some(self.data.len() - 1));
-        IdVecKey(id)
+        IndexedAutomapKey(id)
     }
 
-    fn get(&self, key: IdVecKey) -> Option<&T> {
+    fn get(&self, key: IndexedAutomapKey) -> Option<&T> {
         self.index
             .get(key.0)
             .and_then(|opt_data_idx| opt_data_idx.map(|data_idx| &self.data[data_idx].0))
     }
 
-    fn get_mut(&mut self, key: IdVecKey) -> Option<&mut T> {
+    fn get_mut(&mut self, key: IndexedAutomapKey) -> Option<&mut T> {
         if key.0 >= self.index.len() {
             return None;
         }
@@ -75,7 +80,7 @@ impl<T> super::trait_def::IdVec<T> for IndexedIdVec<T> {
         }
     }
 
-    fn remove(&mut self, key: IdVecKey) -> Option<T> {
+    fn remove(&mut self, key: IndexedAutomapKey) -> Option<T> {
         if key.0 >= self.index.len() {
             return None;
         }
@@ -125,11 +130,11 @@ impl<T> super::trait_def::IdVec<T> for IndexedIdVec<T> {
         self.shrink_to_fit();
     }
 
-    fn iter_keys(&self) -> impl Iterator<Item = IdVecKey> {
+    fn iter_keys(&self) -> impl Iterator<Item = IndexedAutomapKey> {
         self.index
             .iter()
             .enumerate()
-            .filter_map(|(i, opt)| opt.as_ref().map(|_| IdVecKey(i)))
+            .filter_map(|(i, opt)| opt.as_ref().map(|_| IndexedAutomapKey(i)))
     }
 
     fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
@@ -146,26 +151,26 @@ impl<T> super::trait_def::IdVec<T> for IndexedIdVec<T> {
         self.data.iter_mut().map(|(value, _)| value)
     }
 
-    fn iter_pairs<'a>(&'a self) -> impl Iterator<Item = (IdVecKey, &'a T)>
+    fn iter_pairs<'a>(&'a self) -> impl Iterator<Item = (IndexedAutomapKey, &'a T)>
     where
         T: 'a,
     {
         self.data
             .iter()
-            .map(|(value, logical_id)| (IdVecKey(*logical_id), value))
+            .map(|(value, logical_id)| (IndexedAutomapKey(*logical_id), value))
     }
 
-    fn iter_pairs_mut<'a>(&'a mut self) -> impl Iterator<Item = (IdVecKey, &'a mut T)>
+    fn iter_pairs_mut<'a>(&'a mut self) -> impl Iterator<Item = (IndexedAutomapKey, &'a mut T)>
     where
         T: 'a,
     {
         self.data
             .iter_mut()
-            .map(|(value, logical_id)| (IdVecKey(*logical_id), value))
+            .map(|(value, logical_id)| (IndexedAutomapKey(*logical_id), value))
     }
 
-    fn indexing(&self) -> IndexedIdVecIndexing {
-        IndexedIdVecIndexing
+    fn indexing(&self) -> IndexedAutomapIndexing {
+        IndexedAutomapIndexing
     }
 
     fn compact(&mut self) {}
@@ -175,15 +180,15 @@ impl<T> super::trait_def::IdVec<T> for IndexedIdVec<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::trait_def::IdVec;
+    use super::super::trait_def::Automap;
     use super::*;
-    use crate::idvec_tests;
+    use crate::automap_tests;
 
-    idvec_tests!(IndexedIdVec<i32>, i32, |i: i32| i);
+    automap_tests!(IndexedAutomap<i32>, i32, |i: i32| i);
 
     #[test]
     fn test_remove_first() {
-        let mut vec = IndexedIdVec::default();
+        let mut vec = IndexedAutomap::default();
         let k1 = vec.insert(1);
         let k2 = vec.insert(2);
         let k3 = vec.insert(3);
@@ -197,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_remove_last() {
-        let mut vec = IndexedIdVec::default();
+        let mut vec = IndexedAutomap::default();
         let k1 = vec.insert(1);
         let k2 = vec.insert(2);
         let k3 = vec.insert(3);
@@ -211,10 +216,10 @@ mod tests {
 
     #[test]
     fn test_invalid_key() {
-        let mut vec = IndexedIdVec::default();
+        let mut vec = IndexedAutomap::default();
         let _k1 = vec.insert(0);
 
-        let invalid_key = IdVecKey(999);
+        let invalid_key = IndexedAutomapKey(999);
         assert_eq!(vec.get(invalid_key), None);
         assert_eq!(vec.get_mut(invalid_key), None);
         assert_eq!(vec.remove(invalid_key), None);
@@ -222,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_multiple_removes() {
-        let mut vec = IndexedIdVec::default();
+        let mut vec = IndexedAutomap::default();
         let k1 = vec.insert(10);
         let k2 = vec.insert(20);
         let k3 = vec.insert(30);
@@ -237,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_shrink_to_fit() {
-        let mut vec = IndexedIdVec::default();
+        let mut vec = IndexedAutomap::default();
         let k1 = vec.insert(1);
         let k2 = vec.insert(2);
         let k3 = vec.insert(3);

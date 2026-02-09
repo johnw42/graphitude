@@ -2,27 +2,27 @@
 
 use std::{fmt::Debug, hash::Hash};
 
-/// A trait for keys of `IdVec` implementations.
-pub trait IdVecKeyTrait: Clone + Eq + Hash + Ord + Debug {}
+/// A trait for keys of `Automap` implementations.
+pub trait AutomapKeyTrait: Clone + Eq + Hash + Ord + Debug {}
 
-/// A trait for exposing the ability to convert between `IdVecKey` and
+/// A trait for exposing the ability to convert between `AutomapKey` and
 /// zero-based indices for use in adjacency matrices and similar structures.
-pub trait IdVecIndexing {
-    type Key: IdVecKeyTrait;
+pub trait AutomapIndexing {
+    type Key: AutomapKeyTrait;
 
-    /// Decodes an `IdVecKey` into an index smaller than the size of the
-    /// `IdVec`. Used for correlating items in the `IdVec` with other data
-    /// structures that use zero-based indexing, such as adjacency matrices.
+    /// Decodes an automap key into an index smaller than the size of the map.
+    /// Used for correlating items in the map with other data structures that
+    /// use zero-based indexing, such as adjacency matrices.
     ///
     /// This is used internally to map from the stable key to the internal
     /// vector index.
-    fn zero_based_index(&self, index: Self::Key) -> usize;
+    fn key_to_index(&self, index: Self::Key) -> usize;
 
-    /// Encodes an index returned by `zero_based_index` back into an `IdVecKey`.
+    /// Encodes an index returned by `key_to_index` back into an automap key.
     /// Use with caution, because there is no guarantee that the index is valid
-    /// unless it came directly from `zero_based_index`, and even then, it may
-    /// be a the key of a removed entry.
-    fn key_from_index(&self, index: usize) -> Self::Key;
+    /// unless it came directly from `key_to_index`, and even then, it may be a
+    /// the key of a removed entry.
+    fn index_to_key(&self, index: usize) -> Self::Key;
 }
 
 /// A trait for map-like containers that assign stable keys to inserted values.
@@ -33,11 +33,11 @@ pub trait IdVecIndexing {
 ///
 /// # Implementations
 ///
-/// - `OffsetIdVec`: Uses a bitvec to track liveness with key offset management.
-/// - `IndexedIdVec`: Uses dense index mapping for O(1) swap-remove operations.
-pub trait IdVec<T> {
+/// - `OffsetAutomap`: Uses a bitvec to track liveness with key offset management.
+/// - `IndexedAutomap`: Uses dense index mapping for O(1) swap-remove operations.
+pub trait Automap<T> {
     type Key: Copy + Eq + Hash + Ord + Debug;
-    type Indexing: IdVecIndexing<Key = Self::Key>;
+    type Indexing: AutomapIndexing<Key = Self::Key>;
 
     /// Inserts a value and returns a stable key for accessing it.
     fn insert(&mut self, value: T) -> Self::Key;
@@ -97,12 +97,12 @@ pub trait IdVec<T> {
     /// Returns an indexing helper for zero-based index conversions.
     fn indexing(&self) -> Self::Indexing;
 
-    /// Compacts the `IdVec` by removing all dead entries and shifting live
+    /// Compacts the `Automap` by removing all dead entries and shifting live
     /// entries down to fill the gaps. This invalidates all existing keys.  No
     /// memory is reallocated.
     fn compact(&mut self);
 
-    /// Compacts the `IdVec` by removing all dead entries and shifting live
+    /// Compacts the `Automap` by removing all dead entries and shifting live
     /// entries down to fill the gaps. This invalidates all existing keys.  No
     /// memory is reallocated.
     ///
@@ -117,7 +117,7 @@ pub trait IdVec<T> {
     /// specific implementations for details.
     fn shrink_to_fit(&mut self);
 
-    /// Compacts the `IdVec` by removing all dead entries without shifting live
+    /// Compacts the `Automap` by removing all dead entries without shifting live
     /// entries.  This may invalidate all existing keys. Memory is reallocated to
     /// fit exactly.
     ///
@@ -128,23 +128,23 @@ pub trait IdVec<T> {
     fn shrink_to_fit_with(&mut self, callback: impl FnMut(Self::Key, Option<Self::Key>));
 }
 
-/// Macro to generate common unit tests for `IdVec` implementations.
+/// Macro to generate common unit tests for `Automap` implementations.
 ///
 /// # Usage
 /// ```ignore
 /// #[cfg(test)]
 /// mod tests {
 ///     use super::*;
-///     use super::super::trait_def::IdVec;
-///     use crate::idvec_tests;
+///     use super::super::trait_def::Automap;
+///     use crate::automap_tests;
 ///
-///     idvec_tests!(MyIdVecImpl, i32, |i: i32| i);
+///     automap_tests!(MyAutomapImpl, i32, |i: i32| i);
 /// }
 /// ```
 ///
 /// The third parameter is a type constructor/default value generator for test values.
 #[macro_export]
-macro_rules! idvec_tests {
+macro_rules! automap_tests {
     ($impl_type:ty, $value_type:ty, $default_fn:expr) => {
         #[test]
         fn test_new() {
@@ -573,7 +573,7 @@ macro_rules! idvec_tests {
         }
 
         #[test]
-        fn test_idvec_large() {
+        fn test_automap_large() {
             // Insert a large number of entries, remove many of them in
             // pseudo-random order, and occasionally compact while tracking
             // remappings. Inspired by the large-graph deconstruction test.

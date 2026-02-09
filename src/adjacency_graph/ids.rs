@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use derivative::Derivative;
 
-use crate::{DirectednessTrait, Storage, graph_id::GraphId, id_vec::IdVecKey, pairs::Pair};
+use crate::{DirectednessTrait, Storage, automap::OffsetAutomapKey, graph_id::GraphId, pairs::Pair};
 
 #[derive(Derivative)]
 #[derivative(
@@ -38,7 +38,7 @@ impl<S: Storage, T> NodeIdOrEdgeId<S, T> {
     }
 }
 
-pub type NodeId<S> = NodeIdOrEdgeId<S, IdVecKey>;
+pub type NodeId<S> = NodeIdOrEdgeId<S, OffsetAutomapKey>;
 
 #[derive(Derivative)]
 #[derivative(
@@ -50,13 +50,13 @@ pub type NodeId<S> = NodeIdOrEdgeId<S, IdVecKey>;
     Ord(bound = "")
 )]
 pub struct EdgeId<S: Storage, D: DirectednessTrait> {
-    inner: NodeIdOrEdgeId<S, D::Pair<IdVecKey>>,
+    inner: NodeIdOrEdgeId<S, D::Pair<OffsetAutomapKey>>,
     _directedness: PhantomData<D>,
 }
 
 impl<S: Storage, D: DirectednessTrait> EdgeId<S, D> {
     pub fn new(
-        payload: D::Pair<IdVecKey>,
+        payload: D::Pair<OffsetAutomapKey>,
         graph_id: GraphId,
         compaction_count: S::CompactionCount,
     ) -> Self {
@@ -66,7 +66,7 @@ impl<S: Storage, D: DirectednessTrait> EdgeId<S, D> {
         }
     }
 
-    pub fn keys(&self) -> D::Pair<IdVecKey> {
+    pub fn keys(&self) -> D::Pair<OffsetAutomapKey> {
         self.inner.payload.clone()
     }
 
@@ -87,7 +87,7 @@ impl<S: Storage, D: DirectednessTrait> EdgeId<S, D> {
 impl<S: Storage> crate::graph::NodeIdTrait for NodeId<S> {}
 
 impl<S: Storage> NodeId<S> {
-    pub fn key(&self) -> IdVecKey {
+    pub fn key(&self) -> OffsetAutomapKey {
         self.payload
     }
 }

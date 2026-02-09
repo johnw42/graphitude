@@ -42,8 +42,8 @@ pub mod search;
 pub mod tests;
 pub mod tracing_support;
 
+mod automap;
 mod graph_id;
-mod id_vec;
 mod pairs;
 mod test_util;
 mod util;

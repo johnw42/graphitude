@@ -7,9 +7,9 @@ pub mod offset;
 pub mod trait_def;
 
 // Re-export commonly used types
-pub use indexed::IndexedIdVec;
+pub use indexed::IndexedAutomap;
 #[cfg(not(feature = "bitvec"))]
-pub use indexed::{IdVecKey, IndexedIdVecIndexing as IdVecIndexing};
+pub use indexed::{IndexedAutomapIndexing as AutomapIndexing, IndexedAutomapKey};
 #[cfg(feature = "bitvec")]
-pub use offset::{IdVecIndexing, IdVecKey, OffsetIdVec};
-pub use trait_def::IdVec;
+pub use offset::{OffsetAutomap, OffsetAutomapIndexing, OffsetAutomapKey};
+pub use trait_def::Automap;
