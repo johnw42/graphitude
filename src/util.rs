@@ -59,3 +59,21 @@ pub fn other_value<T: Eq + Debug>((a, b): (T, T), value: T) -> OtherValue<T> {
         panic!("Value {:?} doesn't match either {:?} or {:?}", value, a, b);
     }
 }
+
+#[macro_export]
+macro_rules! static_dynamic_enum {
+    ($trait:ident = $static_trait:ident | $dynamic_trait:ident; $vis:vis enum $name:ident { $($value:ident),+ }) => {
+        $vis trait $static_trait {}
+        $vis trait $dynamic_trait {}
+
+        $vis enum $name {
+            $($value),+
+        }
+
+        $($vis struct $value;)+
+
+        $(impl $static_trait for $value {})+
+
+        impl $dynamic_trait for $name {}
+    };
+}
