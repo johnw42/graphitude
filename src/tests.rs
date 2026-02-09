@@ -971,7 +971,7 @@ macro_rules! graph_tests {
         #[test]
         fn test_successors() {
             use std::collections::HashSet;
-            use $crate::EdgeIdTrait;
+            use $crate::{EdgeIdTrait, pairs::Pair};
 
             let mut builder = $crate::tests::InternalBuilderImpl::<$type>::default();
             let mut graph = <$type>::default();
@@ -1001,7 +1001,7 @@ macro_rules! graph_tests {
                     (e4.clone(), (n2.clone(), n3.clone())),
                 ];
                 for (edge, (a, b)) in edge_pairs {
-                    let (src, tgt) = edge.ends().into();
+                    let (src, tgt) = edge.ends().into_values();
                     assert!(
                         (src == a && tgt == b) || (src == b && tgt == a),
                         "Edge {:?} does not connect nodes {:?} and {:?}",

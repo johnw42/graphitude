@@ -4,8 +4,8 @@ use bitvec::vec::BitVec;
 
 use super::symmetric_maxtrix_indexing::SymmetricMatrixIndexing;
 use crate::{
-    SortedPair,
     adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric},
+    util::sort_pair,
 };
 
 /// Bitvec-based symmetric adjacency matrix for undirected graphs.
@@ -131,7 +131,7 @@ where
     }
 
     fn insert(&mut self, row: I, col: I, data: V) -> Option<V> {
-        let (i1, i2) = SortedPair::from((row.into(), col.into())).into();
+        let (i1, i2) = sort_pair(row.into(), col.into());
         if self.indexing.index(i1, i2).is_none() {
             let required_size = (i2 + 1).next_power_of_two();
             if self.indexing.size() < required_size {

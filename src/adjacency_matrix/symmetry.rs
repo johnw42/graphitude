@@ -1,7 +1,4 @@
-use crate::{
-    SortedPair,
-    pairs::{OrderedPair, Pair},
-};
+use crate::pairs::{OrderedPair, Pair, SortedPair};
 
 /// Trait for matrix symmetry types.
 ///

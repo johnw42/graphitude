@@ -4,6 +4,7 @@ use std::{
 };
 
 use crate::{
+    pairs::Pair,
     prelude::*,
     util::{FormatDebugAs, FormatDebugWith},
 };
@@ -106,7 +107,7 @@ where
             "edges",
             &FormatDebugWith(|f: &mut Formatter<'_>| {
                 let make_edge_tag = |eid: &G::EdgeId| {
-                    let (from, to) = eid.ends().into();
+                    let (from, to) = eid.ends().into_values();
                     let tag = if graph.is_directed() {
                         format!("{} -> {}", &node_tags[&from], &node_tags[&to])
                     } else {

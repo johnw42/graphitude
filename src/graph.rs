@@ -83,10 +83,10 @@ pub trait EdgeIdTrait: Eq + Hash + Clone + Debug {
     /// edge is a self-loop.  Panics if the given node is not an endpoint of the
     /// edge.
     fn other_end(&self, node_id: Self::NodeId) -> OtherEnd<Self::NodeId> {
-        match other_value(self.ends().into(), node_id) {
-            OtherValue::First(node) => OtherEnd::Source(node),
-            OtherValue::Second(node) => OtherEnd::Target(node),
-            OtherValue::Both(node) => OtherEnd::SelfLoop(node),
+        match self.ends().other_value(&node_id) {
+            OtherValue::First(node) => OtherEnd::Source(node.clone()),
+            OtherValue::Second(node) => OtherEnd::Target(node.clone()),
+            OtherValue::Both(node) => OtherEnd::SelfLoop(node.clone()),
         }
     }
 }

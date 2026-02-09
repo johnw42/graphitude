@@ -36,20 +36,21 @@ pub mod edge_multiplicity;
 pub mod graph;
 pub mod linked_graph;
 pub mod object_graph;
+#[doc(hidden)]
+pub mod pairs;
 pub mod path;
 pub mod prelude;
 pub mod search;
 pub mod tests;
+#[doc(hidden)]
 pub mod tracing_support;
 
 mod automap;
 mod graph_id;
-mod pairs;
 mod test_util;
-mod util;
-
 #[cfg(feature = "bitvec")]
 mod triangular;
+mod util;
 
 pub use directedness::{Directed, DirectednessTrait, Undirected};
 pub use edge_multiplicity::{EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
@@ -57,7 +58,6 @@ pub use graph::{
     AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphUndirected, NodeIdTrait,
 };
 pub use linked_graph::LinkedGraph;
-pub use pairs::SortedPair;
 pub use tests::TestDataBuilder;
 
 #[cfg(feature = "dot")]

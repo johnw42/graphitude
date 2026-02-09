@@ -87,7 +87,7 @@ impl<E: EdgeIdTrait> Path<E> {
     /// last node of the path.
     pub fn add_edge(&mut self, edge_id: E) {
         let last = self.last_node();
-        let (source, target) = edge_id.ends().into();
+        let (source, target) = edge_id.ends().into_values();
 
         let next_node = if source == last {
             target

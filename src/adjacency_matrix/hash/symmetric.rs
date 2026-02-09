@@ -148,7 +148,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::SortedPair;
+    use crate::pairs::SortedPair;
 
     use super::*;
 

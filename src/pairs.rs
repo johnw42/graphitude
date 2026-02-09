@@ -5,12 +5,22 @@ use crate::util::{OtherValue, other_value, sort_pair};
 /// Trait for pair types that may be ordered or unordered.
 pub trait Pair<T>
 where
-    Self: Eq + From<(T, T)> + Into<(T, T)>,
+    Self: Eq + From<(T, T)>,
 {
-    fn first(&self) -> &T;
-    fn second(&self) -> &T;
-    fn into_first(self) -> T;
-    fn into_second(self) -> T;
+    fn first(&self) -> &T {
+        self.values().0
+    }
+    fn second(&self) -> &T {
+        self.values().1
+    }
+    fn values(&self) -> (&T, &T);
+    fn into_first(self) -> T {
+        self.into_values().0
+    }
+    fn into_second(self) -> T {
+        self.into_values().1
+    }
+    fn into_values(self) -> (T, T);
     fn has_both(&self, a: &T, b: &T) -> bool
     where
         T: Eq;
@@ -26,20 +36,12 @@ impl<T> Pair<T> for OrderedPair<T>
 where
     T: Eq + Ord,
 {
-    fn first(&self) -> &T {
-        &self.0
+    fn values(&self) -> (&T, &T) {
+        (&self.0, &self.1)
     }
 
-    fn second(&self) -> &T {
-        &self.1
-    }
-
-    fn into_first(self) -> T {
-        self.0
-    }
-
-    fn into_second(self) -> T {
-        self.1
+    fn into_values(self) -> (T, T) {
+        (self.0, self.1)
     }
 
     fn has_both(&self, a: &T, b: &T) -> bool
@@ -53,7 +55,7 @@ where
     where
         T: Eq + Debug,
     {
-        other_value((&self.0, &self.1), value)
+        other_value(self.values(), value)
     }
 }
 
@@ -63,18 +65,6 @@ where
 {
     fn from(pair: (T, T)) -> Self {
         Self(pair.0, pair.1)
-    }
-}
-
-impl<T> From<OrderedPair<T>> for (T, T) {
-    fn from(pair: OrderedPair<T>) -> Self {
-        (pair.0, pair.1)
-    }
-}
-
-impl<'a, T> From<&'a OrderedPair<T>> for (&'a T, &'a T) {
-    fn from(pair: &'a OrderedPair<T>) -> Self {
-        (&pair.0, &pair.1)
     }
 }
 
@@ -94,20 +84,12 @@ impl<T: Ord> SortedPair<T> {
 }
 
 impl<T: Ord + Eq> Pair<T> for SortedPair<T> {
-    fn first(&self) -> &T {
-        &self.0
+    fn values(&self) -> (&T, &T) {
+        (&self.0, &self.1)
     }
 
-    fn second(&self) -> &T {
-        &self.1
-    }
-
-    fn into_first(self) -> T {
-        self.0
-    }
-
-    fn into_second(self) -> T {
-        self.1
+    fn into_values(self) -> (T, T) {
+        (self.0, self.1)
     }
 
     fn has_both(&self, a: &T, b: &T) -> bool
@@ -121,7 +103,7 @@ impl<T: Ord + Eq> Pair<T> for SortedPair<T> {
     where
         T: Eq + Debug,
     {
-        other_value((&self.0, &self.1), value)
+        other_value(self.values(), value)
     }
 }
 
@@ -132,17 +114,5 @@ where
     fn from(pair: (T, T)) -> Self {
         let (first, second) = sort_pair(pair.0, pair.1);
         Self(first, second)
-    }
-}
-
-impl<T> From<SortedPair<T>> for (T, T) {
-    fn from(pair: SortedPair<T>) -> Self {
-        (pair.0, pair.1)
-    }
-}
-
-impl<'a, T> From<&'a SortedPair<T>> for (&'a T, &'a T) {
-    fn from(pair: &'a SortedPair<T>) -> Self {
-        (&pair.0, &pair.1)
     }
 }

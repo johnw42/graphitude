@@ -2,7 +2,9 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use derivative::Derivative;
 
-use crate::{DirectednessTrait, Storage, automap::OffsetAutomapKey, graph_id::GraphId, pairs::Pair};
+use crate::{
+    DirectednessTrait, Storage, automap::OffsetAutomapKey, graph_id::GraphId, pairs::Pair,
+};
 
 #[derive(Derivative)]
 #[derivative(
@@ -103,7 +105,7 @@ impl<S: Storage, D: DirectednessTrait> crate::graph::EdgeIdTrait for EdgeId<S, D
     type Directedness = D;
 
     fn ends(&self) -> D::Pair<NodeId<S>> {
-        let (from_key, to_key) = self.inner.payload.clone().into();
+        let (from_key, to_key) = self.inner.payload.clone().into_values();
         let from = NodeId::new(from_key, self.inner.graph_id, self.inner.compaction_count);
         let to = NodeId::new(to_key, self.inner.graph_id, self.inner.compaction_count);
         (from, to).into()

@@ -176,7 +176,7 @@ where
 
     fn edge_data(&self, eid: &Self::EdgeId) -> &Self::EdgeData {
         self.assert_valid_edge_id(eid);
-        let (from, to) = eid.keys().into();
+        let (from, to) = eid.keys().into_values();
         self.adjacency
             .get(
                 self.nodes.indexing().key_to_index(from),

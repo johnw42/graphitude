@@ -3,7 +3,7 @@
 use std::ops::Range;
 
 use crate::{
-    SortedPair,
+    pairs::SortedPair,
     triangular::{triangular, triangular_inv_floor},
     util::sort_pair,
 };
@@ -87,6 +87,8 @@ impl SymmetricMatrixIndexing {
 
 #[cfg(test)]
 mod tests {
+    use crate::pairs::Pair;
+
     use super::*;
 
     #[test]
@@ -140,7 +142,7 @@ mod tests {
         for i in 0..6 {
             for j in 0..6 {
                 let idx = smi.unchecked_index(i, j);
-                let (col, row) = smi.coordinates(idx).into();
+                let (col, row) = smi.coordinates(idx).into_values();
                 debug_assert!(col <= row);
                 assert_eq!(smi.unchecked_index(col, row), idx);
             }
