@@ -10,10 +10,17 @@ use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, BitvecStorage};
 /// Automatically resizes to the next power of two for efficient indexing.
 /// Requires indices that can be converted to/from usize.
 pub struct AsymmetricBitvecAdjacencyMatrix<I, V> {
+    /// Linear storage of adjacency data, indexed by `row * size + col`.
     data: Vec<MaybeUninit<V>>,
+    /// Bitvec tracking which entries are live (true) or dead (false).  This contains two halves:
+    /// - The first half corresponds to the regular liveness of entries at `row * size + col`.
+    /// - The second half corresponds to the reflected liveness of entries at `col * size + row`.
+    ///
+    /// This allows efficient iteration over both rows and columns without needing to transpose the matrix.
     liveness: BitVec,
-    reflected_liveness: BitVec,
+    /// The current size of the matrix (number of rows/columns). The actual capacity is `size.next_power_of_two()`.
     size: usize,
+    /// The number of live entries currently in the matrix.
     entry_count: usize,
     index_type: PhantomData<I>,
 }
@@ -24,16 +31,13 @@ where
 {
     fn with_size(size: usize) -> Self {
         let capacity = size.next_power_of_two();
-        let mut liveness = BitVec::with_capacity(capacity * capacity);
-        liveness.resize(capacity * capacity, false);
-        let mut reflected_liveness = BitVec::with_capacity(capacity * capacity);
-        reflected_liveness.resize(capacity * capacity, false);
+        let mut liveness = BitVec::with_capacity(capacity * capacity * 2);
+        liveness.resize(capacity * capacity * 2, false);
         let mut data = Vec::with_capacity(capacity * capacity);
         data.resize_with(capacity * capacity, MaybeUninit::uninit);
         AsymmetricBitvecAdjacencyMatrix {
             data,
             liveness,
-            reflected_liveness,
             size: capacity,
             entry_count: 0,
             index_type: PhantomData,
@@ -43,6 +47,36 @@ where
     /// Gets the linear storage index for the entry at `row` and `col`, if within bounds.
     fn index(&self, row: I, col: I) -> Option<usize> {
         (row.into() < self.size && col.into() < self.size).then(|| self.unchecked_index(row, col))
+    }
+
+    /// Gets the reflected liveness index for the entry at `row` and `col`.
+    fn reflected_index(&self, row: I, col: I) -> usize {
+        self.liveness.len() / 2 + self.unchecked_index(col, row)
+    }
+
+    /// Returns a bit slice containing the regular liveness matrix.
+    fn liveness_bits(&self) -> &bitvec::slice::BitSlice {
+        &self.liveness[0..self.liveness.len() / 2]
+    }
+
+    /// Returns a mutable bit slice containing the regular liveness matrix.
+    fn liveness_bits_mut(&mut self) -> &mut bitvec::slice::BitSlice {
+        let end = self.liveness.len() / 2;
+        &mut self.liveness[0..end]
+    }
+
+    /// Returns a bit slice containing the reflected liveness matrix.
+    fn reflected_liveness_bits(&self) -> &bitvec::slice::BitSlice {
+        let start = self.liveness.len() / 2;
+        let end = self.liveness.len();
+        &self.liveness[start..end]
+    }
+
+    /// Returns a mutable bit slice containing the reflected liveness matrix.
+    fn reflected_liveness_bits_mut(&mut self) -> &mut bitvec::slice::BitSlice {
+        let start = self.liveness.len() / 2;
+        let end = self.liveness.len();
+        &mut self.liveness[start..end]
     }
 
     fn is_live(&self, index: usize) -> bool {
@@ -89,8 +123,9 @@ where
 
 impl<I, V> Drop for AsymmetricBitvecAdjacencyMatrix<I, V> {
     fn drop(&mut self) {
-        // Drop all initialized values
-        for index in self.liveness.iter_ones() {
+        // Drop all initialized values (only iterate over the liveness bits)
+        let size = self.size;
+        for index in self.liveness[0..size * size].iter_ones() {
             unsafe {
                 self.data[index].assume_init_drop();
             }
@@ -110,7 +145,6 @@ where
     fn new() -> Self {
         Self {
             liveness: BitVec::new(),
-            reflected_liveness: BitVec::new(),
             size: 0,
             data: Vec::new(),
             entry_count: 0,
@@ -126,8 +160,10 @@ where
                 for old_row in 0..self.size {
                     let old_start = self.unchecked_index(old_row.into(), 0.into());
                     let new_start = new_self.unchecked_index(old_row.into(), 0.into());
-                    new_self.liveness[new_start..new_start + self.size]
-                        .copy_from_bitslice(&self.liveness[old_start..old_start + self.size]);
+                    new_self.liveness_bits_mut()[new_start..new_start + self.size]
+                        .copy_from_bitslice(
+                            &self.liveness_bits()[old_start..old_start + self.size],
+                        );
                     for (old_col, old_datum) in self.data[old_start..old_start + self.size]
                         .iter_mut()
                         .enumerate()
@@ -138,23 +174,22 @@ where
                 for old_col in 0..self.size {
                     let old_start = self.unchecked_index(old_col.into(), 0.into());
                     let new_start = new_self.unchecked_index(old_col.into(), 0.into());
-                    new_self.reflected_liveness[new_start..new_start + self.size]
+                    new_self.reflected_liveness_bits_mut()[new_start..new_start + self.size]
                         .copy_from_bitslice(
-                            &self.reflected_liveness[old_start..old_start + self.size],
+                            &self.reflected_liveness_bits()[old_start..old_start + self.size],
                         );
                 }
                 new_self.entry_count = self.entry_count;
                 // Clear old matrix bits to prevent double-drop
                 self.liveness.fill(false);
-                self.reflected_liveness.fill(false);
                 *self = new_self;
             }
         }
         let index = self.unchecked_index(row, col);
         let old_data = self.get_data_read(index);
         self.liveness.set(index, true);
-        let reflected_index = self.unchecked_index(col, row);
-        self.reflected_liveness.set(reflected_index, true);
+        let reflected_index = self.reflected_index(row, col);
+        self.liveness.set(reflected_index, true);
         self.data[index] = MaybeUninit::new(data);
         if old_data.is_none() {
             self.entry_count += 1;
@@ -170,9 +205,9 @@ where
         let index = self.index(row, col)?;
         let was_live = self.is_live(index);
         self.liveness.set(index, false);
-        let reflected_index = self.unchecked_index(col, row);
-        debug_assert_eq!(self.reflected_liveness[reflected_index], was_live);
-        self.reflected_liveness.set(reflected_index, false);
+        let reflected_index = self.reflected_index(row, col);
+        debug_assert_eq!(self.liveness[reflected_index], was_live);
+        self.liveness.set(reflected_index, false);
         if was_live {
             self.entry_count -= 1;
             Some(self.unchecked_get_data_read(index))
@@ -185,7 +220,7 @@ where
     where
         V: 'a,
     {
-        self.liveness.iter_ones().map(|index| {
+        self.liveness_bits().iter_ones().map(|index| {
             let (row, col) = self.coordinates(index);
             (row, col, self.unchecked_get_data_ref(index))
         })
@@ -196,7 +231,7 @@ where
         let mut result = Vec::new();
 
         // Collect all live entries
-        for index in self.liveness.iter_ones() {
+        for index in self.liveness_bits().iter_ones() {
             let (row, col) = Self::coordinates_with(size, index);
             // SAFETY: index is live (from iter_ones)
             let value = unsafe { self.data[index].assume_init_read() };
@@ -205,7 +240,6 @@ where
 
         // Mark all as dead to prevent double-drop in Drop impl
         self.liveness.fill(false);
-        self.reflected_liveness.fill(false);
 
         result.into_iter()
     }
@@ -213,7 +247,7 @@ where
     fn entries_in_row(&self, row: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
         let row_start = self.index(row, 0.into()).expect("Invalid row index");
         let row_end = row_start + self.size;
-        self.liveness[row_start..row_end]
+        self.liveness_bits()[row_start..row_end]
             .iter_ones()
             .map(move |index| (index.into(), self.unchecked_get_data_ref(row_start + index)))
     }
@@ -221,7 +255,7 @@ where
     fn entries_in_col(&self, col: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
         let col_start = self.index(col, 0.into()).expect("Invalid column index");
         let col_end = col_start + self.size;
-        self.reflected_liveness[col_start..col_end]
+        self.reflected_liveness_bits()[col_start..col_end]
             .iter_ones()
             .map(move |index| {
                 (
@@ -233,13 +267,12 @@ where
 
     fn clear(&mut self) {
         // Drop all initialized values before clearing
-        for index in self.liveness.iter_ones() {
+        for index in self.liveness_bits().iter_ones().collect::<Vec<_>>() {
             unsafe {
                 self.data[index].assume_init_drop();
             }
         }
         self.liveness.fill(false);
-        self.reflected_liveness.fill(false);
         self.entry_count = 0;
     }
 
@@ -254,31 +287,38 @@ where
         // Clear all entries in the given row
         let row_start = self.unchecked_index(row, 0.into());
         let row_end = row_start + self.size;
-        for col_offset in self.liveness[row_start..row_end].iter_ones() {
+        let col_offsets: Vec<_> = self.liveness_bits()[row_start..row_end]
+            .iter_ones()
+            .collect();
+        for col_offset in col_offsets {
             let index = row_start + col_offset;
             unsafe {
                 self.data[index].assume_init_drop();
             }
             // Update reflected_liveness: reflected_liveness[col*size + row] corresponds to liveness[row*size + col]
             let reflected_index = col_offset * self.size + row_idx;
-            self.reflected_liveness.set(reflected_index, false);
+            self.reflected_liveness_bits_mut()
+                .set(reflected_index, false);
             self.entry_count -= 1;
         }
-        self.liveness[row_start..row_end].fill(false);
+        self.liveness_bits_mut()[row_start..row_end].fill(false);
 
         // Clear all entries in the given column
         let col_start = self.unchecked_index(col, 0.into());
         let col_end = col_start + self.size;
-        for row_offset in self.reflected_liveness[col_start..col_end].iter_ones() {
+        let row_offsets: Vec<_> = self.reflected_liveness_bits()[col_start..col_end]
+            .iter_ones()
+            .collect();
+        for row_offset in row_offsets {
             // reflected_liveness[col*size + row] corresponds to liveness[row*size + col]
             let data_index = row_offset * self.size + col_idx;
             unsafe {
                 self.data[data_index].assume_init_drop();
             }
-            self.liveness.set(data_index, false);
+            self.liveness_bits_mut().set(data_index, false);
             self.entry_count -= 1;
         }
-        self.reflected_liveness[col_start..col_end].fill(false);
+        self.reflected_liveness_bits_mut()[col_start..col_end].fill(false);
     }
 
     fn len(&self) -> usize {
@@ -291,8 +331,10 @@ where
             for old_row in 0..self.size {
                 let old_row_start = self.unchecked_index(old_row.into(), 0.into());
                 let new_row_start = new_self.unchecked_index(old_row.into(), 0.into());
-                new_self.liveness[new_row_start..new_row_start + self.size]
-                    .copy_from_bitslice(&self.liveness[old_row_start..old_row_start + self.size]);
+                new_self.liveness_bits_mut()[new_row_start..new_row_start + self.size]
+                    .copy_from_bitslice(
+                        &self.liveness_bits()[old_row_start..old_row_start + self.size],
+                    );
                 for (old_col, old_datum) in self.data[old_row_start..old_row_start + self.size]
                     .iter_mut()
                     .enumerate()
@@ -303,16 +345,15 @@ where
             for old_col in 0..self.size {
                 let old_col_start = self.unchecked_index(old_col.into(), 0.into());
                 let new_col_start = new_self.unchecked_index(old_col.into(), 0.into());
-                new_self.reflected_liveness[new_col_start..new_col_start + self.size]
+                new_self.reflected_liveness_bits_mut()[new_col_start..new_col_start + self.size]
                     .copy_from_bitslice(
-                        &self.reflected_liveness[old_col_start..old_col_start + self.size],
+                        &self.reflected_liveness_bits()[old_col_start..old_col_start + self.size],
                     );
             }
             new_self.entry_count = self.entry_count;
             // Clear old matrix bits to prevent double-drop
             // Data has been swapped to new_self, so old entries are uninitialized
             self.liveness.fill(false);
-            self.reflected_liveness.fill(false);
             *self = new_self;
         }
     }
