@@ -17,10 +17,11 @@ pub struct SymmetricHashAdjacencyMatrix<I, V>
 where
     I: Hash + Eq + Clone + Ord + Debug,
 {
-    // Invariant: for any (row, col) in entries, row <= col.
+    /// Invariant: for any (row, col) in entries, row <= col, and reverse_entries contains (col, row).
     entries: HashMap<I, HashMap<I, V>>,
-    // Invariant: for any (col, row) in reverse_entries, col >= row, and entries contains (row, col).
+    /// Invariant: for any (col, row) in reverse_entries, col >= row, and entries contains (row, col).
     reverse_entries: HashMap<I, HashSet<I>>,
+    /// Tracks the total number of entries in the adjacency matrix for efficient length queries.
     entry_count: usize,
 }
 

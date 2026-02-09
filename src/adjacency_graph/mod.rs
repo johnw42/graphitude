@@ -9,7 +9,8 @@ use crate::{
     },
     debug::format_debug,
     graph_id::GraphId,
-    id_vec::{IdVec, IdVecKey},
+    id_vec::trait_def::IdVecIndexing,
+    id_vec::{IdVec, IdVecKey, OffsetIdVec},
     pairs::Pair,
     prelude::*,
 };
@@ -36,7 +37,7 @@ where
     S: Storage,
     (D::Symmetry, S): AdjacencyMatrixSelector<usize, E>,
 {
-    nodes: IdVec<N>,
+    nodes: OffsetIdVec<N>,
     adjacency: <(D::Symmetry, S) as AdjacencyMatrixSelector<usize, E>>::Matrix,
     directedness: PhantomData<D>,
     id: GraphId,
@@ -77,7 +78,7 @@ where
         node_id_callback: &mut NodeIdCallback<'_, N, E, D, S>,
         edge_id_callback: &mut EdgeIdCallback<'_, N, E, D, S>,
     ) where
-        F: FnMut(&mut IdVec<N>, &mut dyn FnMut(IdVecKey, Option<IdVecKey>)),
+        F: FnMut(&mut OffsetIdVec<N>, &mut dyn FnMut(IdVecKey, Option<IdVecKey>)),
     {
         let old_compaction_count = self.compaction_count;
         let new_compaction_count = self.compaction_count.increment();
@@ -166,8 +167,8 @@ where
         let (from, to) = eid.keys().into();
         self.adjacency
             .get(
-                self.nodes.zero_based_index(from),
-                self.nodes.zero_based_index(to),
+                self.nodes.indexing().zero_based_index(from),
+                self.nodes.indexing().zero_based_index(to),
             )
             .expect("no such edge")
     }
@@ -175,8 +176,8 @@ where
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.adjacency.iter().map(|(from, into, _)| {
             self.edge_id(
-                self.nodes.key_from_index(from),
-                self.nodes.key_from_index(into),
+                self.nodes.indexing().key_from_index(from),
+                self.nodes.indexing().key_from_index(into),
             )
         })
     }
@@ -192,16 +193,17 @@ where
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.assert_valid_node_id(from);
         self.assert_valid_node_id(into);
+        let indexing = self.nodes.indexing();
         self.adjacency
             .entry_at(
-                self.nodes.zero_based_index(from.key()),
-                self.nodes.zero_based_index(into.key()),
+                indexing.zero_based_index(from.key()),
+                indexing.zero_based_index(into.key()),
             )
             .into_iter()
-            .map(|(indicies, _)| {
+            .map(move |(indicies, _)| {
                 self.edge_id(
-                    self.nodes.key_from_index(indicies.clone().into_first()),
-                    self.nodes.key_from_index(indicies.into_second()),
+                    indexing.key_from_index(indicies.clone().into_first()),
+                    indexing.key_from_index(indicies.into_second()),
                 )
             })
     }
@@ -213,8 +215,10 @@ where
         self.assert_valid_node_id(into);
         let into_key = into.key();
         self.adjacency
-            .entries_in_col(self.nodes.zero_based_index(into.key()))
-            .map(move |(from, _)| self.edge_id(self.nodes.key_from_index(from), into_key))
+            .entries_in_col(self.nodes.indexing().zero_based_index(into.key()))
+            .map(move |(from, _)| {
+                self.edge_id(self.nodes.indexing().key_from_index(from), into_key)
+            })
     }
 
     fn edges_from<'a, 'b: 'a>(
@@ -224,8 +228,10 @@ where
         self.assert_valid_node_id(from);
         let from_key = from.key();
         self.adjacency
-            .entries_in_row(self.nodes.zero_based_index(from.key()))
-            .map(move |(into, _)| self.edge_id(from_key, self.nodes.key_from_index(into)))
+            .entries_in_row(self.nodes.indexing().zero_based_index(from.key()))
+            .map(move |(into, _)| {
+                self.edge_id(from_key, self.nodes.indexing().key_from_index(into))
+            })
     }
 
     fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
@@ -263,8 +269,12 @@ where
         if self
             .adjacency
             .get(
-                self.nodes.zero_based_index(id.keys().into_first()),
-                self.nodes.zero_based_index(id.keys().into_second()),
+                self.nodes
+                    .indexing()
+                    .zero_based_index(id.keys().into_first()),
+                self.nodes
+                    .indexing()
+                    .zero_based_index(id.keys().into_second()),
             )
             .is_none()
         {
@@ -293,7 +303,7 @@ where
 {
     fn new() -> Self {
         Self {
-            nodes: IdVec::new(),
+            nodes: OffsetIdVec::default(),
             adjacency: SelectMatrix::<D::Symmetry, S, usize, E>::new(),
             directedness: PhantomData,
             compaction_count: S::CompactionCount::default(),
@@ -320,8 +330,8 @@ where
         data: Self::EdgeData,
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
         match self.adjacency.insert(
-            self.nodes.zero_based_index(from.key()),
-            self.nodes.zero_based_index(into.key()),
+            self.nodes.indexing().zero_based_index(from.key()),
+            self.nodes.indexing().zero_based_index(into.key()),
             data,
         ) {
             Some(data) => AddEdgeResult::Updated(data),
@@ -332,27 +342,27 @@ where
     fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData {
         // for into in self
         //     .adjacency
-        //     .entries_in_row(self.nodes.zero_based_index(id.key()))
+        //     .entries_in_row(self.nodes.indexing().zero_based_index(id.key()))
         //     .map(|(to, _)| to)
         //     .collect::<Vec<_>>()
         // {
         //     self.adjacency
-        //         .remove(self.nodes.zero_based_index(id.key()), into);
+        //         .remove(self.nodes.indexing().zero_based_index(id.key()), into);
         // }
         // if self.is_directed() {
         //     for from in self
         //         .adjacency
-        //         .entries_in_col(self.nodes.zero_based_index(id.key()))
+        //         .entries_in_col(self.nodes.indexing().zero_based_index(id.key()))
         //         .map(|(to, _)| to)
         //         .collect::<Vec<_>>()
         //     {
         //         self.adjacency
-        //             .remove(from, self.nodes.zero_based_index(id.key()));
+        //             .remove(from, self.nodes.indexing().zero_based_index(id.key()));
         //     }
         // }
         self.adjacency.clear_row_and_column(
-            self.nodes.zero_based_index(id.key()),
-            self.nodes.zero_based_index(id.key()),
+            self.nodes.indexing().zero_based_index(id.key()),
+            self.nodes.indexing().zero_based_index(id.key()),
         );
         self.nodes.remove(id.key()).expect("invalid node ID")
     }
@@ -360,8 +370,12 @@ where
     fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData {
         self.adjacency
             .remove(
-                self.nodes.zero_based_index(id.keys().into_first()),
-                self.nodes.zero_based_index(id.keys().into_second()),
+                self.nodes
+                    .indexing()
+                    .zero_based_index(id.keys().into_first()),
+                self.nodes
+                    .indexing()
+                    .zero_based_index(id.keys().into_second()),
             )
             .expect("Invalid edge ID")
     }
