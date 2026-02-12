@@ -3,7 +3,8 @@
 use std::ops::Range;
 
 use crate::{
-    pairs::SortedPair,
+    Undirected,
+    edge_ends::EdgeEnds,
     triangular::{triangular, triangular_inv_floor},
     util::sort_pair,
 };
@@ -27,6 +28,8 @@ pub(crate) struct SymmetricMatrixIndexing {
     /// The size of one dimension of the symmetric matrix.
     size: usize,
 }
+
+type SortedPair<T> = EdgeEnds<T, Undirected>;
 
 impl SymmetricMatrixIndexing {
     /// Creates a new `SymmetricMatrixIndexing` for a symmetric matrix of the given size.
@@ -87,8 +90,6 @@ impl SymmetricMatrixIndexing {
 
 #[cfg(test)]
 mod tests {
-    use crate::pairs::PairTrait;
-
     use super::*;
 
     #[test]

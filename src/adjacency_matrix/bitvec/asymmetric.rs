@@ -1,8 +1,11 @@
-use std::{hash::Hash, marker::PhantomData, mem::MaybeUninit};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::MaybeUninit};
 
 use bitvec::vec::BitVec;
 
-use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, BitvecStorage};
+use crate::{
+    Directed,
+    adjacency_matrix::{AdjacencyMatrix, BitvecStorage},
+};
 
 /// Bitvec-based asymmetric adjacency matrix for directed graphs.
 ///
@@ -135,11 +138,11 @@ impl<I, V> Drop for AsymmetricBitvecAdjacencyMatrix<I, V> {
 
 impl<I, V> AdjacencyMatrix for AsymmetricBitvecAdjacencyMatrix<I, V>
 where
-    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord,
+    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord + Debug,
 {
     type Index = I;
     type Value = V;
-    type Symmetry = Asymmetric;
+    type Directedness = Directed;
     type Storage = BitvecStorage;
 
     fn new() -> Self {

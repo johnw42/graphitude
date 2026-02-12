@@ -3,8 +3,8 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 use derivative::Derivative;
 
 use crate::{
-    DirectednessTrait, EdgeIdTrait, Storage, automap::OffsetAutomapKey,
-    directedness::StaticDirectedness, edge_ends::EdgeEnds, graph_id::GraphId,
+    DirectednessTrait, EdgeIdTrait, Storage, automap::OffsetAutomapKey, edge_ends::EdgeEnds,
+    graph_id::GraphId,
 };
 
 #[derive(Derivative)]
@@ -52,12 +52,12 @@ pub type NodeId<S> = NodeIdOrEdgeId<S, OffsetAutomapKey>;
     PartialOrd(bound = ""),
     Ord(bound = "")
 )]
-pub struct EdgeId<S: Storage, D: DirectednessTrait> {
+pub struct EdgeId<S: Storage, D: DirectednessTrait + Default> {
     inner: NodeIdOrEdgeId<S, EdgeEnds<OffsetAutomapKey, D>>,
     _directedness: PhantomData<D>,
 }
 
-impl<S: Storage, D: DirectednessTrait> EdgeId<S, D> {
+impl<S: Storage, D: DirectednessTrait + Default> EdgeId<S, D> {
     pub fn new(
         payload: EdgeEnds<OffsetAutomapKey, D>,
         graph_id: GraphId,
@@ -101,7 +101,7 @@ impl<S: Storage> Debug for NodeId<S> {
     }
 }
 
-impl<S: Storage, D: StaticDirectedness> EdgeIdTrait for EdgeId<S, D> {
+impl<S: Storage, D: DirectednessTrait + Default> EdgeIdTrait for EdgeId<S, D> {
     type NodeId = NodeId<S>;
     type Directedness = D;
 
@@ -133,8 +133,8 @@ impl<S: Storage, D: StaticDirectedness> EdgeIdTrait for EdgeId<S, D> {
     }
 }
 
-impl<S: Storage, D: DirectednessTrait> Debug for EdgeId<S, D> {
+impl<S: Storage, D: DirectednessTrait + Default> Debug for EdgeId<S, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EdgeId{:?}", self.inner.payload.values())
+        write!(f, "EdgeId{:?}", self.inner.payload.clone().into_values())
     }
 }

@@ -979,7 +979,7 @@ macro_rules! graph_tests {
         #[test]
         fn test_successors() {
             use std::collections::HashSet;
-            use $crate::{EdgeIdTrait, pairs::Pair};
+            use $crate::{EdgeIdTrait};
 
             let mut builder = BuilderImpl::default();
             let mut graph = TestGraph::default();

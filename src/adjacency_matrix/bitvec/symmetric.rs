@@ -4,7 +4,8 @@ use bitvec::vec::BitVec;
 
 use super::symmetric_maxtrix_indexing::SymmetricMatrixIndexing;
 use crate::{
-    adjacency_matrix::{AdjacencyMatrix, BitvecStorage, Symmetric},
+    Directed,
+    adjacency_matrix::{AdjacencyMatrix, BitvecStorage},
     util::sort_pair,
 };
 
@@ -113,11 +114,11 @@ impl<I, V> Drop for SymmetricBitvecAdjacencyMatrix<I, V> {
 
 impl<I, V> AdjacencyMatrix for SymmetricBitvecAdjacencyMatrix<I, V>
 where
-    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord,
+    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord + Debug,
 {
     type Index = I;
     type Value = V;
-    type Symmetry = Symmetric;
+    type Directedness = Directed;
     type Storage = BitvecStorage;
 
     fn new() -> Self {

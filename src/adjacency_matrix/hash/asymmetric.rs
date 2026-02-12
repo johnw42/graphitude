@@ -1,9 +1,13 @@
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Debug,
     hash::Hash,
 };
 
-use crate::adjacency_matrix::{AdjacencyMatrix, Asymmetric, HashStorage};
+use crate::{
+    Directed,
+    adjacency_matrix::{AdjacencyMatrix, HashStorage},
+};
 
 /// Hash-based asymmetric adjacency matrix for directed graphs.
 ///
@@ -25,11 +29,11 @@ pub struct AsymmetricHashAdjacencyMatrix<I, V> {
 
 impl<I, V> AdjacencyMatrix for AsymmetricHashAdjacencyMatrix<I, V>
 where
-    I: Hash + Eq + Clone + Ord,
+    I: Hash + Eq + Clone + Ord + Debug,
 {
     type Index = I;
     type Value = V;
-    type Symmetry = Asymmetric;
+    type Directedness = Directed;
     type Storage = HashStorage;
 
     fn new() -> Self {

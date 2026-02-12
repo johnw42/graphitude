@@ -48,9 +48,9 @@ mod adjacency {
 
     impl<D, S> TestDataBuilder for AdjacencyGraphBuilder<D, S>
     where
-        D: DirectednessTrait,
+        D: DirectednessTrait + Default,
         S: Storage,
-        (D::Symmetry, S): AdjacencyMatrixSelector<usize, String>,
+        (D, S): AdjacencyMatrixSelector<usize, String>,
     {
         type Graph = AdjacencyGraph<i32, String, D, S>;
 

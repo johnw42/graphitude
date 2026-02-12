@@ -178,7 +178,7 @@ mod inner {
         edge_prefix: &str,
     ) -> LinkedGraph<Data, Data, D>
     where
-        D: DirectednessTrait,
+        D: DirectednessTrait + Default,
     {
         generate_large_graph_with(
             |i| node_data_for(i, node_type),
@@ -192,8 +192,8 @@ mod inner {
         edge_prefix: &str,
     ) -> AdjacencyGraph<Data, Data, D, HashStorage>
     where
-        D: DirectednessTrait,
-        (D::Symmetry, HashStorage): AdjacencyMatrixSelector<usize, Data>,
+        D: DirectednessTrait + Default,
+        (D, HashStorage): AdjacencyMatrixSelector<usize, Data>,
     {
         generate_large_graph_with(
             |i| node_data_for(i, node_type),

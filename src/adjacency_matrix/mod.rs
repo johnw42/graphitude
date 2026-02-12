@@ -2,8 +2,7 @@ use std::{fmt::Debug, hash::Hash};
 
 use crate::{
     AsymmetricBitvecAdjacencyMatrix, AsymmetricHashAdjacencyMatrix, DirectednessTrait,
-    SymmetricBitvecAdjacencyMatrix, SymmetricHashAdjacencyMatrix, directedness::StaticDirectedness,
-    edge_ends::EdgeEnds,
+    SymmetricBitvecAdjacencyMatrix, SymmetricHashAdjacencyMatrix, edge_ends::EdgeEnds,
 };
 #[cfg(feature = "bitvec")]
 use crate::{Directed, Undirected};
@@ -34,7 +33,7 @@ where
 {
     type Index: Hash + Eq + Clone + Ord + Debug;
     type Value;
-    type Directedness: StaticDirectedness;
+    type Directedness: DirectednessTrait + Default;
     type Storage: Storage;
 
     /// Creates a new, empty adjacency matrix.
@@ -147,7 +146,7 @@ where
 #[cfg(feature = "bitvec")]
 impl<I, V> AdjacencyMatrixSelector<I, V> for (Directed, BitvecStorage)
 where
-    I: Into<usize> + From<usize> + Copy + Eq + Hash + Ord,
+    I: Into<usize> + From<usize> + Copy + Eq + Hash + Ord + Debug,
 {
     type Matrix = AsymmetricBitvecAdjacencyMatrix<I, V>;
 }
@@ -155,7 +154,7 @@ where
 #[cfg(feature = "bitvec")]
 impl<I, V> AdjacencyMatrixSelector<I, V> for (Undirected, BitvecStorage)
 where
-    I: Into<usize> + From<usize> + Copy + Eq + Hash + Ord,
+    I: Into<usize> + From<usize> + Copy + Eq + Hash + Ord + Debug,
 {
     type Matrix = SymmetricBitvecAdjacencyMatrix<I, V>;
 }
@@ -169,7 +168,7 @@ where
 
 impl<I, V> AdjacencyMatrixSelector<I, V> for (Undirected, HashStorage)
 where
-    I: Hash + Eq + Copy + Ord,
+    I: Hash + Eq + Copy + Ord + Debug,
 {
     type Matrix = AsymmetricHashAdjacencyMatrix<I, V>;
 }

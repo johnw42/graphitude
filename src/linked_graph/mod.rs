@@ -1,8 +1,8 @@
 use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::{
-    debug::format_debug, directedness::StaticDirectedness, edge_ends::EdgeEnds,
-    graph::AddEdgeResult, graph_id::GraphId, prelude::*, util::OtherValue,
+    debug::format_debug, edge_ends::EdgeEnds, graph::AddEdgeResult, graph_id::GraphId, prelude::*,
+    util::OtherValue,
 };
 
 mod edge_id;
@@ -277,7 +277,7 @@ where
 
 impl<N, E, D, M> Default for LinkedGraph<N, E, D, M>
 where
-    D: StaticDirectedness,
+    D: DirectednessTrait + Default,
     M: EdgeMultiplicityTrait,
 {
     fn default() -> Self {
@@ -440,7 +440,7 @@ impl<N, E, D, M> Clone for LinkedGraph<N, E, D, M>
 where
     N: Clone,
     E: Clone,
-    D: StaticDirectedness,
+    D: DirectednessTrait + Default,
     M: EdgeMultiplicityTrait,
 {
     fn clone(&self) -> Self {

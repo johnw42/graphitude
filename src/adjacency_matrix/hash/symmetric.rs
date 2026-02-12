@@ -4,9 +4,9 @@ use std::{
     hash::Hash,
 };
 
-use crate::util::sort_pair;
+use crate::{Undirected, util::sort_pair};
 
-use crate::adjacency_matrix::{AdjacencyMatrix, HashStorage, Symmetric};
+use crate::adjacency_matrix::{AdjacencyMatrix, HashStorage};
 
 /// Hash-based symmetric adjacency matrix for undirected graphs.
 ///
@@ -31,7 +31,7 @@ where
 {
     type Index = I;
     type Value = V;
-    type Symmetry = Symmetric;
+    type Directedness = Undirected;
     type Storage = HashStorage;
 
     fn new() -> Self {
@@ -148,9 +148,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::pairs::SortedPair;
+    use crate::edge_ends::EdgeEnds;
 
     use super::*;
+
+    type SortedPair<T> = EdgeEnds<T, Undirected>;
 
     #[test]
     fn test_matrix_insert_and_get() {

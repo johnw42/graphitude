@@ -21,6 +21,10 @@ impl EdgeIdTrait for EdgeId {
     type NodeId = NodeId;
     type Directedness = Directed;
 
+    fn directedness(&self) -> Self::Directedness {
+        Directed
+    }
+
     fn source(&self) -> NodeId {
         self.0
     }
@@ -65,6 +69,10 @@ impl Graph for StringGraph {
     type EdgeId = EdgeId;
     type Directedness = Directed;
     type EdgeMultiplicity = MultipleEdges;
+
+    fn directedness(&self) -> Self::Directedness {
+        Directed
+    }
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         &self.node(id).data

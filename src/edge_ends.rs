@@ -3,7 +3,7 @@ use std::{fmt::Debug, hash::Hash};
 use derivative::Derivative;
 
 use crate::{
-    DirectednessTrait,
+    DirectednessTrait, Undirected,
     util::{OtherValue, other_value, sort_pair},
 };
 
@@ -36,6 +36,18 @@ where
             sort_pair(source, target)
         };
         Self { data, directedness }
+    }
+
+    pub fn from_sorted(a: T, b: T) -> Self
+    where
+        D: Default,
+        T: Ord,
+    {
+        debug_assert!(a <= b);
+        Self {
+            data: (a, b),
+            directedness: D::default(),
+        }
     }
 
     pub fn directedness(&self) -> D {
@@ -86,5 +98,11 @@ where
         T: Eq,
     {
         other_value(self.into_values(), &value)
+    }
+}
+
+impl<T: Ord, D: DirectednessTrait + Default> From<(T, T)> for EdgeEnds<T, D> {
+    fn from((a, b): (T, T)) -> Self {
+        Self::new(a, b, D::default())
     }
 }

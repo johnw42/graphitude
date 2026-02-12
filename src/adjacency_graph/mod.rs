@@ -9,8 +9,7 @@ use crate::{
     },
     automap::{Automap, trait_def::AutomapIndexing},
     debug::format_debug,
-    directedness::StaticDirectedness,
-    edge_ends::EdgeEndsTrait,
+    directedness::DirectednessTrait,
     graph_id::GraphId,
     prelude::*,
 };
@@ -44,7 +43,7 @@ mod ids;
 /// * `S` - The storage type ([`HashStorage`] or [`BitvecStorage`](crate::adjacency_matrix::BitvecStorage))
 pub struct AdjacencyGraph<N, E, D = Directed, S = HashStorage>
 where
-    D: StaticDirectedness,
+    D: DirectednessTrait + Default,
     S: Storage,
     (D, S): AdjacencyMatrixSelector<usize, E>,
 {
@@ -67,7 +66,7 @@ type EdgeIdCallback<'a, N, E, D, S> = dyn for<'b> FnMut(
 
 impl<N, E, D, S> AdjacencyGraph<N, E, D, S>
 where
-    D: StaticDirectedness,
+    D: DirectednessTrait + Default,
     S: Storage,
     (D, S): AdjacencyMatrixSelector<usize, E>,
 {
@@ -158,7 +157,7 @@ where
 
 impl<N, E, D, S> Graph for AdjacencyGraph<N, E, D, S>
 where
-    D: StaticDirectedness,
+    D: DirectednessTrait + Default,
     S: Storage,
     (D, S): AdjacencyMatrixSelector<usize, E>,
 {
@@ -306,7 +305,7 @@ where
 
 impl<N, E, D, S> Default for AdjacencyGraph<N, E, D, S>
 where
-    D: StaticDirectedness,
+    D: DirectednessTrait + Default,
     S: Storage,
     (D, S): AdjacencyMatrixSelector<usize, E>,
 {
@@ -323,7 +322,7 @@ where
 
 impl<N, E, D, S> GraphMut for AdjacencyGraph<N, E, D, S>
 where
-    D: StaticDirectedness,
+    D: DirectednessTrait + Default,
     S: Storage,
     (D, S): AdjacencyMatrixSelector<usize, E>,
 {
@@ -413,7 +412,7 @@ impl<N, E, D, S> Debug for AdjacencyGraph<N, E, D, S>
 where
     N: Debug,
     E: Debug,
-    D: StaticDirectedness,
+    D: DirectednessTrait + Default,
     S: Storage,
     (D, S): AdjacencyMatrixSelector<usize, E>,
 {
