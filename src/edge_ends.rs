@@ -3,7 +3,7 @@ use std::{fmt::Debug, hash::Hash};
 use derivative::Derivative;
 
 use crate::{
-    DirectednessTrait, Undirected,
+    DirectednessTrait,
     util::{OtherValue, other_value, sort_pair},
 };
 

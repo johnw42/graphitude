@@ -20,8 +20,8 @@ pub use storage::{BitvecStorage, HashStorage, Storage};
 
 pub(crate) use storage::CompactionCount;
 
-type Index<M: AdjacencyMatrix> = <M as AdjacencyMatrix>::Index;
-type Pair<M: AdjacencyMatrix> = EdgeEnds<Index<M>, <M as AdjacencyMatrix>::Directedness>;
+type Index<M> = <M as AdjacencyMatrix>::Index;
+type Pair<M> = EdgeEnds<Index<M>, <M as AdjacencyMatrix>::Directedness>;
 
 /// Trait for adjacency matrix data structures.
 ///
@@ -163,14 +163,14 @@ impl<I, V> AdjacencyMatrixSelector<I, V> for (Directed, HashStorage)
 where
     I: Hash + Eq + Copy + Ord + Debug,
 {
-    type Matrix = SymmetricHashAdjacencyMatrix<I, V>;
+    type Matrix = AsymmetricHashAdjacencyMatrix<I, V>;
 }
 
 impl<I, V> AdjacencyMatrixSelector<I, V> for (Undirected, HashStorage)
 where
     I: Hash + Eq + Copy + Ord + Debug,
 {
-    type Matrix = AsymmetricHashAdjacencyMatrix<I, V>;
+    type Matrix = SymmetricHashAdjacencyMatrix<I, V>;
 }
 
 /// Type alias for selecting an adjacency matrix implementation.

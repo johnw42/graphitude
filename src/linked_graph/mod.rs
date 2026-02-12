@@ -319,11 +319,10 @@ where
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
         if !self.allows_parallel_edges() {
             debug_assert!(self.edges_from_into(from, into).count() <= 1);
-            if let Some(edge) = self
-                .node_mut(from)
-                .edges_out
-                .iter_mut()
-                .find(|edge| edge.ends.source() == from && edge.ends.target() == into)
+            if let Some(edge) =
+                self.node_mut(from).edges_out.iter_mut().find(|edge| {
+                    edge.ends == self.directedness().make_pair(from.clone(), into.clone())
+                })
             {
                 let mut old_data = data;
                 // SAFETY: There can be no mutable references to the data, the graph
