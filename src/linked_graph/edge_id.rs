@@ -7,9 +7,7 @@ use std::{
 
 use derivative::Derivative;
 
-use crate::{
-    EdgeIdTrait, directedness::DirectednessTrait, edge_ends::EdgeEndsTrait as _, graph_id::GraphId,
-};
+use crate::{EdgeIdTrait, directedness::DirectednessTrait, graph_id::GraphId};
 
 use super::{Edge, NodeId};
 

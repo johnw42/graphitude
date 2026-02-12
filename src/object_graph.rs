@@ -2,7 +2,7 @@ use std::{fmt::Debug, marker::PhantomData, mem::transmute};
 
 use derivative::Derivative;
 
-use crate::{MultipleEdges, directedness::Directed};
+use crate::{EdgeIdTrait, MultipleEdges, directedness::Directed};
 
 use super::Graph;
 
@@ -86,9 +86,13 @@ where
     }
 }
 
-impl<'a, N: Debug> crate::graph::EdgeIdTrait for (NodeId<'a, N>, NodeId<'a, N>) {
+impl<'a, N: Debug> EdgeIdTrait for (NodeId<'a, N>, NodeId<'a, N>) {
     type NodeId = NodeId<'a, N>;
     type Directedness = Directed;
+
+    fn directedness(&self) -> Self::Directedness {
+        Directed
+    }
 
     fn source(&self) -> NodeId<'a, N> {
         self.0

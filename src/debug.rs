@@ -4,7 +4,6 @@ use std::{
 };
 
 use crate::{
-    edge_ends::EdgeEndsTrait as _,
     prelude::*,
     util::{FormatDebugAs, FormatDebugWith},
 };

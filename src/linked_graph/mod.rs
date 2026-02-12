@@ -1,7 +1,7 @@
 use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::{
-    debug::format_debug, directedness::StaticDirectedness, edge_ends::EdgeEndsTrait as _,
+    debug::format_debug, directedness::StaticDirectedness, edge_ends::EdgeEnds,
     graph::AddEdgeResult, graph_id::GraphId, prelude::*, util::OtherValue,
 };
 
@@ -22,7 +22,7 @@ struct Node<N, E, D: DirectednessTrait> {
 
 struct Edge<N, E, D: DirectednessTrait> {
     data: UnsafeCell<E>,
-    ends: D::EdgeEnds<NodeId<N, E, D>>,
+    ends: EdgeEnds<NodeId<N, E, D>, D>,
     directedness: PhantomData<D>,
 }
 
@@ -50,6 +50,15 @@ where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
 {
+    pub fn with_directedness(directedness: D) -> Self {
+        Self {
+            nodes: Vec::new(),
+            id: GraphId::new(),
+            directedness,
+            phantom: PhantomData,
+        }
+    }
+
     fn node_id(&self, ptr: &Arc<Node<N, E, D>>) -> NodeId<N, E, D> {
         NodeId {
             ptr: Arc::downgrade(ptr),
@@ -326,7 +335,7 @@ where
             debug_assert_eq!(self.edges_from_into(from, into).count(), 0);
         }
 
-        let ends = self.directedness().make_pair((from.clone(), into.clone()));
+        let ends = self.directedness().make_pair(from.clone(), into.clone());
         let (from, into) = ends.clone().into_values();
 
         let edge = Arc::new(Edge {

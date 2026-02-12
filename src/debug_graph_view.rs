@@ -1,6 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use crate::{LinkedGraph, prelude::*};
+use crate::{LinkedGraph, directedness::StaticDirectedness, prelude::*};
 
 /// A view of a graph with transformed node and edge data, suitable for debugging.
 ///
@@ -30,7 +30,7 @@ where
         NF: Fn(&G::NodeData) -> N,
         EF: Fn(&G::EdgeData) -> E,
     {
-        let mut inner = LinkedGraph::default();
+        let mut inner = LinkedGraph::with_directedness(graph.directedness());
         inner.copy_from_with(graph, node_fn, edge_fn);
         Self {
             inner,

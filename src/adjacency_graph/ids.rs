@@ -4,7 +4,7 @@ use derivative::Derivative;
 
 use crate::{
     DirectednessTrait, EdgeIdTrait, Storage, automap::OffsetAutomapKey,
-    directedness::StaticDirectedness, edge_ends::EdgeEndsTrait as _, graph_id::GraphId,
+    directedness::StaticDirectedness, edge_ends::EdgeEnds, graph_id::GraphId,
 };
 
 #[derive(Derivative)]
@@ -53,13 +53,13 @@ pub type NodeId<S> = NodeIdOrEdgeId<S, OffsetAutomapKey>;
     Ord(bound = "")
 )]
 pub struct EdgeId<S: Storage, D: DirectednessTrait> {
-    inner: NodeIdOrEdgeId<S, D::EdgeEnds<OffsetAutomapKey>>,
+    inner: NodeIdOrEdgeId<S, EdgeEnds<OffsetAutomapKey, D>>,
     _directedness: PhantomData<D>,
 }
 
 impl<S: Storage, D: DirectednessTrait> EdgeId<S, D> {
     pub fn new(
-        payload: D::EdgeEnds<OffsetAutomapKey>,
+        payload: EdgeEnds<OffsetAutomapKey, D>,
         graph_id: GraphId,
         compaction_count: S::CompactionCount,
     ) -> Self {
@@ -69,7 +69,7 @@ impl<S: Storage, D: DirectednessTrait> EdgeId<S, D> {
         }
     }
 
-    pub fn keys(&self) -> D::EdgeEnds<OffsetAutomapKey> {
+    pub fn keys(&self) -> EdgeEnds<OffsetAutomapKey, D> {
         self.inner.payload.clone()
     }
 
@@ -109,7 +109,7 @@ impl<S: Storage, D: StaticDirectedness> EdgeIdTrait for EdgeId<S, D> {
         D::default()
     }
 
-    fn ends(&self) -> D::EdgeEnds<NodeId<S>> {
+    fn ends(&self) -> EdgeEnds<NodeId<S>, D> {
         let (from_key, to_key) = self.inner.payload.values();
         let from = NodeId::new(*from_key, self.inner.graph_id, self.inner.compaction_count);
         let to = NodeId::new(*to_key, self.inner.graph_id, self.inner.compaction_count);

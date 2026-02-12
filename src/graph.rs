@@ -12,11 +12,10 @@ use std::io;
 use crate::dot::{parser, renderer};
 use crate::{
     debug_graph_view::DebugGraphView,
-    edge_ends::EdgeEndsTrait,
+    edge_ends::EdgeEnds,
     path::Path,
     prelude::*,
     search::{BfsIterator, DfsIterator},
-    util::OtherValue,
 }; // Import the trait that defines EdgeEnds::new
 
 /// A trait representing a node identifier in a graph.
@@ -50,9 +49,6 @@ impl<N: NodeIdTrait> OtherEnd<N> {
     }
 }
 
-pub type EdgeEnds<E: EdgeIdTrait> =
-    <<E as EdgeIdTrait>::Directedness as DirectednessTrait>::EdgeEnds<<E as EdgeIdTrait>::NodeId>;
-
 /// A trait representing an edge identifier in a graph.  When Directedness is
 /// `Directed`, the source and target are distinct; when Directedness is
 /// `Undirected`, the source and target are always be ordered such that
@@ -80,7 +76,7 @@ pub trait EdgeIdTrait: Eq + Hash + Clone + Debug {
     }
 
     /// Gets both ends of the edge.
-    fn ends(&self) -> EdgeEnds<Self> {
+    fn ends(&self) -> EdgeEnds<Self::NodeId, Self::Directedness> {
         self.directedness().make_pair(self.source(), self.target())
     }
 }
@@ -480,7 +476,7 @@ pub trait Graph {
                     let new_dist = current_dist + edge_distance;
 
                     let should_update = distances
-                        .get(neighbor)
+                        .get(&neighbor)
                         .is_none_or(|&old_dist| new_dist < old_dist);
 
                     if should_update {

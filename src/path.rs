@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once, marker::PhantomData
 
 use derivative::Derivative;
 
-use crate::{DirectednessTrait, EdgeIdTrait, edge_ends::EdgeEndsTrait as _};
+use crate::{DirectednessTrait, EdgeIdTrait};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
