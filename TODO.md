@@ -19,3 +19,4 @@
 [x] Add a reflected adjacency bitmap for directed adjacency graphs
 [x] Store regular and reflected data in a single bitvec
 [ ] Clean up TODOs in code
+[ ] Support graphs with both directed and undirected edges

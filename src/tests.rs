@@ -1089,6 +1089,62 @@ macro_rules! graph_tests {
         }
 
         #[test]
+        fn test_predecessors() {
+            use $crate::{EdgeIdTrait};
+            use std::collections::HashSet;
+
+            let mut builder = BuilderImpl::from($builder);
+            let mut graph = builder.new_graph();
+            let n0 = graph.add_node(builder.new_node_data());
+            let n1 = graph.add_node(builder.new_node_data());
+            let n2 = graph.add_node(builder.new_node_data());
+            let n3 = graph.add_node(builder.new_node_data());
+
+            let e0 = graph.add_edge(&n0, &n1, builder.new_edge_data()).unwrap();
+            let e1 = graph.add_edge(&n0, &n2, builder.new_edge_data()).unwrap();
+            let e2 = graph.add_edge(&n1, &n2, builder.new_edge_data()).unwrap();
+            let e3 = graph.add_edge(&n1, &n3, builder.new_edge_data()).unwrap();
+            let e4 = graph.add_edge(&n2, &n3, builder.new_edge_data()).unwrap();
+
+            if graph.is_directed() {
+                assert_eq!(
+                    graph.predecessors(&n0).collect::<HashSet<_>>(),
+                    HashSet::new()
+                );
+                assert_eq!(
+                    graph.predecessors(&n1).collect::<HashSet<_>>(),
+                    HashSet::from([n0.clone()])
+                );
+                assert_eq!(
+                    graph.predecessors(&n2).collect::<HashSet<_>>(),
+                    HashSet::from([n0.clone(), n1.clone()])
+                );
+                assert_eq!(
+                    graph.predecessors(&n3).collect::<HashSet<_>>(),
+                    HashSet::from([n1.clone(), n2.clone()])
+                );
+            } else {
+                // For undirected graphs, predecessors should equal successors
+                assert_eq!(
+                    graph.predecessors(&n0).collect::<HashSet<_>>(),
+                    HashSet::from([n1.clone(), n2.clone()])
+                );
+                assert_eq!(
+                    graph.predecessors(&n1).collect::<HashSet<_>>(),
+                    HashSet::from([n0.clone(), n2.clone(), n3.clone()])
+                );
+                assert_eq!(
+                    graph.predecessors(&n2).collect::<HashSet<_>>(),
+                    HashSet::from([n0.clone(), n1.clone(), n3.clone()])
+                );
+                assert_eq!(
+                    graph.predecessors(&n3).collect::<HashSet<_>>(),
+                    HashSet::from([n1.clone(), n2.clone()])
+                );
+            }
+        }
+
+        #[test]
         #[cfg(feature = "pathfinding")]
         fn test_shortest_paths() {
             let mut builder = BuilderImpl::from($builder);

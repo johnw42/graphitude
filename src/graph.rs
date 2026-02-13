@@ -260,15 +260,20 @@ pub trait Graph {
         }
     }
 
-    /// Gets an iterator over the predacessors nodes of a given node, i.e.
+    /// Gets an iterator over the predecessors nodes of a given node, i.e.
     /// those nodes reachable by incoming edges.
-    fn predacessors<'a, 'b: 'a>(
+    fn predecessors<'a, 'b: 'a>(
         &'a self,
         node: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::NodeId> + 'a {
         let mut visited = HashSet::new();
         self.edges_into(node).filter_map(move |eid| {
-            let nid = eid.source();
+            let nid = if self.directedness().is_directed() {
+                eid.source()
+            } else {
+                let (source, target) = eid.ends().into_values();
+                if source == *node { target } else { source }
+            };
             visited.insert(nid.clone()).then_some(nid)
         })
     }
@@ -278,16 +283,13 @@ pub trait Graph {
     fn successors<'a, 'b: 'a>(
         &'a self,
         node: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::NodeId> + 'a
-    where
-        Self::NodeId: Clone,
-    {
+    ) -> impl Iterator<Item = Self::NodeId> + 'a {
         let mut visited = HashSet::new();
         self.edges_from(node).filter_map(move |eid| {
             let nid = if self.directedness().is_directed() {
                 eid.target()
             } else {
-                let (source, target) = (eid.source(), eid.target());
+                let (source, target) = eid.ends().into_values();
                 if source == *node { target } else { source }
             };
             visited.insert(nid.clone()).then_some(nid)
