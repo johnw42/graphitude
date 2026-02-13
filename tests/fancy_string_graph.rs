@@ -182,21 +182,29 @@ impl GraphMut for StringGraph {
     }
 }
 
-impl TestDataBuilder for StringGraph {
-    type Graph = Self;
+#[derive(Default)]
+struct StringGraphBuilder;
 
-    fn new_edge_data(i: usize) -> String {
+impl TestDataBuilder for StringGraphBuilder {
+    type Graph = StringGraph;
+
+    fn new_graph(&self) -> Self::Graph {
+        StringGraph::default()
+    }
+
+    fn new_edge_data(&self, i: usize) -> String {
         format!("e{}", i)
     }
 
-    fn new_node_data(i: usize) -> String {
+    fn new_node_data(&self, i: usize) -> String {
         format!("v{}", i)
     }
 }
 
 graph_tests!(
     tests,
-    StringGraph,
+    StringGraphBuilder,
+    StringGraphBuilder,
     |data| format!("{}-copied", data),
     |data| format!("{}-copied", data)
 );

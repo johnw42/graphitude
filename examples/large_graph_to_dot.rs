@@ -180,10 +180,13 @@ mod inner {
     where
         D: DirectednessTrait + Default,
     {
+        let mut graph = LinkedGraph::default();
         generate_large_graph_with(
+            &mut graph,
             |i| node_data_for(i, node_type),
             |i| edge_data_for(i, edge_type, edge_prefix),
-        )
+        );
+        graph
     }
 
     fn build_adjacency_graph<D>(
@@ -195,10 +198,13 @@ mod inner {
         D: DirectednessTrait + Default,
         (D, HashStorage): AdjacencyMatrixSelector<usize, Data>,
     {
+        let mut graph = AdjacencyGraph::default();
         generate_large_graph_with(
+            &mut graph,
             |i| node_data_for(i, node_type),
             |i| edge_data_for(i, edge_type, edge_prefix),
-        )
+        );
+        graph
     }
 
     fn write_graph_output<G>(graph: &G, args: &Args) -> Result<(), Box<dyn std::error::Error>>

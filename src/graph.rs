@@ -471,12 +471,12 @@ pub trait Graph {
             for edge_id in self.edges_from(&current_node) {
                 let ends = edge_id.ends();
                 let neighbor = ends.other_value(&current_node).into_inner();
-                if unvisited.contains(&neighbor) {
+                if unvisited.contains(neighbor) {
                     let edge_distance = distance_fn(&edge_id);
                     let new_dist = current_dist + edge_distance;
 
                     let should_update = distances
-                        .get(&neighbor)
+                        .get(neighbor)
                         .is_none_or(|&old_dist| new_dist < old_dist);
 
                     if should_update {
