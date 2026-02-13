@@ -65,8 +65,6 @@ pub use dot::parser::{GraphBuilder, ParseError};
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::{
     AdjacencyMatrix, BitvecStorage, HashStorage, Storage,
-    bitvec::{
-        asymmetric::AsymmetricBitvecAdjacencyMatrix, symmetric::SymmetricBitvecAdjacencyMatrix,
-    },
+    bitvec::{asymmetric::BitvecAdjacencyMatrix, symmetric::SymmetricBitvecAdjacencyMatrix},
     hash::{asymmetric::AsymmetricHashAdjacencyMatrix, symmetric::SymmetricHashAdjacencyMatrix},
 };

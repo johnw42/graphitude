@@ -2,10 +2,13 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::MaybeUninit};
 
 use bitvec::vec::BitVec;
 
-use super::symmetric_maxtrix_indexing::SymmetricMatrixIndexing;
+use super::symmetric_maxtrix_indexing::MatrixIndexing;
 use crate::{
     Directed,
-    adjacency_matrix::{AdjacencyMatrix, BitvecStorage},
+    adjacency_matrix::{
+        AdjacencyMatrix, BitvecStorage,
+        bitvec::symmetric_maxtrix_indexing::{DataIndex, LivenessIndex},
+    },
     util::sort_pair,
 };
 
@@ -18,7 +21,7 @@ use crate::{
 pub struct SymmetricBitvecAdjacencyMatrix<I, V> {
     data: Vec<MaybeUninit<V>>,
     liveness: BitVec,
-    indexing: SymmetricMatrixIndexing,
+    indexing: MatrixIndexing<Directed>,
     entry_count: usize,
     index_type: PhantomData<I>,
 }
@@ -29,8 +32,8 @@ where
 {
     pub fn with_size(size: usize) -> Self {
         let capacity = size.next_power_of_two();
-        let indexing = SymmetricMatrixIndexing::new(capacity);
-        let data_storage_size = indexing.storage_size();
+        let indexing = MatrixIndexing::new(capacity, Directed);
+        let data_storage_size = indexing.data_storage_size();
         let full_storage_size = capacity
             .checked_mul(capacity)
             .expect("liveness matrix size overflow");
@@ -47,7 +50,7 @@ where
         }
     }
 
-    fn liveness_index(&self, row: usize, col: usize) -> usize {
+    fn liveness_index(&self, row: usize, col: usize) -> LivenessIndex {
         Self::liveness_index_for(self.indexing.size(), row, col)
     }
 
@@ -58,39 +61,39 @@ where
 
     fn set_live(&mut self, row: usize, col: usize, live: bool) {
         let index = self.liveness_index(row, col);
-        self.liveness.set(index, live);
+        self.liveness.set(index.0, live);
     }
 
-    fn get_data_read(&self, row: usize, col: usize, data_index: usize) -> Option<V> {
+    fn get_data_read(&self, row: usize, col: usize, data_index: DataIndex) -> Option<V> {
         self.is_live(row, col)
             .then(|| self.unchecked_get_data_read(data_index))
     }
 
-    fn get_data_ref(&self, row: usize, col: usize, data_index: usize) -> Option<&V> {
+    fn get_data_ref(&self, row: usize, col: usize, data_index: DataIndex) -> Option<&V> {
         self.is_live(row, col)
             .then(|| self.unchecked_get_data_ref(data_index))
     }
 
-    fn unchecked_get_data_read(&self, index: usize) -> V {
+    fn unchecked_get_data_read(&self, index: DataIndex) -> V {
         // SAFETY: Caller must ensure that the index is live.
-        unsafe { self.data[index].assume_init_read() }
+        unsafe { self.data[index.0].assume_init_read() }
     }
 
-    fn unchecked_get_data_ref(&self, index: usize) -> &V {
+    fn unchecked_get_data_ref(&self, index: DataIndex) -> &V {
         // SAFETY: Caller must ensure that the index is live.
-        unsafe { self.data[index].assume_init_ref() }
+        unsafe { self.data[index.0].assume_init_ref() }
     }
 }
 
 impl<I, V> SymmetricBitvecAdjacencyMatrix<I, V> {
-    fn liveness_index_for(size: usize, row: usize, col: usize) -> usize {
+    fn liveness_index_for(size: usize, row: usize, col: usize) -> LivenessIndex {
         debug_assert!(row < size, "liveness row out of bounds");
         debug_assert!(col < size, "liveness col out of bounds");
-        row * size + col
+        LivenessIndex(row * size + col)
     }
 
-    fn row_col_for_index(size: usize, live_index: usize) -> (usize, usize) {
-        (live_index / size, live_index % size)
+    fn row_col_for_index(size: usize, live_index: LivenessIndex) -> (usize, usize) {
+        (live_index.0 / size, live_index.0 % size)
     }
 }
 
@@ -99,10 +102,10 @@ impl<I, V> Drop for SymmetricBitvecAdjacencyMatrix<I, V> {
         // Drop all initialized values
         // Only drop each unique entry once (row <= col)
         let size = self.indexing.size();
-        for live_index in self.liveness.iter_ones() {
+        for live_index in self.liveness.iter_ones().map(LivenessIndex) {
             let (row, col) = Self::row_col_for_index(size, live_index);
             if row <= col
-                && let Some(index) = self.indexing.index(row, col)
+                && let Some(index) = self.indexing.data_index(row, col)
             {
                 unsafe {
                     self.data[index].assume_init_drop();
@@ -125,7 +128,7 @@ where
         Self {
             liveness: BitVec::new(),
             data: Vec::new(),
-            indexing: SymmetricMatrixIndexing::new(0),
+            indexing: MatrixIndexing::new(0, Directed),
             entry_count: 0,
             index_type: PhantomData,
         }
@@ -133,14 +136,14 @@ where
 
     fn insert(&mut self, row: I, col: I, data: V) -> Option<V> {
         let (i1, i2) = sort_pair(row.into(), col.into());
-        if self.indexing.index(i1, i2).is_none() {
+        if self.indexing.data_index(i1, i2).is_none() {
             let required_size = (i2 + 1).next_power_of_two();
             if self.indexing.size() < required_size {
                 let old_size = self.indexing.size();
                 let old_liveness = std::mem::take(&mut self.liveness);
 
-                self.indexing = SymmetricMatrixIndexing::new(required_size);
-                let data_storage_size = self.indexing.storage_size();
+                self.indexing = MatrixIndexing::new(required_size, Directed);
+                let data_storage_size = self.indexing.data_storage_size();
                 let full_storage_size = required_size
                     .checked_mul(required_size)
                     .expect("liveness matrix size overflow");
@@ -152,7 +155,7 @@ where
                         let old_index = Self::liveness_index_for(old_size, row, col);
                         if old_liveness[old_index] {
                             let new_index = Self::liveness_index_for(required_size, row, col);
-                            new_liveness.set(new_index, true);
+                            new_liveness.set(new_index.0, true);
                         }
                     }
                 }
@@ -161,7 +164,7 @@ where
                     .resize_with(data_storage_size, MaybeUninit::uninit);
             }
         }
-        let index = self.indexing.unchecked_index(i1, i2);
+        let index = self.indexing.unchecked_data_index(i1, i2);
         let old_data = self.get_data_read(i1, i2, index);
         self.set_live(i1, i2, true);
         if i1 != i2 {
@@ -177,14 +180,14 @@ where
     fn get(&self, row: I, col: I) -> Option<&V> {
         let row = row.into();
         let col = col.into();
-        let index = self.indexing.index(row, col)?;
+        let index = self.indexing.data_index(row, col)?;
         self.get_data_ref(row, col, index)
     }
 
     fn remove(&mut self, row: I, col: I) -> Option<V> {
         let row = row.into();
         let col = col.into();
-        let index = self.indexing.index(row, col)?;
+        let index = self.indexing.data_index(row, col)?;
         let was_live = self.is_live(row, col);
         self.set_live(row, col, false);
         if row != col {
@@ -203,15 +206,18 @@ where
         V: 'a,
     {
         let size = self.indexing.size();
-        self.liveness.iter_ones().filter_map(move |live_index| {
-            let (row, col) = Self::row_col_for_index(size, live_index);
-            if row > col {
-                return None;
-            }
-            let index = self.indexing.unchecked_index(row, col);
-            self.get_data_ref(row, col, index)
-                .map(|data| (row.into(), col.into(), data))
-        })
+        self.liveness
+            .iter_ones()
+            .map(LivenessIndex)
+            .filter_map(move |live_index| {
+                let (row, col) = Self::row_col_for_index(size, live_index);
+                if row > col {
+                    return None;
+                }
+                let index = self.indexing.unchecked_data_index(row, col);
+                self.get_data_ref(row, col, index)
+                    .map(|data| (row.into(), col.into(), data))
+            })
     }
 
     fn into_iter(mut self) -> impl Iterator<Item = (Self::Index, Self::Index, Self::Value)> {
@@ -219,10 +225,10 @@ where
         let mut result = Vec::new();
 
         // Collect all live entries
-        for live_index in self.liveness.iter_ones() {
+        for live_index in self.liveness.iter_ones().map(LivenessIndex) {
             let (row, col) = Self::row_col_for_index(size, live_index);
             if row <= col {
-                let index = self.indexing.unchecked_index(row, col);
+                let index = self.indexing.unchecked_data_index(row, col);
                 // SAFETY: live_index is from iter_ones, so this entry is initialized
                 let value = unsafe { self.data[index].assume_init_read() };
                 result.push((row.into(), col.into(), value));
@@ -240,10 +246,10 @@ where
         let size = self.indexing.size();
         let row_start = Self::liveness_index_for(size, row_idx, 0);
         let row_end = row_start + size;
-        self.liveness[row_start..row_end]
+        self.liveness[row_start.0..row_end.0]
             .iter_ones()
             .filter_map(move |col| {
-                let index = self.indexing.index(row_idx, col)?;
+                let index = self.indexing.data_index(row_idx, col)?;
                 self.get_data_ref(row_idx, col, index)
                     .map(|data| (col.into(), data))
             })
@@ -256,10 +262,10 @@ where
     fn clear(&mut self) {
         // Drop all initialized values
         let size = self.indexing.size();
-        for live_index in self.liveness.iter_ones() {
+        for live_index in self.liveness.iter_ones().map(LivenessIndex) {
             let (row, col) = Self::row_col_for_index(size, live_index);
             if row <= col
-                && let Some(index) = self.indexing.index(row, col)
+                && let Some(index) = self.indexing.data_index(row, col)
             {
                 unsafe {
                     self.data[index].assume_init_drop();
@@ -277,8 +283,8 @@ where
     fn reserve(&mut self, capacity: usize) {
         let current_capacity = self.indexing.size();
         if current_capacity < capacity {
-            let new_indexing = SymmetricMatrixIndexing::new(capacity);
-            let new_data_storage_size = new_indexing.storage_size();
+            let new_indexing = MatrixIndexing::new(capacity, Directed);
+            let new_data_storage_size = new_indexing.data_storage_size();
             let new_full_storage_size = capacity
                 .checked_mul(capacity)
                 .expect("liveness matrix size overflow");
@@ -292,15 +298,15 @@ where
             // Copy existing data to the new storage
             for row in 0..current_capacity {
                 for col in 0..=row {
-                    if let Some(old_index) = self.indexing.index(row, col)
+                    if let Some(old_index) = self.indexing.data_index(row, col)
                         && self.is_live(row, col)
-                        && let Some(new_index) = new_indexing.index(row, col)
+                        && let Some(new_index) = new_indexing.data_index(row, col)
                     {
                         let idx1 = Self::liveness_index_for(capacity, row, col);
-                        new_liveness.set(idx1, true);
+                        new_liveness.set(idx1.0, true);
                         if row != col {
                             let idx2 = Self::liveness_index_for(capacity, col, row);
-                            new_liveness.set(idx2, true);
+                            new_liveness.set(idx2.0, true);
                         }
                         // SAFETY: old_index is live, so data at that index is initialized
                         new_data[new_index] =
@@ -332,7 +338,7 @@ where
         // Collect indices to clear from row row_idx
         let row_start = Self::liveness_index_for(size, row_idx, 0);
         let row_end = row_start + size;
-        let row_entries: Vec<_> = self.liveness[row_start..row_end].iter_ones().collect();
+        let row_entries: Vec<_> = self.liveness[row_start.0..row_end.0].iter_ones().collect();
 
         // Clear all entries in row row_idx
         for col_offset in row_entries {
@@ -342,15 +348,15 @@ where
             } else {
                 (col_offset, row_idx)
             };
-            if let Some(data_index) = self.indexing.index(i1, i2) {
+            if let Some(data_index) = self.indexing.data_index(i1, i2) {
                 unsafe {
                     self.data[data_index].assume_init_drop();
                 }
             }
             // Clear both directions in liveness
-            self.liveness.set(row_start + col_offset, false);
+            self.liveness.set((row_start + col_offset).0, false);
             let reflected_index = Self::liveness_index_for(size, col_offset, row_idx);
-            self.liveness.set(reflected_index, false);
+            self.liveness.set(reflected_index.0, false);
             self.entry_count -= 1;
         }
 
@@ -358,7 +364,7 @@ where
         if col_idx != row_idx {
             let col_row_start = Self::liveness_index_for(size, col_idx, 0);
             let col_row_end = col_row_start + size;
-            let col_entries: Vec<_> = self.liveness[col_row_start..col_row_end]
+            let col_entries: Vec<_> = self.liveness[col_row_start.0..col_row_end.0]
                 .iter_ones()
                 .collect();
 
@@ -369,15 +375,15 @@ where
                 } else {
                     (col_offset, col_idx)
                 };
-                if let Some(data_index) = self.indexing.index(i1, i2) {
+                if let Some(data_index) = self.indexing.data_index(i1, i2) {
                     unsafe {
                         self.data[data_index].assume_init_drop();
                     }
                 }
                 // Clear both directions in liveness
-                self.liveness.set(col_row_start + col_offset, false);
+                self.liveness.set((col_row_start + col_offset).0, false);
                 let reflected_index = Self::liveness_index_for(size, col_offset, col_idx);
-                self.liveness.set(reflected_index, false);
+                self.liveness.set(reflected_index.0, false);
                 self.entry_count -= 1;
             }
         }

@@ -1,11 +1,13 @@
 use std::{fmt::Debug, hash::Hash};
 
 use crate::{
-    AsymmetricBitvecAdjacencyMatrix, AsymmetricHashAdjacencyMatrix, DirectednessTrait,
-    SymmetricBitvecAdjacencyMatrix, SymmetricHashAdjacencyMatrix, edge_ends::EdgeEnds,
+    AsymmetricHashAdjacencyMatrix, DirectednessTrait, SymmetricBitvecAdjacencyMatrix,
+    SymmetricHashAdjacencyMatrix, edge_ends::EdgeEnds,
 };
 #[cfg(feature = "bitvec")]
-use crate::{Directed, Undirected};
+use crate::{
+    Directed, Undirected, adjacency_matrix::bitvec::asymmetric::AsymmetricBitvecAdjacencyMatrix,
+};
 
 /// Bitvec-based adjacency matrix implementations.
 pub mod bitvec;
