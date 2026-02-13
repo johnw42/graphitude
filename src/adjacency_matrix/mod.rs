@@ -6,7 +6,7 @@ use crate::{
 };
 #[cfg(feature = "bitvec")]
 use crate::{
-    Directed, Undirected, adjacency_matrix::bitvec::asymmetric::AsymmetricBitvecAdjacencyMatrix,
+    Directed, Undirected, adjacency_matrix::bitvec::maxtrix::AsymmetricBitvecAdjacencyMatrix,
 };
 
 /// Bitvec-based adjacency matrix implementations.

@@ -1,3 +1,2 @@
-pub mod asymmetric;
-pub mod symmetric;
-mod symmetric_maxtrix_indexing;
+mod indexing;
+pub mod maxtrix;

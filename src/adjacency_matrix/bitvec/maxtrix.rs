@@ -6,36 +6,47 @@ use crate::{
     Directed, DirectednessTrait, Undirected,
     adjacency_matrix::{
         AdjacencyMatrix, BitvecStorage,
-        bitvec::symmetric_maxtrix_indexing::{DataIndex, LivenessIndex, MatrixIndexing},
+        bitvec::indexing::{DataIndex, LivenessIndex, MatrixIndexing},
     },
 };
 
-/// Bitvec-based asymmetric adjacency matrix for directed graphs.
+pub type AsymmetricBitvecAdjacencyMatrix<I, V> = BitvecAdjacencyMatrix<I, V, Directed>;
+pub type SymmetricBitvecAdjacencyMatrix<I, V> = BitvecAdjacencyMatrix<I, V, Undirected>;
+
+/// Bitvec-based adjacency matrix.
 ///
-/// Uses a dense square matrix representation with a bitvec to track which entries exist.
-/// Automatically resizes to the next power of two for efficient indexing.
+/// Uses a bitvec to track which entries exist.  For directed graphs, the data
+/// stored in a square matrix of size N is indexed by `row * N + col`.  For
+/// undirected graphs, only the upper triangle of the matrix is stored, and
+/// entries are indexed by `row * (row + 1) / 2 + col` for `col <= row`.
+///
 /// Requires indices that can be converted to/from usize.
 pub struct BitvecAdjacencyMatrix<I, V, D>
 where
     I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord + Debug,
     D: DirectednessTrait + Default,
 {
-    /// Linear storage of adjacency data, indexed by `row * size + col`.
+    /// Linear storage of adjacency data.
     data: Vec<MaybeUninit<V>>,
-    /// Bitvec tracking which entries are live (true) or dead (false).  This contains two halves:
-    /// - The first half corresponds to the regular liveness of entries at `row * size + col`.
-    /// - The second half corresponds to the reflected liveness of entries at `col * size + row`.
+    /// Bitvec tracking which entries are live (true) or dead (false).  For
+    /// directed graphs, this contains two halves:
+    /// - The first half corresponds to the regular liveness of entries at `row
+    ///   * size + col`.
+    /// - The second half corresponds to the reflected liveness of entries at
+    ///   `col * size + row`.
     ///
-    /// This allows efficient iteration over both rows and columns without needing to transpose the matrix.
+    /// For undirected graphs, the regular liveness is symmetric and the
+    /// reflected liveness is implicitly the same as the regular liveness.
+    ///
+    /// This allows efficient iteration over both rows and columns without
+    /// needing to transpose the matrix.
     liveness: BitVec,
+    /// Indexing helper to convert between (row, col) and linear indices into the data and liveness vectors.
     indexing: MatrixIndexing<D>,
     /// The number of live entries currently in the matrix.
     entry_count: usize,
     phantom: PhantomData<I>,
 }
-
-pub type AsymmetricBitvecAdjacencyMatrix<I, V> = BitvecAdjacencyMatrix<I, V, Directed>;
-pub type SymmetricBitvecAdjacencyMatrix<I, V> = BitvecAdjacencyMatrix<I, V, Undirected>;
 
 impl<I, V, D> BitvecAdjacencyMatrix<I, V, D>
 where
@@ -98,12 +109,6 @@ where
         &mut self.liveness[range]
     }
 
-    fn get_data_read(&self, index: LivenessIndex) -> Option<V> {
-        self.liveness_bits()[index].then(|| {
-            self.unchecked_get_data_read(self.indexing.liveness_index_to_data_index(index))
-        })
-    }
-
     fn get_data_ref(&self, index: LivenessIndex) -> Option<&V> {
         self.liveness_bits()[index]
             .then(|| self.unchecked_get_data_ref(self.indexing.liveness_index_to_data_index(index)))
@@ -133,17 +138,11 @@ where
         // Drop all initialized values (only iterate over the liveness bits)
         let size = self.indexing.liveness_storage_size();
         for index in self.liveness[0..size].iter_ones().map(LivenessIndex) {
-            let data_index = self.indexing.liveness_index_to_data_index(index);
-            if D::default().is_directed() {
+            let (row, col) = self.indexing.liveness_coordinates(index);
+            let data_index = self.indexing.unchecked_data_index(row, col);
+            if D::default().is_directed() || row <= col {
                 unsafe {
                     self.data[data_index].assume_init_drop();
-                }
-            } else {
-                let (row, col) = self.indexing.liveness_coordinates(index);
-                if row <= col {
-                    unsafe {
-                        self.data[data_index].assume_init_drop();
-                    }
                 }
             }
         }
@@ -176,7 +175,7 @@ where
         let col = col.into();
         self.reserve((row.max(col) + 1).saturating_sub(self.size()));
 
-        let liveness_index = self.indexing.liveness_index(row, col).unwrap(); // TODO
+        let liveness_index = self.indexing.unchecked_liveness_index(row, col);
         let data_index = self.indexing.liveness_index_to_data_index(liveness_index);
         let is_live = self.liveness_bits()[liveness_index];
 
@@ -185,7 +184,7 @@ where
         } else {
             self.liveness_bits_mut().set(liveness_index.0, true);
 
-            let reflected_index = self.indexing.liveness_index(col, row).unwrap(); // TODO
+            let reflected_index = self.indexing.unchecked_liveness_index(col, row);
             self.reflected_liveness_bits_mut()
                 .set(reflected_index.0, true);
 
@@ -208,11 +207,11 @@ where
         let row = row.into();
         let col = col.into();
         let data_index = self.indexing.data_index(row, col)?;
-        let liveness_index = self.indexing.liveness_index(row, col).unwrap();
+        let liveness_index = self.indexing.unchecked_liveness_index(row, col);
         let was_live = self.liveness_bits()[liveness_index];
         self.liveness_bits_mut().set(liveness_index.0, false);
 
-        let reflected_index = self.indexing.liveness_index(col, row).unwrap();
+        let reflected_index = self.indexing.unchecked_liveness_index(col, row);
         self.reflected_liveness_bits_mut()
             .set(reflected_index.0, false);
 
@@ -342,7 +341,6 @@ where
             unsafe {
                 self.data[self.indexing.unchecked_data_index(row, col_offset)].assume_init_drop();
             }
-            // Update reflected_liveness: reflected_liveness[col*size + row] corresponds to liveness[row*size + col]
             let reflected_index = col_offset * size + row;
             self.reflected_liveness_bits_mut()
                 .set(reflected_index, false);
@@ -357,12 +355,12 @@ where
             .iter_ones()
             .collect();
         for row_offset in row_offsets {
-            let data_index = self.indexing.unchecked_liveness_index(row_offset, col);
+            let liveness_index = self.indexing.unchecked_liveness_index(row_offset, col);
             unsafe {
-                self.data[self.indexing.liveness_index_to_data_index(data_index)]
+                self.data[self.indexing.liveness_index_to_data_index(liveness_index)]
                     .assume_init_drop();
             }
-            self.liveness_bits_mut().set(data_index.0, false);
+            self.liveness_bits_mut().set(liveness_index.0, false);
             self.entry_count -= 1;
         }
         self.reflected_liveness_bits_mut()[col_start.0..col_end.0].fill(false);
@@ -420,9 +418,8 @@ where
                             let idx2 = new_self.indexing.unchecked_liveness_index(col, row);
                             new_self.liveness.set(idx2.0, true);
                         }
-                        // SAFETY: old_index is live, so data at that index is initialized
                         new_self.data[new_index] =
-                            MaybeUninit::new(unsafe { self.data[old_index].assume_init_read() });
+                            MaybeUninit::new(self.unchecked_get_data_read(old_index));
                     }
                 }
             }
@@ -1225,28 +1222,29 @@ mod tests {
         fn test_clear_row_and_column_drops_values() {
             let counter = DropCounter::new();
 
-            {
-                let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+            let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
 
-                // Add edges involving node 1
-                matrix.insert(0, 1, counter.new_value());
-                matrix.insert(1, 2, counter.new_value());
-                matrix.insert(1, 3, counter.new_value());
+            // Add edges involving node 1
+            matrix.insert(0, 1, counter.new_value());
+            matrix.insert(1, 2, counter.new_value());
+            matrix.insert(1, 3, counter.new_value());
 
-                // Add other edges
-                matrix.insert(0, 2, counter.new_value());
-                matrix.insert(2, 3, counter.new_value());
+            // Add other edges
+            matrix.insert(0, 2, counter.new_value());
+            matrix.insert(2, 3, counter.new_value());
 
-                assert_eq!(counter.drop_count(), 0);
-                assert_eq!(matrix.len(), 5);
+            assert_eq!(counter.drop_count(), 0);
+            assert_eq!(matrix.len(), 5);
 
-                // Clear row 1 and column 1
-                matrix.clear_row_and_column(1, 1);
+            // Clear row 1 and column 1
+            matrix.clear_row_and_column(1, 1);
 
-                // Should have dropped 3 values (edges involving node 1)
-                assert_eq!(counter.drop_count(), 3);
-                assert_eq!(matrix.len(), 2);
-            } // Drop remaining 2 values
+            // Should have dropped 3 values (edges involving node 1)
+            assert_eq!(counter.drop_count(), 3);
+            assert_eq!(matrix.len(), 2);
+
+            // Drop remaining 2 values
+            drop(matrix);
 
             assert_eq!(counter.drop_count(), 5);
         }

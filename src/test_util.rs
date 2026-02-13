@@ -18,14 +18,22 @@ impl DropCounter {
     }
 
     pub fn new_value(&self) -> DroppableValue<'_> {
-        DroppableValue(self)
+        DroppableValue {
+            counter: self,
+            dropped: false,
+        }
     }
 }
 
-pub struct DroppableValue<'a>(&'a DropCounter);
+pub struct DroppableValue<'a> {
+    counter: &'a DropCounter,
+    dropped: bool,
+}
 
 impl<'a> Drop for DroppableValue<'a> {
     fn drop(&mut self) {
-        self.0.count.set(self.0.count.get() + 1);
+        assert!(!self.dropped, "DroppableValue was dropped more than once");
+        self.dropped = true;
+        self.counter.count.set(self.counter.count.get() + 1);
     }
 }
