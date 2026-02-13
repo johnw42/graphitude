@@ -747,8 +747,8 @@ pub trait GraphMut: Graph {
     #[cfg(feature = "dot")]
     fn from_dot_string<B>(data: &str, builder: &mut B) -> Result<Self, parser::ParseError<B>>
     where
-        Self: Default + Sized,
-        B: parser::GraphBuilder<NodeData = Self::NodeData, EdgeData = Self::EdgeData>,
+        Self: Sized,
+        B: parser::GraphBuilder<Graph = Self>,
     {
         parser::parse_dot_into_graph(data, builder)
     }

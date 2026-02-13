@@ -8,7 +8,17 @@ use crate::edge_ends::EdgeEnds;
 /// provide compile-time specialization of graph behavior, as well as by the
 /// [`Directedness`] enum for dynamic directedness.
 pub trait DirectednessTrait:
-    Copy + Clone + Debug + PartialEq + Eq + Hash + PartialOrd + Ord
+    Copy
+    + Clone
+    + Debug
+    + PartialEq
+    + Eq
+    + Hash
+    + PartialOrd
+    + Ord
+    + TryFrom<Directed>
+    + TryFrom<Undirected>
+    + TryFrom<Directedness>
 {
     fn is_directed(&self) -> bool;
 
@@ -33,12 +43,50 @@ impl DirectednessTrait for Directed {
     }
 }
 
+impl TryFrom<Directed> for Undirected {
+    type Error = ();
+
+    fn try_from(_: Directed) -> Result<Self, Self::Error> {
+        Err(())
+    }
+}
+
+impl TryFrom<Directedness> for Directed {
+    type Error = ();
+
+    fn try_from(value: Directedness) -> Result<Self, Self::Error> {
+        match value {
+            Directedness::Directed => Ok(Directed),
+            Directedness::Undirected => Err(()),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Default, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Undirected;
 
 impl DirectednessTrait for Undirected {
     fn is_directed(&self) -> bool {
         false
+    }
+}
+
+impl TryFrom<Undirected> for Directed {
+    type Error = ();
+
+    fn try_from(_: Undirected) -> Result<Self, Self::Error> {
+        Err(())
+    }
+}
+
+impl TryFrom<Directedness> for Undirected {
+    type Error = ();
+
+    fn try_from(value: Directedness) -> Result<Self, Self::Error> {
+        match value {
+            Directedness::Directed => Err(()),
+            Directedness::Undirected => Ok(Undirected),
+        }
     }
 }
 
@@ -51,5 +99,17 @@ pub enum Directedness {
 impl DirectednessTrait for Directedness {
     fn is_directed(&self) -> bool {
         matches!(self, Directedness::Directed)
+    }
+}
+
+impl From<Directed> for Directedness {
+    fn from(_: Directed) -> Self {
+        Directedness::Directed
+    }
+}
+
+impl From<Undirected> for Directedness {
+    fn from(_: Undirected) -> Self {
+        Directedness::Undirected
     }
 }

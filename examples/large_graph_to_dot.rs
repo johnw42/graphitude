@@ -14,12 +14,10 @@ mod inner {
     use std::io::{self, Write};
 
     use clap::{Parser, ValueEnum};
+    use graphitude::directedness::Directedness;
+    use graphitude::edge_multiplicity::EdgeMultiplicity;
     use graphitude::{
-        adjacency_graph::AdjacencyGraph,
-        adjacency_matrix::{AdjacencyMatrixSelector, HashStorage},
-        dot::renderer::DotGenerator,
-        linked_graph::LinkedGraph,
-        prelude::*,
+        dot::renderer::DotGenerator, linked_graph::LinkedGraph, prelude::*,
         tests::generate_large_graph_with,
     };
 
@@ -85,9 +83,9 @@ mod inner {
         #[arg(long, value_enum, default_value = "directed")]
         graph_kind: GraphKind,
 
-        /// Graph implementation (linked or adjacency)
-        #[arg(long, value_enum, default_value = "linked")]
-        graph_impl: GraphImpl,
+        /// Graph strictness
+        #[arg(long, value_enum, default_value = "false")]
+        strict: bool,
 
         /// Node data type
         #[arg(long, value_enum, default_value = "i32")]
@@ -172,33 +170,23 @@ mod inner {
         }
     }
 
-    fn build_linked_graph<D>(
+    fn build_linked_graph(
         node_type: DataType,
         edge_type: DataType,
         edge_prefix: &str,
-    ) -> LinkedGraph<Data, Data, D>
-    where
-        D: DirectednessTrait + Default,
-    {
-        let mut graph = LinkedGraph::default();
-        generate_large_graph_with(
-            &mut graph,
-            |i| node_data_for(i, node_type),
-            |i| edge_data_for(i, edge_type, edge_prefix),
-        );
-        graph
-    }
-
-    fn build_adjacency_graph<D>(
-        node_type: DataType,
-        edge_type: DataType,
-        edge_prefix: &str,
-    ) -> AdjacencyGraph<Data, Data, D, HashStorage>
-    where
-        D: DirectednessTrait + Default,
-        (D, HashStorage): AdjacencyMatrixSelector<usize, Data>,
-    {
-        let mut graph = AdjacencyGraph::default();
+        graph_kind: GraphKind,
+        strict: bool,
+    ) -> LinkedGraph<Data, Data, Directedness, EdgeMultiplicity> {
+        let directedness = match graph_kind {
+            GraphKind::Directed => Directedness::Directed,
+            GraphKind::Undirected => Directedness::Undirected,
+        };
+        let edge_multiplicity = if strict {
+            EdgeMultiplicity::SingleEdge
+        } else {
+            EdgeMultiplicity::MultipleEdges
+        };
+        let mut graph = LinkedGraph::new(directedness, edge_multiplicity);
         generate_large_graph_with(
             &mut graph,
             |i| node_data_for(i, node_type),
@@ -222,12 +210,6 @@ mod inner {
                 let mut file = File::create(path)?;
                 write_graph_dot(graph, &args.graph_name, &mut file)?;
                 eprintln!("DOT file written successfully!");
-                eprintln!("  Graph name: {}", args.graph_name);
-                eprintln!(
-                    "\nYou can visualize it with: dot -Tpng {} -o {}.png",
-                    path,
-                    path.trim_end_matches(".dot")
-                );
             }
             None => {
                 eprintln!("\nWriting to stdout...");
@@ -236,10 +218,11 @@ mod inner {
                 write_graph_dot(graph, &args.graph_name, &mut handle)?;
                 handle.flush()?;
                 eprintln!("\nDOT output written to stdout");
-                eprintln!("  Graph name: {}", args.graph_name);
-                eprintln!("\nThe graph is too large to visualize with dot; try Graphi instead.");
             }
         }
+
+        eprintln!("  Graph name: {}", args.graph_name);
+        eprintln!("\nThe graph is too large to visualize with dot; try Graphi instead.");
 
         Ok(())
     }
@@ -249,41 +232,14 @@ mod inner {
 
         eprintln!("Generating large graph...");
 
-        // Create graph based on directedness and implementation type
-        match (args.graph_kind, args.graph_impl) {
-            (GraphKind::Directed, GraphImpl::Linked) => {
-                let graph = build_linked_graph::<Directed>(
-                    args.node_type,
-                    args.edge_type,
-                    &args.edge_prefix,
-                );
-                write_graph_output(&graph, &args)?;
-            }
-            (GraphKind::Undirected, GraphImpl::Linked) => {
-                let graph = build_linked_graph::<Undirected>(
-                    args.node_type,
-                    args.edge_type,
-                    &args.edge_prefix,
-                );
-                write_graph_output(&graph, &args)?;
-            }
-            (GraphKind::Directed, GraphImpl::Adjacency) => {
-                let graph = build_adjacency_graph::<Directed>(
-                    args.node_type,
-                    args.edge_type,
-                    &args.edge_prefix,
-                );
-                write_graph_output(&graph, &args)?;
-            }
-            (GraphKind::Undirected, GraphImpl::Adjacency) => {
-                let graph = build_adjacency_graph::<Undirected>(
-                    args.node_type,
-                    args.edge_type,
-                    &args.edge_prefix,
-                );
-                write_graph_output(&graph, &args)?;
-            }
-        }
+        let graph = build_linked_graph(
+            args.node_type,
+            args.edge_type,
+            &args.edge_prefix,
+            args.graph_kind,
+            args.strict,
+        );
+        write_graph_output(&graph, &args)?;
 
         Ok(())
     }

@@ -1,7 +1,8 @@
 use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::{
-    debug::format_debug, edge_ends::EdgeEnds, graph::AddEdgeResult, graph_id::GraphId, prelude::*,
+    debug::format_debug, directedness::Directedness, edge_ends::EdgeEnds,
+    edge_multiplicity::EdgeMultiplicity, graph::AddEdgeResult, graph_id::GraphId, prelude::*,
     util::OtherValue,
 };
 
@@ -34,7 +35,7 @@ struct Edge<N, E, D: DirectednessTrait> {
 /// * `N` - The type of data stored in nodes
 /// * `E` - The type of data stored in edges
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
-pub struct LinkedGraph<N, E, D = Directed, M = MultipleEdges>
+pub struct LinkedGraph<N, E, D = Directedness, M = EdgeMultiplicity>
 where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,

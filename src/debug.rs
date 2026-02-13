@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_format_debug() {
-        let mut graph = LinkedGraph::<&str, i32>::default();
+        let mut graph = LinkedGraph::<&str, i32, Directed, MultipleEdges>::default();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
         graph.add_new_edge(&n1, &n2, 10);

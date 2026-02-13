@@ -12,11 +12,10 @@ mod inner {
     use std::process;
 
     use clap::Parser;
+    use graphitude::directedness::Directedness;
+    use graphitude::edge_multiplicity::EdgeMultiplicity;
     use graphitude::{
-        dot::{
-            attr::Attr,
-            parser::{GraphBuilder, parse_dot_into_graph},
-        },
+        dot::{attr::Attr, parser::GraphBuilder},
         linked_graph::LinkedGraph,
         prelude::*,
     };
@@ -41,25 +40,10 @@ mod inner {
             Some(path) => read_file_or_exit(path),
         };
 
-        let directed = match detect_directedness(&input) {
-            Some(value) => value,
-            None => {
-                eprintln!("Could not determine graph type. Expected 'digraph' or 'graph' keyword.");
-                process::exit(2);
-            }
-        };
-
         let mut builder = AttributeBuilder;
 
-        if directed {
-            let graph: LinkedGraph<NodeInfo, EdgeInfo, Directed> =
-                parse_or_exit(&input, &mut builder, "directed");
-            print_summary_with_attrs("directed (digraph)", &graph, args.sample_nodes);
-        } else {
-            let graph: LinkedGraph<NodeInfo, EdgeInfo, Undirected> =
-                parse_or_exit(&input, &mut builder, "undirected");
-            print_summary_with_attrs("undirected (graph)", &graph, args.sample_nodes);
-        }
+        let graph = parse_or_exit(&input, &mut builder);
+        print_summary_with_attrs(&graph, args.sample_nodes);
     }
 
     fn read_stdin_or_exit() -> String {
@@ -81,40 +65,32 @@ mod inner {
         }
     }
 
-    fn detect_directedness(data: &str) -> Option<bool> {
-        for raw in data.split_whitespace() {
-            let token = raw.trim_matches(|c: char| !c.is_ascii_alphanumeric());
-            if token.eq_ignore_ascii_case("digraph") {
-                return Some(true);
-            }
-            if token.eq_ignore_ascii_case("graph") {
-                return Some(false);
-            }
-        }
-        None
-    }
-
-    fn parse_or_exit<G, B>(data: &str, builder: &mut B, label: &str) -> G
+    fn parse_or_exit<B>(data: &str, builder: &mut B) -> LinkedGraph<NodeInfo, EdgeInfo>
     where
-        G: GraphMut + Default,
-        B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
+        B: GraphBuilder<Graph = LinkedGraph<NodeInfo, EdgeInfo>>,
     {
-        match parse_dot_into_graph(data, builder) {
+        match LinkedGraph::from_dot_string(data, builder) {
             Ok(graph) => graph,
             Err(err) => {
-                eprintln!("Invalid {label} DOT input: {err}");
+                eprintln!("Invalid DOT input: {err}");
                 process::exit(1);
             }
         }
     }
 
     fn print_summary_with_attrs<G: Graph<NodeData = NodeInfo, EdgeData = EdgeInfo>>(
-        kind: &str,
         graph: &G,
         sample_nodes: usize,
     ) {
         println!("DOT file parsed successfully.");
-        println!("Graph kind: {kind}");
+        println!(
+            "Graph kind: {}",
+            if graph.is_directed() {
+                "directed (digraph)"
+            } else {
+                "undirected (graph)"
+            }
+        );
         println!("Nodes: {}", graph.num_nodes());
         println!("Edges: {}", graph.num_edges());
 
@@ -198,15 +174,19 @@ mod inner {
     struct AttributeBuilder;
 
     impl GraphBuilder for AttributeBuilder {
-        type NodeData = NodeInfo;
-        type EdgeData = EdgeInfo;
+        type Graph = LinkedGraph<NodeInfo, EdgeInfo>;
         type Error = std::convert::Infallible;
 
-        fn make_node_data(
+        fn make_empty_graph(
             &mut self,
-            id: &str,
-            attrs: &[Attr],
-        ) -> Result<Self::NodeData, Self::Error> {
+            _name: Option<&str>,
+            directedness: Directedness,
+            edge_multiplicity: EdgeMultiplicity,
+        ) -> Result<Self::Graph, Self::Error> {
+            Ok(LinkedGraph::new(directedness, edge_multiplicity))
+        }
+
+        fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<NodeInfo, Self::Error> {
             let node_attrs: Vec<(String, String)> = attrs
                 .iter()
                 .map(|attr| (attr.name().to_string(), attr.value()))
@@ -218,7 +198,7 @@ mod inner {
             })
         }
 
-        fn make_edge_data(&mut self, attrs: &[Attr]) -> Result<Self::EdgeData, Self::Error> {
+        fn make_edge_data(&mut self, attrs: &[Attr]) -> Result<EdgeInfo, Self::Error> {
             let edge_attrs: Vec<(String, String)> = attrs
                 .iter()
                 .map(|attr| (attr.name().to_string(), attr.value()))
@@ -227,10 +207,7 @@ mod inner {
             Ok(EdgeInfo { attrs: edge_attrs })
         }
 
-        fn make_implicit_node_data(
-            &mut self,
-            node_id: &str,
-        ) -> Result<Self::NodeData, Self::Error> {
+        fn make_implicit_node_data(&mut self, node_id: &str) -> Result<NodeInfo, Self::Error> {
             Ok(NodeInfo {
                 id: node_id.to_string(),
                 attrs: Vec::new(),

@@ -7,7 +7,9 @@ use dot_parser::ast::{
     EdgeStmt, Graph as DotGraph, ID, NodeID, NodeStmt, Stmt, StmtList, Subgraph, either::Either,
 };
 
-use crate::{dot::attr::Attr, prelude::*};
+use crate::{
+    directedness::Directedness, dot::attr::Attr, edge_multiplicity::EdgeMultiplicity, prelude::*,
+};
 
 /// Recursively extract all node IDs from a node/subgraph specification.
 /// Returns a vector of node ID strings.
@@ -58,6 +60,12 @@ pub enum ParseError<B: GraphBuilder> {
     /// A parallel edge was found in the DOT data, and the graph does not support parallel edges.
     #[error("Duplicate edge found between nodes: {0} and {1}")]
     DuplicateEdge(String, String),
+    /// The DOT data specifies a directedness that is not supported by the graph builder.
+    #[error("Unsupported directedness: {0:?}")]
+    UnsupportedDirectedness(Directedness),
+    /// The DOT data specifies an edge multiplicity that is not supported by the graph builder.
+    #[error("Unsupported edge multiplicity: {0:?}")]
+    UnsupportedEdgeMultiplicity(EdgeMultiplicity),
     /// An error occurred in the graph builder.
     #[error("Builder error: {0}")]
     Builder(#[source] B::Error),
@@ -68,18 +76,35 @@ pub enum ParseError<B: GraphBuilder> {
 /// Implementors of this trait provide the logic for converting DOT format
 /// node and edge statements into the graph's node and edge data types.
 pub trait GraphBuilder {
-    type NodeData;
-    type EdgeData;
+    type Graph: GraphMut;
     type Error: Error;
 
+    /// Create an empty graph with the given name, directedness, and edge multiplicity.
+    fn make_empty_graph(
+        &mut self,
+        name: Option<&str>,
+        directedness: <Self::Graph as Graph>::Directedness,
+        edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
+    ) -> Result<Self::Graph, Self::Error>;
+
     /// Create node data from a node with its attributes.
-    fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<Self::NodeData, Self::Error>;
+    fn make_node_data(
+        &mut self,
+        id: &str,
+        attrs: &[Attr],
+    ) -> Result<<Self::Graph as Graph>::NodeData, Self::Error>;
 
     /// Create edge data from a DOT EdgeStmt.
-    fn make_edge_data(&mut self, attrs: &[Attr]) -> Result<Self::EdgeData, Self::Error>;
+    fn make_edge_data(
+        &mut self,
+        attrs: &[Attr],
+    ) -> Result<<Self::Graph as Graph>::EdgeData, Self::Error>;
 
     /// Create node data for an implicit node (referenced in an edge but not explicitly declared).
-    fn make_implicit_node_data(&mut self, node_id: &str) -> Result<Self::NodeData, Self::Error> {
+    fn make_implicit_node_data(
+        &mut self,
+        node_id: &str,
+    ) -> Result<<Self::Graph as Graph>::NodeData, Self::Error> {
         let _ = node_id;
         unimplemented!("make_implicit_node_data must be implemented to handle implicit nodes")
     }
@@ -138,15 +163,35 @@ fn parse_edge_attrs(edge_stmt: &EdgeStmt<(ID<'_>, ID<'_>)>) -> Result<Vec<Attr>,
 ///
 /// Returns `DotParseError::ParseError` if the DOT data cannot be parsed.
 /// Returns `DotParseError::NodeNotFound` if an edge references a non-existent node.
-pub fn parse_dot_into_graph<G, B>(data: &str, builder: &mut B) -> Result<G, ParseError<B>>
+pub(crate) fn parse_dot_into_graph<G, B>(data: &str, builder: &mut B) -> Result<G, ParseError<B>>
 where
-    G: Graph + GraphMut + Default,
-    B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
+    G: GraphMut,
+    B: GraphBuilder<Graph = G>,
 {
     let dot_ast: DotGraph<_> = DotGraph::try_from(data)
         .map_err(|e| ParseError::ParseError(format!("Failed to parse DOT data: {:?}", e)))?;
 
-    let mut graph = G::default();
+    let directedness = if dot_ast.is_digraph {
+        Directedness::Directed
+    } else {
+        Directedness::Undirected
+    };
+    let edge_multiplicity = if dot_ast.strict {
+        EdgeMultiplicity::SingleEdge
+    } else {
+        EdgeMultiplicity::MultipleEdges
+    };
+    let mut graph = builder
+        .make_empty_graph(
+            dot_ast.name.as_deref(),
+            directedness
+                .try_into()
+                .map_err(|_| ParseError::UnsupportedDirectedness(directedness))?,
+            edge_multiplicity
+                .try_into()
+                .map_err(|_| ParseError::UnsupportedEdgeMultiplicity(edge_multiplicity))?,
+        )
+        .map_err(ParseError::Builder)?;
     let mut node_map: HashMap<String, G::NodeId> = HashMap::new();
 
     // First pass: create all explicit nodes (including those in subgraphs)
@@ -158,7 +203,7 @@ where
     ) -> Result<(), ParseError<B>>
     where
         G: Graph + GraphMut,
-        B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
+        B: GraphBuilder<Graph = G>,
     {
         for stmt in stmts {
             match stmt {
@@ -200,7 +245,7 @@ where
     ) -> Result<(), ParseError<B>>
     where
         G: Graph + GraphMut,
-        B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
+        B: GraphBuilder<Graph = G>,
     {
         for stmt in stmts {
             match stmt {
@@ -255,7 +300,7 @@ where
     ) -> Result<(), ParseError<B>>
     where
         G: Graph + GraphMut,
-        B: GraphBuilder<NodeData = G::NodeData, EdgeData = G::EdgeData>,
+        B: GraphBuilder<Graph = G>,
     {
         for stmt in stmts {
             match stmt {
@@ -331,7 +376,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::directedness::{Directed, Undirected};
     use crate::linked_graph::LinkedGraph;
 
     // Simple builder that creates string node data from node IDs and empty edge data
@@ -339,15 +383,19 @@ mod tests {
     struct SimpleBuilder;
 
     impl GraphBuilder for SimpleBuilder {
-        type NodeData = String;
-        type EdgeData = ();
+        type Graph = LinkedGraph<String, ()>;
         type Error = std::convert::Infallible;
 
-        fn make_node_data(
+        fn make_empty_graph(
             &mut self,
-            id: &str,
-            attrs: &[Attr],
-        ) -> Result<Self::NodeData, Self::Error> {
+            _name: Option<&str>,
+            directedness: <Self::Graph as Graph>::Directedness,
+            edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
+        ) -> Result<Self::Graph, Self::Error> {
+            Ok(LinkedGraph::new(directedness, edge_multiplicity))
+        }
+
+        fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<String, Self::Error> {
             if attrs.is_empty() {
                 Ok(id.to_string())
             } else {
@@ -360,14 +408,11 @@ mod tests {
             }
         }
 
-        fn make_implicit_node_data(
-            &mut self,
-            node_id: &str,
-        ) -> Result<Self::NodeData, Self::Error> {
+        fn make_implicit_node_data(&mut self, node_id: &str) -> Result<String, Self::Error> {
             Ok(node_id.to_string())
         }
 
-        fn make_edge_data(&mut self, _attrs: &[Attr]) -> Result<Self::EdgeData, Self::Error> {
+        fn make_edge_data(&mut self, _attrs: &[Attr]) -> Result<(), Self::Error> {
             Ok(())
         }
     }
@@ -383,8 +428,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
@@ -409,8 +453,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Undirected> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
@@ -428,8 +471,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 1);
@@ -453,8 +495,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 2);
@@ -471,8 +512,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 3);
@@ -490,8 +530,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
@@ -520,8 +559,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 0);
         assert_eq!(graph.num_edges(), 0);
@@ -532,8 +570,7 @@ mod tests {
         let dot = "this is not valid DOT format";
 
         let mut builder = SimpleBuilder;
-        let result: Result<LinkedGraph<String, (), Directed>, _> =
-            parse_dot_into_graph(dot, &mut builder);
+        let result: Result<LinkedGraph<String, ()>, _> = parse_dot_into_graph(dot, &mut builder);
 
         assert!(matches!(result, Err(ParseError::ParseError(_))));
     }
@@ -547,8 +584,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 1);
         assert_eq!(graph.num_edges(), 1);
@@ -570,8 +606,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 4);
         assert_eq!(graph.num_edges(), 5);
@@ -591,8 +626,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Undirected> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 3);
@@ -603,26 +637,27 @@ mod tests {
     struct EdgeWeightBuilder;
 
     impl GraphBuilder for EdgeWeightBuilder {
-        type NodeData = String;
-        type EdgeData = i32;
+        type Graph = LinkedGraph<String, i32>;
         type Error = std::convert::Infallible;
 
-        fn make_node_data(
+        fn make_empty_graph(
             &mut self,
-            id: &str,
-            _attrs: &[Attr],
-        ) -> Result<Self::NodeData, Self::Error> {
+            _name: Option<&str>,
+            directedness: <Self::Graph as Graph>::Directedness,
+            edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
+        ) -> Result<Self::Graph, Self::Error> {
+            Ok(LinkedGraph::new(directedness, edge_multiplicity))
+        }
+
+        fn make_node_data(&mut self, id: &str, _attrs: &[Attr]) -> Result<String, Self::Error> {
             Ok(id.to_string())
         }
 
-        fn make_implicit_node_data(
-            &mut self,
-            node_id: &str,
-        ) -> Result<Self::NodeData, Self::Error> {
+        fn make_implicit_node_data(&mut self, node_id: &str) -> Result<String, Self::Error> {
             Ok(node_id.to_string())
         }
 
-        fn make_edge_data(&mut self, _attrs: &[Attr]) -> Result<Self::EdgeData, Self::Error> {
+        fn make_edge_data(&mut self, _attrs: &[Attr]) -> Result<i32, Self::Error> {
             // For simplicity, just return a default weight
             // In a real implementation, you'd parse the attributes
             Ok(1)
@@ -639,8 +674,7 @@ mod tests {
         "#;
 
         let mut builder = EdgeWeightBuilder;
-        let graph: LinkedGraph<String, i32, Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, i32> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 2);
@@ -665,8 +699,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 2);
@@ -690,8 +723,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 2);
@@ -707,8 +739,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 4);
         assert_eq!(graph.num_edges(), 4);
@@ -737,8 +768,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 1);
@@ -757,8 +787,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 4);
         // a -> b, a -> c, a -> d
@@ -778,8 +807,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 4);
         // The subgraph extracts nodes from edges: a, b (appears twice), c
@@ -816,8 +844,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 5); // start, end, a, b, c
 
@@ -840,7 +867,7 @@ mod tests {
 
         for dot in invalid_inputs {
             let mut builder = SimpleBuilder;
-            let result: Result<LinkedGraph<String, (), Directed>, _> =
+            let result: Result<LinkedGraph<String, ()>, _> =
                 parse_dot_into_graph(dot, &mut builder);
             assert!(result.is_err(), "Expected error for input: {}", dot);
         }
@@ -857,8 +884,8 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
@@ -886,8 +913,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         // LinkedGraph allows parallel edges
@@ -905,8 +931,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
@@ -940,8 +965,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
@@ -956,8 +980,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 6);
         assert_eq!(graph.num_edges(), 5); // a->b, b->c, c->d, d->e, e->f
@@ -976,8 +999,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let graph: LinkedGraph<String, (), Directed> =
-            parse_dot_into_graph(dot, &mut builder).unwrap();
+        let graph: LinkedGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
 
         // a, b are explicit; c, d, e are implicit
         assert_eq!(graph.num_nodes(), 5);
@@ -1010,8 +1032,7 @@ mod tests {
         "#;
 
         let mut builder = SimpleBuilder;
-        let result: Result<LinkedGraph<String, (), Directed>, _> =
-            parse_dot_into_graph(dot, &mut builder);
+        let result: Result<LinkedGraph<String, ()>, _> = parse_dot_into_graph(dot, &mut builder);
 
         // Depending on the implementation, this might allow parallel edges or return an error
         // If it allows parallel edges, it should have 2 edges; if not, it should return an error

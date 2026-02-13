@@ -131,7 +131,7 @@ pub trait Automap<T> {
 /// Macro to generate common unit tests for `Automap` implementations.
 ///
 /// # Usage
-/// ```ignore
+/// ```
 /// #[cfg(test)]
 /// mod tests {
 ///     use super::*;

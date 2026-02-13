@@ -4,17 +4,6 @@ use std::{fmt::Debug, hash::Hash};
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SingleEdge;
 
-/// Marker type representing multiple edges (multiple edges allowed between same nodes).
-#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct MultipleEdges;
-
-/// Enum representing the edge multiplicity of a graph.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub enum EdgeMultiplicity {
-    SingleEdge,
-    MultipleEdges,
-}
-
 /// Trait defining the edge multiplicity behavior of graphs.
 ///
 /// This trait is implemented by [`SingleEdge`] and [`MultipleEdges`] marker
@@ -22,7 +11,17 @@ pub enum EdgeMultiplicity {
 /// multiplicity. It is also implemented by the [`EdgeMultiplicity`] enum for
 /// runtime configuration.
 pub trait EdgeMultiplicityTrait:
-    Copy + Clone + Debug + PartialEq + Eq + Hash + PartialOrd + Ord
+    Copy
+    + Clone
+    + Debug
+    + PartialEq
+    + Eq
+    + Hash
+    + PartialOrd
+    + Ord
+    + TryFrom<SingleEdge>
+    + TryFrom<MultipleEdges>
+    + TryFrom<EdgeMultiplicity>
 {
     fn allows_parallel_edges(&self) -> bool;
 }
@@ -33,10 +32,59 @@ impl EdgeMultiplicityTrait for SingleEdge {
     }
 }
 
+impl TryFrom<SingleEdge> for MultipleEdges {
+    type Error = ();
+
+    fn try_from(_: SingleEdge) -> Result<Self, Self::Error> {
+        Err(())
+    }
+}
+
+impl TryFrom<EdgeMultiplicity> for SingleEdge {
+    type Error = ();
+
+    fn try_from(value: EdgeMultiplicity) -> Result<Self, Self::Error> {
+        match value {
+            EdgeMultiplicity::SingleEdge => Ok(SingleEdge),
+            EdgeMultiplicity::MultipleEdges => Err(()),
+        }
+    }
+}
+
+/// Marker type representing multiple edges (multiple edges allowed between same nodes).
+#[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MultipleEdges;
+
 impl EdgeMultiplicityTrait for MultipleEdges {
     fn allows_parallel_edges(&self) -> bool {
         true
     }
+}
+
+impl TryFrom<MultipleEdges> for SingleEdge {
+    type Error = ();
+
+    fn try_from(_: MultipleEdges) -> Result<Self, Self::Error> {
+        Err(())
+    }
+}
+
+impl TryFrom<EdgeMultiplicity> for MultipleEdges {
+    type Error = ();
+
+    fn try_from(value: EdgeMultiplicity) -> Result<Self, Self::Error> {
+        match value {
+            EdgeMultiplicity::SingleEdge => Err(()),
+            EdgeMultiplicity::MultipleEdges => Ok(MultipleEdges),
+        }
+    }
+}
+
+/// Enum representing the edge multiplicity of a graph.
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum EdgeMultiplicity {
+    SingleEdge,
+    MultipleEdges,
 }
 
 impl EdgeMultiplicityTrait for EdgeMultiplicity {
@@ -45,5 +93,17 @@ impl EdgeMultiplicityTrait for EdgeMultiplicity {
             EdgeMultiplicity::SingleEdge => false,
             EdgeMultiplicity::MultipleEdges => true,
         }
+    }
+}
+
+impl From<SingleEdge> for EdgeMultiplicity {
+    fn from(_: SingleEdge) -> Self {
+        EdgeMultiplicity::SingleEdge
+    }
+}
+
+impl From<MultipleEdges> for EdgeMultiplicity {
+    fn from(_: MultipleEdges) -> Self {
+        EdgeMultiplicity::MultipleEdges
     }
 }
