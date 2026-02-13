@@ -4,7 +4,7 @@ use bitvec::vec::BitVec;
 
 use super::symmetric_maxtrix_indexing::MatrixIndexing;
 use crate::{
-    Directed,
+    Directed, Undirected,
     adjacency_matrix::{
         AdjacencyMatrix, BitvecStorage,
         bitvec::symmetric_maxtrix_indexing::{DataIndex, LivenessIndex},
@@ -21,7 +21,7 @@ use crate::{
 pub struct SymmetricBitvecAdjacencyMatrix<I, V> {
     data: Vec<MaybeUninit<V>>,
     liveness: BitVec,
-    indexing: MatrixIndexing<Directed>,
+    indexing: MatrixIndexing<Undirected>,
     entry_count: usize,
     index_type: PhantomData<I>,
 }
@@ -31,8 +31,8 @@ where
     I: Into<usize> + From<usize> + Clone + Copy + Eq,
 {
     pub fn with_size(size: usize) -> Self {
-        let capacity = size.next_power_of_two();
-        let indexing = MatrixIndexing::new(capacity, Directed);
+        let capacity = size;
+        let indexing = MatrixIndexing::new(capacity, Undirected);
         let data_storage_size = indexing.data_storage_size();
         let full_storage_size = capacity
             .checked_mul(capacity)
@@ -128,7 +128,7 @@ where
         Self {
             liveness: BitVec::new(),
             data: Vec::new(),
-            indexing: MatrixIndexing::new(0, Directed),
+            indexing: MatrixIndexing::new(0, Undirected),
             entry_count: 0,
             index_type: PhantomData,
         }
@@ -142,7 +142,7 @@ where
                 let old_size = self.indexing.size();
                 let old_liveness = std::mem::take(&mut self.liveness);
 
-                self.indexing = MatrixIndexing::new(required_size, Directed);
+                self.indexing = MatrixIndexing::new(required_size, Undirected);
                 let data_storage_size = self.indexing.data_storage_size();
                 let full_storage_size = required_size
                     .checked_mul(required_size)
@@ -280,49 +280,40 @@ where
         self.entry_count
     }
 
-    fn reserve(&mut self, capacity: usize) {
+    fn reserve(&mut self, additional_capacity: usize) {
+        if additional_capacity == 0 {
+            return;
+        }
         let current_capacity = self.indexing.size();
-        if current_capacity < capacity {
-            let new_indexing = MatrixIndexing::new(capacity, Directed);
-            let new_data_storage_size = new_indexing.data_storage_size();
-            let new_full_storage_size = capacity
-                .checked_mul(capacity)
-                .expect("liveness matrix size overflow");
+        let new_capacity = current_capacity + additional_capacity;
+        let mut new_self = Self::with_size(new_capacity);
 
-            let mut new_liveness = BitVec::with_capacity(new_full_storage_size);
-            new_liveness.resize(new_full_storage_size, false);
-
-            let mut new_data = Vec::with_capacity(new_data_storage_size);
-            new_data.resize_with(new_data_storage_size, MaybeUninit::uninit);
-
-            // Copy existing data to the new storage
-            for row in 0..current_capacity {
-                for col in 0..=row {
-                    if let Some(old_index) = self.indexing.data_index(row, col)
-                        && self.is_live(row, col)
-                        && let Some(new_index) = new_indexing.data_index(row, col)
-                    {
-                        let idx1 = Self::liveness_index_for(capacity, row, col);
-                        new_liveness.set(idx1.0, true);
-                        if row != col {
-                            let idx2 = Self::liveness_index_for(capacity, col, row);
-                            new_liveness.set(idx2.0, true);
-                        }
-                        // SAFETY: old_index is live, so data at that index is initialized
-                        new_data[new_index] =
-                            MaybeUninit::new(unsafe { self.data[old_index].assume_init_read() });
+        // Copy existing data to the new storage
+        for row in 0..current_capacity {
+            for col in 0..=row {
+                if let Some(old_index) = self.indexing.data_index(row, col)
+                    && self.liveness[self.indexing.unchecked_liveness_index(row, col)]
+                    && let Some(new_index) = new_self.indexing.data_index(row, col)
+                {
+                    let idx1 = new_self.indexing.unchecked_liveness_index(row, col);
+                    new_self.liveness.set(idx1.0, true);
+                    if row != col {
+                        let idx2 = new_self.indexing.unchecked_liveness_index(col, row);
+                        new_self.liveness.set(idx2.0, true);
                     }
+                    // SAFETY: old_index is live, so data at that index is initialized
+                    new_self.data[new_index] =
+                        MaybeUninit::new(unsafe { self.data[old_index].assume_init_read() });
                 }
             }
-
-            // Clear old liveness to prevent double-drop
-            // Data has been read into new_data, so old entries should not be dropped
-            self.liveness.fill(false);
-
-            self.indexing = new_indexing;
-            self.liveness = new_liveness;
-            self.data = new_data;
         }
+
+        // Clear old liveness to prevent double-drop
+        // Data has been read into new_data, so old entries should not be dropped
+        self.liveness.fill(false);
+
+        new_self.entry_count = self.entry_count;
+        *self = new_self;
     }
 
     fn clear_row_and_column(&mut self, row: Self::Index, col: Self::Index) {

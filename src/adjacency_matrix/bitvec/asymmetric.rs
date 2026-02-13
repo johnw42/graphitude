@@ -1,4 +1,4 @@
-use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::MaybeUninit};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::MaybeUninit, ops::Range};
 
 use bitvec::{slice::BitSlice, vec::BitVec};
 
@@ -45,8 +45,13 @@ where
     fn with_size(size: usize) -> Self {
         let indexing = MatrixIndexing::new(size, D::default());
         let liveness_storage_size = indexing.liveness_storage_size();
-        let mut liveness = BitVec::with_capacity(2 * liveness_storage_size);
-        liveness.resize(2 * liveness_storage_size, false);
+        let bitvec_size = if D::default().is_directed() {
+            2 * liveness_storage_size
+        } else {
+            liveness_storage_size
+        };
+        let mut liveness = BitVec::with_capacity(bitvec_size);
+        liveness.resize(bitvec_size, false);
         let data_storage_size = indexing.data_storage_size();
         let mut data = Vec::with_capacity(data_storage_size);
         data.resize_with(data_storage_size, MaybeUninit::uninit);
@@ -59,29 +64,38 @@ where
         }
     }
 
+    fn liveness_range(&self) -> Range<usize> {
+        0..self.indexing.liveness_storage_size()
+    }
+
     /// Returns a bit slice containing the regular liveness matrix.
     fn liveness_bits(&self) -> &BitSlice {
-        &self.liveness[0..self.liveness.len() / 2]
+        &self.liveness[self.liveness_range()]
     }
 
     /// Returns a mutable bit slice containing the regular liveness matrix.
     fn liveness_bits_mut(&mut self) -> &mut BitSlice {
-        let end = self.liveness.len() / 2;
-        &mut self.liveness[0..end]
+        let range = self.liveness_range();
+        &mut self.liveness[range]
+    }
+
+    fn reflected_liveness_range(&self) -> Range<usize> {
+        if D::default().is_directed() {
+            self.indexing.liveness_storage_size()..self.liveness.len()
+        } else {
+            self.liveness_range()
+        }
     }
 
     /// Returns a bit slice containing the reflected liveness matrix.
     fn reflected_liveness_bits(&self) -> &BitSlice {
-        let start = self.liveness.len() / 2;
-        let end = self.liveness.len();
-        &self.liveness[start..end]
+        &self.liveness[self.reflected_liveness_range()]
     }
 
     /// Returns a mutable bit slice containing the reflected liveness matrix.
     fn reflected_liveness_bits_mut(&mut self) -> &mut BitSlice {
-        let start = self.liveness.len() / 2;
-        let end = self.liveness.len();
-        &mut self.liveness[start..end]
+        let range = self.reflected_liveness_range();
+        &mut self.liveness[range]
     }
 
     fn get_data_read(&self, index: LivenessIndex) -> Option<V> {
@@ -108,12 +122,6 @@ where
     fn size(&self) -> usize {
         self.indexing.size()
     }
-
-    fn is_live(&self, row: usize, col: usize) -> bool {
-        self.indexing
-            .liveness_index(row, col)
-            .map_or(false, |index| self.liveness_bits()[index])
-    }
 }
 
 impl<I, V, D> Drop for BitvecAdjacencyMatrix<I, V, D>
@@ -125,8 +133,18 @@ where
         // Drop all initialized values (only iterate over the liveness bits)
         let size = self.indexing.liveness_storage_size();
         for index in self.liveness[0..size].iter_ones().map(LivenessIndex) {
-            unsafe {
-                self.data[self.indexing.liveness_index_to_data_index(index)].assume_init_drop();
+            let data_index = self.indexing.liveness_index_to_data_index(index);
+            if D::default().is_directed() {
+                unsafe {
+                    self.data[data_index].assume_init_drop();
+                }
+            } else {
+                let (row, col) = self.indexing.liveness_coordinates(index);
+                if row <= col {
+                    unsafe {
+                        self.data[data_index].assume_init_drop();
+                    }
+                }
             }
         }
     }
@@ -158,20 +176,25 @@ where
         let col = col.into();
         self.reserve((row.max(col) + 1).saturating_sub(self.size()));
 
-        let data_index = self.indexing.data_index(row, col)?;
+        let liveness_index = self.indexing.liveness_index(row, col).unwrap(); // TODO
+        let data_index = self.indexing.liveness_index_to_data_index(liveness_index);
+        let is_live = self.liveness_bits()[liveness_index];
 
-        let liveness_index = self.indexing.liveness_index(row, col).unwrap();
-        let old_data = self.get_data_read(liveness_index);
-        self.liveness_bits_mut().set(liveness_index.0, true);
+        let old_data = if is_live {
+            Some(self.unchecked_get_data_read(data_index))
+        } else {
+            self.liveness_bits_mut().set(liveness_index.0, true);
 
-        let reflected_index = self.indexing.liveness_index(col, row).unwrap();
-        self.reflected_liveness_bits_mut()
-            .set(reflected_index.0, true);
+            let reflected_index = self.indexing.liveness_index(col, row).unwrap(); // TODO
+            self.reflected_liveness_bits_mut()
+                .set(reflected_index.0, true);
+
+            self.entry_count += 1;
+
+            None
+        };
 
         self.data[data_index] = MaybeUninit::new(data);
-        if old_data.is_none() {
-            self.entry_count += 1;
-        }
         old_data
     }
 
@@ -188,10 +211,11 @@ where
         let liveness_index = self.indexing.liveness_index(row, col).unwrap();
         let was_live = self.liveness_bits()[liveness_index];
         self.liveness_bits_mut().set(liveness_index.0, false);
+
         let reflected_index = self.indexing.liveness_index(col, row).unwrap();
-        debug_assert_eq!(self.reflected_liveness_bits()[reflected_index], was_live);
         self.reflected_liveness_bits_mut()
             .set(reflected_index.0, false);
+
         if was_live {
             self.entry_count -= 1;
             Some(self.unchecked_get_data_read(data_index))
@@ -207,13 +231,19 @@ where
         self.liveness_bits()
             .iter_ones()
             .map(LivenessIndex)
-            .map(|index| {
+            .filter_map(|index| {
                 let (row, col) = self.indexing.liveness_coordinates(index);
-                (
-                    row.into(),
-                    col.into(),
-                    self.unchecked_get_data_ref(self.indexing.liveness_index_to_data_index(index)),
-                )
+                if D::default().is_directed() || row <= col {
+                    Some((
+                        row.into(),
+                        col.into(),
+                        self.unchecked_get_data_ref(
+                            self.indexing.liveness_index_to_data_index(index),
+                        ),
+                    ))
+                } else {
+                    None
+                }
             })
     }
 
@@ -223,10 +253,12 @@ where
         // Collect all live entries
         for index in self.liveness_bits().iter_ones().map(LivenessIndex) {
             let (row, col) = self.indexing.liveness_coordinates(index);
-            // SAFETY: index is live (from iter_ones)
-            let value =
-                self.unchecked_get_data_read(self.indexing.liveness_index_to_data_index(index));
-            result.push((row.into(), col.into(), value));
+            if D::default().is_directed() || row <= col {
+                // SAFETY: index is live (from iter_ones)
+                let value =
+                    self.unchecked_get_data_read(self.indexing.liveness_index_to_data_index(index));
+                result.push((row.into(), col.into(), value));
+            }
         }
 
         // Mark all as dead to prevent double-drop in Drop impl
@@ -275,14 +307,15 @@ where
 
     fn clear(&mut self) {
         // Drop all initialized values before clearing
-        for index in self
-            .liveness_bits()
+        for index in self.liveness[self.liveness_range()]
             .iter_ones()
             .map(LivenessIndex)
-            .collect::<Vec<_>>()
         {
-            unsafe {
-                self.data[self.indexing.liveness_index_to_data_index(index)].assume_init_drop();
+            let (row, col) = self.indexing.liveness_coordinates(index);
+            if D::default().is_directed() || row <= col {
+                unsafe {
+                    self.data[self.indexing.unchecked_data_index(row, col)].assume_init_drop();
+                }
             }
         }
         self.liveness.fill(false);
@@ -302,13 +335,12 @@ where
         let row_start = self.indexing.unchecked_liveness_index(row, 0);
         let row_end = self.indexing.unchecked_liveness_index(row + 1, 0);
         debug_assert!(row_end.0 - row_start.0 == size);
-        let col_offsets: Vec<_> = self.liveness_bits()[row_start.0..row_end.0]
+        let col_offsets: Vec<_> = self.liveness[self.liveness_range()][row_start.0..row_end.0]
             .iter_ones()
             .collect();
         for col_offset in col_offsets {
-            let index = row_start + col_offset;
             unsafe {
-                self.data[self.indexing.liveness_index_to_data_index(index)].assume_init_drop();
+                self.data[self.indexing.unchecked_data_index(row, col_offset)].assume_init_drop();
             }
             // Update reflected_liveness: reflected_liveness[col*size + row] corresponds to liveness[row*size + col]
             let reflected_index = col_offset * size + row;
@@ -341,15 +373,21 @@ where
     }
 
     fn reserve(&mut self, additional_capacity: usize) {
-        if additional_capacity > 0 {
-            let size = self.size();
-            let mut new_self = Self::with_size(size + additional_capacity);
-            for i in 0..size {
-                let old_start = self.indexing.unchecked_liveness_index(i, 0);
-                let old_end = self.indexing.unchecked_liveness_index(i + 1, 0);
-                let new_start = new_self.indexing.unchecked_liveness_index(i, 0);
+        if additional_capacity == 0 {
+            return;
+        }
+
+        let current_capacity = self.size();
+        let new_capacity = current_capacity + additional_capacity;
+        let mut new_self = Self::with_size(new_capacity);
+
+        if D::default().is_directed() {
+            for row in 0..current_capacity {
+                let old_start = self.indexing.unchecked_liveness_index(row, 0);
+                let old_end = self.indexing.unchecked_liveness_index(row + 1, 0);
+                let new_start = new_self.indexing.unchecked_liveness_index(row, 0);
                 let new_end = old_end + (new_start - old_start);
-                new_self.liveness_bits_mut()[new_start.0..new_start.0 + size]
+                new_self.liveness_bits_mut()[new_start.0..new_start.0 + current_capacity]
                     .copy_from_bitslice(&self.liveness_bits()[old_start.0..old_end.0]);
                 new_self.reflected_liveness_bits_mut()[new_start.0..new_end.0]
                     .copy_from_bitslice(&self.reflected_liveness_bits()[old_start.0..old_end.0]);
@@ -368,18 +406,42 @@ where
                     );
                 }
             }
-            new_self.entry_count = self.entry_count;
-            // Clear old matrix bits to prevent double-drop
-            // Data has been swapped to new_self, so old entries are uninitialized
-            self.liveness.fill(false);
-            *self = new_self;
+        } else {
+            // Copy existing data to the new storage
+            for row in 0..current_capacity {
+                for col in 0..=row {
+                    if let Some(old_index) = self.indexing.data_index(row, col)
+                        && self.liveness[self.indexing.unchecked_liveness_index(row, col)]
+                        && let Some(new_index) = new_self.indexing.data_index(row, col)
+                    {
+                        let idx1 = new_self.indexing.unchecked_liveness_index(row, col);
+                        new_self.liveness.set(idx1.0, true);
+                        if row != col {
+                            let idx2 = new_self.indexing.unchecked_liveness_index(col, row);
+                            new_self.liveness.set(idx2.0, true);
+                        }
+                        // SAFETY: old_index is live, so data at that index is initialized
+                        new_self.data[new_index] =
+                            MaybeUninit::new(unsafe { self.data[old_index].assume_init_read() });
+                    }
+                }
+            }
         }
+
+        // Clear old matrix bits to prevent double-drop
+        // Data has been swapped to new_self, so old entries are uninitialized
+        self.liveness.fill(false);
+
+        new_self.entry_count = self.entry_count;
+        *self = new_self;
     }
 }
 
 #[cfg(test)]
 mod tests {
     mod asymmetric {
+        use std::collections::HashSet;
+
         use crate::test_util::DropCounter;
 
         use super::super::*;
@@ -526,7 +588,7 @@ mod tests {
                 }
             }
 
-            let mut set: std::collections::HashSet<_> = entries.iter().cloned().collect();
+            let mut set: HashSet<_> = entries.iter().cloned().collect();
             assert_eq!(matrix.iter().count(), set.len());
 
             // Remove entries one by one
@@ -762,6 +824,8 @@ mod tests {
     }
 
     mod symmetric {
+        use std::collections::HashSet;
+
         use super::super::*;
         use crate::{test_util::DropCounter, triangular::triangular};
 
@@ -959,7 +1023,7 @@ mod tests {
                 }
             }
 
-            let mut set: std::collections::HashSet<_> = entries.iter().cloned().collect();
+            let mut set: HashSet<_> = entries.iter().cloned().collect();
             assert_eq!(matrix.iter().count(), set.len());
 
             // Remove entries and occasionally reserve a larger size
@@ -973,7 +1037,7 @@ mod tests {
                 assert_eq!(removed, a * nodes + b);
 
                 if k % 60 == 0 {
-                    matrix.reserve(nodes + 32);
+                    matrix.reserve(32);
                     for &(x, y) in set.iter() {
                         // undirected: both directions should be accessible
                         assert!(matrix.get(x, y).is_some());
@@ -1004,30 +1068,23 @@ mod tests {
         fn test_drop_initialized_values() {
             let counter = DropCounter::new();
 
-            {
-                let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+            let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
 
-                // Insert some values
-                matrix.insert(0, 1, counter.new_value());
-                matrix.insert(2, 3, counter.new_value());
-                matrix.insert(5, 7, counter.new_value());
+            // Insert some values
+            matrix.insert(0, 1, counter.new_value());
+            matrix.insert(2, 3, counter.new_value());
+            matrix.insert(5, 7, counter.new_value());
 
-                // Replace one value (should drop the old one)
-                matrix.insert(0, 1, counter.new_value());
+            // Replace one value (should drop the old one)
+            matrix.insert(0, 1, counter.new_value());
+            assert_eq!(counter.drop_count(), 1);
 
-                // Remove one value (should drop it)
-                matrix.remove(2, 3);
-
-                // At this point:
-                // - 1 drop from the replaced value at (0,1)
-                // - 1 drop from the removed value at (2,3)
-                // Total so far: 2 drops
-                assert_eq!(counter.drop_count(), 2);
-
-                // Matrix still holds 2 values: (0,1) and (5,7)
-            } // Matrix dropped here - should drop remaining 2 values
+            // Remove one value (should drop it)
+            matrix.remove(2, 3);
+            assert_eq!(counter.drop_count(), 2);
 
             // Total drops: 2 (from operations) + 2 (from matrix drop) = 4
+            drop(matrix);
             assert_eq!(counter.drop_count(), 4);
         }
 
@@ -1066,28 +1123,26 @@ mod tests {
         fn test_no_double_drop_after_clear() {
             let counter = DropCounter::new();
 
-            {
-                let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+            let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
 
-                // Insert some values
-                matrix.insert(0, 1, counter.new_value());
-                matrix.insert(2, 3, counter.new_value());
-                matrix.insert(5, 7, counter.new_value());
+            // Insert some values
+            matrix.insert(0, 1, counter.new_value());
+            matrix.insert(2, 3, counter.new_value());
+            matrix.insert(5, 7, counter.new_value());
+            assert_eq!(counter.drop_count(), 0);
 
-                assert_eq!(counter.drop_count(), 0);
-                // Clear should drop all values
-                matrix.clear();
+            // Clear should drop all values
+            matrix.clear();
+            assert_eq!(counter.drop_count(), 3);
 
-                // All 3 values should be dropped by clear()
-                assert_eq!(counter.drop_count(), 3);
+            // Add new values after clear
+            matrix.insert(1, 2, counter.new_value());
+            matrix.insert(3, 4, counter.new_value());
 
-                // Add new values after clear
-                matrix.insert(1, 2, counter.new_value());
-                matrix.insert(3, 4, counter.new_value());
+            // Still 3 drops (new values not dropped yet)
+            assert_eq!(counter.drop_count(), 3);
 
-                // Still 3 drops (new values not dropped yet)
-                assert_eq!(counter.drop_count(), 3);
-            } // Matrix dropped here - should drop the 2 new values
+            drop(matrix);
 
             // Total: 3 (from clear) + 2 (from matrix drop) = 5
             assert_eq!(counter.drop_count(), 5);

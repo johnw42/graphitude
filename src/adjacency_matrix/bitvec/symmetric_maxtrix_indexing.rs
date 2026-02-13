@@ -181,8 +181,9 @@ where
     /// Returns an iterator over the indices in row `i` of the symmetric matrix.
     #[allow(dead_code)]
     pub fn data_row(&self, i: usize) -> impl Iterator<Item = DataIndex> + '_ {
-        let (_range, iter) = self.data_row_with_range(i);
-        iter
+        let (range, iter) = self.data_row_with_range(i);
+        let range = range.start.0..range.end.0;
+        range.map(DataIndex).chain(iter)
     }
 
     /// Returns a tuple containing the range of indices for row `i` and an
@@ -193,7 +194,7 @@ where
         i: usize,
     ) -> (Range<DataIndex>, impl Iterator<Item = DataIndex> + '_) {
         let start = self.unchecked_data_index(i, 0);
-        let end = self.unchecked_data_index(i + 1, 0);
+        let end = self.unchecked_data_index(i, i);
         (
             start..end,
             (i..self.size).map(move |j| self.unchecked_data_index(i, j)),
