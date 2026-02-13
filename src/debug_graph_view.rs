@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
 use crate::{LinkedGraph, prelude::*};
 
@@ -12,8 +12,7 @@ use crate::{LinkedGraph, prelude::*};
 /// directedness. Edges are copied as-is from the source, so each edge in the source
 /// graph becomes one directed edge in the view.
 pub struct DebugGraphView<N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> {
-    inner: LinkedGraph<N, E, D>,
-    multiplicity: PhantomData<M>,
+    inner: LinkedGraph<N, E, D, M>,
 }
 
 impl<N, E, D, M> DebugGraphView<N, E, D, M>
@@ -30,12 +29,9 @@ where
         NF: Fn(&G::NodeData) -> N,
         EF: Fn(&G::EdgeData) -> E,
     {
-        let mut inner = LinkedGraph::with_directedness(graph.directedness());
+        let mut inner = LinkedGraph::new(graph.directedness(), graph.edge_multiplicity());
         inner.copy_from_with(graph, node_fn, edge_fn);
-        Self {
-            inner,
-            multiplicity: PhantomData,
-        }
+        Self { inner }
     }
 }
 
@@ -49,12 +45,16 @@ where
     type Directedness = D;
     type EdgeMultiplicity = M;
     type NodeData = N;
-    type NodeId = <LinkedGraph<N, E, D> as Graph>::NodeId;
+    type NodeId = <LinkedGraph<N, E, D, M> as Graph>::NodeId;
     type EdgeData = E;
-    type EdgeId = <LinkedGraph<N, E, D> as Graph>::EdgeId;
+    type EdgeId = <LinkedGraph<N, E, D, M> as Graph>::EdgeId;
 
     fn directedness(&self) -> Self::Directedness {
         self.inner.directedness()
+    }
+
+    fn edge_multiplicity(&self) -> Self::EdgeMultiplicity {
+        self.inner.edge_multiplicity()
     }
 
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {

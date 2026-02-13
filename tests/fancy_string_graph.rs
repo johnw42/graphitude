@@ -74,6 +74,10 @@ impl Graph for StringGraph {
         Directed
     }
 
+    fn edge_multiplicity(&self) -> Self::EdgeMultiplicity {
+        MultipleEdges
+    }
+
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         &self.node(id).data
     }

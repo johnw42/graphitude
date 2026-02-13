@@ -118,6 +118,10 @@ where
         Directed
     }
 
+    fn edge_multiplicity(&self) -> Self::EdgeMultiplicity {
+        MultipleEdges
+    }
+
     fn node_data(&self, id: &NodeId<N>) -> &<Self as Graph>::NodeData {
         unsafe { transmute::<&*const N, &&'d N>(&id.0) }
     }

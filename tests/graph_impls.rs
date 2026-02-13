@@ -1,18 +1,17 @@
 mod linked {
-    use graphitude::directedness::{self, Directedness};
     pub use graphitude::{LinkedGraph, graph_tests, prelude::*, tests::TestDataBuilder};
-    use std::marker::PhantomData;
+    use graphitude::{directedness::Directedness, edge_multiplicity::EdgeMultiplicity};
 
     pub struct LinkedGraphBuilder<D, M> {
         directedness: D,
-        phantom: PhantomData<M>,
+        edge_multiplicity: M,
     }
 
     impl<D, M> LinkedGraphBuilder<D, M> {
-        pub fn new(directedness: D) -> Self {
+        pub fn new(directedness: D, edge_multiplicity: M) -> Self {
             Self {
                 directedness,
-                phantom: PhantomData,
+                edge_multiplicity,
             }
         }
     }
@@ -25,7 +24,7 @@ mod linked {
         type Graph = LinkedGraph<i32, String, D, M>;
 
         fn new_graph(&self) -> Self::Graph {
-            LinkedGraph::with_directedness(self.directedness)
+            LinkedGraph::new(self.directedness, self.edge_multiplicity)
         }
 
         fn new_edge_data(&self, i: usize) -> String {
@@ -37,35 +36,35 @@ mod linked {
         }
     }
 
-    graph_tests!(directed_multiple, LinkedGraphBuilder<Directed, MultipleEdges>, LinkedGraphBuilder::new(Directed),
+    graph_tests!(directed_multiple, LinkedGraphBuilder<Directed, MultipleEdges>, LinkedGraphBuilder::new(Directed, MultipleEdges),
             |data| data * 2,
             |data| format!("{}-copied", data));
 
-    graph_tests!(directed_single, LinkedGraphBuilder<Directed, SingleEdge>, LinkedGraphBuilder::new(Directed),
+    graph_tests!(directed_single, LinkedGraphBuilder<Directed, SingleEdge>, LinkedGraphBuilder::new(Directed, SingleEdge),
             |data| data * 2,
             |data| format!("{}-copied", data));
 
-    graph_tests!(undirected_multiple, LinkedGraphBuilder<Undirected, MultipleEdges>, LinkedGraphBuilder::new(Undirected),
+    graph_tests!(undirected_multiple, LinkedGraphBuilder<Undirected, MultipleEdges>, LinkedGraphBuilder::new(Undirected, MultipleEdges),
             |data| data * 2,
             |data| format!("{}-copied", data));
 
-    graph_tests!(undirected_single, LinkedGraphBuilder<Undirected, SingleEdge>, LinkedGraphBuilder::new(Undirected),
+    graph_tests!(undirected_single, LinkedGraphBuilder<Undirected, SingleEdge>, LinkedGraphBuilder::new(Undirected, SingleEdge),
             |data| data * 2,
             |data| format!("{}-copied", data));
 
-    graph_tests!(dyn_directed_multiple, LinkedGraphBuilder<Directedness, MultipleEdges>, LinkedGraphBuilder::new(Directedness::Directed),
+    graph_tests!(dyn_directed_multiple, LinkedGraphBuilder<Directedness, EdgeMultiplicity>, LinkedGraphBuilder::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges),
             |data| data * 2,
             |data| format!("{}-copied", data));
 
-    graph_tests!(dyn_directed_single, LinkedGraphBuilder<Directedness, SingleEdge>, LinkedGraphBuilder::new(Directedness::Directed),
+    graph_tests!(dyn_directed_single, LinkedGraphBuilder<Directedness, EdgeMultiplicity>, LinkedGraphBuilder::new(Directedness::Directed, EdgeMultiplicity::SingleEdge),
             |data| data * 2,
             |data| format!("{}-copied", data));
 
-    graph_tests!(dyn_undirected_multiple, LinkedGraphBuilder<Directedness, MultipleEdges>, LinkedGraphBuilder::new(Directedness::Undirected),
+    graph_tests!(dyn_undirected_multiple, LinkedGraphBuilder<Directedness, EdgeMultiplicity>, LinkedGraphBuilder::new(Directedness::Undirected, EdgeMultiplicity::MultipleEdges),
             |data| data * 2,
             |data| format!("{}-copied", data));
 
-    graph_tests!(dyn_undirected_single, LinkedGraphBuilder<Directedness, SingleEdge>, LinkedGraphBuilder::new(Directedness::Undirected),
+    graph_tests!(dyn_undirected_single, LinkedGraphBuilder<Directedness, EdgeMultiplicity>, LinkedGraphBuilder::new(Directedness::Undirected, EdgeMultiplicity::SingleEdge),
             |data| data * 2,
             |data| format!("{}-copied", data));
 }

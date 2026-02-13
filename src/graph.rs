@@ -134,6 +134,8 @@ pub trait Graph {
 
     fn directedness(&self) -> Self::Directedness;
 
+    fn edge_multiplicity(&self) -> Self::EdgeMultiplicity;
+
     /// Returns true if the graph is directed.
     fn is_directed(&self) -> bool {
         self.directedness().is_directed()
@@ -141,7 +143,7 @@ pub trait Graph {
 
     /// Returns true if the graph allows parallel edges between the same pair of nodes.
     fn allows_parallel_edges(&self) -> bool {
-        Self::EdgeMultiplicity::allows_parallel_edges()
+        self.edge_multiplicity().allows_parallel_edges()
     }
 
     /// Checks if the graph is empty (has no nodes or edges).
@@ -595,7 +597,7 @@ pub trait GraphMut: Graph {
         data: Self::EdgeData,
     ) -> Self::EdgeId
     where
-        Self::EdgeMultiplicity: EdgeMultiplicityTrait<Impl = MultipleEdges>,
+        Self: Graph<EdgeMultiplicity = MultipleEdges>,
     {
         match self.add_edge(from, to, data) {
             AddEdgeResult::Added(eid) => eid,

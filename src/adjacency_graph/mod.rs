@@ -172,6 +172,10 @@ where
         D::default()
     }
 
+    fn edge_multiplicity(&self) -> Self::EdgeMultiplicity {
+        SingleEdge
+    }
+
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         self.assert_valid_node_id(id);
         self.nodes.get(id.key()).expect("no such node")
