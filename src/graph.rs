@@ -723,24 +723,9 @@ pub trait GraphMut: Graph {
         let _ = &mut edge_id_callback;
     }
 
-    /// Shrinks internal storage used by the graph to fit its current size.  May
-    /// invalidate existing NodeIds and EdgeIds.  Does nothing by default.
-    fn shrink_to_fit(&mut self) {
-        self.shrink_to_fit_with(|_, _| {}, |_, _| {});
-    }
-
-    /// Shrinks internal storage used by the graph to fit its current size.  May
-    /// invalidate existing NodeIds and EdgeIds.  Does nothing by default.
-    /// Calls a closure for each node ID mapping (old_id, new_id)
-    /// and edge ID mapping (old_id, new_id) as they are created.
-    fn shrink_to_fit_with(
-        &mut self,
-        mut node_id_callback: impl FnMut(&'_ Self::NodeId, &'_ Self::NodeId),
-        mut edge_id_callback: impl FnMut(&'_ Self::EdgeId, &'_ Self::EdgeId),
-    ) {
-        let _ = &mut node_id_callback;
-        let _ = &mut edge_id_callback;
-    }
+    /// Shrinks internal storage used by the graph to fit its current size.
+    /// Does nothing by default.
+    fn shrink_to_fit(&mut self) {}
 
     /// Parses a DOT representation of a graph from a string, using the given
     /// graph builder to construct the graph.

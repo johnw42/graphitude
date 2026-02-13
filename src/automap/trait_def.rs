@@ -112,20 +112,8 @@ pub trait Automap<T> {
     /// removed, all keys map to themselves, so the callback is not called.
     fn compact_with(&mut self, callback: impl FnMut(Self::Key, Option<Self::Key>));
 
-    /// Shrinks the internal storage to fit the current size.  This may
-    /// invalidate existing keys, depending on the implementation.  Consult
-    /// specific implementations for details.
+    /// Shrinks the internal storage to fit the current size.
     fn shrink_to_fit(&mut self);
-
-    /// Compacts the `Automap` by removing all dead entries without shifting live
-    /// entries.  This may invalidate all existing keys. Memory is reallocated to
-    /// fit exactly.
-    ///
-    /// Calls the provided callback for each key, passing in the old ID as the
-    /// first parameter.  If the old ID was still valid, the new ID is passed as
-    /// the second parameter; otherwise, None is passed.  If no entries were
-    /// removed, all keys map to themselves, so the callback is not called.
-    fn shrink_to_fit_with(&mut self, callback: impl FnMut(Self::Key, Option<Self::Key>));
 }
 
 /// Macro to generate common unit tests for `Automap` implementations.
@@ -258,16 +246,6 @@ macro_rules! automap_tests {
         }
 
         #[test]
-        fn test_capacity() {
-            let mut vec: $impl_type = Default::default();
-            let initial_capacity = vec.capacity();
-
-            vec.reserve(100);
-            assert!(vec.capacity() > initial_capacity);
-            assert!(vec.capacity() >= 100);
-        }
-
-        #[test]
         fn test_iter_keys() {
             let mut vec: $impl_type = Default::default();
             let k1 = vec.insert($default_fn(10));
@@ -329,21 +307,15 @@ macro_rules! automap_tests {
         #[test]
         fn test_reserve() {
             let mut vec: $impl_type = Default::default();
-            let old_capacity = vec.capacity();
             vec.reserve(100);
-            assert!(vec.capacity() >= old_capacity + 100);
+            assert!(vec.capacity() >= 100);
         }
 
         #[test]
         fn test_reserve_exact() {
             let mut vec: $impl_type = Default::default();
             vec.reserve_exact(50);
-            assert!(vec.capacity() >= 50);
-
-            for i in 0..10 {
-                vec.insert($default_fn(i));
-            }
-            assert_eq!(vec.len(), 10);
+            assert_eq!(vec.capacity(), 50);
         }
 
         #[test]
@@ -421,43 +393,18 @@ macro_rules! automap_tests {
         }
 
         #[test]
-        fn test_shrink_to_fit_with_callback_no_removals() {
-            let mut vec: $impl_type = Default::default();
-            let id1 = vec.insert($default_fn(1));
-            vec.insert($default_fn(2));
-            vec.insert($default_fn(3));
-
-            // shrink_to_fit with no removals does nothing, callback not called
-            let mut callback_called = false;
-
-            vec.shrink_to_fit_with(|_, _| {
-                callback_called = true;
-            });
-
-            // Callback should not be called for identity case
-            assert!(!callback_called);
-            // Old keys should still work
-            assert_eq!(vec.get(id1), Some(&$default_fn(1)));
-        }
-
-        #[test]
-        fn test_shrink_to_fit_with_callback_identity_case() {
+        fn test_shrink_to_fit_no_removals() {
             let mut vec: $impl_type = Default::default();
             let id1 = vec.insert($default_fn(1));
             let id2 = vec.insert($default_fn(2));
+            let id3 = vec.insert($default_fn(3));
 
-            // shrink_to_fit with no removals does nothing, callback not called
-            let mut callback_called = false;
+            vec.shrink_to_fit();
 
-            vec.shrink_to_fit_with(|_, _| {
-                callback_called = true;
-            });
-
-            // Callback should not be called for identity case
-            assert!(!callback_called);
             // Old keys should still work
             assert_eq!(vec.get(id1), Some(&$default_fn(1)));
             assert_eq!(vec.get(id2), Some(&$default_fn(2)));
+            assert_eq!(vec.get(id3), Some(&$default_fn(3)));
         }
 
         #[test]
@@ -529,47 +476,27 @@ macro_rules! automap_tests {
             vec.remove(id2);
             vec.remove(id4);
 
-            let mut key_map = std::collections::HashMap::new();
-            vec.shrink_to_fit_with(|old_key, new_key| {
-                if let Some(new_key) = new_key {
-                    key_map.insert(old_key, new_key);
-                }
-            });
-
-            // Update keys after first shrink_to_fit (or keep original if not remapped)
-            let new_id1 = key_map.get(&id1).copied().unwrap_or(id1);
-            let new_id3 = key_map.get(&id3).copied().unwrap_or(id3);
-            let new_id5 = key_map.get(&id5).copied().unwrap_or(id5);
+            vec.shrink_to_fit();
 
             assert_eq!(vec.len(), 3);
-            assert_eq!(vec.get(new_id1), Some(&$default_fn(1)));
-            assert_eq!(vec.get(new_id3), Some(&$default_fn(3)));
-            assert_eq!(vec.get(new_id5), Some(&$default_fn(5)));
+            assert_eq!(vec.get(id1), Some(&$default_fn(1)));
+            assert_eq!(vec.get(id3), Some(&$default_fn(3)));
+            assert_eq!(vec.get(id5), Some(&$default_fn(5)));
 
             // Insert more values
             let id6 = vec.insert($default_fn(6));
             let id7 = vec.insert($default_fn(7));
 
             // Second round of removals
-            vec.remove(new_id3);
+            vec.remove(id3);
             vec.remove(id6);
 
-            key_map.clear();
-            vec.shrink_to_fit_with(|old_key, new_key| {
-                if let Some(new_key) = new_key {
-                    key_map.insert(old_key, new_key);
-                }
-            });
-
-            // Update keys after second shrink_to_fit (or keep current if not remapped)
-            let final_id1 = key_map.get(&new_id1).copied().unwrap_or(new_id1);
-            let final_id5 = key_map.get(&new_id5).copied().unwrap_or(new_id5);
-            let final_id7 = key_map.get(&id7).copied().unwrap_or(id7);
+            vec.shrink_to_fit();
 
             assert_eq!(vec.len(), 3);
-            assert_eq!(vec.get(final_id1), Some(&$default_fn(1)));
-            assert_eq!(vec.get(final_id5), Some(&$default_fn(5)));
-            assert_eq!(vec.get(final_id7), Some(&$default_fn(7)));
+            assert_eq!(vec.get(id1), Some(&$default_fn(1)));
+            assert_eq!(vec.get(id5), Some(&$default_fn(5)));
+            assert_eq!(vec.get(id7), Some(&$default_fn(7)));
         }
 
         #[test]

@@ -126,10 +126,6 @@ impl<T> Automap<T> for IndexedAutomap<T> {
         self.index.shrink_to_fit();
     }
 
-    fn shrink_to_fit_with(&mut self, callback: impl FnMut(Self::Key, Option<Self::Key>)) {
-        self.shrink_to_fit();
-    }
-
     fn iter_keys(&self) -> impl Iterator<Item = IndexedAutomapKey> {
         self.index
             .iter()

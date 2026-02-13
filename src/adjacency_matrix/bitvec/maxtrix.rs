@@ -375,6 +375,15 @@ where
             return;
         }
 
+        let new_size = (self.size() + additional_capacity).next_power_of_two();
+        self.reserve_exact(new_size - self.size());
+    }
+
+    fn reserve_exact(&mut self, additional_capacity: usize) {
+        if additional_capacity == 0 {
+            return;
+        }
+
         let current_capacity = self.size();
         let new_capacity = current_capacity + additional_capacity;
         let mut new_self = Self::with_size(new_capacity);
@@ -602,7 +611,7 @@ mod tests {
 
                 if k % 50 == 0 {
                     // bump reserve to force reallocation/copy behavior
-                    matrix.reserve(16);
+                    matrix.reserve_exact(16);
                     // verify remaining entries are still accessible
                     for &(rr, cc) in set.iter() {
                         assert!(matrix.get(rr, cc).is_some());
@@ -1034,7 +1043,7 @@ mod tests {
                 assert_eq!(removed, a * nodes + b);
 
                 if k % 60 == 0 {
-                    matrix.reserve(32);
+                    matrix.reserve_exact(32);
                     for &(x, y) in set.iter() {
                         // undirected: both directions should be accessible
                         assert!(matrix.get(x, y).is_some());
@@ -1047,12 +1056,11 @@ mod tests {
         }
 
         #[test]
-        fn test_reserve_storage_size() {
+        fn test_reserve_exact() {
             let mut matrix = SymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
             let capacity = 7;
 
-            matrix.reserve(capacity);
-
+            matrix.reserve_exact(capacity);
             let expected_data_storage = triangular(capacity);
             let expected_liveness_storage = capacity * capacity;
 

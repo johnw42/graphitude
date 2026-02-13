@@ -15,7 +15,7 @@ use bitvec::vec::BitVec;
 use crate::automap::trait_def::{Automap, AutomapIndexing, AutomapKeyTrait};
 
 /// An key for an `Automap`. Stable across insertions and removals, but not
-/// across `compact` or `shrink_to_fit` operations.
+/// across `compact` operations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct OffsetAutomapKey(usize);
 
@@ -54,10 +54,11 @@ impl AutomapIndexing for OffsetAutomapIndexing {
 
 /// A map- or bag-like structure that assigns stable keys to inserted values.
 /// Keys remain valid across insertions and removals, but not across `compact`
-/// or `shrink_to_fit` operations.  Internally uses a `Vec<MaybeUninit<T>>` to
-/// store values and a `BitVec` to track live entries.
+///  operations.  Internally uses a `Vec<MaybeUninit<T>>` to store values and a
+/// `BitVec` to track live entries.
 ///
-/// Uses an offset-based approach where the key offset can change during compaction.
+/// Uses an offset-based approach where the key offset can change during
+/// compaction.
 pub struct OffsetAutomap<T> {
     /// Internal vector storing the values.
     vec: Vec<MaybeUninit<T>>,
@@ -235,37 +236,8 @@ impl<T> Automap<T> for OffsetAutomap<T> {
     }
 
     fn shrink_to_fit(&mut self) {
-        self.shrink_to_fit_with(|_, _| {});
-    }
-
-    fn shrink_to_fit_with(
-        &mut self,
-        mut callback: impl FnMut(OffsetAutomapKey, Option<OffsetAutomapKey>),
-    ) {
-        if self.liveness.all() {
-            return;
-        }
-
-        let new_key_offset = self.key_offset + self.liveness.len();
-        let mut new_vec: Vec<MaybeUninit<T>> = Vec::with_capacity(self.vec.len());
-        let mut new_liveness = BitVec::with_capacity(self.liveness.len());
-
-        for (si, live) in self.liveness.iter().enumerate() {
-            let old_key = OffsetAutomapKey(si + self.key_offset);
-            if *live {
-                let di = new_vec.len();
-                let new_key = OffsetAutomapKey(di + new_key_offset);
-                new_vec.push(unsafe { MaybeUninit::new(self.vec[si].assume_init_read()) });
-                new_liveness.push(true);
-                callback(old_key, Some(new_key));
-            } else {
-                callback(old_key, None);
-            }
-        }
-
-        self.vec = new_vec;
-        self.liveness = new_liveness;
-        self.key_offset = new_key_offset;
+        self.vec.shrink_to_fit();
+        self.liveness.shrink_to_fit();
     }
 }
 

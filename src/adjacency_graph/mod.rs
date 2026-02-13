@@ -54,16 +54,6 @@ where
     compaction_count: S::CompactionCount,
 }
 
-type NodeIdCallback<'a, N, E, D, S> = dyn for<'b> FnMut(
-        &'b <AdjacencyGraph<N, E, D, S> as Graph>::NodeId,
-        &'b <AdjacencyGraph<N, E, D, S> as Graph>::NodeId,
-    ) + 'a;
-
-type EdgeIdCallback<'a, N, E, D, S> = dyn for<'b> FnMut(
-        &'b <AdjacencyGraph<N, E, D, S> as Graph>::EdgeId,
-        &'b <AdjacencyGraph<N, E, D, S> as Graph>::EdgeId,
-    ) + 'a;
-
 impl<N, E, D, S> AdjacencyGraph<N, E, D, S>
 where
     D: DirectednessTrait + Default,
@@ -82,76 +72,6 @@ where
             self.id,
             self.compaction_count,
         )
-    }
-
-    /// Internal function to perform compaction or shrinking of the graph.
-    /// This function handles updating node and edge IDs via the provided callbacks.
-    fn do_compact<F>(
-        &mut self,
-        mut compact_fn: F,
-        node_id_callback: &mut NodeIdCallback<'_, N, E, D, S>,
-        edge_id_callback: &mut EdgeIdCallback<'_, N, E, D, S>,
-    ) where
-        F: FnMut(&mut NodeVec<N>, &mut dyn FnMut(OffsetAutomapKey, Option<OffsetAutomapKey>)),
-    {
-        let old_compaction_count = self.compaction_count;
-        let new_compaction_count = self.compaction_count.increment();
-
-        // Compact nodes and build ID mapping.
-        let mut automap_map: HashMap<OffsetAutomapKey, OffsetAutomapKey> =
-            HashMap::with_capacity(self.nodes.len());
-        let old_indexing = self.nodes.indexing();
-        compact_fn(&mut self.nodes, &mut |old_key, new_key_opt| {
-            if let Some(new_key) = new_key_opt {
-                automap_map.insert(old_key, new_key);
-            }
-        });
-        let new_indexing = self.nodes.indexing();
-
-        // Call node_id_callback for each node ID mapping
-        for (&old_index, &new_index) in &automap_map {
-            let old_node_id = self
-                .node_id(old_index)
-                .with_compaction_count(old_compaction_count);
-            let new_node_id = self
-                .node_id(new_index)
-                .with_compaction_count(new_compaction_count);
-            node_id_callback(&old_node_id, &new_node_id);
-        }
-
-        // Update adjacency matrix with new node indices.
-        if !automap_map.is_empty() {
-            let mut old_adjacency = self.adjacency.clone_empty();
-            std::mem::swap(&mut self.adjacency, &mut old_adjacency);
-            self.adjacency.reserve(self.nodes.len());
-            for (old_from_index, old_into_index, data) in old_adjacency.into_iter() {
-                let old_from = old_indexing.index_to_key(old_from_index);
-                let old_into = old_indexing.index_to_key(old_into_index);
-
-                // Skip edges where either endpoint was removed
-                let Some(&new_from) = automap_map.get(&old_from) else {
-                    continue;
-                };
-                let Some(&new_into) = automap_map.get(&old_into) else {
-                    continue;
-                };
-
-                self.adjacency.insert(
-                    new_indexing.key_to_index(new_from),
-                    new_indexing.key_to_index(new_into),
-                    data,
-                );
-                let old_edge_id = self
-                    .edge_id(old_from, old_into)
-                    .with_compaction_count(old_compaction_count);
-                let new_edge_id = self
-                    .edge_id(new_from, new_into)
-                    .with_compaction_count(new_compaction_count);
-                edge_id_callback(&old_edge_id, &new_edge_id);
-            }
-        }
-
-        self.compaction_count = new_compaction_count;
     }
 }
 
@@ -370,14 +290,14 @@ where
         self.adjacency.clear();
     }
 
-    fn reserve(&mut self, additional_nodes: usize, _additional_edges: usize) {
+    fn reserve(&mut self, additional_nodes: usize, additional_edges: usize) {
         self.nodes.reserve(additional_nodes);
-        // self.adjacency.reserve(additional_edges);
+        self.adjacency.reserve(additional_edges);
     }
 
-    fn reserve_exact(&mut self, additional_nodes: usize, _additional_edges: usize) {
+    fn reserve_exact(&mut self, additional_nodes: usize, additional_edges: usize) {
         self.nodes.reserve_exact(additional_nodes);
-        // self.adjacency.reserve_exact(additional_edges);
+        self.adjacency.reserve_exact(additional_edges);
     }
 
     fn compact(&mut self) {
@@ -389,26 +309,69 @@ where
         mut node_id_callback: impl FnMut(&Self::NodeId, &Self::NodeId),
         mut edge_id_callback: impl FnMut(&Self::EdgeId, &Self::EdgeId),
     ) {
-        self.do_compact(
-            |vec, cb| vec.compact_with(cb),
-            &mut node_id_callback,
-            &mut edge_id_callback,
-        );
+        let old_compaction_count = self.compaction_count;
+        let new_compaction_count = self.compaction_count.increment();
+
+        // Compact nodes and build ID mapping.
+        let mut automap_map: HashMap<OffsetAutomapKey, OffsetAutomapKey> =
+            HashMap::with_capacity(self.nodes.len());
+        let old_indexing = self.nodes.indexing();
+        self.nodes.compact_with(&mut |old_key, new_key_opt| {
+            if let Some(new_key) = new_key_opt {
+                automap_map.insert(old_key, new_key);
+            }
+        });
+        let new_indexing = self.nodes.indexing();
+
+        // Call node_id_callback for each node ID mapping
+        for (&old_index, &new_index) in &automap_map {
+            let old_node_id = self
+                .node_id(old_index)
+                .with_compaction_count(old_compaction_count);
+            let new_node_id = self
+                .node_id(new_index)
+                .with_compaction_count(new_compaction_count);
+            node_id_callback(&old_node_id, &new_node_id);
+        }
+
+        // Update adjacency matrix with new node indices.
+        if !automap_map.is_empty() {
+            let mut old_adjacency = self.adjacency.clone_empty();
+            std::mem::swap(&mut self.adjacency, &mut old_adjacency);
+            self.adjacency.reserve(self.nodes.len());
+            for (old_from_index, old_into_index, data) in old_adjacency.into_iter() {
+                let old_from = old_indexing.index_to_key(old_from_index);
+                let old_into = old_indexing.index_to_key(old_into_index);
+
+                // Skip edges where either endpoint was removed
+                let Some(&new_from) = automap_map.get(&old_from) else {
+                    continue;
+                };
+                let Some(&new_into) = automap_map.get(&old_into) else {
+                    continue;
+                };
+
+                self.adjacency.insert(
+                    new_indexing.key_to_index(new_from),
+                    new_indexing.key_to_index(new_into),
+                    data,
+                );
+                let old_edge_id = self
+                    .edge_id(old_from, old_into)
+                    .with_compaction_count(old_compaction_count);
+                let new_edge_id = self
+                    .edge_id(new_from, new_into)
+                    .with_compaction_count(new_compaction_count);
+                edge_id_callback(&old_edge_id, &new_edge_id);
+            }
+        }
+
+        self.compaction_count = new_compaction_count;
     }
 
     fn shrink_to_fit(&mut self) {
-        self.shrink_to_fit_with(|_, _| {}, |_, _| {});
-    }
-    fn shrink_to_fit_with(
-        &mut self,
-        mut node_id_callback: impl FnMut(&Self::NodeId, &Self::NodeId),
-        mut edge_id_callback: impl FnMut(&Self::EdgeId, &Self::EdgeId),
-    ) {
-        self.do_compact(
-            |vec, cb| vec.shrink_to_fit_with(cb),
-            &mut node_id_callback,
-            &mut edge_id_callback,
-        );
+        self.nodes.shrink_to_fit();
+        self.adjacency.shrink_to_fit();
     }
 }
 
