@@ -5,13 +5,15 @@ use std::{fmt::Debug, hash::Hash};
 /// of the storage while making the compaction count type omittable by setting
 /// it to `()` for storage backends that do not require it.
 pub(crate) trait CompactionCount:
-    Clone + Copy + Debug + Default + Eq + Hash + PartialOrd + Ord
+    Clone + Copy + Debug + Default + Eq + Hash + PartialOrd + Ord + Send + Sync
 {
     fn increment(self) -> Self;
 }
 
 impl CompactionCount for () {
-    fn increment(self) -> Self {}
+    fn increment(self) -> Self {
+        self
+    }
 }
 
 impl CompactionCount for usize {

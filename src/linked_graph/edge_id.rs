@@ -22,6 +22,14 @@ pub struct EdgeId<N, E, D: DirectednessTrait> {
     pub(super) directedness: D,
 }
 
+// SAFETY: EdgeId is Send and Sync because it only contains a Weak pointer and
+// PhantomData, and does not allow mutation of the underlying data. The EdgeId
+// can only be used to access the edge data through Graph methods that ensure
+// the graph is still valid, so it cannot be used after the graph has been
+// dropped.
+unsafe impl<N, E, D: DirectednessTrait> Send for EdgeId<N, E, D> {}
+unsafe impl<N, E, D: DirectednessTrait> Sync for EdgeId<N, E, D> {}
+
 impl<N, E, D: DirectednessTrait> Debug for EdgeId<N, E, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "EdgeId({:?})", self.ptr)

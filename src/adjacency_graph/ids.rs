@@ -3,8 +3,8 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 use derivative::Derivative;
 
 use crate::{
-    DirectednessTrait, EdgeIdTrait, Storage, automap::OffsetAutomapKey, edge_ends::EdgeEnds,
-    graph_id::GraphId,
+    DirectednessTrait, EdgeIdTrait, NodeIdTrait, Storage, automap::OffsetAutomapKey,
+    edge_ends::EdgeEnds, graph_id::GraphId,
 };
 
 #[derive(Derivative)]
@@ -87,7 +87,7 @@ impl<S: Storage, D: DirectednessTrait + Default> EdgeId<S, D> {
     }
 }
 
-impl<S: Storage> crate::graph::NodeIdTrait for NodeId<S> {}
+impl<S: Storage> NodeIdTrait for NodeId<S> {}
 
 impl<S: Storage> NodeId<S> {
     pub fn key(&self) -> OffsetAutomapKey {

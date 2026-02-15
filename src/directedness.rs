@@ -16,6 +16,8 @@ pub trait DirectednessTrait:
     + Hash
     + PartialOrd
     + Ord
+    + Send
+    + Sync
     + TryFrom<Directed>
     + TryFrom<Undirected>
     + TryFrom<Directedness>

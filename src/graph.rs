@@ -20,13 +20,13 @@ use crate::{
 
 /// A trait representing a node identifier in a graph.
 ///
-///  This trait has no methods but serves as a marker for types that can be used
+/// This trait has no methods but serves as a marker for types that can be used
 /// as node identifiers.  This has the unfortunately side-effect of preventing
 /// the use of primitive types (e.g., `usize`, `u32`, etc.) as node identifiers,
 /// since they do not implement this trait.  To work around this, you can define
 /// a newtype wrapper around the primitive type and implement `NodeIdTrait` for the
 /// newtype.
-pub trait NodeIdTrait: Eq + Hash + Clone + Debug + Ord {}
+pub trait NodeIdTrait: Eq + Hash + Clone + Debug + Ord + Send + Sync {}
 
 /// Return type of [`EdgeId::other_end`].
 pub enum OtherEnd<N: NodeIdTrait> {
@@ -59,7 +59,7 @@ impl<N: NodeIdTrait> OtherEnd<N> {
 /// - If `Directedness` is `Undirected`, then the source must always be less than or
 ///   equal to the target, according to the `Ord` implementation of the `NodeId`
 ///   type.
-pub trait EdgeIdTrait: Eq + Hash + Clone + Debug {
+pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
     type NodeId: NodeIdTrait;
     type Directedness: DirectednessTrait;
 

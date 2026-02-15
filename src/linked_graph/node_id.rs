@@ -13,6 +13,10 @@ pub struct NodeId<N, E, D: DirectednessTrait> {
     pub(super) directedness: PhantomData<D>,
 }
 
+// SAFETY: See comment on EdgeId.
+unsafe impl<N, E, D: DirectednessTrait> Send for NodeId<N, E, D> {}
+unsafe impl<N, E, D: DirectednessTrait> Sync for NodeId<N, E, D> {}
+
 impl<N, E, D: DirectednessTrait> Debug for NodeId<N, E, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "NodeId({:?})", self.ptr.as_ptr())

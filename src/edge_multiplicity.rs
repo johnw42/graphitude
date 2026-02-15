@@ -19,6 +19,8 @@ pub trait EdgeMultiplicityTrait:
     + Hash
     + PartialOrd
     + Ord
+    + Send
+    + Sync
     + TryFrom<SingleEdge>
     + TryFrom<MultipleEdges>
     + TryFrom<EdgeMultiplicity>

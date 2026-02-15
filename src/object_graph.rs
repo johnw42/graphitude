@@ -1,8 +1,8 @@
-use std::{fmt::Debug, marker::PhantomData, mem::transmute};
+use std::{fmt::Debug, marker::PhantomData, mem::transmute, ptr::NonNull};
 
 use derivative::Derivative;
 
-use crate::{EdgeIdTrait, MultipleEdges, directedness::Directed};
+use crate::{EdgeIdTrait, MultipleEdges, NodeIdTrait, directedness::Directed};
 
 use super::Graph;
 
@@ -13,20 +13,27 @@ use super::Graph;
 #[derivative(
     Clone(bound = ""),
     Copy(bound = ""),
+    Debug(bound = ""),
     PartialEq(bound = ""),
     Eq(bound = ""),
     Hash(bound = ""),
-    Debug(bound = ""),
     PartialOrd(bound = ""),
     Ord(bound = "")
 )]
-pub struct NodeId<'g, N>(*const N, PhantomData<&'g N>);
+pub struct NodeId<'g, N>(NonNull<N>, PhantomData<&'g N>);
 
-impl<'a, N> crate::graph::NodeIdTrait for NodeId<'a, N> {}
+// SAFETY: NodeId is Send and Sync because it only contains a raw pointer and
+// PhantomData, and does not allow mutation of the underlying data.  It can only
+// be used to access the node data through Graph methods that ensure the graph
+// is still valid, so it cannot be used after the graph has been dropped.
+unsafe impl<N> Send for NodeId<'_, N> {}
+unsafe impl<N> Sync for NodeId<'_, N> {}
+
+impl<'a, N> NodeIdTrait for NodeId<'a, N> {}
 
 impl<'a, N> From<&'a N> for NodeId<'a, N> {
     fn from(v: &'a N) -> Self {
-        NodeId(v as *const N, PhantomData)
+        NodeId(NonNull::from(v), PhantomData)
     }
 }
 
@@ -123,7 +130,7 @@ where
     }
 
     fn node_data(&self, id: &NodeId<N>) -> &<Self as Graph>::NodeData {
-        unsafe { transmute::<&*const N, &&'d N>(&id.0) }
+        unsafe { transmute::<&NonNull<N>, &&'d N>(&id.0) }
     }
 
     fn edge_data(&self, (from, to): &<Self as Graph>::EdgeId) -> &<Self as Graph>::EdgeData {
