@@ -1,2 +1,2 @@
 mod indexing;
-pub mod maxtrix;
+pub mod matrix;

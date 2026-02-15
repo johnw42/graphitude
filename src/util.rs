@@ -5,6 +5,10 @@ pub fn sort_pair<K: Ord>(a: K, b: K) -> (K, K) {
     if a <= b { (a, b) } else { (b, a) }
 }
 
+pub fn sort_pair_if<K: Ord>(should_sort: bool, a: K, b: K) -> (K, K) {
+    if should_sort { sort_pair(a, b) } else { (a, b) }
+}
+
 /// A wrapper type that implements `Debug` by delegating to a closure.
 ///
 /// This allows creating ad-hoc `Debug` implementations without defining new types.

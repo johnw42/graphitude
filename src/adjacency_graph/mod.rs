@@ -3,9 +3,9 @@ use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 /// Node and edge ID types for adjacency graphs.
 pub use self::ids::{EdgeId, NodeId};
 use crate::{
-    AdjacencyMatrix,
     adjacency_matrix::{
-        AdjacencyMatrixSelector, CompactionCount as _, HashStorage, SelectMatrix, Storage,
+        AdjacencyMatrix, AdjacencyMatrixSelector, CompactionCount as _, HashStorage, SelectMatrix,
+        Storage,
     },
     automap::{Automap, trait_def::AutomapIndexing},
     debug::format_debug,
