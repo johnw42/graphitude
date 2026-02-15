@@ -114,6 +114,16 @@ where
             .then(|| self.unchecked_get_data_ref(self.indexing.liveness_index_to_data_index(index)))
     }
 
+    fn get_data_mut(&mut self, index: LivenessIndex) -> Option<&mut V> {
+        if self.liveness_bits()[index] {
+            Some(unsafe {
+                self.data[self.indexing.liveness_index_to_data_index(index)].assume_init_mut()
+            })
+        } else {
+            None
+        }
+    }
+
     fn unchecked_get_data_read(&self, index: DataIndex) -> V {
         // SAFETY: Caller must ensure that the index is live.
         unsafe { self.data[index].assume_init_read() }
@@ -201,6 +211,12 @@ where
         let row = row.into();
         let col = col.into();
         self.get_data_ref(self.indexing.liveness_index(row, col)?)
+    }
+
+    fn get_mut(&mut self, row: I, col: I) -> Option<&mut V> {
+        let row = row.into();
+        let col = col.into();
+        self.get_data_mut(self.indexing.liveness_index(row, col)?)
     }
 
     fn remove(&mut self, row: I, col: I) -> Option<V> {

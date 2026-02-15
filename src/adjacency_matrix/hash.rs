@@ -71,6 +71,11 @@ where
         self.entries.get(&i1).and_then(|m| m.get(&i2))
     }
 
+    fn get_mut(&mut self, row: I, col: I) -> Option<&mut V> {
+        let (i1, i2) = sort_pair_if(!self.directedness.is_directed(), row, col);
+        self.entries.get_mut(&i1).and_then(|m| m.get_mut(&i2))
+    }
+
     fn remove(&mut self, row: I, col: I) -> Option<V> {
         let (i1, i2) = sort_pair_if(!self.directedness.is_directed(), row, col);
         let value = self.entries.get_mut(&i1).and_then(|m| m.remove(&i2))?;

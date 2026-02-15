@@ -250,6 +250,22 @@ where
     S: Storage,
     (D, S): AdjacencyMatrixSelector<usize, E>,
 {
+    fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData {
+        self.assert_valid_node_id(id);
+        self.nodes.get_mut(id.key()).expect("no such node")
+    }
+
+    fn edge_data_mut(&mut self, id: &Self::EdgeId) -> &mut Self::EdgeData {
+        self.assert_valid_edge_id(id);
+        let (from, to) = id.keys().into_values();
+        self.adjacency
+            .get_mut(
+                self.nodes.indexing().key_to_index(from),
+                self.nodes.indexing().key_to_index(to),
+            )
+            .expect("no such edge")
+    }
+
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
         let index = self.nodes.insert(data);
         self.node_id(index)

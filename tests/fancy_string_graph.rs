@@ -51,12 +51,26 @@ impl StringGraph {
         self.nodes.get(id).expect("Invalid node ID")
     }
 
+    fn node_mut(&mut self, id: &NodeId) -> &mut Node {
+        self.nodes.get_mut(id).expect("Invalid node ID")
+    }
+
     fn edge(&self, id: &EdgeId) -> &Edge {
         self.nodes
             .get(&id.0)
             .expect("Invalid edge ID")
             .edges_out
             .iter()
+            .find(|e| e.target == id.1 && e.index == id.2)
+            .expect("Invalid edge ID")
+    }
+
+    fn edge_mut(&mut self, id: &EdgeId) -> &mut Edge {
+        self.nodes
+            .get_mut(&id.0)
+            .expect("Invalid edge ID")
+            .edges_out
+            .iter_mut()
             .find(|e| e.target == id.1 && e.index == id.2)
             .expect("Invalid edge ID")
     }
@@ -132,6 +146,14 @@ impl Graph for StringGraph {
 }
 
 impl GraphMut for StringGraph {
+    fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData {
+        &mut self.node_mut(id).data
+    }
+
+    fn edge_data_mut(&mut self, id: &Self::EdgeId) -> &mut Self::EdgeData {
+        &mut self.edge_mut(id).data
+    }
+
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
         let id = NodeId(self.next_node_id);
         self.next_node_id += 1;

@@ -68,6 +68,9 @@ where
     /// Gets a reference to the data associated with the entry at `row` and `col`, if it exists.
     fn get(&self, row: Self::Index, col: Self::Index) -> Option<&Self::Value>;
 
+    /// Gets a mutable reference to the data associated with the entry at `row` and `col`, if it exists.
+    fn get_mut(&mut self, row: Self::Index, col: Self::Index) -> Option<&mut Self::Value>;
+
     /// Removes the entry at `row` and `col`, returning the associated data if it existed.
     fn remove(&mut self, row: Self::Index, col: Self::Index) -> Option<Self::Value>;
 

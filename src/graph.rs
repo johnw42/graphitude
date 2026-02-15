@@ -575,6 +575,12 @@ impl<G> GraphUndirected for G where G: Graph<Directedness = Undirected> {}
 /// This trait extends [`Graph`] with methods for adding and removing nodes and edges.
 /// All graph implementations that support modification should implement this trait.
 pub trait GraphMut: Graph {
+    /// Gets a mutable reference to the data associated with a node.
+    fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData;
+
+    /// Gets a mutable reference to the data associated with an edge.
+    fn edge_data_mut(&mut self, id: &Self::EdgeId) -> &mut Self::EdgeData;
+
     /// Removes all nodes and edges from the graph.
     fn clear(&mut self) {
         for nid in self.node_ids().collect::<Vec<_>>() {

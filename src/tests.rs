@@ -649,9 +649,48 @@ macro_rules! graph_tests {
         fn test_node_data_retrieval() {
             let mut builder = BuilderImpl::from($builder);
             let mut graph = builder.new_graph();
-            let vd1 = builder.new_node_data();
-            let n1 = graph.add_node(vd1.clone());
-            assert_eq!(*graph.node_data(&n1), vd1);
+            let nd1 = builder.new_node_data();
+            let n1 = graph.add_node(nd1.clone());
+            assert_eq!(*graph.node_data(&n1), nd1);
+        }
+
+        #[test]
+        fn test_node_data_mutation() {
+            let mut builder = BuilderImpl::from($builder);
+            let mut graph = builder.new_graph();
+            let nd1 = builder.new_node_data();
+            let nd2 = builder.new_node_data();
+            let n1 = graph.add_node(nd1.clone());
+            *graph.node_data_mut(&n1) = nd2.clone();
+            assert_eq!(*graph.node_data(&n1), nd2);
+        }
+
+        #[test]
+        fn test_edge_data_retrieval() {
+            let mut builder = BuilderImpl::from($builder);
+            let mut graph = builder.new_graph();
+            let nd1 = builder.new_node_data();
+            let nd2 = builder.new_node_data();
+            let ed1 = builder.new_edge_data();
+            let n1 = graph.add_node(nd1);
+            let n2 = graph.add_node(nd2);
+            let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
+            assert_eq!(*graph.edge_data(&e1), ed1);
+        }
+
+        #[test]
+        fn test_edge_data_mutation() {
+            let mut builder = BuilderImpl::from($builder);
+            let mut graph = builder.new_graph();
+            let nd1 = builder.new_node_data();
+            let nd2 = builder.new_node_data();
+            let ed1 = builder.new_edge_data();
+            let ed2 = builder.new_edge_data();
+            let n1 = graph.add_node(nd1);
+            let n2 = graph.add_node(nd2);
+            let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
+            *graph.edge_data_mut(&e1) = ed2.clone();
+            assert_eq!(*graph.edge_data(&e1), ed2);
         }
 
         #[test]
@@ -661,14 +700,14 @@ macro_rules! graph_tests {
 
             let mut builder = BuilderImpl::from($builder);
             let mut graph = builder.new_graph();
-            let vd1 = builder.new_node_data();
-            let vd2 = builder.new_node_data();
-            let vd3 = builder.new_node_data();
+            let nd1 = builder.new_node_data();
+            let nd2 = builder.new_node_data();
+            let nd3 = builder.new_node_data();
             let ed1 = builder.new_edge_data();
             let ed2 = builder.new_edge_data();
-            let n1 = graph.add_node(vd1);
-            let n2 = graph.add_node(vd2);
-            let n3 = graph.add_node(vd3);
+            let n1 = graph.add_node(nd1);
+            let n2 = graph.add_node(nd2);
+            let n3 = graph.add_node(nd3);
             let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
             let e2 = graph.add_edge(&n2, &n3, ed2.clone()).unwrap();
 
@@ -746,14 +785,14 @@ macro_rules! graph_tests {
         fn test_edge_ids() {
             let mut builder = BuilderImpl::from($builder);
             let mut graph = builder.new_graph();
-            let vd1 = builder.new_node_data();
-            let vd2 = builder.new_node_data();
-            let vd3 = builder.new_node_data();
+            let nd1 = builder.new_node_data();
+            let nd2 = builder.new_node_data();
+            let nd3 = builder.new_node_data();
             let ed1 = builder.new_edge_data();
             let ed2 = builder.new_edge_data();
-            let n1 = graph.add_node(vd1);
-            let n2 = graph.add_node(vd2);
-            let n3 = graph.add_node(vd3);
+            let n1 = graph.add_node(nd1);
+            let n2 = graph.add_node(nd2);
+            let n3 = graph.add_node(nd3);
             let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
             let e2 = graph.add_edge(&n1, &n3, ed2.clone()).unwrap();
 
@@ -768,14 +807,14 @@ macro_rules! graph_tests {
         fn test_node_removal() {
             let mut builder = BuilderImpl::from($builder);
             let mut graph = builder.new_graph();
-            let vd1 = builder.new_node_data();
-            let vd2 = builder.new_node_data();
+            let nd1 = builder.new_node_data();
+            let nd2 = builder.new_node_data();
             let ed1 = builder.new_edge_data();
             let ed2 = builder.new_edge_data();
             let ed3 = builder.new_edge_data();
 
-            let n1 = graph.add_node(vd1.clone());
-            let n2 = graph.add_node(vd2.clone());
+            let n1 = graph.add_node(nd1.clone());
+            let n2 = graph.add_node(nd2.clone());
 
             // Normal edge.
             graph.add_edge(&n1, &n2, ed1.clone());
@@ -785,7 +824,7 @@ macro_rules! graph_tests {
             graph.add_edge(&n1, &n1, ed3.clone());
 
             let removed_data = graph.remove_node(&n1);
-            assert_eq!(removed_data, vd1);
+            assert_eq!(removed_data, nd1);
             assert_eq!(graph.num_nodes(), 1);
             assert_eq!(graph.num_edges(), 0);
         }
@@ -794,14 +833,14 @@ macro_rules! graph_tests {
         fn test_remove_node_cleans_edges() {
             let mut builder = BuilderImpl::from($builder);
             let mut graph = builder.new_graph();
-            let vd1 = builder.new_node_data();
-            let vd2 = builder.new_node_data();
+            let nd1 = builder.new_node_data();
+            let nd2 = builder.new_node_data();
             let ed1 = builder.new_edge_data();
             let ed2 = builder.new_edge_data();
             let ed3 = builder.new_edge_data();
 
-            let n1 = graph.add_node(vd1.clone());
-            let n2 = graph.add_node(vd2.clone());
+            let n1 = graph.add_node(nd1.clone());
+            let n2 = graph.add_node(nd2.clone());
 
             // Normal edge.
             graph.add_edge(&n1, &n2, ed1.clone());
@@ -886,12 +925,12 @@ macro_rules! graph_tests {
         fn test_edges_into() {
             let mut builder = BuilderImpl::from($builder);
             let mut graph = builder.new_graph();
-            let vd1 = builder.new_node_data();
-            let vd2 = builder.new_node_data();
+            let nd1 = builder.new_node_data();
+            let nd2 = builder.new_node_data();
             let ed1 = builder.new_edge_data();
 
-            let n1 = graph.add_node(vd1);
-            let n2 = graph.add_node(vd2);
+            let n1 = graph.add_node(nd1);
+            let n2 = graph.add_node(nd2);
             let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
 
             // Check edges_into and num_edges_into
@@ -918,12 +957,12 @@ macro_rules! graph_tests {
         fn test_edges_between() {
             let mut builder = BuilderImpl::from($builder);
             let mut graph = builder.new_graph();
-            let vd1 = builder.new_node_data();
-            let vd2 = builder.new_node_data();
+            let nd1 = builder.new_node_data();
+            let nd2 = builder.new_node_data();
             let ed1 = builder.new_edge_data();
 
-            let n1 = graph.add_node(vd1);
-            let n2 = graph.add_node(vd2);
+            let n1 = graph.add_node(nd1);
+            let n2 = graph.add_node(nd2);
             let e1 = graph.add_edge(&n1, &n2, ed1).unwrap();
 
             assert_eq!(graph.num_edges_from_into(&n1, &n2), 1);

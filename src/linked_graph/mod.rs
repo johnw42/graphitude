@@ -104,6 +104,14 @@ where
         // where we have &self, so the graph outlives the returned reference.
         unsafe { &*Arc::as_ptr(&id) }
     }
+
+    fn edge_mut(&mut self, id: &EdgeId<N, E, D>) -> &mut Edge<N, E, D> {
+        self.assert_valid_edge_id(id);
+        let id = id.ptr.upgrade().expect("EdgeId is dangling");
+        // SAFETY: We have checked that the EdgeId is valid.  This method is only used internally
+        // where we have &mut self, so no other references to the edges can exist.
+        unsafe { &mut *(Arc::as_ptr(&id) as *mut _) }
+    }
 }
 
 impl<N, E, D, M> Graph for LinkedGraph<N, E, D, M>
@@ -300,6 +308,17 @@ where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
 {
+    fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData {
+        &mut self.node_mut(id).data
+    }
+
+    fn edge_data_mut(&mut self, id: &Self::EdgeId) -> &mut Self::EdgeData {
+        let edge = self.edge_mut(id);
+        // SAFETY: There can be no mutable references to the data, the graph
+        // owns all its data, and there are no mutable references to the graph.
+        unsafe { &mut *edge.data.get() }
+    }
+
     fn clear(&mut self) {
         self.nodes.clear();
     }
