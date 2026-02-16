@@ -51,15 +51,6 @@ where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
 {
-    pub fn new(directedness: D, edge_multiplicity: M) -> Self {
-        Self {
-            nodes: Vec::new(),
-            id: GraphId::new(),
-            directedness,
-            edge_multiplicity,
-        }
-    }
-
     fn node_id(&self, ptr: &Arc<Node<N, E, D>>) -> NodeId<N, E, D> {
         NodeId {
             ptr: Arc::downgrade(ptr),
@@ -308,6 +299,15 @@ where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
 {
+    fn new(directedness: D, edge_multiplicity: M) -> Self {
+        Self {
+            nodes: Vec::new(),
+            id: GraphId::new(),
+            directedness,
+            edge_multiplicity,
+        }
+    }
+
     fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData {
         &mut self.node_mut(id).data
     }
@@ -463,11 +463,11 @@ impl<N, E, D, M> Clone for LinkedGraph<N, E, D, M>
 where
     N: Clone,
     E: Clone,
-    D: DirectednessTrait + Default,
-    M: EdgeMultiplicityTrait + Default,
+    D: DirectednessTrait,
+    M: EdgeMultiplicityTrait,
 {
     fn clone(&self) -> Self {
-        let mut new_graph = LinkedGraph::default();
+        let mut new_graph = LinkedGraph::new(self.directedness, self.edge_multiplicity);
         new_graph.copy_from(self);
         new_graph
     }

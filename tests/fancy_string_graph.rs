@@ -1,8 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
-use graphitude::{EdgeIdTrait, NodeIdTrait, graph_tests, prelude::*, tests::TestDataBuilder};
+use derivative::Derivative;
+use graphitude::{
+    EdgeIdTrait, NodeIdTrait, debug::format_debug, graph_tests, prelude::*, tests::TestDataBuilder,
+};
 
-#[derive(Default)]
+#[derive(Default, Derivative)]
+#[derivative(Clone(bound = ""))]
 struct StringGraph {
     nodes: HashMap<NodeId, Node>,
     next_node_id: usize,
@@ -34,11 +38,13 @@ impl EdgeIdTrait for EdgeId {
     }
 }
 
+#[derive(Clone, Debug)]
 struct Node {
     data: String,
     edges_out: Vec<Edge>,
 }
 
+#[derive(Clone, Debug)]
 struct Edge {
     target: NodeId,
     data: String,
@@ -146,6 +152,13 @@ impl Graph for StringGraph {
 }
 
 impl GraphMut for StringGraph {
+    fn new(_directedness: Self::Directedness, _edge_multiplicity: Self::EdgeMultiplicity) -> Self
+    where
+        Self: Sized,
+    {
+        Self::default()
+    }
+
     fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData {
         &mut self.node_mut(id).data
     }
@@ -205,6 +218,12 @@ impl GraphMut for StringGraph {
             .expect("Invalid edge ID");
 
         node.edges_out.remove(pos).data
+    }
+}
+
+impl Debug for StringGraph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        format_debug(self, f, "StringGraph")
     }
 }
 

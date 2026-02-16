@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
+use std::{collections::HashMap, fmt::Debug};
 
 /// Node and edge ID types for adjacency graphs.
 pub use self::ids::{EdgeId, NodeId};
@@ -49,7 +49,7 @@ where
 {
     nodes: NodeVec<N>,
     adjacency: <(D, S) as AdjacencyMatrixSelector<usize, E>>::Matrix,
-    directedness: PhantomData<D>,
+    directedness: D,
     id: GraphId,
     compaction_count: S::CompactionCount,
 }
@@ -68,7 +68,7 @@ where
     /// Creates an `EdgeId` for the given `AutomapKey` pair.
     fn edge_id(&self, from: OffsetAutomapKey, into: OffsetAutomapKey) -> EdgeId<S, D> {
         EdgeId::new(
-            D::default().make_pair(from, into),
+            self.directedness.make_pair(from, into),
             self.id,
             self.compaction_count,
         )
@@ -89,7 +89,7 @@ where
     type EdgeMultiplicity = SingleEdge;
 
     fn directedness(&self) -> Self::Directedness {
-        D::default()
+        self.directedness
     }
 
     fn edge_multiplicity(&self) -> Self::EdgeMultiplicity {
@@ -234,13 +234,22 @@ where
     (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     fn default() -> Self {
-        Self {
-            nodes: NodeVec::default(),
-            adjacency: SelectMatrix::<D, S, usize, E>::new(),
-            directedness: PhantomData,
-            compaction_count: S::CompactionCount::default(),
-            id: GraphId::new(),
-        }
+        Self::new(D::default(), SingleEdge)
+    }
+}
+
+impl<N, E, D, S> Clone for AdjacencyGraph<N, E, D, S>
+where
+    N: Clone,
+    E: Clone,
+    D: DirectednessTrait + Default,
+    S: Storage,
+    (D, S): AdjacencyMatrixSelector<usize, E>,
+{
+    fn clone(&self) -> Self {
+        let mut new_graph = Self::new(self.directedness, SingleEdge);
+        new_graph.copy_from(self);
+        new_graph
     }
 }
 
@@ -250,6 +259,20 @@ where
     S: Storage,
     (D, S): AdjacencyMatrixSelector<usize, E>,
 {
+    fn new(directedness: D, edge_multiplicity: SingleEdge) -> Self {
+        assert!(
+            edge_multiplicity == SingleEdge,
+            "AdjacencyGraph only supports SingleEdge multiplicity"
+        );
+        Self {
+            nodes: NodeVec::default(),
+            adjacency: SelectMatrix::<D, S, usize, E>::new(),
+            directedness,
+            compaction_count: S::CompactionCount::default(),
+            id: GraphId::new(),
+        }
+    }
+
     fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData {
         self.assert_valid_node_id(id);
         self.nodes.get_mut(id.key()).expect("no such node")

@@ -1,5 +1,7 @@
 use std::{fmt::Debug, hash::Hash};
 
+use quickcheck::Arbitrary;
+
 use crate::edge_ends::EdgeEnds;
 
 /// Trait defining the directedness behavior of graph edges.
@@ -21,6 +23,7 @@ pub trait DirectednessTrait:
     + TryFrom<Directed>
     + TryFrom<Undirected>
     + TryFrom<Directedness>
+    + Arbitrary
 {
     fn is_directed(&self) -> bool;
 
@@ -64,6 +67,12 @@ impl TryFrom<Directedness> for Directed {
     }
 }
 
+impl Arbitrary for Directed {
+    fn arbitrary(_g: &mut quickcheck::Gen) -> Self {
+        Directed
+    }
+}
+
 #[derive(Clone, Copy, Default, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Undirected;
 
@@ -91,6 +100,11 @@ impl TryFrom<Directedness> for Undirected {
         }
     }
 }
+impl Arbitrary for Undirected {
+    fn arbitrary(_g: &mut quickcheck::Gen) -> Self {
+        Undirected
+    }
+}
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Directedness {
@@ -113,5 +127,15 @@ impl From<Directed> for Directedness {
 impl From<Undirected> for Directedness {
     fn from(_: Undirected) -> Self {
         Directedness::Undirected
+    }
+}
+
+impl Arbitrary for Directedness {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        if bool::arbitrary(g) {
+            Directedness::Directed
+        } else {
+            Directedness::Undirected
+        }
     }
 }

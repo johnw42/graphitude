@@ -1,5 +1,7 @@
 use std::{fmt::Debug, hash::Hash};
 
+use quickcheck::Arbitrary;
+
 /// Marker type representing single edges (no multiple edges between same nodes).
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SingleEdge;
@@ -24,6 +26,7 @@ pub trait EdgeMultiplicityTrait:
     + TryFrom<SingleEdge>
     + TryFrom<MultipleEdges>
     + TryFrom<EdgeMultiplicity>
+    + Arbitrary
 {
     fn allows_parallel_edges(&self) -> bool;
 }
@@ -50,6 +53,12 @@ impl TryFrom<EdgeMultiplicity> for SingleEdge {
             EdgeMultiplicity::SingleEdge => Ok(SingleEdge),
             EdgeMultiplicity::MultipleEdges => Err(()),
         }
+    }
+}
+
+impl Arbitrary for SingleEdge {
+    fn arbitrary(_g: &mut quickcheck::Gen) -> Self {
+        SingleEdge
     }
 }
 
@@ -82,6 +91,12 @@ impl TryFrom<EdgeMultiplicity> for MultipleEdges {
     }
 }
 
+impl Arbitrary for MultipleEdges {
+    fn arbitrary(_g: &mut quickcheck::Gen) -> Self {
+        MultipleEdges
+    }
+}
+
 /// Enum representing the edge multiplicity of a graph.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum EdgeMultiplicity {
@@ -107,5 +122,15 @@ impl From<SingleEdge> for EdgeMultiplicity {
 impl From<MultipleEdges> for EdgeMultiplicity {
     fn from(_: MultipleEdges) -> Self {
         EdgeMultiplicity::MultipleEdges
+    }
+}
+
+impl Arbitrary for EdgeMultiplicity {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        if bool::arbitrary(g) {
+            EdgeMultiplicity::SingleEdge
+        } else {
+            EdgeMultiplicity::MultipleEdges
+        }
     }
 }
