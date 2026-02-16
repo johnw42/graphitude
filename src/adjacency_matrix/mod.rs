@@ -22,6 +22,8 @@ pub mod hash;
 /// Storage types for adjacency matrices.
 mod storage;
 
+mod tests;
+
 pub use storage::{BitvecStorage, HashStorage, Storage};
 
 pub(crate) use storage::CompactionCount;
@@ -48,6 +50,11 @@ where
     /// Creates an empty adjacency matrix of the same type.
     fn clone_empty(&self) -> Self {
         Self::new()
+    }
+
+    /// Returns the directedness of the adjacency matrix.
+    fn directedness(&self) -> Self::Directedness {
+        Self::Directedness::default()
     }
 
     /// Inserts an entry at `row` and `col` with associated data `data`.

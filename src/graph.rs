@@ -82,6 +82,7 @@ pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
 }
 
 /// Return type of [`Graph::add_or_update_edge`].
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AddEdgeResult<I, D> {
     /// A new edge was added with the given ID.
     Added(I),

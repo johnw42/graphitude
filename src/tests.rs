@@ -406,6 +406,12 @@ pub fn check_graph_consistency<G: Graph>(graph: &G) {
         assert_eq!(num_into, edges_into_count);
     }
 
+    // Verify node and edge IDs are unique.
+    let node_ids: HashSet<_> = graph.node_ids().collect();
+    assert_eq!(node_ids.len(), graph.node_ids().count());
+    let edge_ids: HashSet<_> = graph.edge_ids().collect();
+    assert_eq!(edge_ids.len(), graph.edge_ids().count());
+
     // Verify counts are correct
     assert_eq!(graph.node_ids().count(), graph.num_nodes(),);
     assert_eq!(graph.edge_ids().count(), graph.num_edges(),);
@@ -797,11 +803,67 @@ macro_rules! graph_tests {
             let e2 = graph.add_edge(&n1, &n3, ed2.clone()).unwrap();
 
             let edge_ids: Vec<_> = graph.edge_ids().collect();
-            dbg!(&edge_ids);
             assert_eq!(edge_ids.len(), 2);
             assert!(edge_ids.contains(&e1));
             assert!(edge_ids.contains(&e2));
         }
+
+
+        #[test]
+        fn test_edges_by_node() {
+            let mut builder = BuilderImpl::from($builder);
+            let mut graph = builder.new_graph();
+            let nd1 = builder.new_node_data();
+            let nd2 = builder.new_node_data();
+            let ed1 = builder.new_edge_data();
+            let ed2 = builder.new_edge_data();
+            let ed3 = builder.new_edge_data();
+
+            let n1 = graph.add_node(nd1.clone());
+            let n2 = graph.add_node(nd2.clone());
+
+            // Normal edge.
+            let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
+            assert_eq!(graph.num_edges(), 1);
+            // Self edge.
+            let e2 = graph.add_edge(&n1, &n1, ed2.clone()).unwrap();
+            assert_eq!(graph.num_edges(), 2);
+            // Duplicate edge.
+            let add_3 = graph.add_edge(&n1, &n2, ed1.clone());
+            if graph.allows_parallel_edges() {
+                assert_eq!(graph.num_edges(), 3);
+            } else {
+                assert_eq!(graph.num_edges(), 2);
+            }
+
+            let edges_from_n1: Vec<_> = graph.edges_from(&n1).collect();
+            assert!(edges_from_n1.contains(&e1));
+            assert!(edges_from_n1.contains(&e2));
+            if graph.allows_parallel_edges() {
+                assert!(edges_from_n1.contains(&add_3.clone().unwrap()));
+                assert_eq!(edges_from_n1.len(), 3);
+            } else {
+                assert!(matches!(&add_3, AddEdgeResult::Updated(data) if *data == ed1));
+                dbg!(&edges_from_n1);
+                assert_eq!(edges_from_n1.len(), 2);
+            }
+
+            let edges_into_n1: Vec<_> = graph.edges_into(&n1).collect();
+            assert!(edges_into_n1.contains(&e2));
+            if graph.is_directed() {
+                assert_eq!(edges_into_n1.len(), 1);
+            } else {
+                assert!(edges_into_n1.contains(&e1));
+                if graph.allows_parallel_edges() {
+                    assert!(edges_into_n1.contains(&add_3.unwrap()));
+                    assert_eq!(edges_into_n1.len(), 3);
+                } else {
+                    assert!(matches!(&add_3, AddEdgeResult::Updated(data) if *data == ed1));
+                    assert_eq!(edges_into_n1.len(), 2);
+                }
+            }
+        }
+
 
         #[test]
         fn test_node_removal() {
@@ -818,10 +880,17 @@ macro_rules! graph_tests {
 
             // Normal edge.
             graph.add_edge(&n1, &n2, ed1.clone());
-            // Duplicate edge.
-            graph.add_edge(&n1, &n2, ed2.clone());
+            assert_eq!(graph.num_edges(), 1);
             // Self edge.
             graph.add_edge(&n1, &n1, ed3.clone());
+            assert_eq!(graph.num_edges(), 2);
+            // Duplicate edge.
+            graph.add_edge(&n1, &n2, ed2.clone());
+            if graph.allows_parallel_edges() {
+                assert_eq!(graph.num_edges(), 3);
+            } else {
+                assert_eq!(graph.num_edges(), 2);
+            }
 
             let removed_data = graph.remove_node(&n1);
             assert_eq!(removed_data, nd1);
@@ -1016,6 +1085,8 @@ macro_rules! graph_tests {
 
             graph.clear();
 
+            assert_eq!(graph.num_nodes(), 0);
+            assert_eq!(graph.num_edges(), 0);
             assert_eq!(graph.node_ids().count(), 0);
             assert_eq!(graph.edge_ids().count(), 0);
             assert!(graph.is_empty());
@@ -1315,8 +1386,10 @@ macro_rules! graph_tests {
             let mut graph = builder.new_graph();
             let n1 = graph.add_node(builder.new_node_data());
             let n2 = graph.add_node(builder.new_node_data());
-            graph.add_edge(&n1, &n2, builder.new_edge_data());
-            graph.add_edge(&n1, &n2, builder.new_edge_data());
+            let result = graph.add_edge(&n1, &n2, builder.new_edge_data());
+            assert!(matches!(result, AddEdgeResult::Added(_)));
+            let result = graph.add_edge(&n1, &n2, builder.new_edge_data());
+            assert_eq!(graph.allows_parallel_edges(), matches!(result, AddEdgeResult::Added(_)));
 
             if graph.allows_parallel_edges() {
                 assert_eq!(graph.num_edges(), 2);
