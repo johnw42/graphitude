@@ -284,40 +284,40 @@ where
 
     fn entries_in_row(&self, row: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
         let row = row.into();
-        let row_start = self
-            .indexing
-            .liveness_index(row, 0)
-            .expect("Invalid row index");
-        let row_end = self.indexing.unchecked_liveness_index(row + 1, 0);
-        self.liveness_bits()[row_start.0..row_end.0]
-            .iter_ones()
-            .map(move |col| {
-                (
-                    col.into(),
-                    self.unchecked_get_data_ref(
-                        self.indexing.liveness_index_to_data_index(row_start + col),
-                    ),
-                )
-            })
+        let size = self.size();
+        let row_start = (row < size).then(|| self.indexing.unchecked_liveness_index(row, 0));
+        row_start.into_iter().flat_map(move |row_start| {
+            let row_end = self.indexing.unchecked_liveness_index(row + 1, 0);
+            self.liveness_bits()[row_start.0..row_end.0]
+                .iter_ones()
+                .map(move |col| {
+                    (
+                        col.into(),
+                        self.unchecked_get_data_ref(
+                            self.indexing.liveness_index_to_data_index(row_start + col),
+                        ),
+                    )
+                })
+        })
     }
 
     fn entries_in_col(&self, col: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
         let col = col.into();
-        let col_start = self
-            .indexing
-            .liveness_index(col, 0)
-            .expect("Invalid column index");
-        let col_end = col_start + self.size();
-        self.reflected_liveness_bits()[col_start.0..col_end.0]
-            .iter_ones()
-            .map(move |col| {
-                (
-                    col.into(),
-                    self.unchecked_get_data_ref(
-                        self.indexing.liveness_index_to_data_index(col_start + col),
-                    ),
-                )
-            })
+        let size = self.size();
+        let col_start = (col < size).then(|| self.indexing.unchecked_liveness_index(col, 0));
+        col_start.into_iter().flat_map(move |col_start| {
+            let col_end = col_start + size;
+            self.reflected_liveness_bits()[col_start.0..col_end.0]
+                .iter_ones()
+                .map(move |row| {
+                    (
+                        row.into(),
+                        self.unchecked_get_data_ref(
+                            self.indexing.liveness_index_to_data_index(col_start + row),
+                        ),
+                    )
+                })
+        })
     }
 
     fn clear(&mut self) {

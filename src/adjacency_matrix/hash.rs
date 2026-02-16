@@ -125,6 +125,9 @@ where
                     .flat_map(move |sources| {
                         let row = row.clone();
                         sources.iter().filter_map(move |i1| {
+                            if *i1 == row {
+                                return None;
+                            }
                             self.entries
                                 .get(i1)
                                 .and_then(|targets| targets.get(&row))
