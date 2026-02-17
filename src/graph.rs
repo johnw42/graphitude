@@ -16,19 +16,19 @@ use crate::{
     path::Path,
     prelude::*,
     search::{BfsIterator, DfsIterator},
-}; // Import the trait that defines EdgeEnds::new
+};
 
 /// A trait representing a node identifier in a graph.
 ///
 /// This trait has no methods but serves as a marker for types that can be used
-/// as node identifiers.  This has the unfortunately side-effect of preventing
+/// as node identifiers.  This has the unfortunatel side-effect of preventing
 /// the use of primitive types (e.g., `usize`, `u32`, etc.) as node identifiers,
 /// since they do not implement this trait.  To work around this, you can define
 /// a newtype wrapper around the primitive type and implement `NodeIdTrait` for the
 /// newtype.
 pub trait NodeIdTrait: Eq + Hash + Clone + Debug + Ord + Send + Sync {}
 
-/// Return type of [`EdgeId::other_end`].
+/// Return type of [`EdgeIdTrait::other_end`].
 pub enum OtherEnd<N: NodeIdTrait> {
     /// The source node of the edge for which a target was passed.
     Source(N),
@@ -51,14 +51,12 @@ impl<N: NodeIdTrait> OtherEnd<N> {
 
 /// A trait representing an edge identifier in a graph.  When Directedness is
 /// `Directed`, the source and target are distinct; when Directedness is
-/// `Undirected`, the source and target are always be ordered such that
-/// `source <= target`.
+/// `Undirected`, the source and target are always be ordered such that `source
+/// <= target`.
 ///
-/// Implementors must ensure the following conditions:
-/// - Either `ends` is implemented, or both `source` and `target` are implemented.
-/// - If `Directedness` is `Undirected`, then the source must always be less than or
-///   equal to the target, according to the `Ord` implementation of the `NodeId`
-///   type.
+/// Implementors must ensure that if `Directedness` is `Undirected`, then the
+/// source must always be less than or equal to the target, according to the
+/// `Ord` implementation of the `NodeId` type.
 pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
     type NodeId: NodeIdTrait;
     type Directedness: DirectednessTrait;
@@ -81,21 +79,21 @@ pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
     }
 }
 
-/// Return type of [`Graph::add_or_update_edge`].
+/// Return type of [`Graph::add_edge`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AddEdgeResult<I, D> {
     /// A new edge was added with the given ID.
     Added(I),
-    /// An existing edge was updated with new data, and the old data is returned.
-    Updated(D),
+    /// An existing edge was updated with new data. The edge ID and the old data are returned.
+    Updated(I, D),
 }
 
 impl<I, D> AddEdgeResult<I, D> {
-    /// Returns the new edge ID if the result was `Added`, otherwise panics.
+    /// Returns the new edge ID if the result was `Added`, or the old edge ID if the result was `Updated`.
     pub fn unwrap(self) -> I {
         match self {
             AddEdgeResult::Added(id) => id,
-            AddEdgeResult::Updated(_) => panic!("Called unwrap on an Updated edge result"),
+            AddEdgeResult::Updated(id, _) => id,
         }
     }
 }
@@ -165,8 +163,8 @@ pub trait Graph {
     /// Creates a new graph view with custom debug formatting for nodes and edges.
     fn to_debug_with<N, E>(
         &self,
-        node_fmt: impl Fn(&Self::NodeData) -> N,
-        edge_fmt: impl Fn(&Self::EdgeData) -> E,
+        node_fmt: impl FnMut(&Self::NodeData) -> N,
+        edge_fmt: impl FnMut(&Self::EdgeData) -> E,
     ) -> impl Graph + Debug
     where
         N: Debug,
@@ -607,16 +605,16 @@ pub trait GraphMut: Graph {
     fn add_new_edge(
         &mut self,
         from: &Self::NodeId,
-        to: &Self::NodeId,
+        into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> Self::EdgeId
     where
         Self: Graph<EdgeMultiplicity = MultipleEdges>,
     {
-        match self.add_edge(from, to, data) {
+        match self.add_edge(from, into, data) {
             AddEdgeResult::Added(eid) => eid,
-            AddEdgeResult::Updated(_) => {
-                unreachable!("Edge already exists between {:?} and {:?}", from, to)
+            AddEdgeResult::Updated(_, _) => {
+                unreachable!("Edge already exists between {:?} and {:?}", from, into)
             }
         }
     }
@@ -629,79 +627,12 @@ pub trait GraphMut: Graph {
     fn add_edge(
         &mut self,
         from: &Self::NodeId,
-        to: &Self::NodeId,
+        into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData>;
 
     /// Remove an edge between two nodes, returning its data.
     fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData;
-
-    /// Copies all nodes and edges from another graph into this graph.
-    fn copy_from<S>(&mut self, source: &S) -> HashMap<S::NodeId, Self::NodeId>
-    where
-        S: Graph<NodeData = Self::NodeData, EdgeData = Self::EdgeData>,
-        Self::NodeData: Clone,
-        Self::EdgeData: Clone,
-    {
-        self.copy_from_with(source, &mut Clone::clone, &mut Clone::clone)
-    }
-
-    /// Copies all nodes and edges from another graph into this graph,
-    /// transforming the node and edge data using the provided mapping
-    /// functions.
-    fn copy_from_with<S, F, G>(
-        &mut self,
-        source: &S,
-        mut map_node: F,
-        mut map_edge: G,
-    ) -> HashMap<S::NodeId, Self::NodeId>
-    where
-        S: Graph + ?Sized,
-        F: FnMut(&S::NodeData) -> Self::NodeData,
-        G: FnMut(&S::EdgeData) -> Self::EdgeData,
-    {
-        let mut node_map = HashMap::new();
-        for nid in source.node_ids() {
-            let vdata = map_node(source.node_data(&nid));
-            let new_nid = self.add_node(vdata);
-            node_map.insert(nid, new_nid);
-        }
-        for eid in source.edge_ids() {
-            let (from, to) = (eid.source(), eid.target());
-            let edata = map_edge(source.edge_data(&eid));
-            let new_from = node_map.get(&from).expect("missing node");
-            let new_to = node_map.get(&to).expect("missing node");
-            self.add_edge(new_from, new_to, edata);
-        }
-        node_map
-    }
-
-    /// Creates a mapping from edges in this graph to edges in another graph,
-    /// based on a provided node mapping from [`Self::copy_from`] or
-    /// [`Self::copy_from_with`].
-    fn make_edge_map<S>(
-        &self,
-        source: &S,
-        node_map: &HashMap<S::NodeId, Self::NodeId>,
-    ) -> HashMap<S::EdgeId, Self::EdgeId>
-    where
-        S: Graph,
-    {
-        let mut edge_map = HashMap::new();
-        for eid in source.edge_ids() {
-            let (from1, to1) = (eid.source(), eid.target());
-            if let Some(from2) = node_map.get(&from1)
-                && let Some(to2) = node_map.get(&to1)
-            {
-                let eid2 = self
-                    .edges_from_into(from2, to2)
-                    .find(|_| true)
-                    .expect("missing edge");
-                edge_map.insert(eid, eid2);
-            }
-        }
-        edge_map
-    }
 
     /// Reserves capacity for at least the given number of additional nodes
     /// and edges.  Does nothing by default.

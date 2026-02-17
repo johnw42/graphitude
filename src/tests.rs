@@ -479,6 +479,8 @@ macro_rules! graph_tests {
     };
     (internal: $builder_type:ty, $builder:expr, $f:expr, $g:expr $(; $($rest:tt)*)?) => {
         use $crate::tests::InternalBuilder;
+        use $crate::GraphCopier;
+        use std::collections::HashMap;
         type TestGraph = <$builder_type as TestDataBuilder>::Graph;
         type BuilderImpl = InternalBuilder<$builder_type>;
 
@@ -1087,7 +1089,7 @@ macro_rules! graph_tests {
                 assert!(edges_from_n1.contains(&add_3.clone().unwrap()));
                 assert_eq!(edges_from_n1.len(), 3);
             } else {
-                assert!(matches!(&add_3, AddEdgeResult::Updated(data) if *data == ed1));
+                assert!(matches!(&add_3, AddEdgeResult::Updated(_, data) if *data == ed1));
                 dbg!(&edges_from_n1);
                 assert_eq!(edges_from_n1.len(), 2);
             }
@@ -1102,7 +1104,7 @@ macro_rules! graph_tests {
                     assert!(edges_into_n1.contains(&add_3.unwrap()));
                     assert_eq!(edges_into_n1.len(), 3);
                 } else {
-                    assert!(matches!(&add_3, AddEdgeResult::Updated(data) if *data == ed1));
+                    assert!(matches!(&add_3, AddEdgeResult::Updated(_, data) if *data == ed1));
                     assert_eq!(edges_into_n1.len(), 2);
                 }
             }
@@ -1303,9 +1305,14 @@ macro_rules! graph_tests {
             let e1 = source.add_edge(&n1, &n2, builder.new_edge_data()).unwrap();
             let e2 = source.add_edge(&n2, &n3, builder.new_edge_data()).unwrap();
 
-            let mut target = builder.new_graph();
-            let node_map = target.copy_from(&source);
-            let edge_map = target.make_edge_map(&source, &node_map);
+            let mut node_map = HashMap::new();
+            let mut edge_map = HashMap::new();
+            let target = GraphCopier::new(&source)
+                .clone_nodes()
+                .clone_edges()
+                .with_node_map(&mut node_map)
+                .with_edge_map(&mut edge_map)
+                .copy::<TestGraph>();
 
             assert_eq!(target.node_ids().count(), 3);
             assert_eq!(target.edge_ids().count(), 2);
@@ -1612,8 +1619,14 @@ macro_rules! graph_tests {
                 dyn Fn(&<TestGraph as Graph>::EdgeData) -> <TestGraph as Graph>::EdgeData,
             > = Box::new($g);
 
-            let node_map = target.copy_from_with(&source, &mut f, &mut g);
-            let edge_map = target.make_edge_map(&source, &node_map);
+            let mut node_map = HashMap::new();
+            let mut edge_map = HashMap::new();
+            let target = GraphCopier::new(&source)
+                .transform_nodes(&mut f)
+                .transform_edges(&mut g)
+                .with_node_map(&mut node_map)
+                .with_edge_map(&mut edge_map)
+                .copy::<TestGraph>();
 
             assert_eq!(target.node_ids().count(), 3);
             assert_eq!(target.edge_ids().count(), 2);

@@ -8,6 +8,7 @@ use crate::{
         Storage,
     },
     automap::{Automap, trait_def::AutomapIndexing},
+    copier::GraphCopier,
     debug::format_debug,
     directedness::DirectednessTrait,
     graph_id::GraphId,
@@ -247,9 +248,7 @@ where
     (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     fn clone(&self) -> Self {
-        let mut new_graph = Self::new(self.directedness, SingleEdge);
-        new_graph.copy_from(self);
-        new_graph
+        GraphCopier::new(self).clone_nodes().clone_edges().copy()
     }
 }
 
@@ -300,13 +299,14 @@ where
         into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
+        let edge_id = self.edge_id(from.key(), into.key());
         match self.adjacency.insert(
             self.nodes.indexing().key_to_index(from.key()),
             self.nodes.indexing().key_to_index(into.key()),
             data,
         ) {
-            Some(data) => AddEdgeResult::Updated(data),
-            None => AddEdgeResult::Added(self.edge_id(from.key(), into.key())),
+            Some(data) => AddEdgeResult::Updated(edge_id, data),
+            None => AddEdgeResult::Added(edge_id),
         }
     }
 

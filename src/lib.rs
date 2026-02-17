@@ -27,6 +27,7 @@
 pub mod adjacency_graph;
 #[cfg(feature = "bitvec")]
 pub mod adjacency_matrix;
+pub mod copier;
 pub mod debug;
 pub mod debug_graph_view;
 pub mod directedness;
@@ -51,6 +52,7 @@ mod test_util;
 mod triangular;
 mod util;
 
+pub use copier::GraphCopier;
 pub use directedness::{Directed, DirectednessTrait, Undirected};
 pub use edge_multiplicity::{EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
 pub use graph::{

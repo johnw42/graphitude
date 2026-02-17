@@ -1,7 +1,7 @@
 use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::{
-    debug::format_debug, directedness::Directedness, edge_ends::EdgeEnds,
+    copier::GraphCopier, debug::format_debug, directedness::Directedness, edge_ends::EdgeEnds,
     edge_multiplicity::EdgeMultiplicity, graph::AddEdgeResult, graph_id::GraphId, prelude::*,
     util::OtherValue,
 };
@@ -353,7 +353,7 @@ where
                 // owns all its data, and we have &mut self, so no other references
                 // to the graph or edge data can exist.
                 std::mem::swap(unsafe { &mut *edge.data.get() }, &mut old_data);
-                return AddEdgeResult::Updated(old_data);
+                return AddEdgeResult::Updated(self.edge_id(edge), old_data);
             }
             debug_assert_eq!(self.edges_from_into(from, into).count(), 0);
         }
@@ -467,9 +467,7 @@ where
     M: EdgeMultiplicityTrait,
 {
     fn clone(&self) -> Self {
-        let mut new_graph = LinkedGraph::new(self.directedness, self.edge_multiplicity);
-        new_graph.copy_from(self);
-        new_graph
+        GraphCopier::new(self).clone_nodes().clone_edges().copy()
     }
 }
 

@@ -338,7 +338,7 @@ where
                                 let edge_data = builder
                                     .make_edge_data(&attrs)
                                     .map_err(ParseError::Builder)?;
-                                if let AddEdgeResult::Updated(_) =
+                                if let AddEdgeResult::Updated(_, _) =
                                     graph.add_edge(&current_from, to_id, edge_data)
                                 {
                                     return Err(ParseError::DuplicateEdge(

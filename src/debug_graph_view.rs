@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{LinkedGraph, prelude::*};
+use crate::{LinkedGraph, copier::GraphCopier, prelude::*};
 
 /// A view of a graph with transformed node and edge data, suitable for debugging.
 ///
@@ -26,11 +26,14 @@ where
     pub fn new<G, NF, EF>(graph: &G, node_fn: NF, edge_fn: EF) -> Self
     where
         G: Graph<Directedness = D, EdgeMultiplicity = M> + ?Sized,
-        NF: Fn(&G::NodeData) -> N,
-        EF: Fn(&G::EdgeData) -> E,
+        NF: FnMut(&G::NodeData) -> N,
+        EF: FnMut(&G::EdgeData) -> E,
     {
         let mut inner = LinkedGraph::new(graph.directedness(), graph.edge_multiplicity());
-        inner.copy_from_with(graph, node_fn, edge_fn);
+        GraphCopier::new(graph)
+            .transform_nodes(node_fn)
+            .transform_edges(edge_fn)
+            .copy_into(&mut inner);
         Self { inner }
     }
 }
