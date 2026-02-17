@@ -290,13 +290,9 @@ where
             let row_end = self.indexing.unchecked_liveness_index(row + 1, 0);
             self.liveness_bits()[row_start.0..row_end.0]
                 .iter_ones()
-                .map(move |col| {
-                    (
-                        col.into(),
-                        self.unchecked_get_data_ref(
-                            self.indexing.liveness_index_to_data_index(row_start + col),
-                        ),
-                    )
+                .map(move |col_offset| {
+                    let data_index = self.indexing.unchecked_data_index(row, col_offset);
+                    (col_offset.into(), self.unchecked_get_data_ref(data_index))
                 })
         })
     }
@@ -309,13 +305,9 @@ where
             let col_end = col_start + size;
             self.reflected_liveness_bits()[col_start.0..col_end.0]
                 .iter_ones()
-                .map(move |row| {
-                    (
-                        row.into(),
-                        self.unchecked_get_data_ref(
-                            self.indexing.liveness_index_to_data_index(col_start + row),
-                        ),
-                    )
+                .map(move |row_offset| {
+                    let data_index = self.indexing.unchecked_data_index(row_offset, col);
+                    (row_offset.into(), self.unchecked_get_data_ref(data_index))
                 })
         })
     }

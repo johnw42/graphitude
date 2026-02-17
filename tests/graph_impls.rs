@@ -70,27 +70,29 @@ mod linked {
 }
 
 mod adjacency {
+    use graphitude::adjacency_graph::edge_container::EdgeContainerSelector;
+
     pub use graphitude::{
-        BitvecStorage, Graph, HashStorage, Storage, adjacency_graph::AdjacencyGraph,
-        adjacency_matrix::AdjacencyMatrixSelector, graph_tests, prelude::*, tests::TestDataBuilder,
+        BitvecStorage, Graph, HashStorage, Storage, adjacency_graph::AdjacencyGraph, graph_tests,
+        prelude::*, tests::TestDataBuilder,
     };
     use std::marker::PhantomData;
 
-    pub struct AdjacencyGraphBuilder<D, S>(PhantomData<(D, S)>);
+    pub struct AdjacencyGraphBuilder<D, M, S>(PhantomData<(D, M, S)>);
 
-    impl<D, S> AdjacencyGraphBuilder<D, S> {
+    impl<D, M, S> AdjacencyGraphBuilder<D, M, S> {
         pub fn new() -> Self {
             Self(PhantomData)
         }
     }
 
-    impl<D, S> TestDataBuilder for AdjacencyGraphBuilder<D, S>
+    impl<D, M, S> TestDataBuilder for AdjacencyGraphBuilder<D, M, S>
     where
         D: DirectednessTrait + Default,
+        M: EdgeContainerSelector,
         S: Storage,
-        (D, S): AdjacencyMatrixSelector<usize, String>,
     {
-        type Graph = AdjacencyGraph<i32, String, D, S>;
+        type Graph = AdjacencyGraph<i32, String, D, M, S>;
 
         fn new_graph(&self) -> Self::Graph {
             AdjacencyGraph::default()
@@ -135,35 +137,69 @@ mod adjacency {
     }
 
     graph_tests!(
-        directed_bitvec,
-        AdjacencyGraphBuilder<Directed, BitvecStorage>,
+        directed_single_bitvec,
+        AdjacencyGraphBuilder<Directed, SingleEdge, BitvecStorage>,
         AdjacencyGraphBuilder::new(),
         |data| data * 2,
         |data: &String| format!("{}-copied", data);
 
-        test_compaction!(AdjacencyGraphBuilder<Directed, BitvecStorage>);
+        test_compaction!(AdjacencyGraphBuilder<Directed, SingleEdge, BitvecStorage>);
     );
 
     graph_tests!(
-        undirected_bitvec,
-        AdjacencyGraphBuilder<Undirected, BitvecStorage>,
+        undirected_single_bitvec,
+        AdjacencyGraphBuilder<Undirected, SingleEdge, BitvecStorage>,
         AdjacencyGraphBuilder::new(),
         |data| data * 2,
         |data: &String| format!("{}-copied", data);
 
-        test_compaction!(AdjacencyGraphBuilder<Undirected, BitvecStorage>);
+        test_compaction!(AdjacencyGraphBuilder<Undirected, SingleEdge, BitvecStorage>);
     );
 
     graph_tests!(
-        directed_hash,
-        AdjacencyGraphBuilder<Directed, HashStorage>,
+        directed_single_hash,
+        AdjacencyGraphBuilder<Directed, SingleEdge, HashStorage>,
         AdjacencyGraphBuilder::new(),
         |data| data * 2,
         |data: &String| format!("{}-copied", data));
 
     graph_tests!(
-        undirected_hash,
-        AdjacencyGraphBuilder<Undirected, HashStorage>,
+        undirected_single_hash,
+        AdjacencyGraphBuilder<Undirected, SingleEdge, HashStorage>,
+        AdjacencyGraphBuilder::new(),
+        |data| data * 2,
+        |data: &String| format!("{}-copied", data));
+
+    graph_tests!(
+        directed_multiple_bitvec,
+        AdjacencyGraphBuilder<Directed, MultipleEdges, BitvecStorage>,
+        AdjacencyGraphBuilder::new(),
+        |data| data * 2,
+        |data: &String| format!("{}-copied", data);
+
+        test_compaction!(AdjacencyGraphBuilder<Directed, MultipleEdges, BitvecStorage>);
+    );
+
+    graph_tests!(
+        undirected_multiple_bitvec,
+        AdjacencyGraphBuilder<Undirected, MultipleEdges, BitvecStorage>,
+        AdjacencyGraphBuilder::new(),
+        |data| data * 2,
+        |data: &String| format!("{}-copied", data);
+
+        test_compaction!(AdjacencyGraphBuilder<Undirected, MultipleEdges, BitvecStorage>);
+    );
+
+    graph_tests!(
+        directed_multiple_hash,
+        AdjacencyGraphBuilder<Directed, MultipleEdges, HashStorage>,
+        AdjacencyGraphBuilder::new(),
+        |data| data * 2,
+        |data: &String| format!("{}-copied", data));
+
+    graph_tests!(
+        undirected_multiple_hash,
+        AdjacencyGraphBuilder<Undirected, MultipleEdges, HashStorage>,
         AdjacencyGraphBuilder::new(),
         |data| data * 2,
         |data: &String| format!("{}-copied", data));

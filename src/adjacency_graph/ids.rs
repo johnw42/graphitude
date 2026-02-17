@@ -1,10 +1,13 @@
-use std::{fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash};
 
 use derivative::Derivative;
 
 use crate::{
-    DirectednessTrait, EdgeIdTrait, NodeIdTrait, Storage, automap::OffsetAutomapKey,
-    coordinate_pair::CoordinatePair, graph_id::GraphId,
+    DirectednessTrait, EdgeIdTrait, NodeIdTrait, Storage,
+    adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
+    automap::OffsetAutomapKey,
+    coordinate_pair::CoordinatePair,
+    graph_id::GraphId,
 };
 
 #[derive(Derivative)]
@@ -52,20 +55,35 @@ pub type NodeId<S> = NodeIdOrEdgeId<S, OffsetAutomapKey>;
     PartialOrd(bound = ""),
     Ord(bound = "")
 )]
-pub struct EdgeId<S: Storage, D: DirectednessTrait + Default> {
+pub struct EdgeId<E, S, D, M>
+where
+    S: Storage,
+    D: DirectednessTrait + Default,
+    M: EdgeContainerSelector,
+{
     inner: NodeIdOrEdgeId<S, CoordinatePair<OffsetAutomapKey, D>>,
-    _directedness: PhantomData<D>,
+    index: <M::Container<E> as EdgeContainer<E>>::Index,
+    directedness: D,
+    edge_multiplicity: M,
 }
 
-impl<S: Storage, D: DirectednessTrait + Default> EdgeId<S, D> {
+impl<E, S, D, M> EdgeId<E, S, D, M>
+where
+    S: Storage,
+    D: DirectednessTrait + Default,
+    M: EdgeContainerSelector,
+{
     pub fn new(
         payload: CoordinatePair<OffsetAutomapKey, D>,
+        index: <M::Container<E> as EdgeContainer<E>>::Index,
         graph_id: GraphId,
         compaction_count: S::CompactionCount,
     ) -> Self {
         Self {
             inner: NodeIdOrEdgeId::new(payload, graph_id, compaction_count),
-            _directedness: PhantomData,
+            index,
+            directedness: D::default(),
+            edge_multiplicity: M::default(),
         }
     }
 
@@ -85,6 +103,10 @@ impl<S: Storage, D: DirectednessTrait + Default> EdgeId<S, D> {
     pub fn graph_id(&self) -> GraphId {
         self.inner.graph_id
     }
+
+    pub fn index(&self) -> <M::Container<E> as EdgeContainer<E>>::Index {
+        self.index.clone()
+    }
 }
 
 impl<S: Storage> NodeIdTrait for NodeId<S> {}
@@ -101,12 +123,17 @@ impl<S: Storage> Debug for NodeId<S> {
     }
 }
 
-impl<S: Storage, D: DirectednessTrait + Default> EdgeIdTrait for EdgeId<S, D> {
+impl<E, S, D, M> EdgeIdTrait for EdgeId<E, S, D, M>
+where
+    S: Storage,
+    D: DirectednessTrait + Default,
+    M: EdgeContainerSelector,
+{
     type NodeId = NodeId<S>;
     type Directedness = D;
 
     fn directedness(&self) -> Self::Directedness {
-        D::default()
+        self.directedness
     }
 
     fn left(&self) -> NodeId<S> {
@@ -126,7 +153,12 @@ impl<S: Storage, D: DirectednessTrait + Default> EdgeIdTrait for EdgeId<S, D> {
     }
 }
 
-impl<S: Storage, D: DirectednessTrait + Default> Debug for EdgeId<S, D> {
+impl<E, S, D, M> Debug for EdgeId<E, S, D, M>
+where
+    S: Storage,
+    D: DirectednessTrait + Default,
+    M: EdgeContainerSelector,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "EdgeId{:?}", self.inner.payload.clone().into_values())
     }
