@@ -25,22 +25,24 @@ use crate::{
 ///     .clone_edges()
 ///     .copy();
 /// ```
-/// To copy into an existing graph with transformations and ID mapping:
+/// To merge multiple existing graphs with transformations and ID mapping:
 /// ```ignore
-/// let source_graph = ...; // Some graph
+/// let source_graphs = ...; // Some Vec of graphs
 /// let mut target_graph = ...; // Some existing graph to copy into
 /// let mut node_id_map = HashMap::new();
 /// let mut edge_id_map = HashMap::new();
-/// GraphCopier::new(&source_graph)
-///     .transform_nodes(|data| transform_node_data(data))
-///     .transform_edges(|data| transform_edge_data(data))
-///     .with_node_map(&mut node_id_map)
-///     .with_edge_map(&mut edge_id_map)
-///     .copy_into(&mut target_graph);
+/// for source_graph in source_graphs.iter() {
+///     GraphCopier::new(source_graph)
+///         .transform_nodes(|data| transform_node_data(data))
+///         .transform_edges(|data| transform_edge_data(data))
+///         .with_node_map(&mut node_id_map)
+///         .with_edge_map(&mut edge_id_map)
+///         .copy_into(&mut target_graph);
+/// }
 ///
 /// // Now `target_graph` has the copied structure and data, and
 /// // `node_id_map` and `edge_id_map` contain the mappings of IDs
-/// // from `source_graph` to `target_graph`.
+/// // from `source_graphs` to `target_graph`.
 /// ```
 pub struct GraphCopier<'g, G, D, M, NT, ET, NM, EM>
 where

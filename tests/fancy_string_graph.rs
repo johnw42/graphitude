@@ -2,7 +2,8 @@ use std::{collections::HashMap, fmt::Debug};
 
 use derivative::Derivative;
 use graphitude::{
-    EdgeIdTrait, NodeIdTrait, debug::format_debug, graph_tests, prelude::*, tests::TestDataBuilder,
+    EdgeIdTrait, NodeIdTrait, format_debug::format_debug, graph_tests, prelude::*,
+    tests::TestDataBuilder,
 };
 
 #[derive(Default, Derivative)]

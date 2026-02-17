@@ -23,12 +23,10 @@
 //!   feature)
 //! - Queries for nodes, edges, predecessors, and successors
 
-#[cfg(feature = "bitvec")]
+// Modules for using existing graph implementations and utilities.
 pub mod adjacency_graph;
-#[cfg(feature = "bitvec")]
 pub mod adjacency_matrix;
 pub mod copier;
-pub mod debug;
 pub mod debug_graph_view;
 pub mod directedness;
 #[cfg(feature = "dot")]
@@ -41,28 +39,29 @@ pub mod object_graph;
 pub mod path;
 pub mod prelude;
 pub mod search;
+
+// Modules for creating new graph implementations.
+pub mod format_debug;
+pub mod graph_id;
 pub mod tests;
 #[doc(hidden)]
 pub mod tracing_support;
 
 mod automap;
-mod graph_id;
 mod test_util;
 #[cfg(feature = "bitvec")]
 mod triangular;
 mod util;
 
+pub use adjacency_graph::AdjacencyGraph;
+#[cfg(feature = "bitvec")]
+pub use adjacency_matrix::BitvecStorage;
+pub use adjacency_matrix::{HashStorage, Storage};
 pub use copier::GraphCopier;
-pub use directedness::{Directed, DirectednessTrait, Undirected};
-pub use edge_multiplicity::{EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
+pub use directedness::{Directed, Directedness, DirectednessTrait, Undirected};
+pub use edge_multiplicity::{EdgeMultiplicity, EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
 pub use graph::{
     AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphUndirected, NodeIdTrait,
 };
 pub use linked_graph::LinkedGraph;
 pub use tests::TestDataBuilder;
-
-#[cfg(feature = "dot")]
-pub use dot::parser::{GraphBuilder, ParseError};
-
-#[cfg(feature = "bitvec")]
-pub use adjacency_matrix::{BitvecStorage, HashStorage, Storage};

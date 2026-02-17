@@ -9,8 +9,8 @@ use crate::{
     },
     automap::{Automap, trait_def::AutomapIndexing},
     copier::GraphCopier,
-    debug::format_debug,
     directedness::DirectednessTrait,
+    format_debug::format_debug,
     graph_id::GraphId,
     prelude::*,
 };
@@ -268,7 +268,7 @@ where
             adjacency: SelectMatrix::<D, S, usize, E>::new(),
             directedness,
             compaction_count: S::CompactionCount::default(),
-            id: GraphId::new(),
+            id: GraphId::default(),
         }
     }
 

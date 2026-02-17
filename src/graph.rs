@@ -170,7 +170,7 @@ pub trait Graph {
         N: Debug,
         E: Debug,
     {
-        DebugGraphView::<N, E, _, _>::new(self, node_fmt, edge_fmt)
+        DebugGraphView::new(self, node_fmt, edge_fmt)
     }
 
     /// Writes a DOT representation of the graph to the given output.

@@ -1,9 +1,9 @@
 use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::{
-    copier::GraphCopier, debug::format_debug, directedness::Directedness, edge_ends::EdgeEnds,
-    edge_multiplicity::EdgeMultiplicity, graph::AddEdgeResult, graph_id::GraphId, prelude::*,
-    util::OtherValue,
+    copier::GraphCopier, directedness::Directedness, edge_ends::EdgeEnds,
+    edge_multiplicity::EdgeMultiplicity, format_debug::format_debug, graph::AddEdgeResult,
+    graph_id::GraphId, prelude::*, util::OtherValue,
 };
 
 mod edge_id;
@@ -287,7 +287,7 @@ where
     fn default() -> Self {
         Self {
             nodes: Vec::new(),
-            id: GraphId::new(),
+            id: GraphId::default(),
             directedness: D::default(),
             edge_multiplicity: M::default(),
         }
@@ -302,7 +302,7 @@ where
     fn new(directedness: D, edge_multiplicity: M) -> Self {
         Self {
             nodes: Vec::new(),
-            id: GraphId::new(),
+            id: GraphId::default(),
             directedness,
             edge_multiplicity,
         }

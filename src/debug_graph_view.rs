@@ -1,16 +1,12 @@
 use std::fmt::Debug;
 
-use crate::{LinkedGraph, copier::GraphCopier, prelude::*};
+use crate::{LinkedGraph, copier::GraphCopier, format_debug::format_debug, prelude::*};
 
 /// A view of a graph with transformed node and edge data, suitable for debugging.
 ///
 /// This type creates a snapshot of a graph with transformed data that can be
 /// used for debug formatting. The transformation is applied once during construction,
 /// and the result is stored in an internal `LinkedGraph`.
-///
-/// Note: This view always represents a directed graph, regardless of the source graph's
-/// directedness. Edges are copied as-is from the source, so each edge in the source
-/// graph becomes one directed edge in the view.
 pub struct DebugGraphView<N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> {
     inner: LinkedGraph<N, E, D, M>,
 }
@@ -29,11 +25,10 @@ where
         NF: FnMut(&G::NodeData) -> N,
         EF: FnMut(&G::EdgeData) -> E,
     {
-        let mut inner = LinkedGraph::new(graph.directedness(), graph.edge_multiplicity());
-        GraphCopier::new(graph)
+        let inner = GraphCopier::new(graph)
             .transform_nodes(node_fn)
             .transform_edges(edge_fn)
-            .copy_into(&mut inner);
+            .copy();
         Self { inner }
     }
 }
@@ -93,7 +88,7 @@ where
     M: EdgeMultiplicityTrait,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.inner, f)
+        format_debug(&self.inner, f, "DebugGraphView")
     }
 }
 
@@ -226,7 +221,7 @@ mod tests {
         let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
 
         let debug_output = format!("{:?}", view);
-        assert!(debug_output.contains("LinkedGraph"));
+        assert!(debug_output.contains("DebugGraphView"));
         assert!(debug_output.contains("->"));
         assert!(!debug_output.contains("--"));
     }
@@ -242,7 +237,7 @@ mod tests {
         let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
 
         let debug_output = format!("{:?}", view);
-        assert!(debug_output.contains("LinkedGraph"));
+        assert!(debug_output.contains("DebugGraphView"));
         assert!(!debug_output.contains("->"));
         assert!(debug_output.contains("--"));
     }
@@ -258,6 +253,6 @@ mod tests {
         let view = DebugGraphView::new(&graph, |&n| n, |&e| e);
 
         let debug_output = format!("{:#?}", view);
-        assert!(debug_output.contains("LinkedGraph"));
+        assert!(debug_output.contains("DebugGraphView"));
     }
 }

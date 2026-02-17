@@ -486,205 +486,205 @@ macro_rules! graph_tests {
 
         $($($rest)*)?
 
-            mod qc {
-        use super::*;
-        use std::collections::HashSet;
-        use quickcheck_macros::quickcheck;
-        use $crate::tests::GraphWrapper;
+        mod qc {
+            use super::*;
+            use std::collections::HashSet;
+            use quickcheck_macros::quickcheck;
+            use $crate::tests::GraphWrapper;
 
-        fn has_duplicates<T: Eq + std::hash::Hash>(items: impl IntoIterator<Item = T>) -> bool {
-            let mut seen = HashSet::new();
-            for item in items {
-                if !seen.insert(item) {
-                    return true;
+            fn has_duplicates<T: Eq + std::hash::Hash>(items: impl IntoIterator<Item = T>) -> bool {
+                let mut seen = HashSet::new();
+                for item in items {
+                    if !seen.insert(item) {
+                        return true;
+                    }
                 }
+                false
             }
-            false
-        }
 
-        #[quickcheck]
-        fn node_ids_are_valid(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph
-                .node_ids()
-                .all(|node_id| graph.check_valid_node_id(&node_id).is_ok())
-        }
-
-        #[quickcheck]
-        fn edge_ids_are_valid(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph
-                .edge_ids()
-                .all(|edge_id| graph.check_valid_edge_id(&edge_id).is_ok())
-        }
-
-        #[quickcheck]
-        fn prop_num_nodes_is_correct(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            let actual_node_count = graph.node_ids().count();
-            let expected_node_count = graph.num_nodes();
-            actual_node_count == expected_node_count
-        }
-
-        #[quickcheck]
-        fn prop_num_edges_is_correct(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            let actual_edge_count = graph.edge_ids().count();
-            let expected_edge_count = graph.num_edges();
-            actual_edge_count == expected_edge_count
-        }
-
-        #[quickcheck]
-        fn prop_node_ids_are_unique(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            !has_duplicates(graph.node_ids())
-        }
-
-        #[quickcheck]
-        fn prop_edge_ids_are_unique(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            !has_duplicates(graph.edge_ids())
-        }
-
-        #[quickcheck]
-        fn prop_edges_from_returns_unique_values(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph
-                .node_ids()
-                .all(|node_id| !has_duplicates(graph.edges_from(&node_id)))
-        }
-
-        #[quickcheck]
-        fn prop_edges_into_returns_unique_values(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph
-                .node_ids()
-                .all(|node_id| !has_duplicates(graph.edges_into(&node_id)))
-        }
-
-        #[quickcheck]
-        fn prop_edges_from_into_returns_unique_values(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph.node_ids().all(|node_id| {
-                graph.node_ids().all(|other_node_id| {
-                    !has_duplicates(graph.edges_from_into(&node_id, &other_node_id))
-                })
-            })
-        }
-
-        #[quickcheck]
-        fn prop_edges_from_into_finds_all_edges(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph.edge_ids().all(|edge_id| {
-                let (source, target) = edge_id.ends().into_values();
+            #[quickcheck]
+            fn node_ids_are_valid(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
                 graph
-                    .edges_from_into(&source, &target)
-                    .any(|e| e == edge_id)
-            })
-        }
+                    .node_ids()
+                    .all(|node_id| graph.check_valid_node_id(&node_id).is_ok())
+            }
 
-        #[quickcheck]
-        fn prop_num_edges_from_is_correct(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph.node_ids().all(|node_id| {
-                let actual_count = graph.edges_from(&node_id).count();
-                let expected_count = graph.num_edges_from(&node_id);
-                actual_count == expected_count
-            })
-        }
+            #[quickcheck]
+            fn edge_ids_are_valid(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                graph
+                    .edge_ids()
+                    .all(|edge_id| graph.check_valid_edge_id(&edge_id).is_ok())
+            }
 
-        #[quickcheck]
-        fn prop_num_edges_into_is_correct(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph.node_ids().all(|node_id| {
-                let actual_count = graph.edges_into(&node_id).count();
-                let expected_count = graph.num_edges_into(&node_id);
-                actual_count == expected_count
-            })
-        }
+            #[quickcheck]
+            fn prop_num_nodes_is_correct(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                let actual_node_count = graph.node_ids().count();
+                let expected_node_count = graph.num_nodes();
+                actual_node_count == expected_node_count
+            }
 
-        #[quickcheck]
-        fn prop_num_edges_from_into_is_correct(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph.node_ids().all(|node_id| {
-                graph.node_ids().all(|other_node_id| {
-                    let actual_count = graph.edges_from_into(&node_id, &other_node_id).count();
-                    let expected_count = graph.num_edges_from_into(&node_id, &other_node_id);
+            #[quickcheck]
+            fn prop_num_edges_is_correct(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                let actual_edge_count = graph.edge_ids().count();
+                let expected_edge_count = graph.num_edges();
+                actual_edge_count == expected_edge_count
+            }
+
+            #[quickcheck]
+            fn prop_node_ids_are_unique(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                !has_duplicates(graph.node_ids())
+            }
+
+            #[quickcheck]
+            fn prop_edge_ids_are_unique(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                !has_duplicates(graph.edge_ids())
+            }
+
+            #[quickcheck]
+            fn prop_edges_from_returns_unique_values(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                graph
+                    .node_ids()
+                    .all(|node_id| !has_duplicates(graph.edges_from(&node_id)))
+            }
+
+            #[quickcheck]
+            fn prop_edges_into_returns_unique_values(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                graph
+                    .node_ids()
+                    .all(|node_id| !has_duplicates(graph.edges_into(&node_id)))
+            }
+
+            #[quickcheck]
+            fn prop_edges_from_into_returns_unique_values(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                graph.node_ids().all(|node_id| {
+                    graph.node_ids().all(|other_node_id| {
+                        !has_duplicates(graph.edges_from_into(&node_id, &other_node_id))
+                    })
+                })
+            }
+
+            #[quickcheck]
+            fn prop_edges_from_into_finds_all_edges(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                graph.edge_ids().all(|edge_id| {
+                    let (source, target) = edge_id.ends().into_values();
+                    graph
+                        .edges_from_into(&source, &target)
+                        .any(|e| e == edge_id)
+                })
+            }
+
+            #[quickcheck]
+            fn prop_num_edges_from_is_correct(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                graph.node_ids().all(|node_id| {
+                    let actual_count = graph.edges_from(&node_id).count();
+                    let expected_count = graph.num_edges_from(&node_id);
                     actual_count == expected_count
                 })
-            })
-        }
+            }
 
-        #[quickcheck]
-        fn prop_has_edge_from_is_correct(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph.node_ids().all(|node_id| {
-                let has_edge = graph.has_edge_from(&node_id);
-                let expected_has_edge = graph.edges_from(&node_id).next().is_some();
-                has_edge == expected_has_edge
-            })
-        }
+            #[quickcheck]
+            fn prop_num_edges_into_is_correct(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                graph.node_ids().all(|node_id| {
+                    let actual_count = graph.edges_into(&node_id).count();
+                    let expected_count = graph.num_edges_into(&node_id);
+                    actual_count == expected_count
+                })
+            }
 
-        #[quickcheck]
-        fn prop_has_edge_into_is_correct(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph.node_ids().all(|node_id| {
-                let has_edge = graph.has_edge_into(&node_id);
-                let expected_has_edge = graph.edges_into(&node_id).next().is_some();
-                has_edge == expected_has_edge
-            })
-        }
+            #[quickcheck]
+            fn prop_num_edges_from_into_is_correct(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                graph.node_ids().all(|node_id| {
+                    graph.node_ids().all(|other_node_id| {
+                        let actual_count = graph.edges_from_into(&node_id, &other_node_id).count();
+                        let expected_count = graph.num_edges_from_into(&node_id, &other_node_id);
+                        actual_count == expected_count
+                    })
+                })
+            }
 
-        #[quickcheck]
-        fn prop_has_edge_from_into_is_correct(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            graph.node_ids().all(|node_id| {
-                graph.node_ids().all(|other_node_id| {
-                    let has_edge = graph.has_edge_from_into(&node_id, &other_node_id);
-                    let expected_has_edge = graph
-                        .edges_from_into(&node_id, &other_node_id)
-                        .next()
-                        .is_some();
+            #[quickcheck]
+            fn prop_has_edge_from_is_correct(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                graph.node_ids().all(|node_id| {
+                    let has_edge = graph.has_edge_from(&node_id);
+                    let expected_has_edge = graph.edges_from(&node_id).next().is_some();
                     has_edge == expected_has_edge
                 })
-            })
-        }
+            }
 
-        #[quickcheck]
-        fn prop_is_empty_is_correct(
-            GraphWrapper(graph): GraphWrapper<TestGraph>,
-        ) -> bool {
-            let is_empty = graph.is_empty();
-            let expected_is_empty = graph.node_ids().next().is_none();
-            is_empty == expected_is_empty
-        }
+            #[quickcheck]
+            fn prop_has_edge_into_is_correct(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                graph.node_ids().all(|node_id| {
+                    let has_edge = graph.has_edge_into(&node_id);
+                    let expected_has_edge = graph.edges_into(&node_id).next().is_some();
+                    has_edge == expected_has_edge
+                })
+            }
 
-        #[quickcheck]
-        fn prop_clear_removes_all_nodes_and_edges(
-            GraphWrapper(mut graph): GraphWrapper<
-                TestGraph,
-            >,
-        ) -> bool {
-            graph.clear();
-            graph.node_ids().next().is_none() && graph.edge_ids().next().is_none()
+            #[quickcheck]
+            fn prop_has_edge_from_into_is_correct(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                graph.node_ids().all(|node_id| {
+                    graph.node_ids().all(|other_node_id| {
+                        let has_edge = graph.has_edge_from_into(&node_id, &other_node_id);
+                        let expected_has_edge = graph
+                            .edges_from_into(&node_id, &other_node_id)
+                            .next()
+                            .is_some();
+                        has_edge == expected_has_edge
+                    })
+                })
+            }
+
+            #[quickcheck]
+            fn prop_is_empty_is_correct(
+                GraphWrapper(graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                let is_empty = graph.is_empty();
+                let expected_is_empty = graph.node_ids().next().is_none();
+                is_empty == expected_is_empty
+            }
+
+            #[quickcheck]
+            fn prop_clear_removes_all_nodes_and_edges(
+                GraphWrapper(mut graph): GraphWrapper<
+                    TestGraph,
+                >,
+            ) -> bool {
+                graph.clear();
+                graph.node_ids().next().is_none() && graph.edge_ids().next().is_none()
+            }
         }
-    }
 
         #[test]
         fn test_large_graph_structure() {
