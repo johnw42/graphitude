@@ -26,12 +26,12 @@
 // Modules for using existing graph implementations and utilities.
 pub mod adjacency_graph;
 pub mod adjacency_matrix;
+pub mod coordinate_pair;
 pub mod copier;
 pub mod debug_graph_view;
 pub mod directedness;
 #[cfg(feature = "dot")]
 pub mod dot;
-pub mod edge_ends;
 pub mod edge_multiplicity;
 pub mod graph;
 pub mod linked_graph;

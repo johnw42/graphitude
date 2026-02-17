@@ -10,7 +10,7 @@ use crate::{
 use crate::{
     DirectednessTrait,
     adjacency_matrix::hash::{AsymmetricHashAdjacencyMatrix, SymmetricHashAdjacencyMatrix},
-    edge_ends::EdgeEnds,
+    coordinate_pair::CoordinatePair,
 };
 
 /// Bitvec-based adjacency matrix implementations.
@@ -29,7 +29,7 @@ pub use storage::{BitvecStorage, HashStorage, Storage};
 pub(crate) use storage::CompactionCount;
 
 type Index<M> = <M as AdjacencyMatrix>::Index;
-type Pair<M> = EdgeEnds<Index<M>, <M as AdjacencyMatrix>::Directedness>;
+type Pair<M> = CoordinatePair<Index<M>, <M as AdjacencyMatrix>::Directedness>;
 
 /// Trait for adjacency matrix data structures.
 ///
@@ -107,7 +107,7 @@ where
     /// `(i1, i2)` such that for symmetric matrices, `i1 <= i2`.
     #[doc(hidden)]
     fn entry_indices(i1: Self::Index, i2: Self::Index) -> Pair<Self> {
-        Self::Directedness::default().make_pair(i1, i2)
+        Self::Directedness::default().coordinate_pair((i1, i2))
     }
 
     /// Gets the entry at the given row and col.

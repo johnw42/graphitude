@@ -206,6 +206,8 @@ mod tests {
         let view = DebugGraphView::new(&graph, |&s| s, |&e| e);
 
         let node_ids: Vec<_> = view.node_ids().collect();
+        assert!(view.node_data(&node_ids[0]) == &"A");
+        assert!(view.node_data(&node_ids[1]) == &"B");
         let edges_between: Vec<_> = view.edges_from_into(&node_ids[0], &node_ids[1]).collect();
         assert_eq!(edges_between.len(), 2);
     }

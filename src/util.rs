@@ -1,12 +1,13 @@
 use std::fmt::{Debug, Formatter};
 
 /// Sorts a pair of values into nondescending order.
-pub fn sort_pair<K: Ord>(a: K, b: K) -> (K, K) {
+pub fn sort_pair<K: Ord>((a, b): (K, K)) -> (K, K) {
     if a <= b { (a, b) } else { (b, a) }
 }
 
-pub fn sort_pair_if<K: Ord>(should_sort: bool, a: K, b: K) -> (K, K) {
-    if should_sort { sort_pair(a, b) } else { (a, b) }
+/// Sorts a pair of values into nondescending order if `should_sort` is true, otherwise returns them in the original order.
+pub fn sort_pair_if<K: Ord>(should_sort: bool, pair: (K, K)) -> (K, K) {
+    if should_sort { sort_pair(pair) } else { pair }
 }
 
 /// A wrapper type that implements `Debug` by delegating to a closure.

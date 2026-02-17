@@ -69,7 +69,7 @@ where
     /// Creates an `EdgeId` for the given `AutomapKey` pair.
     fn edge_id(&self, from: OffsetAutomapKey, into: OffsetAutomapKey) -> EdgeId<S, D> {
         EdgeId::new(
-            self.directedness.make_pair(from, into),
+            self.directedness.coordinate_pair((from, into)),
             self.id,
             self.compaction_count,
         )

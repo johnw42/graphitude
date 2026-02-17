@@ -17,12 +17,12 @@ use crate::{
     Ord(bound = "T: Ord"),
     PartialOrd(bound = "T: PartialOrd")
 )]
-pub struct EdgeEnds<T, D: DirectednessTrait> {
+pub struct CoordinatePair<T, D: DirectednessTrait> {
     data: (T, T),
     directedness: D,
 }
 
-impl<T, D> EdgeEnds<T, D>
+impl<T, D> CoordinatePair<T, D>
 where
     D: DirectednessTrait,
 {
@@ -33,7 +33,7 @@ where
         let data = if directedness.is_directed() {
             (source, target)
         } else {
-            sort_pair(source, target)
+            sort_pair((source, target))
         };
         Self { data, directedness }
     }
@@ -54,11 +54,11 @@ where
         self.directedness
     }
 
-    pub fn source(&self) -> &T {
+    pub fn first(&self) -> &T {
         self.values().0
     }
 
-    pub fn target(&self) -> &T {
+    pub fn second(&self) -> &T {
         self.values().1
     }
 
@@ -66,11 +66,11 @@ where
         (&self.data.0, &self.data.1)
     }
 
-    pub fn into_source(self) -> T {
+    pub fn into_first(self) -> T {
         self.into_values().0
     }
 
-    pub fn into_target(self) -> T {
+    pub fn into_second(self) -> T {
         self.into_values().1
     }
 
@@ -82,8 +82,8 @@ where
     where
         T: Eq,
     {
-        (self.source() == a && self.target() == b)
-            || (!self.directedness().is_directed() && self.source() == b && self.target() == a)
+        (self.first() == a && self.second() == b)
+            || (!self.directedness().is_directed() && self.first() == b && self.second() == a)
     }
 
     pub fn other_value<'a: 'b, 'b>(&'a self, value: &'b T) -> OtherValue<&'b T>
@@ -93,15 +93,15 @@ where
         other_value(self.values(), &value)
     }
 
-    pub fn into_other_value(self, value: T) -> OtherValue<T>
+    pub fn into_other_value(self, value: &T) -> OtherValue<T>
     where
         T: Eq,
     {
-        other_value(self.into_values(), &value)
+        other_value(self.into_values(), value)
     }
 }
 
-impl<T: Ord, D: DirectednessTrait + Default> From<(T, T)> for EdgeEnds<T, D> {
+impl<T: Ord, D: DirectednessTrait + Default> From<(T, T)> for CoordinatePair<T, D> {
     fn from((a, b): (T, T)) -> Self {
         Self::new(a, b, D::default())
     }

@@ -77,7 +77,7 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
                 ptr: Arc::downgrade(
                     &edge
                         .ends
-                        .source()
+                        .first()
                         .ptr
                         .upgrade()
                         .expect("Source node dangling"),
@@ -95,7 +95,7 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
                 ptr: Arc::downgrade(
                     &edge
                         .ends
-                        .target()
+                        .second()
                         .ptr
                         .upgrade()
                         .expect("Target node dangling"),

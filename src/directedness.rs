@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash};
 
 use quickcheck::Arbitrary;
 
-use crate::edge_ends::EdgeEnds;
+use crate::coordinate_pair::CoordinatePair;
 
 /// Trait defining the directedness behavior of graph edges.
 ///
@@ -34,8 +34,11 @@ pub trait DirectednessTrait:
         Self::default().is_directed()
     }
 
-    fn make_pair<T: Clone + Eq + Ord + Debug + Hash>(&self, from: T, into: T) -> EdgeEnds<T, Self> {
-        EdgeEnds::new(from, into, *self)
+    fn coordinate_pair<T: Clone + Eq + Ord + Debug + Hash>(
+        &self,
+        (first, second): (T, T),
+    ) -> CoordinatePair<T, Self> {
+        CoordinatePair::new(first, second, *self)
     }
 }
 

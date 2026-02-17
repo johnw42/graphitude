@@ -1,7 +1,7 @@
 use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::{
-    copier::GraphCopier, directedness::Directedness, edge_ends::EdgeEnds,
+    coordinate_pair::CoordinatePair, copier::GraphCopier, directedness::Directedness,
     edge_multiplicity::EdgeMultiplicity, format_debug::format_debug, graph::AddEdgeResult,
     graph_id::GraphId, prelude::*, util::OtherValue,
 };
@@ -23,8 +23,18 @@ struct Node<N, E, D: DirectednessTrait> {
 
 struct Edge<N, E, D: DirectednessTrait> {
     data: UnsafeCell<E>,
-    ends: EdgeEnds<NodeId<N, E, D>, D>,
+    ends: CoordinatePair<NodeId<N, E, D>, D>,
     directedness: PhantomData<D>,
+}
+
+impl<N, E, D: DirectednessTrait> Edge<N, E, D> {
+    fn new(data: E, from: NodeId<N, E, D>, into: NodeId<N, E, D>, directedness: D) -> Self {
+        Self {
+            data: UnsafeCell::new(data),
+            ends: CoordinatePair::new(from, into, directedness),
+            directedness: PhantomData,
+        }
+    }
 }
 
 /// A graph representation using linked node and edge nodes.  Nodes and edges
@@ -341,12 +351,17 @@ where
         into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
+        let ends = self
+            .directedness
+            .coordinate_pair((from.clone(), into.clone()));
+
         if !self.allows_parallel_edges() {
-            debug_assert!(self.edges_from_into(from, into).count() <= 1);
-            if let Some(edge) =
-                self.node_mut(from).edges_out.iter_mut().find(|edge| {
-                    edge.ends == self.directedness().make_pair(from.clone(), into.clone())
-                })
+            debug_assert!(self.num_edges_from_into(from, into) <= 1);
+            if let Some(edge) = self
+                .node_mut(from)
+                .edges_out
+                .iter_mut()
+                .find(|edge| edge.ends == ends)
             {
                 let mut old_data = data;
                 // SAFETY: There can be no mutable references to the data, the graph
@@ -355,30 +370,30 @@ where
                 std::mem::swap(unsafe { &mut *edge.data.get() }, &mut old_data);
                 return AddEdgeResult::Updated(self.edge_id(edge), old_data);
             }
-            debug_assert_eq!(self.edges_from_into(from, into).count(), 0);
+            debug_assert_eq!(self.num_edges_from_into(from, into), 0);
         }
 
-        let ends = self.directedness().make_pair(from.clone(), into.clone());
-        let (from, into) = ends.clone().into_values();
+        let (from, into) = ends.values();
 
-        let edge = Arc::new(Edge {
-            data: UnsafeCell::new(data),
-            ends,
-            directedness: PhantomData,
-        });
+        let edge = Arc::new(Edge::new(
+            data,
+            from.clone(),
+            into.clone(),
+            self.directedness(),
+        ));
+
         let eid = self.edge_id(&edge);
 
-        // Always add to the sorted "from" node's edges_out
-        self.node_mut(&from).edges_out.push(edge.clone());
+        self.node_mut(from).edges_out.push(edge.clone());
 
         if self.is_directed() {
             // For directed graphs, add to the "into" node's edges_in.  We don't
             // maintain edges_in for undirected graphs since it's redundant with
             // edges_out.
-            self.node_mut(&into).edges_in.push(eid.clone());
+            self.node_mut(into).edges_in.push(eid.clone());
         } else if from != into {
             // For undirected graphs (non-self-loop), add to the other node's edges_out
-            self.node_mut(&into).edges_out.push(edge);
+            self.node_mut(into).edges_out.push(edge);
         }
 
         AddEdgeResult::Added(eid)
@@ -416,8 +431,8 @@ where
             // For directed graphs, also remove incoming edges from source nodes' edges_out
             for eid in &node.edges_in {
                 let edge = self.edge(eid);
-                let from_nid = edge.ends.source();
-                if *from_nid != *nid {
+                let from_nid = edge.ends.first();
+                if from_nid != nid {
                     let from_node = self.node_mut(&from_nid.clone());
                     from_node
                         .edges_out
@@ -445,7 +460,7 @@ where
         if self.is_directed() {
             // For directed graphs, remove from target node's edges_in
             let to_node = self.node_mut(into_nid);
-            to_node.edges_in.retain(|eid2| *eid != *eid2);
+            to_node.edges_in.retain(|eid2| eid != eid2);
         } else if from_nid != into_nid {
             // For undirected graphs (non-self-loop), remove from target node's edges_out
             let to_node = self.node_mut(into_nid);
