@@ -3,10 +3,7 @@ use std::{collections::HashMap, fmt::Debug};
 /// Node and edge ID types for adjacency graphs.
 pub use self::ids::{EdgeId, NodeId};
 use crate::{
-    adjacency_matrix::{
-        AdjacencyMatrix, AdjacencyMatrixSelector, CompactionCount as _, HashStorage, SelectMatrix,
-        Storage,
-    },
+    adjacency_matrix::{AdjacencyMatrix, CompactionCount as _, HashStorage, Storage},
     automap::{Automap, trait_def::AutomapIndexing},
     copier::GraphCopier,
     directedness::DirectednessTrait,
@@ -46,10 +43,9 @@ pub struct AdjacencyGraph<N, E, D = Directed, S = HashStorage>
 where
     D: DirectednessTrait + Default,
     S: Storage,
-    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     nodes: NodeVec<N>,
-    adjacency: <(D, S) as AdjacencyMatrixSelector<usize, E>>::Matrix,
+    adjacency: S::Matrix<usize, E, D>,
     directedness: D,
     id: GraphId,
     compaction_count: S::CompactionCount,
@@ -59,7 +55,6 @@ impl<N, E, D, S> AdjacencyGraph<N, E, D, S>
 where
     D: DirectednessTrait + Default,
     S: Storage,
-    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     /// Creates a `NodeId` for the given `AutomapKey`.
     fn node_id(&self, key: OffsetAutomapKey) -> NodeId<S> {
@@ -80,7 +75,6 @@ impl<N, E, D, S> Graph for AdjacencyGraph<N, E, D, S>
 where
     D: DirectednessTrait + Default,
     S: Storage,
-    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     type EdgeData = E;
     type EdgeId = EdgeId<S, D>;
@@ -232,7 +226,6 @@ impl<N, E, D, S> Default for AdjacencyGraph<N, E, D, S>
 where
     D: DirectednessTrait + Default,
     S: Storage,
-    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     fn default() -> Self {
         Self::new(D::default(), SingleEdge)
@@ -245,7 +238,6 @@ where
     E: Clone,
     D: DirectednessTrait + Default,
     S: Storage,
-    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     fn clone(&self) -> Self {
         GraphCopier::new(self).clone_nodes().clone_edges().copy()
@@ -256,7 +248,6 @@ impl<N, E, D, S> GraphMut for AdjacencyGraph<N, E, D, S>
 where
     D: DirectednessTrait + Default,
     S: Storage,
-    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     fn new(directedness: D, edge_multiplicity: SingleEdge) -> Self {
         assert!(
@@ -265,7 +256,7 @@ where
         );
         Self {
             nodes: NodeVec::default(),
-            adjacency: SelectMatrix::<D, S, usize, E>::new(),
+            adjacency: S::Matrix::new(),
             directedness,
             compaction_count: S::CompactionCount::default(),
             id: GraphId::default(),
@@ -420,7 +411,6 @@ where
     E: Debug,
     D: DirectednessTrait + Default,
     S: Storage,
-    (D, S): AdjacencyMatrixSelector<usize, E>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "AdjacencyGraph")
