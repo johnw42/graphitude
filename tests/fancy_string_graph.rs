@@ -30,11 +30,11 @@ impl EdgeIdTrait for EdgeId {
         Directed
     }
 
-    fn source(&self) -> NodeId {
+    fn left(&self) -> NodeId {
         self.0
     }
 
-    fn target(&self) -> NodeId {
+    fn right(&self) -> NodeId {
         self.1
     }
 }

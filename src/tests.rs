@@ -333,21 +333,21 @@ pub fn check_graph_consistency<G: Graph>(graph: &G) {
     for edge_id in graph.edge_ids() {
         assert_eq!(
             graph
-                .edges_from_into(&edge_id.target(), &edge_id.source())
+                .edges_from_into(&edge_id.left(), &edge_id.right())
                 .count(),
             graph
-                .edges_from_into(&edge_id.target(), &edge_id.source())
+                .edges_from_into(&edge_id.left(), &edge_id.right())
                 .collect::<HashSet<_>>()
                 .len()
         );
 
         if !graph.is_directed() {
-            assert!(graph.has_edge_from_into(&edge_id.target(), &edge_id.source()))
+            assert!(graph.has_edge_from_into(&edge_id.right(), &edge_id.left()))
         }
         if !graph.allows_parallel_edges() {
-            dbg!(&edge_id.source(), &edge_id.target());
+            dbg!(&edge_id.left(), &edge_id.right());
             assert_eq!(
-                graph.num_edges_from_into(&edge_id.source(), &edge_id.target()),
+                graph.num_edges_from_into(&edge_id.left(), &edge_id.right()),
                 1
             );
         }
@@ -360,48 +360,48 @@ pub fn check_graph_consistency<G: Graph>(graph: &G) {
 
         {
             let _span = info_span!("has_edge").entered();
-            let has_edge = graph.has_edge_from_into(&edge_id.source(), &edge_id.target());
+            let has_edge = graph.has_edge_from_into(&edge_id.left(), &edge_id.right());
             assert!(has_edge);
         }
 
         {
             let _span = info_span!("edges_between.any").entered();
             let between_has = graph
-                .edges_from_into(&edge_id.source(), &edge_id.target())
+                .edges_from_into(&edge_id.left(), &edge_id.right())
                 .any(|e| e == edge_id);
             assert!(between_has);
         }
 
         {
             let _span = info_span!("edges_from.any").entered();
-            let from_has = graph.edges_from(&edge_id.source()).any(|e| e == edge_id);
+            let from_has = graph.edges_from(&edge_id.left()).any(|e| e == edge_id);
             assert!(from_has);
         }
 
         {
             let _span = info_span!("edges_into.any").entered();
-            let into_has = graph.edges_into(&edge_id.target()).any(|e| e == edge_id);
+            let into_has = graph.edges_into(&edge_id.right()).any(|e| e == edge_id);
             assert!(into_has);
         }
 
         let num_from = {
             let _span = info_span!("num_edges_from").entered();
-            graph.num_edges_from(&edge_id.source())
+            graph.num_edges_from(&edge_id.left())
         };
 
         let edges_from_count = {
             let _span = info_span!("edges_from.count").entered();
-            graph.edges_from(&edge_id.source()).count()
+            graph.edges_from(&edge_id.left()).count()
         };
 
         let num_into = {
             let _span = info_span!("num_edges_into").entered();
-            graph.num_edges_into(&edge_id.target())
+            graph.num_edges_into(&edge_id.right())
         };
 
         let edges_into_count = {
             let _span = info_span!("edges_into.count").entered();
-            graph.edges_into(&edge_id.target()).count()
+            graph.edges_into(&edge_id.right()).count()
         };
 
         assert_eq!(num_from, edges_from_count);
@@ -586,9 +586,9 @@ macro_rules! graph_tests {
                 GraphWrapper(graph): GraphWrapper<TestGraph>,
             ) -> bool {
                 graph.edge_ids().all(|edge_id| {
-                    let (source, target) = edge_id.ends().into_values();
+                    let (left, right) = edge_id.ends();
                     graph
-                        .edges_from_into(&source, &target)
+                        .edges_from_into(&left, &right)
                         .any(|e| e == edge_id)
                 })
             }
@@ -724,13 +724,13 @@ macro_rules! graph_tests {
             fn prop_edges_in_and_out_are_consistent(GraphWrapper(graph): GraphWrapper<TestGraph>) -> bool {
                 for node_id in graph.node_ids() {
                     for edge_from in graph.edges_from(&node_id) {
-                        let other_node = edge_from.other_end(&node_id).into_inner();
+                        let other_node = edge_from.other_end(&node_id);
                         if !graph.edges_into(&other_node).any(|e| e == edge_from) {
                             return false;
                         }
                     }
                     for edge_into in graph.edges_into(&node_id) {
-                        let other_node = edge_into.other_end(&node_id).into_inner();
+                        let other_node = edge_into.other_end(&node_id);
                         if !graph.edges_from(&other_node).any(|e| e == edge_into) {
                             return false;
                         }
@@ -1042,14 +1042,14 @@ macro_rules! graph_tests {
                 assert_eq!(
                     graph
                         .edges_from(&n1)
-                        .map(|edge_id| edge_id.target())
+                        .map(|edge_id| edge_id.other_end(&n1))
                         .collect::<Vec<_>>(),
                     vec![n2.clone()]
                 );
                 assert_eq!(
                     graph
                         .edges_from(&n2)
-                        .map(|edge_id| edge_id.target())
+                        .map(|edge_id| edge_id.other_end(&n2))
                         .collect::<Vec<_>>(),
                     vec![n3.clone()]
                 );
@@ -1432,11 +1432,11 @@ macro_rules! graph_tests {
             let e3 = graph.add_edge(&n1, &n3, builder.new_edge_data()).unwrap();
             let e4 = graph.add_edge(&n2, &n3, builder.new_edge_data()).unwrap();
             if graph.is_directed() {
-                assert_eq!((e0.source(), e0.target()), (n0.clone(), n1.clone()));
-                assert_eq!((e1.source(), e1.target()), (n0.clone(), n2.clone()));
-                assert_eq!((e2.source(), e2.target()), (n1.clone(), n2.clone()));
-                assert_eq!((e3.source(), e3.target()), (n1.clone(), n3.clone()));
-                assert_eq!((e4.source(), e4.target()), (n2.clone(), n3.clone()));
+                assert_eq!(e0.ends(), (n0.clone(), n1.clone()));
+                assert_eq!(e1.ends(), (n0.clone(), n2.clone()));
+                assert_eq!(e2.ends(), (n1.clone(), n2.clone()));
+                assert_eq!(e3.ends(), (n1.clone(), n3.clone()));
+                assert_eq!(e4.ends(), (n2.clone(), n3.clone()));
             } else {
                 // For undirected graphs, edges can be in either direction
                 let edge_pairs = vec![
@@ -1447,14 +1447,7 @@ macro_rules! graph_tests {
                     (e4.clone(), (n2.clone(), n3.clone())),
                 ];
                 for (edge, (a, b)) in edge_pairs {
-                    let (src, tgt) = edge.ends().into_values();
-                    assert!(
-                        (src == a && tgt == b) || (src == b && tgt == a),
-                        "Edge {:?} does not connect nodes {:?} and {:?}",
-                        edge,
-                        a,
-                        b
-                    );
+                    assert!(edge.has_ends(&a, &b), "Edge {:?} does not connect nodes {:?} and {:?}", edge, a, b);
                 }
             }
             assert_eq!(

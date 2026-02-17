@@ -117,12 +117,11 @@ mod inner {
         if edge_count > 0 {
             println!("\nSample edges (up to {sample_nodes}):");
             for edge_id in graph.edge_ids().take(edge_count) {
-                let src = edge_id.source();
-                let dst = edge_id.target();
-                let src_id = &graph.node_data(&src).id;
-                let dst_id = &graph.node_data(&dst).id;
+                let (left, right) = edge_id.ends();
+                let left_data = &graph.node_data(&left).id;
+                let right_data = &graph.node_data(&right).id;
                 let edge_data = graph.edge_data(&edge_id).clone();
-                println!("  {} -> {}: {}", src_id, dst_id, edge_data);
+                println!("  {} -> {}: {}", left_data, right_data, edge_data);
             }
         }
     }

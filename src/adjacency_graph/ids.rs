@@ -109,14 +109,7 @@ impl<S: Storage, D: DirectednessTrait + Default> EdgeIdTrait for EdgeId<S, D> {
         D::default()
     }
 
-    fn ends(&self) -> EdgeEnds<NodeId<S>, D> {
-        let (from_key, to_key) = self.inner.payload.values();
-        let from = NodeId::new(*from_key, self.inner.graph_id, self.inner.compaction_count);
-        let to = NodeId::new(*to_key, self.inner.graph_id, self.inner.compaction_count);
-        self.directedness().make_pair(from, to)
-    }
-
-    fn source(&self) -> NodeId<S> {
+    fn left(&self) -> NodeId<S> {
         NodeId::new(
             *self.inner.payload.source(),
             self.inner.graph_id,
@@ -124,7 +117,7 @@ impl<S: Storage, D: DirectednessTrait + Default> EdgeIdTrait for EdgeId<S, D> {
         )
     }
 
-    fn target(&self) -> NodeId<S> {
+    fn right(&self) -> NodeId<S> {
         NodeId::new(
             *self.inner.payload.target(),
             self.inner.graph_id,

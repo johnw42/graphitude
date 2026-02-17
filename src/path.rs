@@ -73,10 +73,10 @@ impl<E: EdgeIdTrait> Path<E> {
             .zip(nodes)
             .map(|((in_edge, out_edge), node)| {
                 if let Some(ref e) = in_edge {
-                    debug_assert!(e.target() == node);
+                    debug_assert!(e.has_end(&node));
                 }
                 if let Some(ref e) = out_edge {
-                    debug_assert!(e.source() == node);
+                    debug_assert!(e.has_end(&node));
                 }
                 (in_edge, node, out_edge)
             })
@@ -86,18 +86,7 @@ impl<E: EdgeIdTrait> Path<E> {
     /// node. Panics if the edge's source node does not match the current
     /// last node of the path.
     pub fn add_edge(&mut self, edge_id: E) {
-        let last = self.last_node();
-        let (source, target) = edge_id.ends().into_values();
-
-        let next_node = if source == last {
-            target
-        } else if !edge_id.directedness().is_directed() && target == last {
-            // For undirected graphs, edge can be traversed in either direction
-            source
-        } else {
-            panic!("Edge source does not match the last node of the path");
-        };
-
+        let next_node = edge_id.other_end(&self.last_node());
         self.edges.push(edge_id);
         self.nodes.push(next_node);
     }
@@ -108,12 +97,17 @@ impl<E: EdgeIdTrait> Path<E> {
     pub fn add_edge_and_node(&mut self, edge_id: E, node_id: E::NodeId) {
         let last = self.last_node();
 
-        // For directed graphs, source must be last and target must be node_id
-        // For undirected graphs, we're more flexible
-        assert!(
-            edge_id.ends().has_both(&last, &node_id),
-            "Edge does not connect last node to provided node"
-        );
+        if edge_id.directedness().is_directed() {
+            assert!(
+                edge_id.left() == last && edge_id.right() == node_id,
+                "Edge does not connect last node to provided node"
+            );
+        } else {
+            assert!(
+                edge_id.has_ends(&last, &node_id),
+                "Edge does not connect last node to provided node"
+            );
+        }
 
         self.edges.push(edge_id);
         self.nodes.push(node_id);

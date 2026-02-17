@@ -145,15 +145,14 @@ where
     let edges: HashSet<(String, String)> = graph
         .edge_ids()
         .map(|eid| {
-            let src = eid.source();
-            let dst = eid.target();
-            let mut src_id = graph.node_data(&src).id.clone();
-            let mut dst_id = graph.node_data(&dst).id.clone();
+            let (left, right) = eid.ends();
+            let mut left_id = graph.node_data(&left).id.clone();
+            let mut right_id = graph.node_data(&right).id.clone();
             // Normalize undirected edges by sorting node IDs
-            if src_id > dst_id {
-                std::mem::swap(&mut src_id, &mut dst_id);
+            if left_id > right_id {
+                std::mem::swap(&mut left_id, &mut right_id);
             }
-            (src_id, dst_id)
+            (left_id, right_id)
         })
         .collect();
 
@@ -169,17 +168,16 @@ where
     let edge_attrs: HashMap<(String, String), HashSet<(String, String)>> = graph
         .edge_ids()
         .map(|eid| {
-            let src = eid.source();
-            let dst = eid.target();
-            let mut src_id = graph.node_data(&src).id.clone();
-            let mut dst_id = graph.node_data(&dst).id.clone();
+            let (left, right) = eid.ends();
+            let mut left_id = graph.node_data(&left).id.clone();
+            let mut right_id = graph.node_data(&right).id.clone();
             // Normalize undirected edges by sorting node IDs
-            if src_id > dst_id {
-                std::mem::swap(&mut src_id, &mut dst_id);
+            if left_id > right_id {
+                std::mem::swap(&mut left_id, &mut right_id);
             }
             let data = graph.edge_data(&eid);
             (
-                (src_id, dst_id),
+                (left_id, right_id),
                 data.attrs.iter().cloned().collect::<HashSet<_>>(),
             )
         })

@@ -232,8 +232,8 @@ where
 
     // Write edges
     for edge_id in graph.edge_ids() {
-        let source_id = edge_id.source();
-        let target_id = edge_id.target();
+        let source_id = edge_id.left();
+        let target_id = edge_id.right();
         let source_info = wrapper
             .node_info
             .get(&source_id)

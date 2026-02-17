@@ -12,7 +12,6 @@ use std::io;
 use crate::dot::{parser, renderer};
 use crate::{
     debug_graph_view::DebugGraphView,
-    edge_ends::EdgeEnds,
     path::Path,
     prelude::*,
     search::{BfsIterator, DfsIterator},
@@ -28,78 +27,85 @@ use crate::{
 /// newtype.
 pub trait NodeIdTrait: Eq + Hash + Clone + Debug + Ord + Send + Sync {}
 
-/// Return type of [`EdgeIdTrait::other_end`].
-pub enum OtherEnd<N: NodeIdTrait> {
-    /// The source node of the edge for which a target was passed.
-    Source(N),
-    /// The target node of the edge for which a source was passed.
-    Target(N),
-    /// The edge is a self-loop; both ends are the same node.
-    SelfLoop(N),
-}
-
-impl<N: NodeIdTrait> OtherEnd<N> {
-    /// Consumes the `OtherEnd`, returning the inner node ID.
-    pub fn into_inner(self) -> N {
-        match self {
-            OtherEnd::Source(n) => n,
-            OtherEnd::Target(n) => n,
-            OtherEnd::SelfLoop(n) => n,
-        }
-    }
-}
-
-/// A trait representing an edge identifier in a graph.  When Directedness is
-/// `Directed`, the source and target are distinct; when Directedness is
-/// `Undirected`, the source and target are always be ordered such that `source
-/// <= target`.
+/// A trait representing an edge identifier in a graph.
 ///
-/// Implementors must ensure that if `Directedness` is `Undirected`, then the
-/// source must always be less than or equal to the target, according to the
-/// `Ord` implementation of the `NodeId` type.
+/// Implementors mu implement either `left` and `right`, or `ends`.
 pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
     type NodeId: NodeIdTrait;
     type Directedness: DirectednessTrait;
 
+    /// Gets the directedness of the edge, which will match the directedness of
+    /// the graph it belongs to.
     fn directedness(&self) -> Self::Directedness;
 
-    /// Gets the source node of the edge.
-    fn source(&self) -> Self::NodeId {
-        self.ends().into_source()
+    /// Gets one end of the edge.  For directed edges, this is the source node.
+    /// For undirected edges, this is one of the two nodes, but it is not
+    /// specified which one.
+    fn left(&self) -> Self::NodeId {
+        self.ends().0
     }
 
-    /// Gets the target node of the edge.
-    fn target(&self) -> Self::NodeId {
-        self.ends().into_target()
+    /// Gets the other end of the edge.  For directed edges, this is the target
+    /// node.  For undirected edges, this is the other of the two nodes, but it
+    /// is not specified which one is which.
+    fn right(&self) -> Self::NodeId {
+        self.ends().1
     }
 
-    /// Gets both ends of the edge.
-    fn ends(&self) -> EdgeEnds<Self::NodeId, Self::Directedness> {
-        self.directedness().make_pair(self.source(), self.target())
+    /// Gets both ends of the edge.  Returns `(self.left(), self.right())`.
+    /// Implementors must implement either this method or `left` and `right`.
+    fn ends(&self) -> (Self::NodeId, Self::NodeId) {
+        (self.left(), self.right())
     }
 
     /// Gets the other end of the edge given one end.  If the edge is directed,
     /// the direction is ignored and the other end is returned.  If the edge is
     /// undirected, the other end is returned regardless of which end is passed
     /// in.  If the edge is a self-loop and the given end is the same as both
-    /// ends of the edge, then the same node ID is returned.
-    fn other_end(&self, node: &Self::NodeId) -> OtherEnd<Self::NodeId> {
-        let source = self.source();
-        let target = self.target();
-        if *node == source && *node == target {
-            OtherEnd::SelfLoop(source)
-        } else if *node == source {
-            OtherEnd::Target(target)
-        } else if *node == target {
-            OtherEnd::Source(source)
+    /// ends of the edge, then the same node ID is returned.  Panics if the given
+    /// node ID is not one of the ends of the edge.
+    fn other_end(&self, node: &Self::NodeId) -> Self::NodeId {
+        let (n1, n2) = self.ends();
+        if *node == n1 {
+            n2
+        } else if *node == n2 {
+            n1
         } else {
             panic!(
                 "Node {:?} is not an end of edge with ends {:?} and {:?}",
-                node, source, target
+                node, n1, n2
             );
         }
     }
+
+    /// Tests if the edge has the given node as one of its ends.
+    fn has_end(&self, node: &Self::NodeId) -> bool {
+        let (n1, n2) = self.ends();
+        *node == n1 || *node == n2
+    }
+
+    /// Tests if the edge has the given nodes as its ends, regardless of order.
+    fn has_ends(&self, node1: &Self::NodeId, node2: &Self::NodeId) -> bool {
+        let (n1, n2) = self.ends();
+        (*node1 == n1 && *node2 == n2) || (*node1 == n2 && *node2 == n1)
+    }
 }
+
+/// A trait which is automatically implemented for directed edges, providing
+/// methods specific to directed edges.
+pub trait EdgeIdDirected: EdgeIdTrait<Directedness = Directed> {
+    /// Gets the source node of the edge.
+    fn source(&self) -> Self::NodeId {
+        self.left()
+    }
+
+    /// Gets the target node of the edge.
+    fn target(&self) -> Self::NodeId {
+        self.right()
+    }
+}
+
+impl<E> EdgeIdDirected for E where E: EdgeIdTrait<Directedness = Directed> {}
 
 /// Return type of [`Graph::add_edge`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -290,9 +296,9 @@ pub trait Graph {
         let mut visited = HashSet::new();
         self.edges_into(node).filter_map(move |eid| {
             let nid = if self.directedness().is_directed() {
-                eid.source()
+                eid.left()
             } else {
-                let (source, target) = eid.ends().into_values();
+                let (source, target) = eid.ends();
                 if source == *node { target } else { source }
             };
             visited.insert(nid.clone()).then_some(nid)
@@ -308,9 +314,9 @@ pub trait Graph {
         let mut visited = HashSet::new();
         self.edges_from(node).filter_map(move |eid| {
             let nid = if self.directedness().is_directed() {
-                eid.target()
+                eid.right()
             } else {
-                let (source, target) = eid.ends().into_values();
+                let (source, target) = eid.ends();
                 if source == *node { target } else { source }
             };
             visited.insert(nid.clone()).then_some(nid)
@@ -372,7 +378,7 @@ pub trait Graph {
         from: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(|eid| {
-            let (source, target) = (eid.source(), eid.target());
+            let (source, target) = eid.ends();
             source == *from || !self.directedness().is_directed() && target == *from
         })
     }
@@ -383,7 +389,7 @@ pub trait Graph {
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(|eid| {
-            let (source, target) = (eid.source(), eid.target());
+            let (source, target) = eid.ends();
             target == *into || !self.directedness().is_directed() && source == *into
         })
     }
@@ -395,7 +401,7 @@ pub trait Graph {
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(move |eid| {
-            let (edge_source, edge_target) = (eid.source(), eid.target());
+            let (edge_source, edge_target) = eid.ends();
             (edge_source == *from && edge_target == *into)
                 || (!self.directedness().is_directed()
                     && edge_source == *into
@@ -494,14 +500,13 @@ pub trait Graph {
 
             // Update distances to neighbors
             for edge_id in self.edges_from(&current_node) {
-                let ends = edge_id.ends();
-                let neighbor = ends.other_value(&current_node).into_inner();
-                if unvisited.contains(neighbor) {
+                let neighbor = edge_id.other_end(&current_node);
+                if unvisited.contains(&neighbor) {
                     let edge_distance = distance_fn(&edge_id);
                     let new_dist = current_dist + edge_distance;
 
                     let should_update = distances
-                        .get(neighbor)
+                        .get(&neighbor)
                         .is_none_or(|&old_dist| new_dist < old_dist);
 
                     if should_update {

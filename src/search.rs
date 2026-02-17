@@ -40,7 +40,7 @@ where
             }
             self.visited.insert(nid.clone());
             for eid in self.graph.edges_from(&nid) {
-                let neighbor = eid.target();
+                let neighbor = eid.other_end(&nid);
                 if !self.visited.contains(&neighbor) {
                     self.queue.push_back(neighbor);
                 }
@@ -85,7 +85,7 @@ where
             let nid = path.last().unwrap().clone();
             if self.visited.insert(nid.clone()) {
                 for eid in self.graph.edges_from(&nid) {
-                    let neighbor = eid.target();
+                    let neighbor = eid.other_end(&nid);
                     if !self.visited.contains(&neighbor) {
                         let mut new_path = path.clone();
                         new_path.push(neighbor);

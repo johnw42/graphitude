@@ -70,7 +70,7 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
         self.directedness
     }
 
-    fn source(&self) -> NodeId<N, E, D> {
+    fn left(&self) -> NodeId<N, E, D> {
         self.ptr
             .upgrade()
             .map(|edge| NodeId {
@@ -88,7 +88,7 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
             .expect("EdgeId is dangling")
     }
 
-    fn target(&self) -> NodeId<N, E, D> {
+    fn right(&self) -> NodeId<N, E, D> {
         self.ptr
             .upgrade()
             .map(|edge| NodeId {

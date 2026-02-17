@@ -71,8 +71,8 @@ where
     let edge_tags: HashMap<_, _> = graph
         .edge_ids()
         .map(|eid: <G as Graph>::EdgeId| {
-            let (from, to) = (eid.source(), eid.target());
-            (eid.clone(), (&node_tags[&from], &node_tags[&to]))
+            let (n1, n2) = eid.ends();
+            (eid.clone(), (&node_tags[&n1], &node_tags[&n2]))
         })
         .collect();
     let mut edge_order = edge_tags.keys().cloned().collect::<Vec<_>>();
@@ -106,11 +106,11 @@ where
             "edges",
             &FormatDebugWith(|f: &mut Formatter<'_>| {
                 let make_edge_tag = |eid: &G::EdgeId| {
-                    let (from, to) = eid.ends().into_values();
+                    let (n1, n2) = eid.ends();
                     let tag = if graph.is_directed() {
-                        format!("{} -> {}", &node_tags[&from], &node_tags[&to])
+                        format!("{} -> {}", &node_tags[&n1], &node_tags[&n2])
                     } else {
-                        format!("{} -- {}", &node_tags[&from], &node_tags[&to])
+                        format!("{} -- {}", &node_tags[&n1], &node_tags[&n2])
                     };
                     FormatDebugAs(tag)
                 };

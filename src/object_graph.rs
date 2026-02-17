@@ -101,11 +101,11 @@ impl<'a, N: Debug> EdgeIdTrait for (NodeId<'a, N>, NodeId<'a, N>) {
         Directed
     }
 
-    fn source(&self) -> NodeId<'a, N> {
+    fn left(&self) -> NodeId<'a, N> {
         self.0
     }
 
-    fn target(&self) -> NodeId<'a, N> {
+    fn right(&self) -> NodeId<'a, N> {
         self.1
     }
 }
