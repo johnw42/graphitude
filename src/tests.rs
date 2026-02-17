@@ -684,6 +684,77 @@ macro_rules! graph_tests {
                 graph.clear();
                 graph.node_ids().next().is_none() && graph.edge_ids().next().is_none()
             }
+
+            #[quickcheck]
+            fn prop_no_orphan_edges(GraphWrapper(graph): GraphWrapper<TestGraph>) -> bool {
+                let all_edges = graph.edge_ids().collect::<HashSet<_>>();
+                let from_edges = graph
+                    .node_ids()
+                    .flat_map(|node_id| graph.edges_from(&node_id).collect::<Vec<_>>())
+                    .collect::<HashSet<_>>();
+                let into_edges = graph.node_ids()
+                    .flat_map(|node_id| graph.edges_into(&node_id).collect::<Vec<_>>())
+                    .collect::<HashSet<_>>();
+                all_edges == from_edges && all_edges == into_edges
+            }
+
+            #[quickcheck]
+            fn prop_remove_node_removes_edges(
+                GraphWrapper(mut graph): GraphWrapper<TestGraph>,
+            ) -> bool {
+                let node_id = graph.node_ids().next();
+                if let Some(node_id) = node_id {
+                    let num_nodes = graph.num_nodes();
+                    let num_edges = graph.num_edges();
+                    let num_node_edges = graph.edges_from(&node_id)
+                        .chain(graph.edges_into(&node_id))
+                        .collect::<HashSet<_>>().len();
+                    graph.remove_node(&node_id);
+                    if graph.num_nodes() != num_nodes - 1 {
+                        return false;
+                    }
+                    if graph.num_edges() > num_edges - num_node_edges {
+                        return false;
+                    }
+                }
+                true
+            }
+
+            #[quickcheck]
+            fn prop_edges_in_and_out_are_consistent(GraphWrapper(graph): GraphWrapper<TestGraph>) -> bool {
+                for node_id in graph.node_ids() {
+                    for edge_from in graph.edges_from(&node_id) {
+                        let other_node = edge_from.other_end(&node_id).into_inner();
+                        if !graph.edges_into(&other_node).any(|e| e == edge_from) {
+                            return false;
+                        }
+                    }
+                    for edge_into in graph.edges_into(&node_id) {
+                        let other_node = edge_into.other_end(&node_id).into_inner();
+                        if !graph.edges_from(&other_node).any(|e| e == edge_into) {
+                            return false;
+                        }
+                    }
+                }
+                true
+            }
+
+            #[quickcheck]
+            fn prop_edges_from_into_is_consistent(GraphWrapper(graph): GraphWrapper<TestGraph>) -> bool {
+                for node_id in graph.node_ids() {
+                    for other_node_id in graph.node_ids() {
+                        for edge_from_into in graph.edges_from_into(&node_id, &other_node_id) {
+                            if !graph.edges_from(&node_id).any(|e| e == edge_from_into) {
+                                return false;
+                            }
+                            if !graph.edges_into(&other_node_id).any(|e| e == edge_from_into) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                true
+            }
         }
 
         #[test]

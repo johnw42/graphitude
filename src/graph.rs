@@ -77,6 +77,28 @@ pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
     fn ends(&self) -> EdgeEnds<Self::NodeId, Self::Directedness> {
         self.directedness().make_pair(self.source(), self.target())
     }
+
+    /// Gets the other end of the edge given one end.  If the edge is directed,
+    /// the direction is ignored and the other end is returned.  If the edge is
+    /// undirected, the other end is returned regardless of which end is passed
+    /// in.  If the edge is a self-loop and the given end is the same as both
+    /// ends of the edge, then the same node ID is returned.
+    fn other_end(&self, node: &Self::NodeId) -> OtherEnd<Self::NodeId> {
+        let source = self.source();
+        let target = self.target();
+        if *node == source && *node == target {
+            OtherEnd::SelfLoop(source)
+        } else if *node == source {
+            OtherEnd::Target(target)
+        } else if *node == target {
+            OtherEnd::Source(source)
+        } else {
+            panic!(
+                "Node {:?} is not an end of edge with ends {:?} and {:?}",
+                node, source, target
+            );
+        }
+    }
 }
 
 /// Return type of [`Graph::add_edge`].
