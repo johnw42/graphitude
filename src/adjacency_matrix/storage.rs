@@ -36,9 +36,8 @@ pub trait Storage {
     #[allow(private_bounds)]
     type CompactionCount: CompactionCount;
 
-    type Matrix<I, V, D>: AdjacencyMatrix<Index = I, Value = V>
+    type Matrix<V, D>: AdjacencyMatrix<Value = V> + Default
     where
-        I: Into<usize> + From<usize> + Copy + Eq + Hash + Ord + Debug,
         D: DirectednessTrait + Default;
 }
 
@@ -53,18 +52,16 @@ impl Storage for BitvecStorage {
     type CompactionCount = usize;
     #[cfg(feature = "unchecked")]
     type CompactionCount = ();
-    type Matrix<I, V, D>
-        = BitvecAdjacencyMatrix<I, V, D>
+    type Matrix<V, D>
+        = BitvecAdjacencyMatrix<V, D>
     where
-        I: Into<usize> + From<usize> + Copy + Eq + Hash + Ord + Debug,
         D: DirectednessTrait + Default;
 }
 
 impl Storage for HashStorage {
     type CompactionCount = ();
-    type Matrix<I, V, D>
-        = HashAdjacencyMatrix<I, V, D>
+    type Matrix<V, D>
+        = HashAdjacencyMatrix<V, D>
     where
-        I: Into<usize> + From<usize> + Copy + Eq + Hash + Ord + Debug,
         D: DirectednessTrait + Default;
 }

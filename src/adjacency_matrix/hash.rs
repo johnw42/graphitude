@@ -1,82 +1,77 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
-    hash::Hash,
 };
+
+use derivative::Derivative;
 
 use crate::{
-    Directed, DirectednessTrait, Undirected,
-    adjacency_matrix::{AdjacencyMatrix, HashStorage},
+    DirectednessTrait,
+    adjacency_matrix::{AdjacencyMatrix, HashStorage, format_debug},
     util::sort_pair_if,
 };
-
-pub type AsymmetricHashAdjacencyMatrix<I, V> = HashAdjacencyMatrix<I, V, Directed>;
-pub type SymmetricHashAdjacencyMatrix<I, V> = HashAdjacencyMatrix<I, V, Undirected>;
 
 /// Hash-based asymmetric adjacency matrix for directed graphs.
 ///
 /// Stores separate forward and backward edge indices for efficient traversal
 /// in both directions.
-#[derive(Clone, Debug)]
-pub struct HashAdjacencyMatrix<I, V, D> {
+#[derive(Clone, Derivative)]
+#[derivative(Default(bound = "D: Default"))]
+pub struct HashAdjacencyMatrix<V, D> {
     /// Maps each row index to a map of column indices and their associated values.
     /// This represents the forward edges in a directed graph.
-    entries: HashMap<I, HashMap<I, V>>,
+    entries: HashMap<usize, HashMap<usize, V>>,
     /// Maps each column index to a set of row indices that have entries in
     /// `entries`.  Invariant: `entries[row][col]` exists if and only if
     /// `reverse_entries[col]` contains `row`.  This allows efficient retrieval
     /// of all rows that have an entry for a given column.
-    reverse_entries: HashMap<I, HashSet<I>>,
-    /// Tracks the total number of entries in the adjacency matrix for efficient length queries.
-    entry_count: usize,
+    reverse_entries: HashMap<usize, HashSet<usize>>,
+    size: usize,
     directedness: D,
 }
 
-impl<I, V, D> AdjacencyMatrix for HashAdjacencyMatrix<I, V, D>
+impl<V, D> AdjacencyMatrix for HashAdjacencyMatrix<V, D>
 where
-    I: Hash + Eq + Clone + Ord + Debug,
     D: DirectednessTrait + Default,
 {
-    type Index = I;
     type Value = V;
     type Directedness = D;
     type Storage = HashStorage;
 
-    fn new() -> Self {
+    fn with_size(size: usize) -> Self {
         Self {
-            entries: HashMap::new(),
-            reverse_entries: HashMap::new(),
-            entry_count: 0,
+            entries: HashMap::with_capacity(size),
+            reverse_entries: HashMap::with_capacity(size),
+            size: 0,
             directedness: D::default(),
         }
     }
 
-    fn insert(&mut self, row: I, col: I, data: V) -> Option<V> {
-        let (i1, i2) = sort_pair_if(!self.directedness.is_directed(), (row, col));
-
-        self.reverse_entries
-            .entry(i2.clone())
-            .or_default()
-            .insert(i1.clone());
-
-        let old_data = self.entries.entry(i1).or_default().insert(i2, data);
-        if old_data.is_none() {
-            self.entry_count += 1;
-        }
-        old_data
+    fn size_bound(&self) -> usize {
+        self.size
     }
 
-    fn get(&self, row: I, col: I) -> Option<&V> {
+    fn insert(&mut self, row: usize, col: usize, data: V) -> Option<V> {
+        self.size = self.size.max(row.max(col) + 1);
+
+        let (i1, i2) = sort_pair_if(!self.directedness.is_directed(), (row, col));
+
+        self.reverse_entries.entry(i2).or_default().insert(i1);
+
+        self.entries.entry(i1).or_default().insert(i2, data)
+    }
+
+    fn get(&self, row: usize, col: usize) -> Option<&V> {
         let (i1, i2) = sort_pair_if(!self.directedness.is_directed(), (row, col));
         self.entries.get(&i1).and_then(|m| m.get(&i2))
     }
 
-    fn get_mut(&mut self, row: I, col: I) -> Option<&mut V> {
+    fn get_mut(&mut self, row: usize, col: usize) -> Option<&mut V> {
         let (i1, i2) = sort_pair_if(!self.directedness.is_directed(), (row, col));
         self.entries.get_mut(&i1).and_then(|m| m.get_mut(&i2))
     }
 
-    fn remove(&mut self, row: I, col: I) -> Option<V> {
+    fn remove(&mut self, row: usize, col: usize) -> Option<V> {
         let (i1, i2) = sort_pair_if(!self.directedness.is_directed(), (row, col));
         let value = self.entries.get_mut(&i1).and_then(|m| m.remove(&i2))?;
         if let Some(sources) = self.reverse_entries.get_mut(&i2)
@@ -85,35 +80,30 @@ where
         {
             self.reverse_entries.remove(&i2);
         }
-        self.entry_count -= 1;
         Some(value)
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (I, I, &'a V)>
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (usize, usize, &'a V)>
     where
         V: 'a,
     {
-        self.entries.iter().flat_map(|(row, targets)| {
-            targets
-                .iter()
-                .map(|(col, data)| (row.clone(), col.clone(), data))
-        })
+        self.entries
+            .iter()
+            .flat_map(|(row, targets)| targets.iter().map(|(col, data)| (*row, *col, data)))
     }
 
-    fn into_iter(self) -> impl Iterator<Item = (Self::Index, Self::Index, Self::Value)> {
-        self.entries.into_iter().flat_map(|(row, targets)| {
-            targets
-                .into_iter()
-                .map(move |(col, data)| (row.clone(), col, data))
-        })
+    fn into_iter(self) -> impl Iterator<Item = (usize, usize, V)> {
+        self.entries
+            .into_iter()
+            .flat_map(|(row, targets)| targets.into_iter().map(move |(col, data)| (row, col, data)))
     }
 
-    fn entries_in_row(&self, row: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
+    fn entries_in_row(&self, row: usize) -> impl Iterator<Item = (usize, &'_ V)> + '_ {
         let forward_entries = self
             .entries
             .get(&row)
             .into_iter()
-            .flat_map(|targets| targets.iter().map(|(i2, v)| (i2.clone(), v)));
+            .flat_map(|targets| targets.iter().map(|(i2, v)| (*i2, v)));
 
         let backward_entries = if self.directedness.is_directed() {
             None
@@ -123,7 +113,6 @@ where
                     .get(&row)
                     .into_iter()
                     .flat_map(move |sources| {
-                        let row = row.clone();
                         sources.iter().filter_map(move |i1| {
                             if *i1 == row {
                                 return None;
@@ -131,7 +120,7 @@ where
                             self.entries
                                 .get(i1)
                                 .and_then(|targets| targets.get(&row))
-                                .map(|v| (i1.clone(), v))
+                                .map(|v| (*i1, v))
                         })
                     }),
             )
@@ -140,19 +129,15 @@ where
         forward_entries.chain(backward_entries.into_iter().flatten())
     }
 
-    fn entries_in_col(&self, col: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
+    fn entries_in_col(&self, col: usize) -> impl Iterator<Item = (usize, &'_ V)> + '_ {
         let (directed, undirected) = if self.directedness.is_directed() {
-            let sources = self
-                .reverse_entries
-                .get(&col)
-                .cloned()
-                .unwrap_or_else(|| HashSet::new());
+            let sources = self.reverse_entries.get(&col).cloned().unwrap_or_default();
             (
                 Some(sources.into_iter().filter_map(move |row| {
                     self.entries
                         .get(&row)
                         .and_then(|targets| targets.get(&col))
-                        .map(|data| (row.clone(), data))
+                        .map(|data| (row, data))
                 })),
                 None,
             )
@@ -165,23 +150,20 @@ where
             .chain(undirected.into_iter().flatten())
     }
 
-    fn clear_row_and_column(&mut self, row: I, col: I) {
+    fn clear_row_and_column(&mut self, row: usize, col: usize) {
         if self.directedness.is_directed() {
-            if let Some(removed) = self.entries.remove(&row) {
-                if let Some(reverse_entries) = self.reverse_entries.get_mut(&col) {
-                    reverse_entries.remove(&row);
-                    if reverse_entries.is_empty() {
-                        self.reverse_entries.remove(&col);
-                    }
+            if self.entries.remove(&row).is_some()
+                && let Some(reverse_entries) = self.reverse_entries.get_mut(&col)
+            {
+                reverse_entries.remove(&row);
+                if reverse_entries.is_empty() {
+                    self.reverse_entries.remove(&col);
                 }
-                self.entry_count -= removed.len();
             }
             if let Some(removed) = self.reverse_entries.remove(&col) {
                 for source in removed {
                     if let Some(targets) = self.entries.get_mut(&source) {
-                        if targets.remove(&col).is_some() {
-                            self.entry_count -= 1;
-                        }
+                        targets.remove(&col);
                         if targets.is_empty() {
                             self.entries.remove(&source);
                         }
@@ -189,10 +171,10 @@ where
                 }
             }
         } else {
-            let mut to_remove = Vec::with_capacity(self.entry_count);
+            let mut to_remove = Vec::new();
             for key1 in [row, col] {
-                for (key2, _) in self.entries_in_row(key1.clone()) {
-                    to_remove.push((key1.clone(), key2));
+                for (key2, _) in self.entries_in_row(key1) {
+                    to_remove.push((key1, key2));
                 }
             }
             for (key1, key2) in to_remove {
@@ -204,11 +186,40 @@ where
     fn clear(&mut self) {
         self.entries.clear();
         self.reverse_entries.clear();
-        self.entry_count = 0;
     }
 
-    fn len(&self) -> usize {
-        self.entry_count
+    fn reserve(&mut self, additional: usize) {
+        self.entries.reserve(additional);
+        self.reverse_entries.reserve(additional);
+    }
+
+    fn reserve_exact(&mut self, additional: usize) {
+        // HashMap doesn't have a reserve_exact method, so we can just call reserve.
+        self.reserve(additional);
+    }
+
+    fn shrink_to_fit(&mut self) {
+        self.entries.shrink_to_fit();
+        self.reverse_entries.shrink_to_fit();
+        let mut size_bound = 0;
+        for (index, targets) in self.entries.iter_mut() {
+            size_bound = size_bound.max(index + 1);
+            targets.shrink_to_fit();
+        }
+        for (index, sources) in self.reverse_entries.iter_mut() {
+            size_bound = size_bound.max(index + 1);
+            sources.shrink_to_fit();
+        }
+    }
+}
+
+impl<V, D> Debug for HashAdjacencyMatrix<V, D>
+where
+    V: Debug,
+    D: DirectednessTrait + Default,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        format_debug(self, f, "HashAdjacencyMatrix")
     }
 }
 
@@ -218,8 +229,8 @@ mod tests {
 
     adjacency_matrix_tests!(
         directed,
-        HashAdjacencyMatrix<usize, T, Directed>);
+        HashAdjacencyMatrix<T, Directed>);
     adjacency_matrix_tests!(
         undirected,  
-        HashAdjacencyMatrix<usize, T, Undirected>);
+        HashAdjacencyMatrix<T, Undirected>);
 }

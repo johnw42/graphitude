@@ -11,6 +11,11 @@ pub trait EdgeContainer<T>: Sized {
     /// Returns the number of items in the container.
     fn len(&self) -> usize;
 
+    /// Returns `true` if the container is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Creates a new container with a single item.  Returns the new container, the key for the item, and any replaced item (if applicable).
     fn append(container: Option<Self>, item: T) -> (Self, Self::Index, Option<T>);
 

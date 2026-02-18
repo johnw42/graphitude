@@ -49,7 +49,7 @@ where
     S: Storage,
 {
     nodes: NodeVec<N>,
-    adjacency: S::Matrix<usize, M::Container<E>, D>,
+    adjacency: S::Matrix<M::Container<E>, D>,
     num_edges: usize,
     directedness: D,
     edge_multiplicity: M,
@@ -285,7 +285,7 @@ where
     fn new(directedness: D, edge_multiplicity: M) -> Self {
         Self {
             nodes: NodeVec::default(),
-            adjacency: S::Matrix::new(),
+            adjacency: S::Matrix::default(),
             num_edges: 0,
             directedness,
             edge_multiplicity,
@@ -428,7 +428,7 @@ where
 
         // Update adjacency matrix with new node indices.
         if !automap_map.is_empty() {
-            let mut old_adjacency = self.adjacency.clone_empty();
+            let mut old_adjacency = S::Matrix::<M::Container<E>, D>::default();
             std::mem::swap(&mut self.adjacency, &mut old_adjacency);
             self.adjacency.reserve(self.nodes.len());
             for (old_from_index, old_into_index, container) in old_adjacency.into_iter() {

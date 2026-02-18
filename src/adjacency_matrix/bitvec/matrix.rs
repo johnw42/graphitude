@@ -1,17 +1,15 @@
-use std::{fmt::Debug, hash::Hash, marker::PhantomData, mem::MaybeUninit, ops::Range};
+use std::{fmt::Debug, mem::MaybeUninit, ops::Range};
 
 use bitvec::{slice::BitSlice, vec::BitVec};
 
 use crate::{
-    Directed, DirectednessTrait, Undirected,
+    DirectednessTrait,
     adjacency_matrix::{
         AdjacencyMatrix, BitvecStorage,
         bitvec::indexing::{DataIndex, LivenessIndex, MatrixIndexing},
+        format_debug,
     },
 };
-
-pub type AsymmetricBitvecAdjacencyMatrix<I, V> = BitvecAdjacencyMatrix<I, V, Directed>;
-pub type SymmetricBitvecAdjacencyMatrix<I, V> = BitvecAdjacencyMatrix<I, V, Undirected>;
 
 /// Bitvec-based adjacency matrix.
 ///
@@ -21,9 +19,8 @@ pub type SymmetricBitvecAdjacencyMatrix<I, V> = BitvecAdjacencyMatrix<I, V, Undi
 /// entries are indexed by `row * (row + 1) / 2 + col` for `col <= row`.
 ///
 /// Requires indices that can be converted to/from usize.
-pub struct BitvecAdjacencyMatrix<I, V, D>
+pub struct BitvecAdjacencyMatrix<V, D>
 where
-    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord + Debug,
     D: DirectednessTrait + Default,
 {
     /// Linear storage of adjacency data.
@@ -45,36 +42,12 @@ where
     indexing: MatrixIndexing<D>,
     /// The number of live entries currently in the matrix.
     entry_count: usize,
-    phantom: PhantomData<I>,
 }
 
-impl<I, V, D> BitvecAdjacencyMatrix<I, V, D>
+impl<V, D> BitvecAdjacencyMatrix<V, D>
 where
-    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord + Debug,
     D: DirectednessTrait + Default,
 {
-    fn with_size(size: usize) -> Self {
-        let indexing = MatrixIndexing::new(size, D::default());
-        let liveness_storage_size = indexing.liveness_storage_size();
-        let bitvec_size = if D::default().is_directed() {
-            2 * liveness_storage_size
-        } else {
-            liveness_storage_size
-        };
-        let mut liveness = BitVec::with_capacity(bitvec_size);
-        liveness.resize(bitvec_size, false);
-        let data_storage_size = indexing.data_storage_size();
-        let mut data = Vec::with_capacity(data_storage_size);
-        data.resize_with(data_storage_size, MaybeUninit::uninit);
-        BitvecAdjacencyMatrix {
-            data,
-            liveness,
-            indexing,
-            entry_count: 0,
-            phantom: PhantomData,
-        }
-    }
-
     fn liveness_range(&self) -> Range<usize> {
         0..self.indexing.liveness_storage_size()
     }
@@ -133,15 +106,10 @@ where
         // SAFETY: Caller must ensure that the index is live.
         unsafe { self.data[index].assume_init_ref() }
     }
-
-    fn size(&self) -> usize {
-        self.indexing.size()
-    }
 }
 
-impl<I, V, D> Drop for BitvecAdjacencyMatrix<I, V, D>
+impl<V, D> Drop for BitvecAdjacencyMatrix<V, D>
 where
-    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord + Debug,
     D: DirectednessTrait + Default,
 {
     fn drop(&mut self) {
@@ -159,31 +127,41 @@ where
     }
 }
 
-impl<I, V, D> AdjacencyMatrix for BitvecAdjacencyMatrix<I, V, D>
+impl<V, D> AdjacencyMatrix for BitvecAdjacencyMatrix<V, D>
 where
-    I: Into<usize> + From<usize> + Clone + Copy + Eq + Hash + Ord + Debug,
     D: DirectednessTrait + Default,
 {
-    type Index = I;
     type Value = V;
     type Directedness = D;
     type Storage = BitvecStorage;
 
-    fn new() -> Self {
-        let directedness = D::default();
-        Self {
-            liveness: BitVec::new(),
-            indexing: MatrixIndexing::new(0, directedness),
-            data: Vec::new(),
+    fn with_size(size: usize) -> Self {
+        let indexing = MatrixIndexing::new(size, D::default());
+        let liveness_storage_size = indexing.liveness_storage_size();
+        let bitvec_size = if D::default().is_directed() {
+            2 * liveness_storage_size
+        } else {
+            liveness_storage_size
+        };
+        let mut liveness = BitVec::with_capacity(bitvec_size);
+        liveness.resize(bitvec_size, false);
+        let data_storage_size = indexing.data_storage_size();
+        let mut data = Vec::with_capacity(data_storage_size);
+        data.resize_with(data_storage_size, MaybeUninit::uninit);
+        BitvecAdjacencyMatrix {
+            data,
+            liveness,
+            indexing,
             entry_count: 0,
-            phantom: PhantomData,
         }
     }
 
-    fn insert(&mut self, row: I, col: I, data: V) -> Option<V> {
-        let row = row.into();
-        let col = col.into();
-        self.reserve((row.max(col) + 1).saturating_sub(self.size()));
+    fn size_bound(&self) -> usize {
+        self.indexing.size()
+    }
+
+    fn insert(&mut self, row: usize, col: usize, data: V) -> Option<V> {
+        self.reserve((row.max(col) + 1).saturating_sub(self.size_bound()));
 
         let liveness_index = self.indexing.unchecked_liveness_index(row, col);
         let data_index = self.indexing.liveness_index_to_data_index(liveness_index);
@@ -207,21 +185,15 @@ where
         old_data
     }
 
-    fn get(&self, row: I, col: I) -> Option<&V> {
-        let row = row.into();
-        let col = col.into();
+    fn get(&self, row: usize, col: usize) -> Option<&V> {
         self.get_data_ref(self.indexing.liveness_index(row, col)?)
     }
 
-    fn get_mut(&mut self, row: I, col: I) -> Option<&mut V> {
-        let row = row.into();
-        let col = col.into();
+    fn get_mut(&mut self, row: usize, col: usize) -> Option<&mut V> {
         self.get_data_mut(self.indexing.liveness_index(row, col)?)
     }
 
-    fn remove(&mut self, row: I, col: I) -> Option<V> {
-        let row = row.into();
-        let col = col.into();
+    fn remove(&mut self, row: usize, col: usize) -> Option<V> {
         let data_index = self.indexing.data_index(row, col)?;
         let liveness_index = self.indexing.unchecked_liveness_index(row, col);
         let was_live = self.liveness_bits()[liveness_index];
@@ -239,7 +211,7 @@ where
         }
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (I, I, &'a V)>
+    fn iter<'a>(&'a self) -> impl Iterator<Item = (usize, usize, &'a V)>
     where
         V: 'a,
     {
@@ -250,8 +222,8 @@ where
                 let (row, col) = self.indexing.liveness_coordinates(index);
                 if D::default().is_directed() || row <= col {
                     Some((
-                        row.into(),
-                        col.into(),
+                        row,
+                        col,
                         self.unchecked_get_data_ref(
                             self.indexing.liveness_index_to_data_index(index),
                         ),
@@ -262,7 +234,7 @@ where
             })
     }
 
-    fn into_iter(mut self) -> impl Iterator<Item = (Self::Index, Self::Index, Self::Value)> {
+    fn into_iter(mut self) -> impl Iterator<Item = (usize, usize, Self::Value)> {
         let mut result = Vec::new();
 
         // Collect all live entries
@@ -272,7 +244,7 @@ where
                 // SAFETY: index is live (from iter_ones)
                 let value =
                     self.unchecked_get_data_read(self.indexing.liveness_index_to_data_index(index));
-                result.push((row.into(), col.into(), value));
+                result.push((row, col, value));
             }
         }
 
@@ -282,9 +254,8 @@ where
         result.into_iter()
     }
 
-    fn entries_in_row(&self, row: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
-        let row = row.into();
-        let size = self.size();
+    fn entries_in_row(&self, row: usize) -> impl Iterator<Item = (usize, &'_ V)> + '_ {
+        let size = self.size_bound();
         let row_start = (row < size).then(|| self.indexing.unchecked_liveness_index(row, 0));
         row_start.into_iter().flat_map(move |row_start| {
             let row_end = self.indexing.unchecked_liveness_index(row + 1, 0);
@@ -292,14 +263,13 @@ where
                 .iter_ones()
                 .map(move |col_offset| {
                     let data_index = self.indexing.unchecked_data_index(row, col_offset);
-                    (col_offset.into(), self.unchecked_get_data_ref(data_index))
+                    (col_offset, self.unchecked_get_data_ref(data_index))
                 })
         })
     }
 
-    fn entries_in_col(&self, col: I) -> impl Iterator<Item = (I, &'_ V)> + '_ {
-        let col = col.into();
-        let size = self.size();
+    fn entries_in_col(&self, col: usize) -> impl Iterator<Item = (usize, &'_ V)> + '_ {
+        let size = self.size_bound();
         let col_start = (col < size).then(|| self.indexing.unchecked_liveness_index(col, 0));
         col_start.into_iter().flat_map(move |col_start| {
             let col_end = col_start + size;
@@ -307,7 +277,7 @@ where
                 .iter_ones()
                 .map(move |row_offset| {
                     let data_index = self.indexing.unchecked_data_index(row_offset, col);
-                    (row_offset.into(), self.unchecked_get_data_ref(data_index))
+                    (row_offset, self.unchecked_get_data_ref(data_index))
                 })
         })
     }
@@ -329,10 +299,8 @@ where
         self.entry_count = 0;
     }
 
-    fn clear_row_and_column(&mut self, row: Self::Index, col: Self::Index) {
-        let row = row.into();
-        let col = col.into();
-        let size = self.size();
+    fn clear_row_and_column(&mut self, row: usize, col: usize) {
+        let size = self.size_bound();
 
         if row >= size || col >= size {
             return;
@@ -383,8 +351,8 @@ where
             return;
         }
 
-        let new_size = (self.size() + additional_capacity).next_power_of_two();
-        self.reserve_exact(new_size - self.size());
+        let new_size = (self.size_bound() + additional_capacity).next_power_of_two();
+        self.reserve_exact(new_size - self.size_bound());
     }
 
     fn reserve_exact(&mut self, additional_capacity: usize) {
@@ -392,7 +360,7 @@ where
             return;
         }
 
-        let current_capacity = self.size();
+        let current_capacity = self.size_bound();
         let new_capacity = current_capacity + additional_capacity;
         let mut new_self = Self::with_size(new_capacity);
 
@@ -451,16 +419,56 @@ where
     }
 }
 
+impl<V, D> Default for BitvecAdjacencyMatrix<V, D>
+where
+    D: DirectednessTrait + Default,
+{
+    fn default() -> Self {
+        Self::with_size(0)
+    }
+}
+
+impl<V, D> Clone for BitvecAdjacencyMatrix<V, D>
+where
+    V: Clone,
+    D: DirectednessTrait + Default,
+{
+    fn clone(&self) -> Self {
+        let mut new_self = Self::with_size(self.size_bound());
+        new_self.liveness.clone_from(&self.liveness);
+        for index in self.liveness_bits().iter_ones().map(LivenessIndex) {
+            let (row, col) = self.indexing.liveness_coordinates(index);
+            if D::default().is_directed() || row <= col {
+                let data_index = self.indexing.liveness_index_to_data_index(index);
+                new_self.data[data_index] =
+                    MaybeUninit::new(self.unchecked_get_data_ref(data_index).clone());
+            }
+        }
+        new_self.entry_count = self.entry_count;
+        new_self
+    }
+}
+
+impl<V, D> Debug for BitvecAdjacencyMatrix<V, D>
+where
+    V: Debug,
+    D: DirectednessTrait + Default,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        format_debug(self, f, "BitvecAdjacencyMatrix")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::adjacency_matrix_tests;
 
     adjacency_matrix_tests!(
         directed,
-        BitvecAdjacencyMatrix<usize, T, Directed>);
+        BitvecAdjacencyMatrix<T, Directed>);
     adjacency_matrix_tests!(
         undirected,
-        BitvecAdjacencyMatrix<usize, T, Undirected>);
+        BitvecAdjacencyMatrix<T, Undirected>);
 
     // #[test]
     // fn test_debug_empty() {

@@ -3,14 +3,156 @@ macro_rules! adjacency_matrix_tests {
     ($mod_name:ident, $matrix:ty) => {
         mod $mod_name {
             use super::super::*;
+            use quickcheck::TestResult;
+            use quickcheck_macros::quickcheck;
             use std::collections::HashSet;
+            use $crate::adjacency_matrix::test::ArbMatrix;
             use $crate::test_util::DropCounter;
+            #[allow(unused_imports)]
+            use $crate::{Directed, Undirected};
 
             type Matrix<T> = $matrix;
 
+            #[quickcheck]
+            fn prop_size_consistent(ArbMatrix { matrix, .. }: ArbMatrix<Matrix<u8>>) -> bool {
+                let expected_size = matrix
+                    .iter()
+                    .fold(0, |size, (row, col, _)| size.max(row.max(col) + 1));
+                matrix.size_bound() >= expected_size
+            }
+
+            #[quickcheck]
+            fn prop_get_consistent(ArbMatrix { matrix, .. }: ArbMatrix<Matrix<u8>>) -> TestResult {
+                let entries: Vec<_> = matrix.iter().map(|(row, col, _)| (row, col)).collect();
+                for i in 0..matrix.size_bound() {
+                    for j in 0..matrix.size_bound() {
+                        if matrix.directedness().is_directed() || i <= j {
+                            if matrix.get(i, j).is_some() != entries.contains(&(i, j)) {
+                                return TestResult::failed();
+                            }
+                        }
+                    }
+                }
+                TestResult::passed()
+            }
+
+            #[quickcheck]
+            fn prop_insert_and_get_consistent(
+                ArbMatrix { mut matrix, .. }: ArbMatrix<Matrix<u8>>,
+            ) -> bool {
+                let entries: Vec<_> = matrix
+                    .iter()
+                    .map(|(row, col, data)| (row, col, data.clone()))
+                    .collect();
+
+                for (row, col, data) in entries {
+                    if matrix.insert(row, col, data.clone()).is_none() {
+                        return false;
+                    }
+                    if let Some(val) = matrix.get(row, col) {
+                        if *val != data {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+                true
+            }
+
+            #[quickcheck]
+            fn prop_entries_in_row_consistent(
+                ArbMatrix { matrix, .. }: ArbMatrix<Matrix<u8>>,
+            ) -> TestResult {
+                for row in 0..matrix.size_bound() {
+                    let expected: Vec<_> = matrix
+                        .iter()
+                        .filter_map(|(i, j, _)| (i == row).then(|| j))
+                        .collect();
+                    let entries_in_row: Vec<_> = matrix
+                        .entries_in_row(row)
+                        .flat_map(|(j, _)| {
+                            if matrix.directedness().is_directed() {
+                                Some(j)
+                            } else {
+                                (j >= row).then_some(j)
+                            }
+                        })
+                        .collect();
+
+                    if expected.len() != entries_in_row.len()
+                        || !expected.iter().all(|col| entries_in_row.contains(col))
+                    {
+                        return TestResult::error(format!(
+                            "Entries in row {} inconsistent: expected {:?}, got {:?}",
+                            row, expected, entries_in_row
+                        ));
+                    }
+                }
+                TestResult::passed()
+            }
+
+            #[quickcheck]
+            fn prop_entries_in_col_consistent(
+                ArbMatrix { matrix, .. }: ArbMatrix<Matrix<u8>>,
+            ) -> TestResult {
+                for col in 0..matrix.size_bound() {
+                    let expected: Vec<_> = matrix
+                        .iter()
+                        .filter_map(|(i, j, _)| (j == col).then(|| i))
+                        .collect();
+                    let entries_in_col: Vec<_> = matrix
+                        .entries_in_col(col)
+                        .flat_map(|(i, _)| {
+                            if matrix.directedness().is_directed() {
+                                Some(i)
+                            } else {
+                                (i <= col).then_some(i)
+                            }
+                        })
+                        .collect();
+
+                    if expected.len() != entries_in_col.len()
+                        || !expected.iter().all(|row| entries_in_col.contains(row))
+                    {
+                        return TestResult::error(format!(
+                            "Entries in column {} inconsistent: expected {:?}, got {:?}",
+                            col, expected, entries_in_col
+                        ));
+                    }
+                }
+                TestResult::passed()
+            }
+
+            #[quickcheck]
+            fn prop_clear_and_len_consistent(
+                ArbMatrix { mut matrix, .. }: ArbMatrix<Matrix<u8>>,
+            ) -> bool {
+                matrix.clear();
+                matrix.iter().next().is_none() && matrix.len() == 0
+            }
+
+            #[quickcheck]
+            fn prop_clear_row_and_column_consistent(
+                ArbMatrix { mut matrix, .. }: ArbMatrix<Matrix<u8>>,
+                row: usize,
+                col: usize,
+            ) -> TestResult {
+                if matrix.is_empty() {
+                    return TestResult::discard();
+                }
+
+                let row = row % matrix.size_bound();
+                let col = col % matrix.size_bound();
+                matrix.clear_row_and_column(row.clone(), col.clone());
+                (matrix.entries_in_row(row.clone()).next().is_none()
+                    && matrix.entries_in_col(col.clone()).next().is_none())
+                .into()
+            }
+
             #[test]
             fn test_matrix_insert_and_get() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 matrix.insert(0, 0, "a");
                 matrix.insert(1, 0, "b");
                 matrix.insert(2, 0, "c");
@@ -32,7 +174,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_insert_overwrites() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 assert_eq!(matrix.insert(0, 1, "first"), None);
                 assert_eq!(matrix.insert(0, 1, "second"), Some("first"));
                 assert_eq!(matrix.get(0, 1), Some(&"second"));
@@ -40,7 +182,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_remove() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 matrix.insert(0, 1, "edge");
                 assert_eq!(matrix.remove(0, 1), Some("edge"));
                 assert_eq!(matrix.get(0, 1), None);
@@ -48,7 +190,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_remove_both_directions() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 matrix.insert(0, 1, "");
                 let removed = matrix.remove(1, 0);
                 if matrix.directedness().is_directed() {
@@ -63,13 +205,13 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_remove_nonexistent() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 assert_eq!(matrix.remove(0, 1), None);
             }
 
             #[test]
             fn test_entries() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 matrix.insert(0, 1, "a");
                 matrix.insert(1, 0, "b");
                 matrix.insert(2, 3, "b");
@@ -83,7 +225,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_entries_in_row() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 matrix.insert(0, 1, "a");
                 matrix.insert(0, 2, "b");
                 matrix.insert(1, 2, "c");
@@ -111,7 +253,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_entries_in_col() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 matrix.insert(0, 1, "a");
                 matrix.insert(0, 2, "b");
                 matrix.insert(1, 2, "c");
@@ -137,7 +279,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_large_indices() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 matrix.insert(100, 200, "");
                 assert_eq!(matrix.get(100, 200), Some(&""));
                 if !matrix.directedness().is_directed() {
@@ -147,14 +289,14 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_self_loop() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 matrix.insert(5, 5, "");
                 assert_eq!(matrix.get(5, 5), Some(&""));
             }
 
             #[test]
             fn test_iter() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 matrix.insert(0, 1, "A");
                 matrix.insert(2, 3, "B");
                 matrix.insert(1, 0, "C");
@@ -193,7 +335,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_into_iter() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 matrix.insert(0, 1, "A");
                 matrix.insert(2, 3, "B");
                 matrix.insert(1, 0, "C");
@@ -233,7 +375,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_len() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
                 assert_eq!(matrix.len(), 0);
                 matrix.insert(0, 1, "edge");
                 assert_eq!(matrix.len(), 1);
@@ -255,7 +397,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_clear_row_and_column() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
 
                 matrix.insert(0, 2, "edge_0_2");
                 matrix.insert(1, 2, "edge_1_2");
@@ -291,7 +433,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_clear_row_and_column_with_different_indices() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
 
                 matrix.insert(0, 1, "a");
                 matrix.insert(0, 2, "b");
@@ -328,7 +470,7 @@ macro_rules! adjacency_matrix_tests {
             fn test_clear_row_and_column_drops_values() {
                 let counter = DropCounter::new();
 
-                let mut matrix = Matrix::<_>::new();
+                let mut matrix = Matrix::<_>::default();
 
                 matrix.insert(1, 0, counter.new_value());
                 matrix.insert(1, 2, counter.new_value());
@@ -355,7 +497,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_clear_row_and_column_out_of_bounds() {
-                let mut matrix = Matrix::<&str>::new();
+                let mut matrix = Matrix::<&str>::default();
 
                 matrix.insert(0, 0, "test");
                 matrix.insert(1, 1, "test2");
@@ -372,7 +514,7 @@ macro_rules! adjacency_matrix_tests {
             fn test_drop_initialized_values() {
                 let counter = DropCounter::new();
 
-                let mut matrix = Matrix::<_>::new();
+                let mut matrix = Matrix::<_>::default();
 
                 // Insert some values
                 matrix.insert(0, 1, counter.new_value());
@@ -397,7 +539,7 @@ macro_rules! adjacency_matrix_tests {
                 let counter = DropCounter::new();
 
                 {
-                    let mut matrix = Matrix::<_>::new();
+                    let mut matrix = Matrix::<_>::default();
 
                     // Insert some values
                     matrix.insert(0, 1, counter.new_value());
@@ -427,7 +569,7 @@ macro_rules! adjacency_matrix_tests {
             fn test_no_double_drop_after_clear() {
                 let counter = DropCounter::new();
 
-                let mut matrix = Matrix::<_>::new();
+                let mut matrix = Matrix::<_>::default();
 
                 // Insert some values
                 matrix.insert(0, 1, counter.new_value());
@@ -454,7 +596,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_large_stress_symmetric() {
-                let mut matrix = Matrix::<usize>::new();
+                let mut matrix = Matrix::<usize>::default();
                 if matrix.directedness().is_directed() {
                     return;
                 }
@@ -506,7 +648,7 @@ macro_rules! adjacency_matrix_tests {
 
             #[test]
             fn test_large_stress_asymmetric() {
-                let mut matrix = Matrix::<usize>::new();
+                let mut matrix = Matrix::<usize>::default();
                 if !matrix.directedness().is_directed() {
                     return;
                 }
