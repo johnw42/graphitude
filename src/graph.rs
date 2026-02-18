@@ -1,15 +1,14 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    hash::Hash,
-    ops::Add,
+use std::{collections::HashSet, fmt::Debug, hash::Hash};
+
+#[cfg(feature = "pathfinding")]
+use std::{collections::HashMap, ops::Add};
+
+#[cfg(feature = "dot")]
+use {
+    crate::dot::{parser, renderer},
+    std::io,
 };
 
-#[cfg(feature = "dot")]
-use std::io;
-
-#[cfg(feature = "dot")]
-use crate::dot::{parser, renderer};
 use crate::{
     debug_graph_view::DebugGraphView,
     path::Path,
@@ -478,6 +477,7 @@ pub trait Graph {
         distance_fn: impl Fn(&Self::EdgeId) -> C,
     ) -> HashMap<Self::NodeId, (Path<Self::EdgeId>, C)> {
         // Find shortest paths using Dijkstra's algorithm.
+
         let mut distances: HashMap<Self::NodeId, C> = HashMap::new();
         let mut predecessors: HashMap<Self::NodeId, (Self::EdgeId, Self::NodeId)> = HashMap::new();
         let mut unvisited: HashSet<Self::NodeId> = self.node_ids().collect();

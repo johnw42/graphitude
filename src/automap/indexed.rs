@@ -1,7 +1,4 @@
-use crate::automap::{
-    Automap,
-    trait_def::{AutomapIndexing, AutomapKeyTrait},
-};
+use crate::automap::trait_def::{AutomapIndexing, AutomapKeyTrait, AutomapTrait};
 
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct IndexedAutomapKey(usize);
@@ -53,7 +50,7 @@ impl<T> Default for IndexedAutomap<T> {
     }
 }
 
-impl<T> Automap<T> for IndexedAutomap<T> {
+impl<T> AutomapTrait<T> for IndexedAutomap<T> {
     type Key = IndexedAutomapKey;
     type Indexing = IndexedAutomapIndexing;
 
@@ -176,7 +173,7 @@ impl<T> Automap<T> for IndexedAutomap<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::trait_def::Automap;
+    use super::super::trait_def::AutomapTrait;
     use super::*;
     use crate::automap_tests;
 

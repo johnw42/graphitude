@@ -35,7 +35,7 @@ pub trait AutomapIndexing {
 ///
 /// - `OffsetAutomap`: Uses a bitvec to track liveness with key offset management.
 /// - `IndexedAutomap`: Uses dense index mapping for O(1) swap-remove operations.
-pub trait Automap<T> {
+pub trait AutomapTrait<T> {
     type Key: AutomapKeyTrait;
     type Indexing: AutomapIndexing<Key = Self::Key>;
 

@@ -7,7 +7,7 @@ use crate::{
     adjacency_matrix::{
         AdjacencyMatrix, BitvecStorage,
         bitvec::indexing::{DataIndex, LivenessIndex, MatrixIndexing},
-        format_debug,
+        trait_def::format_debug,
     },
 };
 
@@ -309,7 +309,7 @@ where
         // Clear all entries in the given row
         let row_start = self.indexing.unchecked_liveness_index(row, 0);
         let row_end = self.indexing.unchecked_liveness_index(row + 1, 0);
-        debug_assert!(row_end.0 - row_start.0 == size);
+        debug_assert_eq!(row_end.0 - row_start.0, size);
         let col_offsets: Vec<_> = self.liveness[self.liveness_range()][row_start.0..row_end.0]
             .iter_ones()
             .collect();

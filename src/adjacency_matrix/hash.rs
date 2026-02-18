@@ -7,7 +7,7 @@ use derivative::Derivative;
 
 use crate::{
     DirectednessTrait,
-    adjacency_matrix::{AdjacencyMatrix, HashStorage, format_debug},
+    adjacency_matrix::{AdjacencyMatrix, HashStorage, trait_def::format_debug},
 };
 
 /// Hash-based asymmetric adjacency matrix for directed graphs.

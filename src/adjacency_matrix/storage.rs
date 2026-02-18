@@ -2,10 +2,11 @@ use std::{fmt::Debug, hash::Hash};
 
 use crate::{
     DirectednessTrait,
-    adjacency_matrix::{
-        AdjacencyMatrix, bitvec::matrix::BitvecAdjacencyMatrix, hash::HashAdjacencyMatrix,
-    },
+    adjacency_matrix::{AdjacencyMatrix, hash::HashAdjacencyMatrix},
 };
+
+#[cfg(feature = "bitvec")]
+use crate::adjacency_matrix::bitvec::matrix::BitvecAdjacencyMatrix;
 
 /// Trait representing the compaction count for adjacency matrix storage
 /// backends.  This is used to track modifications that may require compaction
@@ -42,11 +43,10 @@ pub trait Storage {
 }
 
 /// Marker type for bitvec-based adjacency matrix storage.
+#[cfg(feature = "bitvec")]
 pub struct BitvecStorage;
 
-/// Marker type for hash-based adjacency matrix storage.
-pub struct HashStorage;
-
+#[cfg(feature = "bitvec")]
 impl Storage for BitvecStorage {
     #[cfg(not(feature = "unchecked"))]
     type CompactionCount = usize;
@@ -57,6 +57,9 @@ impl Storage for BitvecStorage {
     where
         D: DirectednessTrait + Default;
 }
+
+/// Marker type for hash-based adjacency matrix storage.
+pub struct HashStorage;
 
 impl Storage for HashStorage {
     type CompactionCount = ();

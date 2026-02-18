@@ -5,7 +5,7 @@ use derivative::Derivative;
 use crate::{
     DirectednessTrait, EdgeIdTrait, NodeIdTrait, Storage,
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
-    automap::OffsetAutomapKey,
+    automap::AutomapKey,
     coordinate_pair::CoordinatePair,
     graph_id::GraphId,
 };
@@ -44,7 +44,7 @@ impl<S: Storage, T: Clone> NodeIdOrEdgeId<S, T> {
     }
 }
 
-pub type NodeId<S> = NodeIdOrEdgeId<S, OffsetAutomapKey>;
+pub type NodeId<S> = NodeIdOrEdgeId<S, AutomapKey>;
 
 #[derive(Derivative)]
 #[derivative(
@@ -61,7 +61,7 @@ where
     D: DirectednessTrait + Default,
     M: EdgeContainerSelector,
 {
-    inner: NodeIdOrEdgeId<S, CoordinatePair<OffsetAutomapKey, D>>,
+    inner: NodeIdOrEdgeId<S, CoordinatePair<AutomapKey, D>>,
     index: <M::Container<E> as EdgeContainer<E>>::Index,
     directedness: D,
     edge_multiplicity: M,
@@ -74,7 +74,7 @@ where
     M: EdgeContainerSelector,
 {
     pub fn new(
-        payload: CoordinatePair<OffsetAutomapKey, D>,
+        payload: CoordinatePair<AutomapKey, D>,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
         graph_id: GraphId,
         compaction_count: S::CompactionCount,
@@ -87,7 +87,7 @@ where
         }
     }
 
-    pub fn keys(&self) -> CoordinatePair<OffsetAutomapKey, D> {
+    pub fn keys(&self) -> CoordinatePair<AutomapKey, D> {
         self.inner.payload.clone()
     }
 
@@ -112,7 +112,7 @@ where
 impl<S: Storage> NodeIdTrait for NodeId<S> {}
 
 impl<S: Storage> NodeId<S> {
-    pub fn key(&self) -> OffsetAutomapKey {
+    pub fn key(&self) -> AutomapKey {
         self.payload
     }
 }

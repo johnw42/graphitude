@@ -1,5 +1,3 @@
-#![cfg(feature = "bitvec")]
-
 use std::ops::{Add, Index, IndexMut, Range, Sub};
 
 use bitvec::slice::BitSlice;
