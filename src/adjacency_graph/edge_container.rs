@@ -156,14 +156,14 @@ mod tests {
     // ==================== SingleItem Tests ====================
 
     #[test]
-    fn single_item_append_with_none() {
+    fn test_single_item_append_with_none() {
         let (container, _key, replaced) = SingleItem::append(None, 42);
         assert_eq!(container.0, 42);
         assert_eq!(replaced, None);
     }
 
     #[test]
-    fn single_item_append_with_some() {
+    fn test_single_item_append_with_some() {
         let original = SingleItem(10);
         let (container, _key, replaced) = SingleItem::append(Some(original), 42);
         assert_eq!(container.0, 42);
@@ -171,7 +171,7 @@ mod tests {
     }
 
     #[test]
-    fn single_item_insert_or_replace() {
+    fn test_single_item_insert_or_replace() {
         let mut container = SingleItem(42);
         let (_, replaced) = container.insert_or_replace(99);
         assert_eq!(container.0, 99);
@@ -179,13 +179,13 @@ mod tests {
     }
 
     #[test]
-    fn single_item_get() {
+    fn test_single_item_get() {
         let container = SingleItem(42);
         assert_eq!(container.get(()), Some(&42));
     }
 
     #[test]
-    fn single_item_get_mut() {
+    fn test_single_item_get_mut() {
         let mut container = SingleItem(42);
         if let Some(val) = container.get_mut(()) {
             *val = 99;
@@ -194,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn single_item_without() {
+    fn test_single_item_without() {
         let container = SingleItem(42);
         let (remaining, removed) = container.without(());
         assert_eq!(remaining, None);
@@ -202,7 +202,7 @@ mod tests {
     }
 
     #[test]
-    fn single_item_iter() {
+    fn test_single_item_iter() {
         let container = SingleItem(42);
         let items: Vec<_> = container.iter().collect();
         assert_eq!(items.len(), 1);
@@ -212,7 +212,7 @@ mod tests {
     // ==================== MultipleItems Tests ====================
 
     #[test]
-    fn multiple_items_append_with_none() {
+    fn test_multiple_items_append_with_none() {
         let (container, key, replaced): (MultipleItems<i32, Automap<i32>>, _, _) =
             MultipleItems::append(None, 42);
         assert_eq!(container.get(key), Some(&42));
@@ -220,7 +220,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_items_append_with_some() {
+    fn test_multiple_items_append_with_some() {
         let original: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 10).0;
 
         let (container, _key, replaced) = MultipleItems::append(Some(original), 42);
@@ -231,7 +231,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_items_insert_multiple() {
+    fn test_multiple_items_insert_multiple() {
         let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
         let (k2, replaced) = container.insert_or_replace(2);
         assert!(replaced.is_none());
@@ -243,7 +243,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_items_get() {
+    fn test_multiple_items_get() {
         let container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 42).0;
         let k = container
             .iter()
@@ -254,7 +254,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_items_get_mut() {
+    fn test_multiple_items_get_mut() {
         let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 42).0;
         let k = container
             .iter()
@@ -269,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_items_without_not_empty() {
+    fn test_multiple_items_without_not_empty() {
         let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
         let k1 = container
             .iter()
@@ -287,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_items_without_empty() {
+    fn test_multiple_items_without_empty() {
         let container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 42).0;
         let k = container
             .iter()
@@ -301,7 +301,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_items_iter() {
+    fn test_multiple_items_iter() {
         let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
         container.insert_or_replace(2);
         container.insert_or_replace(3);
@@ -314,7 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_items_get_after_removal() {
+    fn test_multiple_items_get_after_removal() {
         let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
         let k1 = container
             .iter()

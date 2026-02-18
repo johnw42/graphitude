@@ -1,4 +1,4 @@
 {
-  "git.enabled": false,
-  "rust-analyzer.cargo.features": []
+  "git.enabled": false
+  //"rust-analyzer.cargo.features": []
 }
