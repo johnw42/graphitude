@@ -13,7 +13,7 @@ use crate::{
     debug_graph_view::DebugGraphView,
     path::Path,
     prelude::*,
-    search::{BfsIterator, DfsIterator},
+    search::{BfsIterator, BfsIteratorWithPaths, DfsIterator, DfsIteratorWithPaths},
 };
 
 /// A trait representing a node identifier in a graph.
@@ -465,6 +465,26 @@ pub trait Graph {
         DfsIterator::new(self, start)
     }
 
+    /// Performs a breadth-first search starting from the given node.
+    fn bfs_with_paths(&self, start: &Self::NodeId) -> BfsIteratorWithPaths<'_, Self> {
+        self.bfs_multi_with_paths(vec![start.clone()])
+    }
+
+    /// Performs a breadth-first search starting from the given nodes.
+    fn bfs_multi_with_paths(&self, start: Vec<Self::NodeId>) -> BfsIteratorWithPaths<'_, Self> {
+        BfsIteratorWithPaths::new(self, start)
+    }
+
+    /// Performs a depth-first search starting from the given node.
+    fn dfs_with_paths(&self, start: &Self::NodeId) -> DfsIteratorWithPaths<'_, Self> {
+        self.dfs_multi_with_paths(vec![start.clone()])
+    }
+
+    /// Performs a depth-first search starting from the given nodes.
+    fn dfs_multi_with_paths(&self, start: Vec<Self::NodeId>) -> DfsIteratorWithPaths<'_, Self> {
+        DfsIteratorWithPaths::new(self, start)
+    }
+
     // Pathfinding
 
     /// Finds shortest paths from a starting node to all other nodes using
@@ -547,6 +567,7 @@ pub trait Graph {
     /// large graphs (e.g., due to using a dense adjacency matrix).  This is mainly
     /// intended to be used to skip certain tests that would take an unreasonable
     /// amount of time to complete.
+    #[doc(hidden)]
     fn is_very_slow(&self) -> bool {
         false
     }

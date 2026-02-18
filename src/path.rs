@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once, marker::PhantomData};
+use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once};
 
 use derivative::Derivative;
 
@@ -17,7 +17,6 @@ use crate::{DirectednessTrait, EdgeIdTrait};
 pub struct Path<E: EdgeIdTrait> {
     edges: Vec<E>,
     nodes: Vec<E::NodeId>,
-    _phantom: PhantomData<E>,
 }
 
 impl<E: EdgeIdTrait> Path<E> {
@@ -26,7 +25,6 @@ impl<E: EdgeIdTrait> Path<E> {
         Self {
             edges: Vec::new(),
             nodes: vec![start],
-            _phantom: PhantomData,
         }
     }
 
