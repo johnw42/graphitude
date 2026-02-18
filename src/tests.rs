@@ -804,6 +804,7 @@ macro_rules! graph_tests {
         }
 
         #[test]
+        #[cfg(feature = "slow_tests")]
         fn test_deconstruct_large_graph_by_nodes() {
             use $crate::tracing_support::{
                 TimingScope, dump_method_timings, info_span, reset_method_timings, set_timing_scope,
@@ -885,6 +886,7 @@ macro_rules! graph_tests {
         }
 
         #[test]
+        #[cfg(feature = "slow_tests")]
         fn test_deconstruct_large_graph_by_edges() {
             use $crate::tracing_support::{
                 TimingScope, dump_method_timings, info_span, reset_method_timings, set_timing_scope,

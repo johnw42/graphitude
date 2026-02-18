@@ -1,3 +1,58 @@
+#![cfg(test)]
+#![doc(hidden)]
+
+use quickcheck::Arbitrary;
+
+use crate::adjacency_matrix::AdjacencyMatrix;
+
+#[derive(Clone, Debug)]
+pub struct ArbMatrix<M: AdjacencyMatrix> {
+    pub matrix: M,
+    pub insertions: Vec<(usize, usize, M::Value)>,
+}
+
+impl<M> ArbMatrix<M>
+where
+    M: AdjacencyMatrix + Clone + 'static,
+    M::Value: Clone + Arbitrary,
+{
+    pub fn new(insertions: Vec<(usize, usize, M::Value)>) -> Self {
+        let mut matrix = M::with_size(0);
+        for (row, col, data) in &insertions {
+            matrix.insert(*row, *col, data.clone());
+        }
+        ArbMatrix { matrix, insertions }
+    }
+}
+
+impl<M> Arbitrary for ArbMatrix<M>
+where
+    M: AdjacencyMatrix + Clone + 'static,
+    M::Value: Clone + Arbitrary,
+{
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let mut insertions = Vec::with_capacity(g.size());
+        for _ in 0..g.size() {
+            let row = usize::arbitrary(g) % g.size();
+            let col = usize::arbitrary(g) % g.size();
+            let data = M::Value::arbitrary(g);
+            insertions.push((row, col, data));
+        }
+        ArbMatrix::new(insertions)
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        let insertions = self.insertions.clone();
+        Box::new(insertions.shrink().map(ArbMatrix::new))
+    }
+}
+
+pub fn compute_size<M: AdjacencyMatrix>(matrix: &M) -> usize {
+    matrix
+        .iter()
+        .fold(0, |size, (row, col, _)| size.max(row.max(col) + 1))
+}
+
 #[macro_export]
 macro_rules! adjacency_matrix_tests {
     ($mod_name:ident, $matrix:ty) => {
@@ -5,8 +60,8 @@ macro_rules! adjacency_matrix_tests {
             use super::super::*;
             use quickcheck::TestResult;
             use quickcheck_macros::quickcheck;
-            use std::collections::HashSet;
-            use $crate::adjacency_matrix::test::ArbMatrix;
+            use std::collections::{HashMap, HashSet};
+            use $crate::adjacency_matrix::tests::*;
             use $crate::test_util::DropCounter;
             #[allow(unused_imports)]
             use $crate::{Directed, Undirected};
@@ -14,26 +69,94 @@ macro_rules! adjacency_matrix_tests {
             type Matrix<T> = $matrix;
 
             #[quickcheck]
-            fn prop_size_consistent(ArbMatrix { matrix, .. }: ArbMatrix<Matrix<u8>>) -> bool {
-                let expected_size = matrix
-                    .iter()
-                    .fold(0, |size, (row, col, _)| size.max(row.max(col) + 1));
-                matrix.size_bound() >= expected_size
+            fn prop_size_consistent(ArbMatrix { matrix, .. }: ArbMatrix<Matrix<u8>>) -> TestResult {
+                let computed_size = compute_size(&matrix);
+                if matrix.size_bound() >= computed_size {
+                    TestResult::passed()
+                } else {
+                    TestResult::error(format!(
+                        "Size bound inconsistent: expected {}, got {}",
+                        computed_size,
+                        matrix.size_bound()
+                    ))
+                }
             }
 
             #[quickcheck]
-            fn prop_get_consistent(ArbMatrix { matrix, .. }: ArbMatrix<Matrix<u8>>) -> TestResult {
-                let entries: Vec<_> = matrix.iter().map(|(row, col, _)| (row, col)).collect();
-                for i in 0..matrix.size_bound() {
-                    for j in 0..matrix.size_bound() {
-                        if matrix.directedness().is_directed() || i <= j {
-                            if matrix.get(i, j).is_some() != entries.contains(&(i, j)) {
-                                return TestResult::failed();
-                            }
-                        }
+            fn prop_size_consistent_after_shrink(
+                ArbMatrix { mut matrix, .. }: ArbMatrix<Matrix<u8>>,
+            ) -> TestResult {
+                let computed_size = compute_size(&matrix);
+                matrix.shrink_to_fit();
+                if matrix.size_bound() == computed_size {
+                    TestResult::passed()
+                } else {
+                    TestResult::error(format!(
+                        "Size bound inconsistent: expected {}, got {}",
+                        computed_size,
+                        matrix.size_bound()
+                    ))
+                }
+            }
+
+            #[quickcheck]
+            fn prop_size_consistent_after_removal(
+                ArbMatrix { mut matrix, .. }: ArbMatrix<Matrix<u8>>,
+            ) -> bool {
+                let computed_size = compute_size(&matrix);
+                for (row, col) in matrix
+                    .iter()
+                    .map(|(row, col, _)| (row, col))
+                    .collect::<Vec<_>>()
+                {
+                    matrix.remove(row, col);
+                    if matrix.size_bound() < computed_size {
+                        return false;
+                    }
+                }
+                true
+            }
+
+            #[quickcheck]
+            fn prop_size_consistent_after_removal_and_shrink(
+                ArbMatrix {
+                    mut matrix,
+                    insertions,
+                }: ArbMatrix<Matrix<u8>>,
+            ) -> TestResult {
+                for (row, col, _) in insertions {
+                    matrix.remove(row, col);
+                    matrix.shrink_to_fit();
+                    let expected_size = compute_size(&matrix);
+                    if matrix.size_bound() != expected_size {
+                        return TestResult::error(format!(
+                            "Size bound inconsistent: expected {}, got {}",
+                            expected_size,
+                            matrix.size_bound()
+                        ));
                     }
                 }
                 TestResult::passed()
+            }
+
+            #[quickcheck]
+            fn prop_get_consistent(
+                ArbMatrix { matrix, insertions }: ArbMatrix<Matrix<u8>>,
+            ) -> bool {
+                let expected_values = insertions
+                    .into_iter()
+                    .map(|(row, col, data)| (matrix.directedness().sort_pair((row, col)), data))
+                    .collect::<HashMap<_, _>>();
+                for i in 0..matrix.size_bound() {
+                    for j in 0..matrix.size_bound() {
+                        let expected =
+                            expected_values.get(&matrix.directedness().sort_pair((i, j)));
+                        if matrix.get(i, j) != expected {
+                            return false;
+                        }
+                    }
+                }
+                true
             }
 
             #[quickcheck]

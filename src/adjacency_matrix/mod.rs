@@ -80,7 +80,8 @@ where
     }
 
     /// Returns an upper bound on the total number of rows and columns in the
-    /// adjacency matrix.
+    /// adjacency matrix.  The result is exact if there have been no
+    /// modifications to the matrix since the last call to `shrink_to_fit`.
     fn size_bound(&self) -> usize;
 
     /// For internal use.  Gets the canonical indices for the given indices.  This will return a pair
@@ -141,52 +142,4 @@ where
         .field("directedness", &matrix.directedness())
         .field("entries", &matrix.iter().collect::<Vec<_>>())
         .finish()
-}
-
-#[cfg(test)]
-pub mod test {
-    use super::*;
-    use quickcheck::Arbitrary;
-
-    #[doc(hidden)]
-    #[derive(Clone, Debug)]
-    pub struct ArbMatrix<M> {
-        pub matrix: M,
-    }
-
-    impl<M> Arbitrary for ArbMatrix<M>
-    where
-        M: AdjacencyMatrix + Clone + 'static,
-        M::Value: Clone + Arbitrary,
-    {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let mut matrix = M::with_size(g.size());
-            if g.size() > 0 {
-                for _ in 0..g.size() {
-                    let row = usize::arbitrary(g) % g.size();
-                    let col = usize::arbitrary(g) % g.size();
-                    let data = M::Value::arbitrary(g);
-                    matrix.insert(row, col, data);
-                }
-            }
-            ArbMatrix { matrix }
-        }
-
-        fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-            let entries = self
-                .matrix
-                .iter()
-                .map(|(r, c, _)| (r, c))
-                .collect::<Vec<_>>();
-            let matrix = self.matrix.clone();
-            Box::new(entries.into_iter().map(move |(r, c)| {
-                let mut smaller_matrix = matrix.clone();
-                smaller_matrix.remove(r, c);
-                smaller_matrix.shrink_to_fit();
-                Self {
-                    matrix: smaller_matrix,
-                }
-            }))
-        }
-    }
 }

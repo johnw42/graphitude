@@ -8,7 +8,6 @@ use derivative::Derivative;
 use crate::{
     DirectednessTrait,
     adjacency_matrix::{AdjacencyMatrix, HashStorage, format_debug},
-    util::sort_pair_if,
 };
 
 /// Hash-based asymmetric adjacency matrix for directed graphs.
@@ -26,7 +25,7 @@ pub struct HashAdjacencyMatrix<V, D> {
     /// `reverse_entries[col]` contains `row`.  This allows efficient retrieval
     /// of all rows that have an entry for a given column.
     reverse_entries: HashMap<usize, HashSet<usize>>,
-    size: usize,
+    size_bound: usize,
     directedness: D,
 }
 
@@ -42,19 +41,19 @@ where
         Self {
             entries: HashMap::with_capacity(size),
             reverse_entries: HashMap::with_capacity(size),
-            size: 0,
+            size_bound: 0,
             directedness: D::default(),
         }
     }
 
     fn size_bound(&self) -> usize {
-        self.size
+        self.size_bound
     }
 
     fn insert(&mut self, row: usize, col: usize, data: V) -> Option<V> {
-        self.size = self.size.max(row.max(col) + 1);
+        self.size_bound = self.size_bound.max(row.max(col) + 1);
 
-        let (i1, i2) = sort_pair_if(!self.directedness.is_directed(), (row, col));
+        let (i1, i2) = self.directedness.sort_pair((row, col));
 
         self.reverse_entries.entry(i2).or_default().insert(i1);
 
@@ -62,25 +61,29 @@ where
     }
 
     fn get(&self, row: usize, col: usize) -> Option<&V> {
-        let (i1, i2) = sort_pair_if(!self.directedness.is_directed(), (row, col));
+        let (i1, i2) = self.directedness.sort_pair((row, col));
         self.entries.get(&i1).and_then(|m| m.get(&i2))
     }
 
     fn get_mut(&mut self, row: usize, col: usize) -> Option<&mut V> {
-        let (i1, i2) = sort_pair_if(!self.directedness.is_directed(), (row, col));
+        let (i1, i2) = self.directedness.sort_pair((row, col));
         self.entries.get_mut(&i1).and_then(|m| m.get_mut(&i2))
     }
 
     fn remove(&mut self, row: usize, col: usize) -> Option<V> {
-        let (i1, i2) = sort_pair_if(!self.directedness.is_directed(), (row, col));
-        let value = self.entries.get_mut(&i1).and_then(|m| m.remove(&i2))?;
+        let (i1, i2) = self.directedness.sort_pair((row, col));
+        let targets = self.entries.get_mut(&i1)?;
+        let value = targets.remove(&i2);
+        if targets.is_empty() {
+            self.entries.remove(&i1);
+        }
         if let Some(sources) = self.reverse_entries.get_mut(&i2)
             && sources.remove(&i1)
             && sources.is_empty()
         {
             self.reverse_entries.remove(&i2);
         }
-        Some(value)
+        value
     }
 
     fn iter<'a>(&'a self) -> impl Iterator<Item = (usize, usize, &'a V)>
@@ -202,6 +205,7 @@ where
         self.entries.shrink_to_fit();
         self.reverse_entries.shrink_to_fit();
         let mut size_bound = 0;
+        dbg!(self.entries.len(), self.reverse_entries.len());
         for (index, targets) in self.entries.iter_mut() {
             size_bound = size_bound.max(index + 1);
             targets.shrink_to_fit();
@@ -210,6 +214,7 @@ where
             size_bound = size_bound.max(index + 1);
             sources.shrink_to_fit();
         }
+        self.size_bound = size_bound;
     }
 }
 

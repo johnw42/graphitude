@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash};
 
 use quickcheck::Arbitrary;
 
-use crate::coordinate_pair::CoordinatePair;
+use crate::{coordinate_pair::CoordinatePair, util::sort_pair_if};
 
 /// Trait defining the directedness behavior of graph edges.
 ///
@@ -27,17 +27,11 @@ pub trait DirectednessTrait:
 {
     fn is_directed(&self) -> bool;
 
-    fn default_is_directed() -> bool
-    where
-        Self: Default,
-    {
-        Self::default().is_directed()
+    fn sort_pair<T: Ord>(&self, pair: (T, T)) -> (T, T) {
+        sort_pair_if(!self.is_directed(), pair)
     }
 
-    fn coordinate_pair<T: Clone + Eq + Ord + Debug + Hash>(
-        &self,
-        (first, second): (T, T),
-    ) -> CoordinatePair<T, Self> {
+    fn coordinate_pair<T: Ord>(&self, (first, second): (T, T)) -> CoordinatePair<T, Self> {
         CoordinatePair::new(first, second, *self)
     }
 }
