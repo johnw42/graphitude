@@ -1,6 +1,9 @@
 mod linked {
-    pub use graphitude::{LinkedGraph, graph_tests, graph_tests::TestDataBuilder, prelude::*};
-    use graphitude::{directedness::Directedness, edge_multiplicity::EdgeMultiplicity};
+    pub use graphitude::{LinkedGraph, graph_tests, prelude::*};
+    use graphitude::{
+        directedness::Directedness, edge_multiplicity::EdgeMultiplicity,
+        graph_tests::TestDataBuilder,
+    };
 
     pub struct LinkedGraphBuilder<D, M> {
         directedness: D,
@@ -23,7 +26,7 @@ mod linked {
     {
         type Graph = LinkedGraph<i32, String, D, M>;
 
-        fn new_graph(&self) -> Self::Graph {
+        fn new_graph(&self) -> <Self as TestDataBuilder>::Graph {
             LinkedGraph::new(self.directedness, self.edge_multiplicity)
         }
 

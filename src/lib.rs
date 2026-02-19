@@ -33,6 +33,7 @@ pub mod directedness;
 #[cfg(feature = "dot")]
 pub mod dot;
 pub mod edge_multiplicity;
+pub mod generate_large_graph;
 pub mod graph_traits;
 pub mod linked_graph;
 pub mod object_graph;
@@ -48,6 +49,7 @@ pub mod graph_tests;
 pub mod tracing_support;
 
 mod automap;
+mod graph_test_support;
 mod test_util;
 #[cfg(feature = "bitvec")]
 mod triangular;
@@ -60,7 +62,6 @@ pub use adjacency_matrix::{HashStorage, Storage};
 pub use copier::GraphCopier;
 pub use directedness::{Directed, Directedness, DirectednessTrait, Undirected};
 pub use edge_multiplicity::{EdgeMultiplicity, EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
-pub use graph_tests::TestDataBuilder;
 pub use graph_traits::{
     AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphUndirected, NodeIdTrait,
 };

@@ -16,10 +16,8 @@ mod inner {
     use clap::{Parser, ValueEnum};
     use graphitude::directedness::Directedness;
     use graphitude::edge_multiplicity::EdgeMultiplicity;
-    use graphitude::{
-        dot::renderer::DotGenerator, linked_graph::LinkedGraph, prelude::*,
-        graph_tests::generate_large_graph_with,
-    };
+    use graphitude::generate_large_graph::generate_large_graph;
+    use graphitude::{dot::renderer::DotGenerator, linked_graph::LinkedGraph, prelude::*};
 
     /// Data type selector for CLI
     #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -187,7 +185,7 @@ mod inner {
             EdgeMultiplicity::MultipleEdges
         };
         let mut graph = LinkedGraph::new(directedness, edge_multiplicity);
-        generate_large_graph_with(
+        generate_large_graph(
             &mut graph,
             |i| node_data_for(i, node_type),
             |i| edge_data_for(i, edge_type, edge_prefix),
