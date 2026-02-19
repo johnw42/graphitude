@@ -33,7 +33,7 @@ pub mod directedness;
 #[cfg(feature = "dot")]
 pub mod dot;
 pub mod edge_multiplicity;
-pub mod graph;
+pub mod graph_traits;
 pub mod linked_graph;
 pub mod object_graph;
 pub mod path;
@@ -43,7 +43,7 @@ pub mod search;
 // Modules for creating new graph implementations.
 pub mod format_debug;
 pub mod graph_id;
-pub mod tests;
+pub mod graph_tests;
 #[doc(hidden)]
 pub mod tracing_support;
 
@@ -60,8 +60,8 @@ pub use adjacency_matrix::{HashStorage, Storage};
 pub use copier::GraphCopier;
 pub use directedness::{Directed, Directedness, DirectednessTrait, Undirected};
 pub use edge_multiplicity::{EdgeMultiplicity, EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
-pub use graph::{
+pub use graph_tests::TestDataBuilder;
+pub use graph_traits::{
     AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphUndirected, NodeIdTrait,
 };
 pub use linked_graph::LinkedGraph;
-pub use tests::TestDataBuilder;

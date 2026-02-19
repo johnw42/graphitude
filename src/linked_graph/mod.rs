@@ -2,8 +2,8 @@ use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
 
 use crate::{
     coordinate_pair::CoordinatePair, copier::GraphCopier, directedness::Directedness,
-    edge_multiplicity::EdgeMultiplicity, format_debug::format_debug, graph::AddEdgeResult,
-    graph_id::GraphId, prelude::*, util::OtherValue,
+    edge_multiplicity::EdgeMultiplicity, format_debug::format_debug, graph_id::GraphId,
+    graph_traits::AddEdgeResult, prelude::*, util::OtherValue,
 };
 
 mod edge_id;

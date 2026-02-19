@@ -18,7 +18,7 @@ mod inner {
     use graphitude::edge_multiplicity::EdgeMultiplicity;
     use graphitude::{
         dot::renderer::DotGenerator, linked_graph::LinkedGraph, prelude::*,
-        tests::generate_large_graph_with,
+        graph_tests::generate_large_graph_with,
     };
 
     /// Data type selector for CLI

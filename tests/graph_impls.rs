@@ -1,5 +1,5 @@
 mod linked {
-    pub use graphitude::{LinkedGraph, graph_tests, prelude::*, tests::TestDataBuilder};
+    pub use graphitude::{LinkedGraph, graph_tests, graph_tests::TestDataBuilder, prelude::*};
     use graphitude::{directedness::Directedness, edge_multiplicity::EdgeMultiplicity};
 
     pub struct LinkedGraphBuilder<D, M> {
@@ -74,7 +74,7 @@ mod adjacency {
 
     pub use graphitude::{
         BitvecStorage, Graph, HashStorage, Storage, adjacency_graph::AdjacencyGraph, graph_tests,
-        prelude::*, tests::TestDataBuilder,
+        graph_tests::TestDataBuilder, prelude::*,
     };
     use std::marker::PhantomData;
 

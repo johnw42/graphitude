@@ -60,4 +60,4 @@ impl<N, E, D: DirectednessTrait> Ord for NodeId<N, E, D> {
     }
 }
 
-impl<N, E, D: DirectednessTrait> crate::graph::NodeIdTrait for NodeId<N, E, D> {}
+impl<N, E, D: DirectednessTrait> crate::graph_traits::NodeIdTrait for NodeId<N, E, D> {}
