@@ -8,48 +8,157 @@ use tracing::info_span;
 use crate::prelude::*;
 use crate::tracing_support::{TimingScope, init_tracing, set_timing_scope};
 
-#[derive(Debug, Clone)]
-pub struct ArbGraph<G> {
+#[derive(Debug)]
+pub struct ArbGraph<G: Graph> {
+    /// The graph to test.
     pub graph: G,
+    /// The node data used to construct the graph, for verification purposes.
+    pub node_data: Vec<G::NodeData>,
+    /// The edge data used to construct the graph, for verification purposes.
+    /// Contains a pair of indices into the `node_data` vector for the source
+    /// and target of each edge, along with the edge data.
+    pub edge_data: Vec<((usize, usize), G::EdgeData)>,
+    /// The node IDs corresponding to the `node_data` vector, for verification purposes.
+    pub node_ids: Vec<G::NodeId>,
+    /// The edge IDs corresponding to the `edge_data` vector, for verification purposes.
+    pub edge_ids: Vec<G::EdgeId>,
+}
+
+impl<G> ArbGraph<G>
+where
+    G: GraphMut + 'static,
+    G::NodeData: Arbitrary + Clone + Hash + Eq + 'static,
+    G::EdgeData: Arbitrary + Clone + Hash + Eq + 'static,
+{
+    pub fn new(
+        directedness: G::Directedness,
+        edge_multiplicity: G::EdgeMultiplicity,
+        node_data: Vec<G::NodeData>,
+        edge_data: Vec<((usize, usize), G::EdgeData)>,
+    ) -> Self {
+        let mut graph = G::new(directedness, edge_multiplicity);
+        let mut node_ids = Vec::new();
+        for data in node_data.iter() {
+            node_ids.push(graph.add_node(data.clone()));
+        }
+        let mut edge_ids = Vec::new();
+        for ((from, into), data) in edge_data.iter() {
+            let from_id = &node_ids[*from];
+            let into_id = &node_ids[*into];
+            edge_ids.push(graph.add_edge(from_id, into_id, data.clone()).edge_id());
+        }
+        Self {
+            graph,
+            node_data,
+            edge_data,
+            node_ids,
+            edge_ids,
+        }
+    }
+}
+
+impl<G> Clone for ArbGraph<G>
+where
+    G: GraphMut + 'static,
+    G::NodeData: Arbitrary + Clone + Hash + Eq + 'static,
+    G::EdgeData: Arbitrary + Clone + Hash + Eq + 'static,
+{
+    fn clone(&self) -> Self {
+        Self::new(
+            self.graph.directedness(),
+            self.graph.edge_multiplicity(),
+            self.node_data.clone(),
+            self.edge_data.clone(),
+        )
+    }
 }
 
 impl<G> Arbitrary for ArbGraph<G>
 where
-    G: GraphMut + Clone + 'static,
-    G::NodeData: Arbitrary + Clone + 'static,
-    G::EdgeData: Arbitrary + Clone + 'static,
+    G: GraphMut + 'static,
+    G::NodeData: Arbitrary + Clone + Hash + Eq + 'static,
+    G::EdgeData: Arbitrary + Clone + Hash + Eq + 'static,
 {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let mut graph = G::new(
-            G::Directedness::arbitrary(g),
-            G::EdgeMultiplicity::arbitrary(g),
-        );
-
         let num_nodes = usize::arbitrary(g) % (g.size() + 1);
-        let num_edges = usize::arbitrary(g) % (g.size() * 2 + 1);
+        let num_edges = usize::arbitrary(g) % (num_nodes * 2 + 1);
         let num_extra_parallel_edges = usize::arbitrary(g) % (num_edges + 1);
         let num_extra_self_loops = usize::arbitrary(g) % (num_nodes + 1);
 
-        let nodes: Vec<_> = (0..num_nodes)
-            .map(|_| graph.add_node(G::NodeData::arbitrary(g)))
-            .collect();
+        let node_data: Vec<_> = (0..num_nodes).map(|_| G::NodeData::arbitrary(g)).collect();
 
+        let mut edge_data = Vec::new();
         for i in 0..num_edges {
-            if nodes.len() < 2 {
+            if node_data.len() < 2 {
                 break;
             }
-            let source = nodes[usize::arbitrary(g) % nodes.len()].clone();
-            let target = nodes[usize::arbitrary(g) % nodes.len()].clone();
-            graph.add_edge(&source, &target, G::EdgeData::arbitrary(g));
+            let source = usize::arbitrary(g) % node_data.len();
+            let target = usize::arbitrary(g) % node_data.len();
+            edge_data.push(((source, target), G::EdgeData::arbitrary(g)));
             if i < num_extra_parallel_edges {
-                graph.add_edge(&source, &target, G::EdgeData::arbitrary(g));
+                edge_data.push(((source, target), G::EdgeData::arbitrary(g)));
             }
             if i < num_extra_self_loops {
-                graph.add_edge(&source, &source, G::EdgeData::arbitrary(g));
+                edge_data.push(((source, source), G::EdgeData::arbitrary(g)));
             }
         }
 
-        ArbGraph { graph }
+        ArbGraph::new(
+            G::Directedness::arbitrary(g),
+            G::EdgeMultiplicity::arbitrary(g),
+            node_data,
+            edge_data,
+        )
+    }
+
+    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
+        let node_data_clone1 = self.node_data.clone();
+        let node_data_clone2 = self.node_data.clone();
+        let edge_data_clone1 = self.edge_data.clone();
+        let edge_data_clone2 = self.edge_data.clone();
+        let directedness = self.graph.directedness();
+        let edge_multiplicity = self.graph.edge_multiplicity();
+
+        Box::new(
+            (0..node_data_clone1.len())
+                .map(move |i| {
+                    let mut new_node_data = node_data_clone1.clone();
+                    let new_edge_data = edge_data_clone1
+                        .clone()
+                        .into_iter()
+                        .filter_map(|((mut from, mut into), data)| {
+                            if from == i || into == i {
+                                None
+                            } else {
+                                if from > i {
+                                    from -= 1;
+                                }
+                                if into > i {
+                                    into -= 1;
+                                }
+                                Some(((from, into), data))
+                            }
+                        })
+                        .collect();
+                    new_node_data.remove(i);
+                    ArbGraph::new(
+                        directedness,
+                        edge_multiplicity,
+                        new_node_data,
+                        new_edge_data,
+                    )
+                })
+                .chain((0..edge_data_clone2.len()).map(move |i| {
+                    let mut new_edge_data = edge_data_clone2.clone();
+                    new_edge_data.remove(i);
+                    ArbGraph::new(
+                        directedness,
+                        edge_multiplicity,
+                        node_data_clone2.clone(),
+                        new_edge_data,
+                    )
+                })),
+        )
     }
 }
 

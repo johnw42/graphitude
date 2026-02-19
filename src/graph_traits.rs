@@ -117,7 +117,7 @@ pub enum AddEdgeResult<I, D> {
 
 impl<I, D> AddEdgeResult<I, D> {
     /// Returns the new edge ID if the result was `Added`, or the old edge ID if the result was `Updated`.
-    pub fn unwrap(self) -> I {
+    pub fn edge_id(self) -> I {
         match self {
             AddEdgeResult::Added(id) => id,
             AddEdgeResult::Updated(id, _) => id,

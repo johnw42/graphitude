@@ -32,7 +32,7 @@ unsafe impl<N, E, D: DirectednessTrait> Sync for EdgeId<N, E, D> {}
 
 impl<N, E, D: DirectednessTrait> Debug for EdgeId<N, E, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EdgeId({:?})", self.ptr)
+        write!(f, "EdgeId({:?}, {:?})", self.ptr, self.graph_id)
     }
 }
 

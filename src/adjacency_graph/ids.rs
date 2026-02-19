@@ -160,6 +160,11 @@ where
     M: EdgeContainerSelector,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EdgeId{:?}", self.inner.payload.clone().into_values())
+        let (from, into) = self.keys().into_values();
+        write!(
+            f,
+            "EdgeId({:?}, {:?}, {:?})",
+            from, into, self.inner.graph_id
+        )
     }
 }

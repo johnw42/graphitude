@@ -1,5 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use std::hash::Hash;
+
+use quickcheck::TestResult;
 
 use crate::generate_large_graph::generate_large_graph;
 use crate::graph_test_support::{ArbGraph, check_graph_consistency, has_duplicates};
@@ -42,8 +45,9 @@ type TestEdgeData<B> = <TestGraph<B> as Graph>::EdgeData;
 impl<B> GraphTests<B>
 where
     B: TestDataBuilder,
-    TestNodeData<B>: Clone + Eq + Debug,
-    TestEdgeData<B>: Clone + Eq + Debug,
+    TestGraph<B>: Clone,
+    TestNodeData<B>: Clone + Eq + Hash + Debug,
+    TestEdgeData<B>: Clone + Eq + Hash + Debug,
 {
     fn new_graph(&self) -> B::Graph {
         self.builder.new_graph()
@@ -79,40 +83,119 @@ where
         graph
     }
 
-    pub fn prop_node_ids_are_valid(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_node_ids_is_correct(
+        ArbGraph {
+            graph, node_ids, ..
+        }: ArbGraph<TestGraph<B>>,
+    ) -> TestResult {
+        let actual_node_ids = graph.node_ids().collect::<HashSet<_>>();
+        let expected_node_ids = node_ids.into_iter().collect::<HashSet<_>>();
+        if actual_node_ids == expected_node_ids {
+            TestResult::passed()
+        } else {
+            TestResult::error(format!(
+                "Node ID mismatch: expected {:?} but got {:?}",
+                expected_node_ids, actual_node_ids
+            ))
+        }
+    }
+
+    pub fn prop_edge_ids_is_correct(
+        ArbGraph {
+            graph, edge_ids, ..
+        }: ArbGraph<TestGraph<B>>,
+    ) -> TestResult {
+        let actual_edge_ids = graph.edge_ids().collect::<HashSet<_>>();
+        let expected_edge_ids = edge_ids.into_iter().collect::<HashSet<_>>();
+        if actual_edge_ids == expected_edge_ids {
+            TestResult::passed()
+        } else {
+            TestResult::error(format!(
+                "Edge ID mismatch: expected {:?} but got {:?}",
+                expected_edge_ids, actual_edge_ids
+            ))
+        }
+    }
+
+    pub fn prop_node_data_is_correct(
+        ArbGraph {
+            graph, node_data, ..
+        }: ArbGraph<TestGraph<B>>,
+    ) -> TestResult {
+        let actual_node_data = graph
+            .node_ids()
+            .map(|node_id| graph.node_data(&node_id).clone())
+            .collect::<HashSet<_>>();
+        let expected_node_data = node_data.into_iter().collect::<HashSet<_>>();
+        if actual_node_data == expected_node_data {
+            TestResult::passed()
+        } else {
+            TestResult::error(format!(
+                "Node data mismatch: expected {:?} but got {:?}",
+                expected_node_data, actual_node_data
+            ))
+        }
+    }
+
+    pub fn prop_edge_data_is_correct(
+        ArbGraph {
+            graph, edge_data, ..
+        }: ArbGraph<TestGraph<B>>,
+    ) -> TestResult {
+        let expected_edge_data = edge_data
+            .into_iter()
+            .map(|(_, data)| data)
+            .collect::<HashSet<_>>();
+        let actual_edge_data = graph
+            .edge_ids()
+            .map(|edge_id| graph.edge_data(&edge_id).clone())
+            .collect::<HashSet<_>>();
+        if actual_edge_data.is_subset(&expected_edge_data)
+            && (!graph.allows_parallel_edges() || actual_edge_data == expected_edge_data)
+        {
+            TestResult::passed()
+        } else {
+            TestResult::error(format!(
+                "Edge data mismatch: expected {:?} but got {:?}",
+                expected_edge_data, actual_edge_data
+            ))
+        }
+    }
+
+    pub fn prop_node_ids_are_valid(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph
             .node_ids()
             .all(|node_id| graph.check_valid_node_id(&node_id).is_ok())
     }
 
-    pub fn prop_edge_ids_are_valid(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_edge_ids_are_valid(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph
             .edge_ids()
             .all(|edge_id| graph.check_valid_edge_id(&edge_id).is_ok())
     }
 
-    pub fn prop_num_nodes_is_correct(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_num_nodes_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         let actual_node_count = graph.node_ids().count();
         let expected_node_count = graph.num_nodes();
         actual_node_count == expected_node_count
     }
 
-    pub fn prop_num_edges_is_correct(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_num_edges_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         let actual_edge_count = graph.edge_ids().count();
         let expected_edge_count = graph.num_edges();
         actual_edge_count == expected_edge_count
     }
 
-    pub fn prop_node_ids_are_unique(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_node_ids_are_unique(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         !has_duplicates(graph.node_ids())
     }
 
-    pub fn prop_edge_ids_are_unique(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_edge_ids_are_unique(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         !has_duplicates(graph.edge_ids())
     }
 
     pub fn prop_edges_from_returns_unique_values(
-        ArbGraph { graph }: ArbGraph<TestGraph<B>>,
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
         graph
             .node_ids()
@@ -120,7 +203,7 @@ where
     }
 
     pub fn prop_edges_into_returns_unique_values(
-        ArbGraph { graph }: ArbGraph<TestGraph<B>>,
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
         graph
             .node_ids()
@@ -128,7 +211,7 @@ where
     }
 
     pub fn prop_edges_from_into_returns_unique_values(
-        ArbGraph { graph }: ArbGraph<TestGraph<B>>,
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
         graph.node_ids().all(|node_id| {
             graph.node_ids().all(|other_node_id| {
@@ -138,7 +221,7 @@ where
     }
 
     pub fn prop_edges_from_into_finds_all_edges(
-        ArbGraph { graph }: ArbGraph<TestGraph<B>>,
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
         graph.edge_ids().all(|edge_id| {
             let (left, right) = edge_id.ends();
@@ -146,7 +229,7 @@ where
         })
     }
 
-    pub fn prop_num_edges_from_is_correct(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_num_edges_from_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph.node_ids().all(|node_id| {
             let actual_count = graph.edges_from(&node_id).count();
             let expected_count = graph.num_edges_from(&node_id);
@@ -154,7 +237,7 @@ where
         })
     }
 
-    pub fn prop_num_edges_into_is_correct(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_num_edges_into_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph.node_ids().all(|node_id| {
             let actual_count = graph.edges_into(&node_id).count();
             let expected_count = graph.num_edges_into(&node_id);
@@ -162,7 +245,9 @@ where
         })
     }
 
-    pub fn prop_num_edges_from_into_is_correct(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_num_edges_from_into_is_correct(
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
+    ) -> bool {
         graph.node_ids().all(|node_id| {
             graph.node_ids().all(|other_node_id| {
                 let actual_count = graph.edges_from_into(&node_id, &other_node_id).count();
@@ -172,7 +257,7 @@ where
         })
     }
 
-    pub fn prop_has_edge_from_is_correct(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_has_edge_from_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph.node_ids().all(|node_id| {
             let has_edge = graph.has_edge_from(&node_id);
             let expected_has_edge = graph.edges_from(&node_id).next().is_some();
@@ -180,7 +265,7 @@ where
         })
     }
 
-    pub fn prop_has_edge_into_is_correct(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_has_edge_into_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph.node_ids().all(|node_id| {
             let has_edge = graph.has_edge_into(&node_id);
             let expected_has_edge = graph.edges_into(&node_id).next().is_some();
@@ -188,7 +273,9 @@ where
         })
     }
 
-    pub fn prop_has_edge_from_into_is_correct(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_has_edge_from_into_is_correct(
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
+    ) -> bool {
         graph.node_ids().all(|node_id| {
             graph.node_ids().all(|other_node_id| {
                 let has_edge = graph.has_edge_from_into(&node_id, &other_node_id);
@@ -201,20 +288,25 @@ where
         })
     }
 
-    pub fn prop_is_empty_is_correct(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
-        let is_empty = graph.is_empty();
-        let expected_is_empty = graph.node_ids().next().is_none();
-        is_empty == expected_is_empty
+    pub fn prop_is_empty_is_correct(
+        ArbGraph {
+            graph,
+            node_data,
+            edge_data,
+            ..
+        }: ArbGraph<TestGraph<B>>,
+    ) -> bool {
+        graph.is_empty() == (node_data.is_empty() && edge_data.is_empty())
     }
 
     pub fn prop_clear_removes_all_nodes_and_edges(
-        ArbGraph { mut graph }: ArbGraph<TestGraph<B>>,
+        ArbGraph { mut graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
         graph.clear();
         graph.node_ids().next().is_none() && graph.edge_ids().next().is_none()
     }
 
-    pub fn prop_no_orphan_edges(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_no_orphan_edges(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         let all_edges = graph.edge_ids().collect::<HashSet<_>>();
         let from_edges = graph
             .node_ids()
@@ -227,7 +319,9 @@ where
         all_edges == from_edges && all_edges == into_edges
     }
 
-    pub fn prop_remove_node_removes_edges(ArbGraph { mut graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_remove_node_removes_edges(
+        ArbGraph { mut graph, .. }: ArbGraph<TestGraph<B>>,
+    ) -> bool {
         let node_id = graph.node_ids().next();
         if let Some(node_id) = node_id {
             let num_nodes = graph.num_nodes();
@@ -249,7 +343,7 @@ where
     }
 
     pub fn prop_edges_in_and_out_are_consistent(
-        ArbGraph { graph }: ArbGraph<TestGraph<B>>,
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
         for node_id in graph.node_ids() {
             for edge_from in graph.edges_from(&node_id) {
@@ -268,7 +362,9 @@ where
         true
     }
 
-    pub fn prop_edges_from_into_is_consistent(ArbGraph { graph }: ArbGraph<TestGraph<B>>) -> bool {
+    pub fn prop_edges_from_into_is_consistent(
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
+    ) -> bool {
         for node_id in graph.node_ids() {
             for other_node_id in graph.node_ids() {
                 for edge_from_into in graph.edges_from_into(&node_id, &other_node_id) {
@@ -285,6 +381,30 @@ where
             }
         }
         true
+    }
+
+    pub fn prop_cloned_graph_has_distinct_node_ids(
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
+    ) -> bool {
+        let cloned_graph = graph.clone();
+        let original_node_ids = graph.node_ids().collect::<HashSet<_>>();
+        let cloned_node_ids = cloned_graph.node_ids().collect::<HashSet<_>>();
+        original_node_ids.is_disjoint(&cloned_node_ids)
+            && cloned_node_ids
+                .iter()
+                .all(|id| graph.check_valid_node_id(id).is_err())
+    }
+
+    pub fn prop_cloned_graph_has_distinct_edge_ids(
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
+    ) -> bool {
+        let cloned_graph = graph.clone();
+        let original_edge_ids = graph.edge_ids().collect::<HashSet<_>>();
+        let cloned_edge_ids = cloned_graph.edge_ids().collect::<HashSet<_>>();
+        original_edge_ids.is_disjoint(&cloned_edge_ids)
+            && cloned_edge_ids
+                .iter()
+                .all(|id| graph.check_valid_edge_id(id).is_err())
     }
 
     pub fn test_large_graph_structure(&mut self) {
@@ -517,7 +637,7 @@ where
         let ed1 = self.new_edge_data();
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
         assert_eq!(*graph.edge_data(&e1), ed1);
     }
 
@@ -529,7 +649,7 @@ where
         let ed2 = self.new_edge_data();
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
         *graph.edge_data_mut(&e1) = ed2.clone();
         assert_eq!(*graph.edge_data(&e1), ed2);
     }
@@ -547,8 +667,8 @@ where
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
         let n3 = graph.add_node(nd3);
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
-        let e2 = graph.add_edge(&n2, &n3, ed2.clone()).unwrap();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
+        let e2 = graph.add_edge(&n2, &n3, ed2.clone()).edge_id();
 
         // Check edges_from and num_edges_from for each node
         if graph.is_directed() {
@@ -630,8 +750,8 @@ where
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
         let n3 = graph.add_node(nd3);
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
-        let e2 = graph.add_edge(&n1, &n3, ed2.clone()).unwrap();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
+        let e2 = graph.add_edge(&n1, &n3, ed2.clone()).edge_id();
 
         let edge_ids: Vec<_> = graph.edge_ids().collect();
         assert_eq!(edge_ids.len(), 2);
@@ -650,10 +770,10 @@ where
         let n2 = graph.add_node(nd2.clone());
 
         // Normal edge.
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
         assert_eq!(graph.num_edges(), 1);
         // Self edge.
-        let e2 = graph.add_edge(&n1, &n1, ed2.clone()).unwrap();
+        let e2 = graph.add_edge(&n1, &n1, ed2.clone()).edge_id();
         assert_eq!(graph.num_edges(), 2);
         // Duplicate edge.
         let add_3 = graph.add_edge(&n1, &n2, ed1.clone());
@@ -667,7 +787,7 @@ where
         assert!(edges_from_n1.contains(&e1));
         assert!(edges_from_n1.contains(&e2));
         if graph.allows_parallel_edges() {
-            assert!(edges_from_n1.contains(&add_3.clone().unwrap()));
+            assert!(edges_from_n1.contains(&add_3.clone().edge_id()));
             assert_eq!(edges_from_n1.len(), 3);
         } else {
             assert!(matches!(&add_3, AddEdgeResult::Updated(_, data) if *data == ed1));
@@ -682,7 +802,7 @@ where
         } else {
             assert!(edges_into_n1.contains(&e1));
             if graph.allows_parallel_edges() {
-                assert!(edges_into_n1.contains(&add_3.unwrap()));
+                assert!(edges_into_n1.contains(&add_3.edge_id()));
                 assert_eq!(edges_into_n1.len(), 3);
             } else {
                 assert!(matches!(&add_3, AddEdgeResult::Updated(_, data) if *data == ed1));
@@ -754,11 +874,11 @@ where
         let n2 = graph.add_node(self.new_node_data());
         let n3 = graph.add_node(self.new_node_data());
 
-        let e0 = graph.add_edge(&n0, &n1, self.new_edge_data()).unwrap();
-        let e1 = graph.add_edge(&n0, &n2, self.new_edge_data()).unwrap();
-        let e2 = graph.add_edge(&n1, &n2, self.new_edge_data()).unwrap();
-        let e3 = graph.add_edge(&n1, &n3, self.new_edge_data()).unwrap();
-        let e4 = graph.add_edge(&n2, &n3, self.new_edge_data()).unwrap();
+        let e0 = graph.add_edge(&n0, &n1, self.new_edge_data()).edge_id();
+        let e1 = graph.add_edge(&n0, &n2, self.new_edge_data()).edge_id();
+        let e2 = graph.add_edge(&n1, &n2, self.new_edge_data()).edge_id();
+        let e3 = graph.add_edge(&n1, &n3, self.new_edge_data()).edge_id();
+        let e4 = graph.add_edge(&n2, &n3, self.new_edge_data()).edge_id();
         // Check edges_from for all nodes
         assert_eq!(
             graph.edges_from(&n0).collect::<HashSet<_>>(),
@@ -818,7 +938,7 @@ where
 
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).unwrap();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
 
         // Check edges_into and num_edges_into
         assert_eq!(graph.edges_into(&n2).collect::<Vec<_>>(), vec![e1.clone()]);
@@ -848,7 +968,7 @@ where
 
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
-        let e1 = graph.add_edge(&n1, &n2, ed1).unwrap();
+        let e1 = graph.add_edge(&n1, &n2, ed1).edge_id();
 
         assert_eq!(graph.num_edges_from_into(&n1, &n2), 1);
         assert_eq!(
@@ -870,8 +990,8 @@ where
         let n1 = source.add_node(self.new_node_data());
         let n2 = source.add_node(self.new_node_data());
         let n3 = source.add_node(self.new_node_data());
-        let e1 = source.add_edge(&n1, &n2, self.new_edge_data()).unwrap();
-        let e2 = source.add_edge(&n2, &n3, self.new_edge_data()).unwrap();
+        let e1 = source.add_edge(&n1, &n2, self.new_edge_data()).edge_id();
+        let e2 = source.add_edge(&n2, &n3, self.new_edge_data()).edge_id();
 
         let mut node_map = HashMap::new();
         let mut edge_map = HashMap::new();
@@ -919,11 +1039,11 @@ where
         let n2 = graph.add_node(self.new_node_data());
         let n3 = graph.add_node(self.new_node_data());
 
-        let e0 = graph.add_edge(&n0, &n1, self.new_edge_data()).unwrap();
-        let e1 = graph.add_edge(&n0, &n2, self.new_edge_data()).unwrap();
-        let e2 = graph.add_edge(&n1, &n2, self.new_edge_data()).unwrap();
-        let e3 = graph.add_edge(&n1, &n3, self.new_edge_data()).unwrap();
-        let e4 = graph.add_edge(&n2, &n3, self.new_edge_data()).unwrap();
+        let e0 = graph.add_edge(&n0, &n1, self.new_edge_data()).edge_id();
+        let e1 = graph.add_edge(&n0, &n2, self.new_edge_data()).edge_id();
+        let e2 = graph.add_edge(&n1, &n2, self.new_edge_data()).edge_id();
+        let e3 = graph.add_edge(&n1, &n3, self.new_edge_data()).edge_id();
+        let e4 = graph.add_edge(&n2, &n3, self.new_edge_data()).edge_id();
         if graph.is_directed() {
             assert_eq!(e0.ends(), (n0.clone(), n1.clone()));
             assert_eq!(e1.ends(), (n0.clone(), n2.clone()));
@@ -1121,9 +1241,9 @@ where
         let n1 = graph.add_node(nd1.clone());
         let n2 = graph.add_node(nd2.clone());
         let n3 = graph.add_node(self.new_node_data());
-        let e1 = graph.add_edge(&n1, &n1, ed1.clone()).unwrap();
-        let e2 = graph.add_edge(&n1, &n2, ed2.clone()).unwrap();
-        let _e3 = graph.add_edge(&n2, &n3, ed3.clone()).unwrap();
+        let e1 = graph.add_edge(&n1, &n1, ed1.clone()).edge_id();
+        let e2 = graph.add_edge(&n1, &n2, ed2.clone()).edge_id();
+        let _e3 = graph.add_edge(&n2, &n3, ed3.clone()).edge_id();
         graph.remove_node(&n3);
         assert_eq!(graph.node_ids().count(), 2);
         assert_eq!(graph.edge_ids().count(), 2);
@@ -1154,8 +1274,8 @@ where
         let n1 = source.add_node(self.new_node_data());
         let n2 = source.add_node(self.new_node_data());
         let n3 = source.add_node(self.new_node_data());
-        let e0 = source.add_edge(&n1, &n2, self.new_edge_data()).unwrap();
-        let e1 = source.add_edge(&n2, &n3, self.new_edge_data()).unwrap();
+        let e0 = source.add_edge(&n1, &n2, self.new_edge_data()).edge_id();
+        let e1 = source.add_edge(&n2, &n3, self.new_edge_data()).edge_id();
 
         let mut node_map = HashMap::new();
         let mut edge_map = HashMap::new();
@@ -1245,6 +1365,10 @@ macro_rules! graph_tests {
                 };
             }
 
+            quickcheck_test!(prop_node_ids_is_correct);
+            quickcheck_test!(prop_edge_ids_is_correct);
+            quickcheck_test!(prop_node_data_is_correct);
+            quickcheck_test!(prop_edge_data_is_correct);
             quickcheck_test!(prop_node_ids_are_valid);
             quickcheck_test!(prop_edge_ids_are_valid);
             quickcheck_test!(prop_num_nodes_is_correct);
@@ -1267,6 +1391,8 @@ macro_rules! graph_tests {
             quickcheck_test!(prop_remove_node_removes_edges);
             quickcheck_test!(prop_edges_in_and_out_are_consistent);
             quickcheck_test!(prop_edges_from_into_is_consistent);
+            quickcheck_test!(prop_cloned_graph_has_distinct_node_ids);
+            quickcheck_test!(prop_cloned_graph_has_distinct_edge_ids);
 
             builder_test!(test_large_graph_structure);
             #[cfg(feature = "slow_tests")]

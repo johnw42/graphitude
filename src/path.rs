@@ -170,7 +170,7 @@ mod tests {
                     let mut graph = <$type>::default();
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
-                    let e1 = graph.add_edge(&n1, &n2, "e1").unwrap();
+                    let e1 = graph.add_edge(&n1, &n2, "e1").edge_id();
 
                     let mut path = graph.new_path(&n1);
                     path.add_edge(e1);
@@ -186,8 +186,8 @@ mod tests {
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(&n1, &n2, "e1").unwrap();
-                    let e2 = graph.add_edge(&n2, &n3, "e2").unwrap();
+                    let e1 = graph.add_edge(&n1, &n2, "e1").edge_id();
+                    let e2 = graph.add_edge(&n2, &n3, "e2").edge_id();
                     let mut path = graph.new_path(&n1);
                     path.add_edge(e1.clone());
                     path.add_edge(e2.clone());
@@ -207,8 +207,8 @@ mod tests {
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(&n1, &n2, "e12").unwrap();
-                    let e2 = graph.add_edge(&n2, &n3, "e23").unwrap();
+                    let e1 = graph.add_edge(&n1, &n2, "e12").edge_id();
+                    let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
 
                     let mut path1 = graph.new_path(&n1);
                     path1.add_edge(e1);
@@ -228,8 +228,8 @@ mod tests {
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(&n1, &n2, "e12").unwrap();
-                    let e2 = graph.add_edge(&n2, &n3, "e23").unwrap();
+                    let e1 = graph.add_edge(&n1, &n2, "e12").edge_id();
+                    let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
 
                     let mut path = graph.new_path(&n1);
                     path.extend(vec![e1, e2]);
@@ -244,9 +244,9 @@ mod tests {
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(&n1, &n2, "e12").unwrap();
-                    let e2 = graph.add_edge(&n2, &n3, "e23").unwrap();
-                    let e3 = graph.add_edge(&n3, &n1, "e31").unwrap();
+                    let e1 = graph.add_edge(&n1, &n2, "e12").edge_id();
+                    let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
+                    let e3 = graph.add_edge(&n3, &n1, "e31").edge_id();
 
                     let mut path = graph.new_path(&n1);
                     path.extend(vec![e1, e2, e3]);
