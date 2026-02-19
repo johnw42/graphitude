@@ -45,17 +45,17 @@ where
     TestNodeData<B>: Clone + Eq + Debug,
     TestEdgeData<B>: Clone + Eq + Debug,
 {
-    pub fn new_graph(&self) -> B::Graph {
+    fn new_graph(&self) -> B::Graph {
         self.builder.new_graph()
     }
 
-    pub fn new_node_data(&mut self) -> <B::Graph as Graph>::NodeData {
+    fn new_node_data(&mut self) -> <B::Graph as Graph>::NodeData {
         let id = self.next_node_index;
         self.next_node_index += 1;
         self.builder.new_node_data(id)
     }
 
-    pub fn new_edge_data(&mut self) -> <B::Graph as Graph>::EdgeData {
+    fn new_edge_data(&mut self) -> <B::Graph as Graph>::EdgeData {
         let id = self.next_edge_index;
         self.next_edge_index += 1;
         self.builder.new_edge_data(id)

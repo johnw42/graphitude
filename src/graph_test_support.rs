@@ -20,15 +20,16 @@ where
     G::EdgeData: Arbitrary + Clone + 'static,
 {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let num_nodes = usize::arbitrary(g) % 20; // Limit size for testing
-        let num_edges = usize::arbitrary(g) % 50;
-        let num_extra_parallel_edges = usize::arbitrary(g) % 5;
-        let num_extra_self_loops = usize::arbitrary(g) % 5;
-
         let mut graph = G::new(
             G::Directedness::arbitrary(g),
             G::EdgeMultiplicity::arbitrary(g),
         );
+
+        let num_nodes = usize::arbitrary(g) % (g.size() + 1);
+        let num_edges = usize::arbitrary(g) % (g.size() * 2 + 1);
+        let num_extra_parallel_edges = usize::arbitrary(g) % (num_edges + 1);
+        let num_extra_self_loops = usize::arbitrary(g) % (num_nodes + 1);
+
         let nodes: Vec<_> = (0..num_nodes)
             .map(|_| graph.add_node(G::NodeData::arbitrary(g)))
             .collect();
