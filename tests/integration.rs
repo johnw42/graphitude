@@ -32,8 +32,9 @@ mod basic_suite {
     }
 }
 
-// Invoke the generated macro to spin up a test module.
-// Mirrors: basic_suite!(mod_name, param1, param2)
+// Invoke the generated macro to spin up a test module.  TestSuite must be
+// in scope at the invocation site so the unqualified reference resolves.
+use basic_suite::TestSuite;
 basic_suite!(run_basic_suite, 10, "hello".to_string());
 
 // ============================================================================
@@ -64,14 +65,14 @@ mod generic_suite {
 
     use super::MyTrait;
 
-    pub struct TestSuite<T> {
+    pub struct GenericTestSuite<T> {
         param1: usize,
         param2: String,
         _marker: std::marker::PhantomData<T>,
     }
 
     #[generate_test_macro(generic_suite)]
-    impl<T: MyTrait> TestSuite<T> {
+    impl<T: MyTrait> GenericTestSuite<T> {
         fn new(param1: usize, param2: String) -> Self {
             Self {
                 param1,
@@ -92,8 +93,10 @@ mod generic_suite {
     }
 }
 
-// Invoke the generated macro with a concrete type.
-// Mirrors: generic_suite!(mod_name, $T, param1, param2)
+// Invoke the generated macro with a concrete type.  The generic TestSuite
+// must be in scope (re-exported from generic_suite) so the wrapper can call
+// TestSuite::<ConcreteType>::new(...).
+use generic_suite::GenericTestSuite;
 generic_suite!(run_for_concrete_type, ConcreteType, 42, "world".to_string());
 
 // ============================================================================
@@ -129,6 +132,7 @@ mod passthrough_suite {
     }
 }
 
+use passthrough_suite::Suite;
 passthrough_suite!(run_passthrough_suite, 42);
 
 // ============================================================================
@@ -199,6 +203,8 @@ mod quickcheck_suite {
 }
 
 #[cfg(feature = "quickcheck")]
+use quickcheck_suite::MathSuite;
+#[cfg(feature = "quickcheck")]
 quickcheck_suite!(run_quickcheck_suite);
 
 // Generic quickcheck suite – mirrors the README's `TestSuite<T: MyTrait>` but
@@ -223,6 +229,8 @@ mod generic_quickcheck_suite {
     }
 }
 
+#[cfg(feature = "quickcheck")]
+use generic_quickcheck_suite::GenericSuite;
 #[cfg(feature = "quickcheck")]
 generic_quickcheck_suite!(run_generic_quickcheck_suite, ConcreteType);
 
@@ -269,6 +277,7 @@ mod cfg_suite {
     }
 }
 
+use cfg_suite::CfgSuite;
 cfg_suite!(run_cfg_suite);
 
 // Quickcheck variant: cfg on a #[quickcheck] method.
@@ -289,5 +298,7 @@ mod cfg_quickcheck_suite {
     }
 }
 
+#[cfg(feature = "quickcheck")]
+use cfg_quickcheck_suite::CfgQcSuite;
 #[cfg(feature = "quickcheck")]
 cfg_quickcheck_suite!(run_cfg_quickcheck_suite);

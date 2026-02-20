@@ -83,7 +83,8 @@ struct QuickcheckMethod {
 ///     fn it_works(&self) { /* … */ }
 /// }
 ///
-/// // In a consumer crate:
+/// // In a consumer crate (MySuite must be in scope at the invocation site):
+/// use my_crate::my_suite::MySuite;
 /// my_suite_tests!(for_concrete_impl, ConcreteType, 42);
 /// ```
 #[proc_macro_attribute]
@@ -218,10 +219,10 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
     // Build re-usable snippets for the macro expansion body.
     // ------------------------------------------------------------------
 
-    let dollar_crate = dollar_ident("crate");
     let dollar_mod_name = dollar_ident("mod_name");
 
-    // `StructName::<$T, …>` (empty when no type params)
+    // `StructName::<$T, …>` – unqualified; the struct must be in scope at the
+    // macro invocation site (e.g. via `use super::*` or an explicit `use`).
     let type_path_args: TokenStream2 = if type_params.is_empty() {
         TokenStream2::new()
     } else {
@@ -269,7 +270,7 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
                 #(#cfg_attrs)*
                 #[test]
                 fn #name () {
-                    #dollar_crate :: #macro_name :: #struct_name #type_path_args
+                    #struct_name #type_path_args
                         :: new #new_call_args . #name ();
                 }
             }
@@ -303,7 +304,7 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
                 #[test]
                 pub fn #name() {
                     quickcheck::quickcheck(
-                        #dollar_crate :: #macro_name :: #struct_name #type_path_args
+                        #struct_name #type_path_args
                             :: #name as fn( #underscores ) -> _
                     );
                 }

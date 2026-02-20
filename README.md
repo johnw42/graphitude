@@ -11,7 +11,7 @@ pub struct TestSuite<T> {
   param2: String,
 }
 
-#[generate_test_macro(mytrait_tests)]
+#[generate_test_macro(mytrait_test_suite)]
 impl<T: MyTrait> TestSuite<T> {
   fn new(param1: usize, param2: String) -> Self {
     Self { param1, param2 }
@@ -40,24 +40,34 @@ impl<T: MyTrait> TestSuite<T> {
 }
 
 #[macro_export]
-macro_rules! mytrait_tests {
-  (mod_name:$ident, $T:ty, $param1:expr, $param2:expr) => {
+macro_rules! mytrait_test_suite {
+  ($mod_name:ident, $T:ty, $param1:expr, $param2:expr) => {
     mod $mod_name {
       use super::*;
 
       #[test]
       fn my_test() {
-        $crate::mytrait_tests::TestSuite::<$T>::new($param1, $param2).my_test();
+        TestSuite::<$T>::new($param1, $param2).my_test();
       }
     }
   }
 }
 ```
 
+The `TestSuite` type is referenced without qualification.  The generated module
+contains `use super::*;`, so `TestSuite` must be in scope at the site where the
+macro is invoked — either because it is defined there, or via an explicit `use`
+statement:
+
+```rust
+use my_crate::mytrait_tests::TestSuite;
+mytrait_test_suite!(my_tests, ConcreteType, 1, "hello".to_string());
+```
+
 If the "quickcheck" feature is enabled, quickcheck tests are also supported.  Consider this implementation of `TestSuite<T>`:
 
 ```rust
-#[generate_test_macro(mytrait_tests)]
+#[generate_test_macro(mytrait_test_suite)]
 impl<T: MyTrait> TestSuite<T> {
   #[quickcheck]
   fn test_result_prop(data: MyTestData<T>) -> TestResult {
@@ -87,20 +97,20 @@ impl<T: MyTrait> TestSuite<T> {
 }
 
 #[macro_export]
-macro_rules! mytrait_tests {
-  (mod_name:$ident, $T:ty) => {
+macro_rules! mytrait_test_suite {
+  ($mod_name:ident, $T:ty) => {
     mod $mod_name {
       use super::*;
 
       #[test]
       pub fn test_result_prop() {
-        quickcheck::quickcheck($crate::mytrait_tests::TestSuite::<$T>::test_result_prop as fn(_) -> _);
+        quickcheck::quickcheck(TestSuite::<$T>::test_result_prop as fn(_) -> _);
       }
 
 
       #[test]
       pub fn boolean_prop() {
-        quickcheck::quickcheck($crate::mytrait_tests::TestSuite::<$T>::boolean_prop as fn(_) -> _);
+        quickcheck::quickcheck(TestSuite::<$T>::boolean_prop as fn(_) -> _);
       }
     }
   }
