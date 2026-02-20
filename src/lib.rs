@@ -51,6 +51,9 @@ fn extract_struct_name(ty: &syn::Type) -> Ident {
 
 struct TestMethod {
     name: Ident,
+    /// Any `#[cfg(...)]` attributes on the original method, propagated verbatim
+    /// onto the generated wrapper function.
+    cfg_attrs: Vec<syn::Attribute>,
 }
 
 #[cfg(feature = "quickcheck")]
@@ -58,6 +61,9 @@ struct QuickcheckMethod {
     name: Ident,
     /// Number of non-self parameters; used to build the `fn(_, ...) -> _` cast.
     arity: usize,
+    /// Any `#[cfg(...)]` attributes on the original method, propagated verbatim
+    /// onto the generated wrapper function.
+    cfg_attrs: Vec<syn::Attribute>,
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +147,16 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
                 }
             }
         } else if is_test {
-            test_methods.push(TestMethod { name: method_name });
+            let cfg_attrs = method
+                .attrs
+                .iter()
+                .filter(|a| a.path().is_ident("cfg"))
+                .cloned()
+                .collect();
+            test_methods.push(TestMethod {
+                name: method_name,
+                cfg_attrs,
+            });
         } else if is_quickcheck {
             #[cfg(feature = "quickcheck")]
             {
@@ -249,7 +264,9 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
         .iter()
         .map(|tm| {
             let name = &tm.name;
+            let cfg_attrs = &tm.cfg_attrs;
             quote! {
+                #(#cfg_attrs)*
                 #[test]
                 fn #name () {
                     #dollar_crate :: #macro_name :: #struct_name #type_path_args
@@ -269,6 +286,7 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
         .iter()
         .map(|qm| {
             let name = &qm.name;
+            let cfg_attrs = &qm.cfg_attrs;
             // Build `_, _, …` with qm.arity underscores for the fn-ptr cast.
             let underscores: TokenStream2 = (0..qm.arity)
                 .enumerate()
@@ -281,6 +299,7 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
                 })
                 .collect();
             quote! {
+                #(#cfg_attrs)*
                 #[test]
                 pub fn #name() {
                     quickcheck::quickcheck(
@@ -331,5 +350,15 @@ fn build_quickcheck_method(method: &syn::ImplItemFn, _type_params: &[Ident]) -> 
         .iter()
         .filter(|arg| matches!(arg, FnArg::Typed(_)))
         .count();
-    QuickcheckMethod { name, arity }
+    let cfg_attrs = method
+        .attrs
+        .iter()
+        .filter(|a| a.path().is_ident("cfg"))
+        .cloned()
+        .collect();
+    QuickcheckMethod {
+        name,
+        arity,
+        cfg_attrs,
+    }
 }
