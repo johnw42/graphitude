@@ -116,7 +116,7 @@ mod enabled {
                 return;
             };
             let mut entries: Vec<_> = entries.iter().collect();
-            entries.sort_by(|a, b| b.1.0.cmp(&a.1.0));
+            entries.sort_by_key(|b| std::cmp::Reverse(b.1.0));
             eprintln!("{}", label);
             for (name, (duration, count)) in entries {
                 eprintln!("  {name}: {:?} ({}x)", duration, count);

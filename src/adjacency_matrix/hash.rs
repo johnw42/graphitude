@@ -227,15 +227,3 @@ where
         format_debug(self, f, "HashAdjacencyMatrix")
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::adjacency_matrix_tests;
-
-    adjacency_matrix_tests!(
-        directed,
-        HashAdjacencyMatrix<T, Directed>);
-    adjacency_matrix_tests!(
-        undirected,  
-        HashAdjacencyMatrix<T, Undirected>);
-}

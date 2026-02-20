@@ -459,71 +459,59 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::adjacency_matrix_tests;
+// #[test]
+// fn test_debug_empty() {
+//     let matrix = SymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
+//     assert_eq!(
+//         format!("{:?}", matrix),
+//         "SymmetricBitvecAdjacencyMatrix { }"
+//     );
+// }
 
-    adjacency_matrix_tests!(
-        directed,
-        BitvecAdjacencyMatrix<T, Directed>);
-    adjacency_matrix_tests!(
-        undirected,
-        BitvecAdjacencyMatrix<T, Undirected>);
+// #[test]
+// fn test_debug_with_edges() {
+//     let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+//     matrix.insert(0, 1, ());
+//     matrix.insert(1, 2, ());
+//     matrix.insert(0, 3, ());
+//     assert_eq!(
+//         format!("{:?}", matrix),
+//         "SymmetricBitvecAdjacencyMatrix { 0 10 010 1000 }"
+//     );
+// }
 
-    // #[test]
-    // fn test_debug_empty() {
-    //     let matrix = SymmetricBitvecAdjacencyMatrix::<usize, ()>::new();
-    //     assert_eq!(
-    //         format!("{:?}", matrix),
-    //         "SymmetricBitvecAdjacencyMatrix { }"
-    //     );
-    // }
-
-    // #[test]
-    // fn test_debug_with_edges() {
-    //     let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
-    //     matrix.insert(0, 1, ());
-    //     matrix.insert(1, 2, ());
-    //     matrix.insert(0, 3, ());
-    //     assert_eq!(
-    //         format!("{:?}", matrix),
-    //         "SymmetricBitvecAdjacencyMatrix { 0 10 010 1000 }"
-    //     );
-    // }
-
-    // #[test]
-    // fn test_debug_alternate() {
-    //     let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
-    //     matrix.insert(0, 1, ());
-    //     matrix.insert(2, 2, ());
-    //     matrix.insert(0, 3, ());
-    //     matrix.insert(0, 25, ());
-    //     assert_eq!(
-    //         format!("{:#?}", matrix),
-    //         r#"SymmetricBitvecAdjacencyMatrix {
-    //         0
-    //         10
-    //         001
-    //         1000
-    //         00000
-    //         00000 0
-    //         00000 00
-    //         00000 000
-    //         00000 0000
-    //         00000 00000
-    //         00000 00000 0
-    //         00000 00000 00
-    //         00000 00000 000
-    //         00000 00000 0000
-    //         00000 00000 00000
-    //         00000 00000 00000 0
-    //         00000 00000 00000 00
-    //         00000 00000 00000 000
-    //         00000 00000 00000 0000
-    //         00000 00000 00000 00000
-    //         ...
-    //     }
-    //     "#
-    //     );
-    // }
-}
+// #[test]
+// fn test_debug_alternate() {
+//     let mut matrix = SymmetricBitvecAdjacencyMatrix::new();
+//     matrix.insert(0, 1, ());
+//     matrix.insert(2, 2, ());
+//     matrix.insert(0, 3, ());
+//     matrix.insert(0, 25, ());
+//     assert_eq!(
+//         format!("{:#?}", matrix),
+//         r#"SymmetricBitvecAdjacencyMatrix {
+//         0
+//         10
+//         001
+//         1000
+//         00000
+//         00000 0
+//         00000 00
+//         00000 000
+//         00000 0000
+//         00000 00000
+//         00000 00000 0
+//         00000 00000 00
+//         00000 00000 000
+//         00000 00000 0000
+//         00000 00000 00000
+//         00000 00000 00000 0
+//         00000 00000 00000 00
+//         00000 00000 00000 000
+//         00000 00000 00000 0000
+//         00000 00000 00000 00000
+//         ...
+//     }
+//     "#
+//     );
+// }

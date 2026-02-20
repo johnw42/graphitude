@@ -1,39 +1,42 @@
 #![cfg(test)]
 
-use std::cell::Cell;
+use std::{
+    rc::Rc,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 pub struct DropCounter {
-    count: Cell<usize>,
+    count: Rc<AtomicUsize>,
 }
 
 impl DropCounter {
     pub fn new() -> Self {
         DropCounter {
-            count: Cell::new(0),
+            count: Rc::new(AtomicUsize::new(0)),
         }
     }
 
     pub fn drop_count(&self) -> usize {
-        self.count.get()
+        self.count.load(Ordering::SeqCst)
     }
 
-    pub fn new_value(&self) -> DroppableValue<'_> {
+    pub fn new_value(&self) -> DroppableValue {
         DroppableValue {
-            counter: self,
+            counter: Rc::clone(&self.count),
             dropped: false,
         }
     }
 }
 
-pub struct DroppableValue<'a> {
-    counter: &'a DropCounter,
+pub struct DroppableValue {
+    counter: Rc<AtomicUsize>,
     dropped: bool,
 }
 
-impl<'a> Drop for DroppableValue<'a> {
+impl Drop for DroppableValue {
     fn drop(&mut self) {
         assert!(!self.dropped, "DroppableValue was dropped more than once");
         self.dropped = true;
-        self.counter.count.set(self.counter.count.get() + 1);
+        self.counter.fetch_add(1, Ordering::SeqCst);
     }
 }
