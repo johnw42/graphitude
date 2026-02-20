@@ -11,21 +11,41 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(not(feature = "unchecked"))]
 static GRAPH_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
+#[cfg(feature = "unchecked")]
+type GrapIdInner = ();
+#[cfg(not(feature = "unchecked"))]
+type GrapIdInner = usize;
+
 /// A unique identifier for a graph instance.
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
-pub struct GraphId(#[cfg(not(feature = "unchecked"))] usize);
+#[derive(Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct GraphId(GrapIdInner);
+
+impl GraphId {
+    #[allow(clippy::should_implement_trait)]
+    pub fn clone(&self) -> GraphIdClone {
+        GraphIdClone(self.0)
+    }
+}
 
 impl Default for GraphId {
-    /// Create a new unique graph identifier.
     fn default() -> Self {
         #[cfg(feature = "unchecked")]
         {
-            GraphId()
+            GraphId(())
         }
         #[cfg(not(feature = "unchecked"))]
         {
             let id = GRAPH_ID_COUNTER.fetch_add(1, Ordering::Relaxed);
             GraphId(id)
         }
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, PartialOrd, Ord)]
+pub struct GraphIdClone(GrapIdInner);
+
+impl PartialEq<GraphIdClone> for GraphId {
+    fn eq(&self, other: &GraphIdClone) -> bool {
+        self.0 == other.0
     }
 }

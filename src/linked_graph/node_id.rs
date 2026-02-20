@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Weak};
 
-use crate::{DirectednessTrait, graph_id::GraphId};
+use crate::{DirectednessTrait, graph_id::GraphIdClone};
 
 use super::Node;
 
@@ -9,7 +9,7 @@ use super::Node;
 /// Contains a weak pointer to the node data and a graph ID for safety checks.
 pub struct NodeId<N, E, D: DirectednessTrait> {
     pub(super) ptr: Weak<Node<N, E, D>>,
-    pub(super) graph_id: GraphId,
+    pub(super) graph_id: GraphIdClone,
     pub(super) directedness: PhantomData<D>,
 }
 
@@ -35,8 +35,7 @@ impl<N, E, D: DirectednessTrait> Clone for NodeId<N, E, D> {
 
 impl<N, E, D: DirectednessTrait> PartialEq for NodeId<N, E, D> {
     fn eq(&self, other: &Self) -> bool {
-        assert_eq!(self.graph_id, other.graph_id);
-        self.ptr.as_ptr() == other.ptr.as_ptr()
+        self.ptr.as_ptr() == other.ptr.as_ptr() && self.graph_id == other.graph_id
     }
 }
 
@@ -44,7 +43,8 @@ impl<N, E, D: DirectednessTrait> Eq for NodeId<N, E, D> {}
 
 impl<N, E, D: DirectednessTrait> Hash for NodeId<N, E, D> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (self.ptr.as_ptr() as usize).hash(state);
+        self.ptr.as_ptr().hash(state);
+        self.graph_id.hash(state);
     }
 }
 

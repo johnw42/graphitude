@@ -7,7 +7,7 @@ use crate::{
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
     automap::AutomapKey,
     coordinate_pair::CoordinatePair,
-    graph_id::GraphId,
+    graph_id::GraphIdClone,
 };
 
 #[derive(Derivative)]
@@ -26,11 +26,11 @@ use crate::{
 pub struct NodeIdOrEdgeId<S: Storage, T: Clone> {
     payload: T,
     pub compaction_count: S::CompactionCount,
-    pub graph_id: GraphId,
+    pub graph_id: GraphIdClone,
 }
 
 impl<S: Storage, T: Clone> NodeIdOrEdgeId<S, T> {
-    pub fn new(payload: T, graph_id: GraphId, compaction_count: S::CompactionCount) -> Self {
+    pub fn new(payload: T, graph_id: GraphIdClone, compaction_count: S::CompactionCount) -> Self {
         Self {
             payload,
             compaction_count,
@@ -76,7 +76,7 @@ where
     pub fn new(
         payload: CoordinatePair<AutomapKey, D>,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
-        graph_id: GraphId,
+        graph_id: GraphIdClone,
         compaction_count: S::CompactionCount,
     ) -> Self {
         Self {
@@ -100,7 +100,7 @@ where
         self.inner.compaction_count
     }
 
-    pub fn graph_id(&self) -> GraphId {
+    pub fn graph_id(&self) -> GraphIdClone {
         self.inner.graph_id
     }
 

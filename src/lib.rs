@@ -44,6 +44,7 @@ pub mod search;
 // Modules for creating new graph implementations.
 pub mod format_debug;
 pub mod graph_id;
+#[macro_use]
 pub mod graph_tests;
 #[doc(hidden)]
 pub mod tracing_support;

@@ -54,7 +54,7 @@ where
 {
     /// Creates a `NodeId` for the given `AutomapKey`.
     fn node_id(&self, key: AutomapKey) -> NodeId<S> {
-        NodeId::new(key, self.id, self.compaction_count)
+        NodeId::new(key, self.id.clone(), self.compaction_count)
     }
 
     /// Creates an `EdgeId` for the given `AutomapKey` pair.
@@ -67,7 +67,7 @@ where
         EdgeId::new(
             self.directedness.coordinate_pair((from, into)),
             index,
-            self.id,
+            self.id.clone(),
             self.compaction_count,
         )
     }

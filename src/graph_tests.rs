@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 
+use generate_test_macro::generate_test_macro;
 use quickcheck::TestResult;
 
 use crate::generate_large_graph::generate_large_graph;
@@ -42,6 +43,7 @@ type TestGraph<B> = <B as TestDataBuilder>::Graph;
 type TestNodeData<B> = <TestGraph<B> as Graph>::NodeData;
 type TestEdgeData<B> = <TestGraph<B> as Graph>::EdgeData;
 
+#[generate_test_macro(graph_test_suite)]
 impl<B> GraphTests<B>
 where
     B: TestDataBuilder,
@@ -49,6 +51,20 @@ where
     TestNodeData<B>: Clone + Eq + Hash + Debug,
     TestEdgeData<B>: Clone + Eq + Hash + Debug,
 {
+    fn new(
+        builder: B,
+        transform_node: impl Fn(&TestNodeData<B>) -> TestNodeData<B> + 'static,
+        transform_edge: impl Fn(&TestEdgeData<B>) -> TestEdgeData<B> + 'static,
+    ) -> Self {
+        Self {
+            builder,
+            next_node_index: 0,
+            next_edge_index: 0,
+            transform_node: Box::new(transform_node),
+            transform_edge: Box::new(transform_edge),
+        }
+    }
+
     fn new_graph(&self) -> B::Graph {
         self.builder.new_graph()
     }
@@ -83,6 +99,7 @@ where
         graph
     }
 
+    #[quickcheck]
     pub fn prop_node_ids_is_correct(
         ArbGraph {
             graph, node_ids, ..
@@ -100,6 +117,7 @@ where
         }
     }
 
+    #[quickcheck]
     pub fn prop_edge_ids_is_correct(
         ArbGraph {
             graph, edge_ids, ..
@@ -117,6 +135,7 @@ where
         }
     }
 
+    #[quickcheck]
     pub fn prop_node_data_is_correct(
         ArbGraph {
             graph, node_data, ..
@@ -137,6 +156,7 @@ where
         }
     }
 
+    #[quickcheck]
     pub fn prop_edge_data_is_correct(
         ArbGraph {
             graph, edge_data, ..
@@ -162,38 +182,45 @@ where
         }
     }
 
+    #[quickcheck]
     pub fn prop_node_ids_are_valid(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph
             .node_ids()
             .all(|node_id| graph.check_valid_node_id(&node_id).is_ok())
     }
 
+    #[quickcheck]
     pub fn prop_edge_ids_are_valid(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph
             .edge_ids()
             .all(|edge_id| graph.check_valid_edge_id(&edge_id).is_ok())
     }
 
+    #[quickcheck]
     pub fn prop_num_nodes_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         let actual_node_count = graph.node_ids().count();
         let expected_node_count = graph.num_nodes();
         actual_node_count == expected_node_count
     }
 
+    #[quickcheck]
     pub fn prop_num_edges_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         let actual_edge_count = graph.edge_ids().count();
         let expected_edge_count = graph.num_edges();
         actual_edge_count == expected_edge_count
     }
 
+    #[quickcheck]
     pub fn prop_node_ids_are_unique(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         !has_duplicates(graph.node_ids())
     }
 
+    #[quickcheck]
     pub fn prop_edge_ids_are_unique(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         !has_duplicates(graph.edge_ids())
     }
 
+    #[quickcheck]
     pub fn prop_edges_from_returns_unique_values(
         ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -202,6 +229,7 @@ where
             .all(|node_id| !has_duplicates(graph.edges_from(&node_id)))
     }
 
+    #[quickcheck]
     pub fn prop_edges_into_returns_unique_values(
         ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -210,6 +238,7 @@ where
             .all(|node_id| !has_duplicates(graph.edges_into(&node_id)))
     }
 
+    #[quickcheck]
     pub fn prop_edges_from_into_returns_unique_values(
         ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -220,6 +249,7 @@ where
         })
     }
 
+    #[quickcheck]
     pub fn prop_edges_from_into_finds_all_edges(
         ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -229,6 +259,7 @@ where
         })
     }
 
+    #[quickcheck]
     pub fn prop_num_edges_from_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph.node_ids().all(|node_id| {
             let actual_count = graph.edges_from(&node_id).count();
@@ -237,6 +268,7 @@ where
         })
     }
 
+    #[quickcheck]
     pub fn prop_num_edges_into_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph.node_ids().all(|node_id| {
             let actual_count = graph.edges_into(&node_id).count();
@@ -245,6 +277,7 @@ where
         })
     }
 
+    #[quickcheck]
     pub fn prop_num_edges_from_into_is_correct(
         ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -257,6 +290,7 @@ where
         })
     }
 
+    #[quickcheck]
     pub fn prop_has_edge_from_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph.node_ids().all(|node_id| {
             let has_edge = graph.has_edge_from(&node_id);
@@ -265,6 +299,7 @@ where
         })
     }
 
+    #[quickcheck]
     pub fn prop_has_edge_into_is_correct(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         graph.node_ids().all(|node_id| {
             let has_edge = graph.has_edge_into(&node_id);
@@ -273,6 +308,7 @@ where
         })
     }
 
+    #[quickcheck]
     pub fn prop_has_edge_from_into_is_correct(
         ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -288,6 +324,7 @@ where
         })
     }
 
+    #[quickcheck]
     pub fn prop_is_empty_is_correct(
         ArbGraph {
             graph,
@@ -299,6 +336,7 @@ where
         graph.is_empty() == (node_data.is_empty() && edge_data.is_empty())
     }
 
+    #[quickcheck]
     pub fn prop_clear_removes_all_nodes_and_edges(
         ArbGraph { mut graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -306,6 +344,7 @@ where
         graph.node_ids().next().is_none() && graph.edge_ids().next().is_none()
     }
 
+    #[quickcheck]
     pub fn prop_no_orphan_edges(ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>) -> bool {
         let all_edges = graph.edge_ids().collect::<HashSet<_>>();
         let from_edges = graph
@@ -319,6 +358,7 @@ where
         all_edges == from_edges && all_edges == into_edges
     }
 
+    #[quickcheck]
     pub fn prop_remove_node_removes_edges(
         ArbGraph { mut graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -342,6 +382,7 @@ where
         true
     }
 
+    #[quickcheck]
     pub fn prop_edges_in_and_out_are_consistent(
         ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -362,6 +403,7 @@ where
         true
     }
 
+    #[quickcheck]
     pub fn prop_edges_from_into_is_consistent(
         ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -383,6 +425,7 @@ where
         true
     }
 
+    #[quickcheck]
     pub fn prop_cloned_graph_has_distinct_node_ids(
         ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -390,11 +433,41 @@ where
         let original_node_ids = graph.node_ids().collect::<HashSet<_>>();
         let cloned_node_ids = cloned_graph.node_ids().collect::<HashSet<_>>();
         original_node_ids.is_disjoint(&cloned_node_ids)
-            && cloned_node_ids
-                .iter()
-                .all(|id| graph.check_valid_node_id(id).is_err())
     }
 
+    #[cfg(not(feature = "unchecked"))]
+    #[quickcheck]
+    pub fn prop_cloned_graph_node_ids_are_invalid_in_original_graph(
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
+    ) -> TestResult {
+        for nid in graph.clone().node_ids() {
+            if graph.check_valid_node_id(&nid).is_ok() {
+                return TestResult::error(format!(
+                    "Cloned node ID {:?} is valid in original graph",
+                    nid
+                ));
+            }
+        }
+        TestResult::passed()
+    }
+
+    #[cfg(not(feature = "unchecked"))]
+    #[quickcheck]
+    pub fn prop_cloned_graph_edge_ids_are_invalid_in_original_graph(
+        ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
+    ) -> TestResult {
+        for eid in graph.clone().edge_ids() {
+            if graph.check_valid_edge_id(&eid).is_ok() {
+                return TestResult::error(format!(
+                    "Cloned edge ID {:?} is valid in original graph",
+                    eid
+                ));
+            }
+        }
+        TestResult::passed()
+    }
+
+    #[quickcheck]
     pub fn prop_cloned_graph_has_distinct_edge_ids(
         ArbGraph { graph, .. }: ArbGraph<TestGraph<B>>,
     ) -> bool {
@@ -402,11 +475,9 @@ where
         let original_edge_ids = graph.edge_ids().collect::<HashSet<_>>();
         let cloned_edge_ids = cloned_graph.edge_ids().collect::<HashSet<_>>();
         original_edge_ids.is_disjoint(&cloned_edge_ids)
-            && cloned_edge_ids
-                .iter()
-                .all(|id| graph.check_valid_edge_id(id).is_err())
     }
 
+    #[test]
     pub fn test_large_graph_structure(&mut self) {
         let graph = self.generate_large_graph();
         check_graph_consistency(&graph);
@@ -452,6 +523,7 @@ where
     }
 
     #[cfg(feature = "slow_tests")]
+    #[test]
     pub fn test_deconstruct_large_graph_by_nodes(&mut self) {
         use crate::tracing_support::{
             TimingScope, dump_method_timings, info_span, reset_method_timings, set_timing_scope,
@@ -532,6 +604,7 @@ where
     }
 
     #[cfg(feature = "slow_tests")]
+    #[test]
     pub fn test_deconstruct_large_graph_by_edges(&mut self) {
         use crate::tracing_support::{
             TimingScope, dump_method_timings, info_span, reset_method_timings, set_timing_scope,
@@ -607,6 +680,7 @@ where
         dump_method_timings();
     }
 
+    #[test]
     pub fn test_new_graph_is_empty(&mut self) {
         let builder = &mut self.builder;
         let graph = builder.new_graph();
@@ -614,6 +688,7 @@ where
         assert_eq!(graph.num_edges(), 0);
     }
 
+    #[test]
     pub fn test_node_data_retrieval(&mut self) {
         let mut graph = self.new_graph();
         let nd1 = self.new_node_data();
@@ -621,6 +696,7 @@ where
         assert_eq!(*graph.node_data(&n1), nd1);
     }
 
+    #[test]
     pub fn test_node_data_mutation(&mut self) {
         let mut graph = self.new_graph();
         let nd1 = self.new_node_data();
@@ -630,6 +706,7 @@ where
         assert_eq!(*graph.node_data(&n1), nd2);
     }
 
+    #[test]
     pub fn test_edge_data_retrieval(&mut self) {
         let mut graph = self.new_graph();
         let nd1 = self.new_node_data();
@@ -641,6 +718,7 @@ where
         assert_eq!(*graph.edge_data(&e1), ed1);
     }
 
+    #[test]
     pub fn test_edge_data_mutation(&mut self) {
         let mut graph = self.new_graph();
         let nd1 = self.new_node_data();
@@ -654,6 +732,7 @@ where
         assert_eq!(*graph.edge_data(&e1), ed2);
     }
 
+    #[test]
     pub fn test_edge_creation(&mut self) {
         use crate::EdgeIdTrait;
         use std::collections::HashSet;
@@ -740,6 +819,7 @@ where
         assert_eq!(*graph.edge_data(&e2), ed2);
     }
 
+    #[test]
     pub fn test_edge_ids(&mut self) {
         let mut graph = self.new_graph();
         let nd1 = self.new_node_data();
@@ -759,6 +839,7 @@ where
         assert!(edge_ids.contains(&e2));
     }
 
+    #[test]
     pub fn test_edges_by_node(&mut self) {
         let mut graph = self.new_graph();
         let nd1 = self.new_node_data();
@@ -811,6 +892,7 @@ where
         }
     }
 
+    #[test]
     pub fn test_node_removal(&mut self) {
         let mut graph = self.new_graph();
         let nd1 = self.new_node_data();
@@ -842,6 +924,7 @@ where
         assert_eq!(graph.num_edges(), 0);
     }
 
+    #[test]
     pub fn test_remove_node_cleans_edges(&mut self) {
         let mut graph = self.new_graph();
         let nd1 = self.new_node_data();
@@ -865,6 +948,7 @@ where
         assert_eq!(graph.num_edges(), 0);
     }
 
+    #[test]
     pub fn test_edges_from(&mut self) {
         use std::collections::HashSet;
 
@@ -930,6 +1014,7 @@ where
         }
     }
 
+    #[test]
     pub fn test_edges_into(&mut self) {
         let mut graph = self.new_graph();
         let nd1 = self.new_node_data();
@@ -960,6 +1045,7 @@ where
         );
     }
 
+    #[test]
     pub fn test_edges_between(&mut self) {
         let mut graph = self.new_graph();
         let nd1 = self.new_node_data();
@@ -985,6 +1071,7 @@ where
         );
     }
 
+    #[test]
     pub fn test_copy_from(&mut self) {
         let mut source = self.new_graph();
         let n1 = source.add_node(self.new_node_data());
@@ -1011,6 +1098,7 @@ where
         assert_eq!(source.edge_data(&e2), target.edge_data(&edge_map[&e2]));
     }
 
+    #[test]
     pub fn test_clear(&mut self) {
         let mut graph = self.new_graph();
         let n1 = graph.add_node(self.new_node_data());
@@ -1029,6 +1117,7 @@ where
         assert!(graph.is_empty());
     }
 
+    #[test]
     pub fn test_successors(&mut self) {
         use crate::EdgeIdTrait;
         use std::collections::HashSet;
@@ -1132,6 +1221,7 @@ where
         assert_eq!(graph.num_edges_from_into(&n0, &n3), 0);
     }
 
+    #[test]
     pub fn test_predecessors(&mut self) {
         let mut graph = self.new_graph();
         let n0 = graph.add_node(self.new_node_data());
@@ -1184,6 +1274,7 @@ where
     }
 
     #[cfg(feature = "pathfinding")]
+    #[test]
     pub fn test_shortest_paths(&mut self) {
         let mut graph = self.new_graph();
         let n0 = graph.add_node(self.new_node_data());
@@ -1216,6 +1307,7 @@ where
     }
 
     #[cfg(feature = "pathfinding")]
+    #[test]
     pub fn test_shortest_paths_disconnected(&mut self) {
         let mut graph = self.new_graph();
         let n0 = graph.add_node(self.new_node_data());
@@ -1230,6 +1322,7 @@ where
         assert_eq!(paths.get(&n2).map(|(_, dist)| *dist), None);
     }
 
+    #[test]
     pub fn test_compaction(&mut self) {
         let mut graph = self.new_graph();
         let nd1 = self.new_node_data();
@@ -1269,6 +1362,7 @@ where
         assert_eq!(graph.edge_data(eid_map.get(&e2).unwrap_or(&e2)), &ed2);
     }
 
+    #[test]
     pub fn test_copy_from_with(&mut self) {
         let mut source = self.new_graph();
         let n1 = source.add_node(self.new_node_data());
@@ -1310,6 +1404,7 @@ where
         );
     }
 
+    #[test]
     pub fn test_edge_multiplicity(&mut self) {
         let mut graph = self.new_graph();
         let n1 = graph.add_node(self.new_node_data());
@@ -1328,98 +1423,4 @@ where
             assert_eq!(graph.num_edges(), 1);
         }
     }
-}
-
-/// Macro to generate standard graph tests for a given graph type.
-#[macro_export]
-macro_rules! graph_tests {
-    ($name:ident, $builder_type:ty, $builder:expr, $f:expr, $g:expr $(; $($rest:tt)*)?) => {
-        mod $name {
-            use super::*;
-            use $crate::graph_tests::*;
-
-            $($($rest)*)?
-
-            macro_rules! quickcheck_test {
-                ($test_name:ident) => {
-                    #[test]
-                    fn $test_name() {
-                        let f: fn(_) -> _ = GraphTests::<$builder_type>::$test_name;
-                        quickcheck::quickcheck(f);
-                    }
-                };
-            }
-
-            macro_rules! builder_test {
-                ($test_name:ident) => {
-                    #[test]
-                    fn $test_name() {
-                        GraphTests::<$builder_type> {
-                            builder: $builder,
-                            next_node_index: 0,
-                            next_edge_index: 0,
-                            transform_node: Box::new($f),
-                            transform_edge: Box::new($g),
-                        }.$test_name();
-                    }
-                };
-            }
-
-            quickcheck_test!(prop_node_ids_is_correct);
-            quickcheck_test!(prop_edge_ids_is_correct);
-            quickcheck_test!(prop_node_data_is_correct);
-            quickcheck_test!(prop_edge_data_is_correct);
-            quickcheck_test!(prop_node_ids_are_valid);
-            quickcheck_test!(prop_edge_ids_are_valid);
-            quickcheck_test!(prop_num_nodes_is_correct);
-            quickcheck_test!(prop_num_edges_is_correct);
-            quickcheck_test!(prop_node_ids_are_unique);
-            quickcheck_test!(prop_edge_ids_are_unique);
-            quickcheck_test!(prop_edges_from_returns_unique_values);
-            quickcheck_test!(prop_edges_into_returns_unique_values);
-            quickcheck_test!(prop_edges_from_into_returns_unique_values);
-            quickcheck_test!(prop_edges_from_into_finds_all_edges);
-            quickcheck_test!(prop_num_edges_from_is_correct);
-            quickcheck_test!(prop_num_edges_into_is_correct);
-            quickcheck_test!(prop_num_edges_from_into_is_correct);
-            quickcheck_test!(prop_has_edge_from_is_correct);
-            quickcheck_test!(prop_has_edge_into_is_correct);
-            quickcheck_test!(prop_has_edge_from_into_is_correct);
-            quickcheck_test!(prop_is_empty_is_correct);
-            quickcheck_test!(prop_clear_removes_all_nodes_and_edges);
-            quickcheck_test!(prop_no_orphan_edges);
-            quickcheck_test!(prop_remove_node_removes_edges);
-            quickcheck_test!(prop_edges_in_and_out_are_consistent);
-            quickcheck_test!(prop_edges_from_into_is_consistent);
-            quickcheck_test!(prop_cloned_graph_has_distinct_node_ids);
-            quickcheck_test!(prop_cloned_graph_has_distinct_edge_ids);
-
-            builder_test!(test_large_graph_structure);
-            #[cfg(feature = "slow_tests")]
-            builder_test!(test_deconstruct_large_graph_by_nodes);
-            #[cfg(feature = "slow_tests")]
-            builder_test!(test_deconstruct_large_graph_by_edges);
-            builder_test!(test_node_data_mutation);
-            builder_test!(test_edge_data_mutation);
-            builder_test!(test_edge_creation);
-            builder_test!(test_edge_ids);
-            builder_test!(test_edges_by_node);
-            builder_test!(test_node_removal);
-            builder_test!(test_remove_node_cleans_edges);
-            builder_test!(test_edges_from);
-            builder_test!(test_edges_into);
-            builder_test!(test_edges_between);
-            builder_test!(test_copy_from);
-            builder_test!(test_clear);
-            builder_test!(test_successors);
-            builder_test!(test_predecessors);
-            #[cfg(feature = "pathfinding")]
-            builder_test!(test_shortest_paths);
-            #[cfg(feature = "pathfinding")]
-            builder_test!(test_shortest_paths_disconnected);
-            builder_test!(test_compaction);
-            builder_test!(test_copy_from_with);
-            builder_test!(test_edge_multiplicity);
-        }
-    };
 }

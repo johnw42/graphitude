@@ -7,7 +7,7 @@ use std::{
 
 use derivative::Derivative;
 
-use crate::{EdgeIdTrait, directedness::DirectednessTrait, graph_id::GraphId};
+use crate::{EdgeIdTrait, directedness::DirectednessTrait, graph_id::GraphIdClone};
 
 use super::{Edge, NodeId};
 
@@ -18,7 +18,7 @@ use super::{Edge, NodeId};
 #[derivative(Clone(bound = "D: Clone"))]
 pub struct EdgeId<N, E, D: DirectednessTrait> {
     pub(super) ptr: Weak<Edge<N, E, D>>,
-    pub(super) graph_id: GraphId,
+    pub(super) graph_id: GraphIdClone,
     pub(super) directedness: D,
 }
 

@@ -15,6 +15,9 @@ tracing-subscriber = { version = "0.3", features = [
 ], optional = true }
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
+generate_test_macro = { path = "../generate_test_macro", features = [
+  "quickcheck",
+] }
 
 [dev-dependencies]
 clap = { version = "4.5.59", features = [

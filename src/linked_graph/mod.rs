@@ -9,6 +9,7 @@ use crate::{
 mod edge_id;
 mod node_id;
 
+use derivative::Derivative;
 pub use edge_id::EdgeId;
 pub use node_id::NodeId;
 
@@ -45,6 +46,8 @@ impl<N, E, D: DirectednessTrait> Edge<N, E, D> {
 /// * `N` - The type of data stored in nodes
 /// * `E` - The type of data stored in edges
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
+#[derive(Derivative)]
+#[derivative(Default(bound = "D: Default, M: Default"))]
 pub struct LinkedGraph<N, E, D = Directedness, M = EdgeMultiplicity>
 where
     D: DirectednessTrait,
@@ -64,7 +67,7 @@ where
     fn node_id(&self, ptr: &Arc<Node<N, E, D>>) -> NodeId<N, E, D> {
         NodeId {
             ptr: Arc::downgrade(ptr),
-            graph_id: self.id,
+            graph_id: self.id.clone(),
             directedness: PhantomData,
         }
     }
@@ -72,7 +75,7 @@ where
     fn edge_id(&self, ptr: &Arc<Edge<N, E, D>>) -> EdgeId<N, E, D> {
         EdgeId {
             ptr: Arc::downgrade(ptr),
-            graph_id: self.id,
+            graph_id: self.id.clone(),
             directedness: self.directedness,
         }
     }
@@ -285,21 +288,6 @@ where
         #[cfg(feature = "unchecked")]
         {
             Ok(())
-        }
-    }
-}
-
-impl<N, E, D, M> Default for LinkedGraph<N, E, D, M>
-where
-    D: DirectednessTrait + Default,
-    M: EdgeMultiplicityTrait + Default,
-{
-    fn default() -> Self {
-        Self {
-            nodes: Vec::new(),
-            id: GraphId::default(),
-            directedness: D::default(),
-            edge_multiplicity: M::default(),
         }
     }
 }
