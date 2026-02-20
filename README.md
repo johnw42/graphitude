@@ -92,15 +92,15 @@ macro_rules! mytrait_tests {
     mod $mod_name {
       use super::*;
 
-      #[quickcheck_macros::quickcheck]
-      pub fn test_result_prop(data: MyTestData<T>) -> TestResult {
-        $crate::mytrait_tests::TestSuite::<$T>::test_result_prop(data),
+      #[test]
+      pub fn test_result_prop() {
+        quickcheck::quickcheck($crate::mytrait_tests::TestSuite::<$T>::test_result_prop as fn(_) -> _);
       }
 
 
-      #[quickcheck_macros::quickcheck]
-      pub fn boolean_prop(data: MyTestData<T>) -> bool {
-        $crate::mytrait_tests::TestSuite::<$T>::boolean_prop(data),
+      #[test]
+      pub fn boolean_prop() {
+        quickcheck::quickcheck($crate::mytrait_tests::TestSuite::<$T>::boolean_prop as fn(_) -> _);
       }
     }
   }

@@ -30,30 +30,6 @@ fn dollar_ident(name: &str) -> TokenStream2 {
     ts
 }
 
-/// Recursively replaces every occurrence of a type-param identifier (e.g. `T`)
-/// in `ts` with the two-token sequence `$T`, so that the result is valid inside
-/// a `macro_rules!` expansion where `$T` is a `:ty` metavariable.
-#[cfg(feature = "quickcheck")]
-fn substitute_type_params(ts: TokenStream2, type_params: &[Ident]) -> TokenStream2 {
-    let mut result = TokenStream2::new();
-    for tt in ts {
-        match tt {
-            TokenTree::Ident(ref ident) if type_params.iter().any(|tp| tp == ident) => {
-                result.extend([TokenTree::Punct(Punct::new('$', Spacing::Alone)), tt]);
-            }
-            TokenTree::Group(ref group) => {
-                let inner = substitute_type_params(group.stream(), type_params);
-                result.extend([TokenTree::Group(proc_macro2::Group::new(
-                    group.delimiter(),
-                    inner,
-                ))]);
-            }
-            other => result.extend([other]),
-        }
-    }
-    result
-}
-
 /// Extract the last path segment ident from a `syn::Type`.
 /// E.g. `TestSuite<T>` → `TestSuite`.
 fn extract_struct_name(ty: &syn::Type) -> Ident {
@@ -80,12 +56,8 @@ struct TestMethod {
 #[cfg(feature = "quickcheck")]
 struct QuickcheckMethod {
     name: Ident,
-    /// Parameter list with generic type params substituted by `$T` etc.
-    params_ts: TokenStream2,
-    /// Return type with generic type params substituted.
-    return_ts: TokenStream2,
-    /// Plain argument names for forwarding in the call expression.
-    arg_names: Vec<Ident>,
+    /// Number of non-self parameters; used to build the `fn(_, ...) -> _` cast.
+    arity: usize,
 }
 
 // ---------------------------------------------------------------------------
@@ -289,20 +261,32 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
 
     // ------------------------------------------------------------------
     // Emit `#[quickcheck]` wrappers (only populated when feature is active).
+    // Each wrapper is a plain `#[test]` that calls `quickcheck::quickcheck`
+    // with a function-pointer cast to drive shrinking and randomisation.
     // ------------------------------------------------------------------
     #[cfg(feature = "quickcheck")]
     let quickcheck_fn_items: TokenStream2 = quickcheck_methods
         .iter()
         .map(|qm| {
             let name = &qm.name;
-            let params_ts = &qm.params_ts;
-            let return_ts = &qm.return_ts;
-            let arg_names = &qm.arg_names;
+            // Build `_, _, …` with qm.arity underscores for the fn-ptr cast.
+            let underscores: TokenStream2 = (0..qm.arity)
+                .enumerate()
+                .map(|(i, _)| {
+                    if i == 0 {
+                        quote! { _ }
+                    } else {
+                        quote! { , _ }
+                    }
+                })
+                .collect();
             quote! {
-                #[::quickcheck_macros::quickcheck]
-                pub fn #name ( #params_ts ) #return_ts {
-                    #dollar_crate :: #macro_name :: #struct_name #type_path_args
-                        :: #name ( #(#arg_names),* )
+                #[test]
+                pub fn #name() {
+                    quickcheck::quickcheck(
+                        #dollar_crate :: #macro_name :: #struct_name #type_path_args
+                            :: #name as fn( #underscores ) -> _
+                    );
                 }
             }
         })
@@ -339,49 +323,13 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "quickcheck")]
-fn build_quickcheck_method(method: &syn::ImplItemFn, type_params: &[Ident]) -> QuickcheckMethod {
-    use quote::ToTokens;
-    use syn::ReturnType;
-
+fn build_quickcheck_method(method: &syn::ImplItemFn, _type_params: &[Ident]) -> QuickcheckMethod {
     let name = method.sig.ident.clone();
-    let mut arg_names: Vec<Ident> = Vec::new();
-    let mut params_pieces: Vec<TokenStream2> = Vec::new();
-
-    for input in &method.sig.inputs {
-        if let FnArg::Typed(pt) = input {
-            if let Pat::Ident(pi) = pt.pat.as_ref() {
-                arg_names.push(pi.ident.clone());
-            }
-            let pat = &pt.pat;
-            let ty_ts = substitute_type_params(pt.ty.to_token_stream(), type_params);
-            params_pieces.push(quote! { #pat : #ty_ts });
-        }
-    }
-
-    let params_ts: TokenStream2 = params_pieces
+    let arity = method
+        .sig
+        .inputs
         .iter()
-        .enumerate()
-        .map(|(i, piece)| {
-            if i == 0 {
-                piece.clone()
-            } else {
-                quote! { , #piece }
-            }
-        })
-        .collect();
-
-    let return_ts = match &method.sig.output {
-        ReturnType::Default => TokenStream2::new(),
-        ReturnType::Type(arrow, ty) => {
-            let ty_ts = substitute_type_params(ty.to_token_stream(), type_params);
-            quote! { #arrow #ty_ts }
-        }
-    };
-
-    QuickcheckMethod {
-        name,
-        params_ts,
-        return_ts,
-        arg_names,
-    }
+        .filter(|arg| matches!(arg, FnArg::Typed(_)))
+        .count();
+    QuickcheckMethod { name, arity }
 }

@@ -163,9 +163,6 @@ fn no_test_methods_impl_is_intact() {
     assert_eq!(p.helper(), 6);
 }
 
-#[cfg(feature = "quickcheck")]
-use quickcheck::TestResult;
-
 // ============================================================================
 // Test 5 – #[quickcheck] methods (requires `--features quickcheck`)
 //
