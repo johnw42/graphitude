@@ -318,6 +318,7 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
         macro_rules! #macro_name {
             ( #pat_mod_name #pat_type_params #pat_new_params ) => {
                 mod #dollar_mod_name {
+                    #[allow(unused_imports)]
                     use super::*;
                     #test_fn_items
                     #quickcheck_fn_items

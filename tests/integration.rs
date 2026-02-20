@@ -1,0 +1,164 @@
+// Test 1 – basic (non-generic) test suite
+//
+// Matches the first README example, minus the generic parameter.  Verifies:
+//   • `new` is made pub (implicitly: the generated macro can call it)
+//   • `#[test]` methods are made pub / callable from the generated module
+//   • Multiple `#[test]` methods all appear in the generated module
+// ============================================================================
+
+mod basic_suite {
+    use generate_test_macro::generate_test_macro;
+
+    pub struct TestSuite {
+        param1: usize,
+        param2: String,
+    }
+
+    #[generate_test_macro(basic_suite)]
+    impl TestSuite {
+        fn new(param1: usize, param2: String) -> Self {
+            Self { param1, param2 }
+        }
+
+        #[test]
+        fn param1_is_correct(&self) {
+            assert_eq!(self.param1, 10);
+        }
+
+        #[test]
+        fn param2_is_correct(&self) {
+            assert_eq!(self.param2, "hello");
+        }
+    }
+}
+
+// Invoke the generated macro to spin up a test module.
+// Mirrors: basic_suite!(mod_name, param1, param2)
+basic_suite!(run_basic_suite, 10, "hello".to_string());
+
+// ============================================================================
+// Test 2 – generic test suite (mirrors the README example directly)
+//
+// Uses a generic type parameter `T: MyTrait`, just like `TestSuite<T>` in the
+// README.  Verifies that the generated macro correctly threads the concrete
+// type through.
+// ============================================================================
+
+// Using `name()` via the trait is tested indirectly; keep the method but
+// suppress the dead-code lint so that the API mirrors the README.
+#[allow(dead_code)]
+trait MyTrait: Send + Sync {
+    fn name(&self) -> &str;
+}
+
+struct ConcreteType;
+
+impl MyTrait for ConcreteType {
+    fn name(&self) -> &str {
+        "concrete"
+    }
+}
+
+mod generic_suite {
+    use generate_test_macro::generate_test_macro;
+
+    use super::MyTrait;
+
+    pub struct TestSuite<T> {
+        param1: usize,
+        param2: String,
+        _marker: std::marker::PhantomData<T>,
+    }
+
+    #[generate_test_macro(generic_suite)]
+    impl<T: MyTrait> TestSuite<T> {
+        fn new(param1: usize, param2: String) -> Self {
+            Self {
+                param1,
+                param2,
+                _marker: std::marker::PhantomData,
+            }
+        }
+
+        #[test]
+        fn param1_is_correct(&self) {
+            assert_eq!(self.param1, 42);
+        }
+
+        #[test]
+        fn param2_is_correct(&self) {
+            assert_eq!(self.param2, "world");
+        }
+    }
+}
+
+// Invoke the generated macro with a concrete type.
+// Mirrors: generic_suite!(mod_name, $T, param1, param2)
+generic_suite!(run_for_concrete_type, ConcreteType, 42, "world".to_string());
+
+// ============================================================================
+// Test 3 – non-test helper methods are copied as-is
+//
+// The README states: "Other than a `new` method and methods annotated with
+// `#[test]` or `#[quickcheck]`, all methods are copied as-is to the result."
+// Verify that a plain helper method is accessible and works correctly.
+// ============================================================================
+
+mod passthrough_suite {
+    use generate_test_macro::generate_test_macro;
+
+    pub struct Suite {
+        value: usize,
+    }
+
+    #[generate_test_macro(passthrough_suite)]
+    impl Suite {
+        fn new(value: usize) -> Self {
+            Self { value }
+        }
+
+        // Plain helper – should be copied without modification (not made pub).
+        fn doubled(&self) -> usize {
+            self.value * 2
+        }
+
+        #[test]
+        fn doubled_is_correct(&self) {
+            assert_eq!(self.doubled(), 84);
+        }
+    }
+}
+
+passthrough_suite!(run_passthrough_suite, 42);
+
+// ============================================================================
+// Test 4 – impl block with no `#[test]` or `#[quickcheck]` methods
+//
+// When there are no special methods the macro should be a no-op (it just
+// returns the transformed impl block).  Verify the struct is still usable.
+// ============================================================================
+
+mod no_test_methods {
+    use generate_test_macro::generate_test_macro;
+
+    pub struct Plain {
+        pub x: usize,
+    }
+
+    // No #[test] or #[quickcheck] methods – the macro should leave the impl
+    // block unchanged and emit no macro_rules!.
+    #[generate_test_macro(no_test_methods)]
+    impl Plain {
+        #[allow(dead_code)]
+        pub fn helper(&self) -> usize {
+            self.x + 1
+        }
+    }
+}
+
+#[test]
+fn no_test_methods_impl_is_intact() {
+    let p = no_test_methods::Plain { x: 5 };
+    assert_eq!(p.x, 5);
+    assert_eq!(p.helper(), 6);
+}
