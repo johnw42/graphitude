@@ -162,3 +162,69 @@ fn no_test_methods_impl_is_intact() {
     assert_eq!(p.x, 5);
     assert_eq!(p.helper(), 6);
 }
+
+#[cfg(feature = "quickcheck")]
+use quickcheck::TestResult;
+
+// ============================================================================
+// Test 5 – #[quickcheck] methods (requires `--features quickcheck`)
+//
+// Mirrors the README quickcheck example.  Covers:
+//   • A `bool`-returning property (all outcomes accepted)
+//   • A `TestResult`-returning property (with discard)
+//   • A generic impl<T> suite (type param threaded via $T:ty in the macro call)
+// ============================================================================
+
+#[cfg(feature = "quickcheck")]
+mod quickcheck_suite {
+    use generate_test_macro::generate_test_macro;
+    use quickcheck::TestResult;
+
+    pub struct MathSuite;
+
+    #[generate_test_macro(quickcheck_suite)]
+    impl MathSuite {
+        /// Addition is commutative for all u32 pairs.
+        #[quickcheck]
+        fn addition_is_commutative(a: u32, b: u32) -> bool {
+            a.wrapping_add(b) == b.wrapping_add(a)
+        }
+
+        /// Subtraction result is at most `a` when `a >= b`; discard otherwise.
+        #[quickcheck]
+        fn subtraction_is_bounded(a: u32, b: u32) -> TestResult {
+            if a < b {
+                return TestResult::discard();
+            }
+            TestResult::from_bool(a - b <= a)
+        }
+    }
+}
+
+#[cfg(feature = "quickcheck")]
+quickcheck_suite!(run_quickcheck_suite);
+
+// Generic quickcheck suite – mirrors the README's `TestSuite<T: MyTrait>` but
+// the property only exercises the type-param threading, not the trait itself.
+#[cfg(feature = "quickcheck")]
+mod generic_quickcheck_suite {
+    use generate_test_macro::generate_test_macro;
+
+    use super::MyTrait;
+
+    pub struct GenericSuite<T> {
+        _marker: std::marker::PhantomData<T>,
+    }
+
+    #[generate_test_macro(generic_quickcheck_suite)]
+    impl<T: MyTrait + 'static> GenericSuite<T> {
+        /// Multiplying any u32 by 1 is an identity operation.
+        #[quickcheck]
+        fn multiply_by_one_is_identity(n: u32) -> bool {
+            n.wrapping_mul(1) == n
+        }
+    }
+}
+
+#[cfg(feature = "quickcheck")]
+generic_quickcheck_suite!(run_generic_quickcheck_suite, ConcreteType);
