@@ -51,6 +51,10 @@ fn extract_struct_name(ty: &syn::Type) -> Ident {
 
 struct TestMethod {
     name: Ident,
+    /// Whether the method takes a `self` / `&self` / `&mut self` receiver.
+    /// When `true` the generated wrapper calls `Struct::new(...).method()`;
+    /// when `false` it calls `Struct::method()` directly.
+    has_self: bool,
     /// Any `#[cfg(...)]` attributes on the original method, propagated verbatim
     /// onto the generated wrapper function.
     cfg_attrs: Vec<syn::Attribute>,
@@ -154,8 +158,15 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
                 .filter(|a| a.path().is_ident("cfg"))
                 .cloned()
                 .collect();
+            let has_self = method
+                .sig
+                .inputs
+                .first()
+                .map(|arg| matches!(arg, FnArg::Receiver(_)))
+                .unwrap_or(false);
             test_methods.push(TestMethod {
                 name: method_name,
+                has_self,
                 cfg_attrs,
             });
         } else if is_quickcheck {
@@ -172,6 +183,9 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
     // If there is nothing to generate, just return the transformed impl.
     // ------------------------------------------------------------------
     let has_test_methods = !test_methods.is_empty();
+    // `new` params are only needed in the macro pattern when at least one
+    // #[test] method takes a `self` receiver.
+    let has_self_test_methods = test_methods.iter().any(|tm| tm.has_self);
     #[cfg(feature = "quickcheck")]
     let has_quickcheck_methods = !quickcheck_methods.is_empty();
     #[cfg(not(feature = "quickcheck"))]
@@ -203,7 +217,7 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
         })
         .collect();
 
-    let pat_new_params: TokenStream2 = if has_test_methods {
+    let pat_new_params: TokenStream2 = if has_self_test_methods {
         new_param_names
             .iter()
             .map(|p| {
@@ -266,12 +280,21 @@ pub fn generate_test_macro(attr: TokenStream, item: TokenStream) -> TokenStream 
         .map(|tm| {
             let name = &tm.name;
             let cfg_attrs = &tm.cfg_attrs;
+            let call = if tm.has_self {
+                quote! {
+                    #struct_name #type_path_args
+                        :: new #new_call_args . #name ();
+                }
+            } else {
+                quote! {
+                    #struct_name #type_path_args :: #name ();
+                }
+            };
             quote! {
                 #(#cfg_attrs)*
                 #[test]
                 fn #name () {
-                    #struct_name #type_path_args
-                        :: new #new_call_args . #name ();
+                    #call
                 }
             }
         })
