@@ -318,7 +318,7 @@ where
         let from_index = self.nodes.indexing().key_to_index(from.key());
         let into_index = self.nodes.indexing().key_to_index(into.key());
         let old_data = self.adjacency.remove(from_index, into_index);
-        let (new_data, index, replaced) = EdgeContainer::append(old_data, data);
+        let (new_data, index, replaced) = EdgeContainer::new(old_data, data);
         self.adjacency.insert(from_index, into_index, new_data);
         let edge_id = self.edge_id(from.key(), into.key(), index);
         match replaced {
@@ -434,7 +434,7 @@ where
 
                 for (index, _) in container.iter() {
                     let old_edge_id = self
-                        .edge_id(old_from, old_into, index.clone())
+                        .edge_id(old_from, old_into, index)
                         .with_compaction_count(old_compaction_count);
                     let new_edge_id = self
                         .edge_id(new_from, new_into, index)

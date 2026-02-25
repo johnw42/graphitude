@@ -105,7 +105,7 @@ where
     }
 
     pub fn index(&self) -> <M::Container<E> as EdgeContainer<E>>::Index {
-        self.index.clone()
+        self.index
     }
 }
 

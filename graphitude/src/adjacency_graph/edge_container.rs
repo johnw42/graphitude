@@ -1,26 +1,18 @@
-use std::{fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash};
 
-use crate::{
-    EdgeMultiplicityTrait, MultipleEdges, SingleEdge,
-    automap::{Automap, AutomapTrait},
-};
+use derivative::Derivative;
 
+use crate::{EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
+
+#[allow(clippy::len_without_is_empty)]
 pub trait EdgeContainer<T>: Sized {
-    type Index: Clone + Debug + Eq + Hash + Ord + Send + Sync;
+    type Index: Clone + Copy + Debug + Eq + Hash + Ord + Send + Sync;
 
     /// Returns the number of items in the container.
     fn len(&self) -> usize;
 
-    /// Returns `true` if the container is empty.
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Creates a new container with a single item.  Returns the new container, the key for the item, and any replaced item (if applicable).
-    fn append(container: Option<Self>, item: T) -> (Self, Self::Index, Option<T>);
-
-    /// Insert an item, possibly replacing an existing item. Returns the key for the item and any replaced item (if applicable).
-    fn insert_or_replace(&mut self, data: T) -> (Self::Index, Option<T>);
+    /// Create a new container by adding an item to an existing container, returning the new container, the index of the added item, and the replaced item, if any.
+    fn new(container: Option<Self>, item: T) -> (Self, Self::Index, Option<T>);
 
     /// Gets a reference to the data associated with the edge from `source` to `target`, if it exists.
     fn get(&self, key: Self::Index) -> Option<&T>;
@@ -28,7 +20,7 @@ pub trait EdgeContainer<T>: Sized {
     /// Gets a mutable reference to the data associated with the edge from `source` to `target`, if it exists.
     fn get_mut(&mut self, key: Self::Index) -> Option<&mut T>;
 
-    /// Removed an item, returning a modified container, or `None` if the container would be empty, plus the removed item, if it exists.
+    /// Removes an item, returning a modified container, or `None` if the container would be empty, plus the removed item, if it exists.
     fn without(self, key: Self::Index) -> (Option<Self>, Option<T>);
 
     fn iter<'a>(&'a self) -> impl Iterator<Item = (Self::Index, &'a T)> + 'a
@@ -47,13 +39,8 @@ impl<T> EdgeContainer<T> for SingleItem<T> {
         1
     }
 
-    fn append(container: Option<Self>, item: T) -> (Self, Self::Index, Option<T>) {
+    fn new(container: Option<Self>, item: T) -> (Self, Self::Index, Option<T>) {
         (SingleItem(item), (), container.map(|c| c.0))
-    }
-
-    fn insert_or_replace(&mut self, data: T) -> (Self::Index, Option<T>) {
-        let replaced = Some(std::mem::replace(&mut self.0, data));
-        ((), replaced)
     }
 
     fn get(&self, _key: Self::Index) -> Option<&T> {
@@ -75,57 +62,96 @@ impl<T> EdgeContainer<T> for SingleItem<T> {
         std::iter::once(((), &self.0))
     }
 }
+
 /// A multi-item edge container
-#[derive(Debug, Clone, PartialEq)]
-pub struct MultipleItems<T, A>
-where
-    A: AutomapTrait<T>,
-{
-    inner: A,
-    phantom: PhantomData<T>,
+pub struct MultipleItems<T>(Box<MultipleItemsNode<T>>);
+
+pub struct MultipleItemsNode<T> {
+    data: T,
+    next: Option<MultipleItems<T>>,
 }
 
-impl<T, A> EdgeContainer<T> for MultipleItems<T, A>
-where
-    A: AutomapTrait<T> + Default,
-{
-    type Index = A::Key;
+#[derive(Derivative)]
+#[derivative(
+    Clone(bound = ""),
+    Copy(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = ""),
+    Hash(bound = ""),
+    Ord(bound = ""),
+    PartialOrd(bound = "")
+)]
+pub struct MultipleItemsIndex<T>(*const MultipleItemsNode<T>);
+
+impl<T> Debug for MultipleItemsIndex<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MultipleItemsIndex({:p})", self.0)
+    }
+}
+
+unsafe impl<T> Send for MultipleItemsIndex<T> {}
+unsafe impl<T> Sync for MultipleItemsIndex<T> {}
+
+impl<T> EdgeContainer<T> for MultipleItems<T> {
+    type Index = MultipleItemsIndex<T>;
 
     fn len(&self) -> usize {
-        self.inner.len()
+        self.iter().count()
     }
 
-    fn append(container: Option<Self>, item: T) -> (Self, Self::Index, Option<T>) {
-        let mut inner = container.map(|c| c.inner).unwrap_or_default();
-        let key = inner.insert(item);
-        (
-            MultipleItems {
-                inner,
-                phantom: PhantomData,
-            },
-            key,
-            None,
-        )
-    }
-
-    fn insert_or_replace(&mut self, data: T) -> (Self::Index, Option<T>) {
-        (self.inner.insert(data), None)
+    fn new(container: Option<Self>, item: T) -> (Self, Self::Index, Option<T>) {
+        let new_node = Box::new(MultipleItemsNode {
+            data: item,
+            next: container,
+        });
+        let index = MultipleItemsIndex(&*new_node);
+        (MultipleItems(new_node), index, None)
     }
 
     fn get(&self, key: Self::Index) -> Option<&T> {
-        self.inner.get(key)
+        let mut node = self;
+        loop {
+            if std::ptr::eq(&*node.0, key.0) {
+                return Some(&node.0.data);
+            }
+            node = node.0.next.as_ref()?;
+        }
     }
 
     fn get_mut(&mut self, key: Self::Index) -> Option<&mut T> {
-        self.inner.get_mut(key)
+        let mut node = self;
+        loop {
+            if std::ptr::eq(&*node.0, key.0) {
+                return Some(&mut node.0.data);
+            }
+            node = node.0.next.as_mut()?;
+        }
     }
 
     fn without(mut self, key: Self::Index) -> (Option<Self>, Option<T>) {
-        let removed = self.inner.remove(key);
-        if self.inner.is_empty() {
-            (None, removed)
-        } else {
-            (Some(self), removed)
+        if std::ptr::eq(&*self.0, key.0) {
+            // Removing the head of the list
+            return (self.0.next, Some(self.0.data));
+        }
+
+        let mut current = &mut self;
+        loop {
+            if current.0.next.is_none() {
+                return (Some(self), None); // Reached the end of the list without finding the item
+            }
+            if current
+                .0
+                .next
+                .as_ref()
+                .map(|next| std::ptr::eq(&*next.0, key.0))
+                .unwrap_or(false)
+            {
+                // Found the item to remove
+                let MultipleItemsNode { data, next } = *current.0.next.take().unwrap().0;
+                current.0.next = next;
+                return (Some(self), Some(data));
+            }
+            current = current.0.next.as_mut().unwrap();
         }
     }
 
@@ -133,7 +159,31 @@ where
     where
         T: 'a,
     {
-        self.inner.iter_pairs()
+        MultipleItemsIterator {
+            current: Some(self),
+        }
+    }
+}
+
+pub struct MultipleItemsIterator<'a, T> {
+    current: Option<&'a MultipleItems<T>>,
+}
+
+impl<'a, T> Iterator for MultipleItemsIterator<'a, T>
+where
+    T: 'a,
+{
+    type Item = (MultipleItemsIndex<T>, &'a T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(current) = self.current.take() {
+            let index = MultipleItemsIndex(current.0.as_ref());
+            let value = &current.0.data;
+            self.current = current.0.next.as_ref();
+            Some((index, value))
+        } else {
+            None
+        }
     }
 }
 
@@ -146,7 +196,7 @@ impl EdgeContainerSelector for SingleEdge {
 }
 
 impl EdgeContainerSelector for MultipleEdges {
-    type Container<T> = MultipleItems<T, Automap<T>>;
+    type Container<T> = MultipleItems<T>;
 }
 
 #[cfg(test)]
@@ -156,26 +206,18 @@ mod tests {
     // ==================== SingleItem Tests ====================
 
     #[test]
-    fn test_single_item_append_with_none() {
-        let (container, _key, replaced) = SingleItem::append(None, 42);
+    fn test_single_item_new_with_none() {
+        let (container, _key, replaced) = SingleItem::new(None, 42);
         assert_eq!(container.0, 42);
         assert_eq!(replaced, None);
     }
 
     #[test]
-    fn test_single_item_append_with_some() {
+    fn test_single_item_new_with_some() {
         let original = SingleItem(10);
-        let (container, _key, replaced) = SingleItem::append(Some(original), 42);
+        let (container, _key, replaced) = SingleItem::new(Some(original), 42);
         assert_eq!(container.0, 42);
         assert_eq!(replaced, Some(10));
-    }
-
-    #[test]
-    fn test_single_item_insert_or_replace() {
-        let mut container = SingleItem(42);
-        let (_, replaced) = container.insert_or_replace(99);
-        assert_eq!(container.0, 99);
-        assert_eq!(replaced, Some(42));
     }
 
     #[test]
@@ -211,74 +253,55 @@ mod tests {
 
     // ==================== MultipleItems Tests ====================
 
-    #[test]
-    fn test_multiple_items_append_with_none() {
-        let (container, key, replaced): (MultipleItems<i32, Automap<i32>>, _, _) =
-            MultipleItems::append(None, 42);
-        assert_eq!(container.get(key), Some(&42));
-        assert_eq!(replaced, None);
+    fn new_container<T>(items: Vec<T>) -> (MultipleItems<T>, Vec<MultipleItemsIndex<T>>) {
+        let mut keys = Vec::new();
+        let container = items.into_iter().fold(None, |container, item| {
+            let (new_container, key, removed) = MultipleItems::new(container, item);
+            assert!(
+                removed.is_none(),
+                "new_container should not replace existing items"
+            );
+            keys.push(key);
+            Some(new_container)
+        });
+        (container.unwrap(), keys)
     }
 
     #[test]
-    fn test_multiple_items_append_with_some() {
-        let original: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 10).0;
-
-        let (container, _key, replaced) = MultipleItems::append(Some(original), 42);
-        // When appending to an existing MultipleItems, the new item is added
-        let items: Vec<_> = container.iter().map(|(_, &v)| v).collect();
-        assert!(items.contains(&42));
-        assert_eq!(replaced, None);
+    fn test_multiple_items_new_with_none() {
+        let (container, keys) = new_container(vec![42]);
+        assert_eq!(container.get(keys[0]), Some(&42));
     }
 
     #[test]
     fn test_multiple_items_insert_multiple() {
-        let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
-        let (k2, replaced) = container.insert_or_replace(2);
-        assert!(replaced.is_none());
-        let (k3, replaced) = container.insert_or_replace(3);
-        assert!(replaced.is_none());
-
-        assert_eq!(container.get(k2), Some(&2));
-        assert_eq!(container.get(k3), Some(&3));
+        let (container, keys) = new_container(vec![1, 2, 3]);
+        assert_eq!(container.len(), 3);
+        assert_eq!(container.get(keys[0]), Some(&1));
+        assert_eq!(container.get(keys[1]), Some(&2));
+        assert_eq!(container.get(keys[2]), Some(&3));
     }
 
     #[test]
     fn test_multiple_items_get() {
-        let container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 42).0;
-        let k = container
-            .iter()
-            .next()
-            .map(|(k, _)| k)
-            .expect("should have one item");
-        assert_eq!(container.get(k), Some(&42));
+        let (container, keys) = new_container(vec![42]);
+        assert_eq!(container.get(keys[0]), Some(&42));
     }
 
     #[test]
     fn test_multiple_items_get_mut() {
-        let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 42).0;
-        let k = container
-            .iter()
-            .next()
-            .map(|(k, _)| k)
-            .expect("should have one item");
-
-        if let Some(val) = container.get_mut(k) {
+        let (mut container, keys) = new_container(vec![42]);
+        if let Some(val) = container.get_mut(keys[0]) {
             *val = 99;
         }
-        assert_eq!(container.get(k), Some(&99));
+        assert_eq!(container.get(keys[0]), Some(&99));
     }
 
     #[test]
     fn test_multiple_items_without_not_empty() {
-        let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
-        let k1 = container
-            .iter()
-            .next()
-            .map(|(k, _)| k)
-            .expect("should have one item");
-        container.insert_or_replace(2);
+        let (container, keys) = new_container(vec![1, 2]);
 
-        let (remaining, removed) = container.without(k1);
+        let (remaining, removed) = container.without(keys[0]);
         assert_eq!(removed, Some(1));
         assert!(remaining.is_some());
         if let Some(rem) = remaining {
@@ -288,23 +311,16 @@ mod tests {
 
     #[test]
     fn test_multiple_items_without_empty() {
-        let container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 42).0;
-        let k = container
-            .iter()
-            .next()
-            .map(|(k, _)| k)
-            .expect("should have one item");
+        let (container, keys) = new_container(vec![42]);
 
-        let (remaining, removed) = container.without(k);
+        let (remaining, removed) = container.without(keys[0]);
         assert!(remaining.is_none());
         assert_eq!(removed, Some(42));
     }
 
     #[test]
     fn test_multiple_items_iter() {
-        let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
-        container.insert_or_replace(2);
-        container.insert_or_replace(3);
+        let (container, _keys) = new_container(vec![1, 2, 3]);
 
         let items: Vec<_> = container.iter().map(|(_, &v)| v).collect();
         assert_eq!(items.len(), 3);
@@ -315,21 +331,15 @@ mod tests {
 
     #[test]
     fn test_multiple_items_get_after_removal() {
-        let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
-        let k1 = container
-            .iter()
-            .next()
-            .map(|(k, _)| k)
-            .expect("should have one item");
-        container.insert_or_replace(2);
+        let (container, keys) = new_container(vec![1, 2]);
 
         // Remove the first item
-        let (remaining, removed) = container.without(k1);
+        let (remaining, removed) = container.without(keys[0]);
         assert_eq!(removed, Some(1));
 
         // After removal, the removed key should not return anything
         if let Some(rem) = remaining {
-            assert_eq!(rem.get(k1), None);
+            assert_eq!(rem.get(keys[0]), None);
         }
     }
 }
