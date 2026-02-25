@@ -12,7 +12,7 @@ use std::{
 
 use bitvec::vec::BitVec;
 
-use crate::automap::trait_def::{AutomapTrait, AutomapIndexing, AutomapKeyTrait};
+use crate::automap::trait_def::{AutomapIndexing, AutomapKeyTrait, AutomapTrait};
 
 /// An key for an `Automap`. Stable across insertions and removals, but not
 /// across `compact` operations.

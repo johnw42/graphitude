@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use generate_test_macro::generate_test_macro;
 use quickcheck::TestResult;
+use test_suite_macro::test_suite_macro;
 
 use crate::generate_large_graph::generate_large_graph;
 use crate::graph_test_support::{ArbGraph, check_graph_consistency, has_duplicates};
@@ -43,7 +43,7 @@ type TestGraph<B> = <B as TestDataBuilder>::Graph;
 type TestNodeData<B> = <TestGraph<B> as Graph>::NodeData;
 type TestEdgeData<B> = <TestGraph<B> as Graph>::EdgeData;
 
-#[generate_test_macro(graph_test_suite)]
+#[test_suite_macro(graph_test_suite)]
 impl<B> GraphTests<B>
 where
     B: TestDataBuilder,

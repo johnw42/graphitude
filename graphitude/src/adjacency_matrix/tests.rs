@@ -5,10 +5,10 @@ use super::super::*;
 use crate::adjacency_matrix::bitvec::matrix::BitvecAdjacencyMatrix;
 use crate::adjacency_matrix::hash::HashAdjacencyMatrix;
 use crate::test_util::{DropCounter, DroppableValue};
-use generate_test_macro::generate_test_macro;
 use quickcheck::{Arbitrary, TestResult};
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use test_suite_macro::test_suite_macro;
 
 use crate::adjacency_matrix::AdjacencyMatrix;
 
@@ -62,7 +62,7 @@ fn compute_size<M: AdjacencyMatrix>(matrix: &M) -> usize {
 
 struct AdjacencyMatrixTests<M>(M);
 
-#[generate_test_macro(adjacency_matrix_tests)]
+#[test_suite_macro(adjacency_matrix_tests)]
 impl<M> AdjacencyMatrixTests<M>
 where
     M: AdjacencyMatrix<Value = &'static str> + Default,
@@ -409,7 +409,7 @@ where
 
 struct AdjacencyMatrixDropTests<M>(M);
 
-#[generate_test_macro(adjacency_matrix_drop_tests)]
+#[test_suite_macro(adjacency_matrix_drop_tests)]
 impl<M> AdjacencyMatrixDropTests<M>
 where
     M: AdjacencyMatrix<Value = DroppableValue> + Default,
@@ -524,7 +524,7 @@ where
 
 struct AdjacencyMatrixQuickCheckTests<M>(PhantomData<M>);
 
-#[generate_test_macro(adjacency_matrix_quickcheck_tests)]
+#[test_suite_macro(adjacency_matrix_quickcheck_tests)]
 impl<M> AdjacencyMatrixQuickCheckTests<M>
 where
     M: AdjacencyMatrix<Value = u8> + Clone + 'static,

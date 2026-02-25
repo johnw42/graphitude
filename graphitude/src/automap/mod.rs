@@ -18,4 +18,4 @@ pub use offset::{
     OffsetAutomap as Automap, OffsetAutomapIndexing as AutomapIndexing,
     OffsetAutomapKey as AutomapKey,
 };
-pub use trait_def::AutomapTrait as AutomapTrait;
+pub use trait_def::AutomapTrait;
