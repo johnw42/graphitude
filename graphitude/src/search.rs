@@ -60,7 +60,7 @@ where
 pub struct BfsIteratorWithPaths<'g, G: Graph + ?Sized> {
     graph: &'g G,
     visited: HashSet<G::NodeId>,
-    queue: VecDeque<Path<G::EdgeId>>,
+    queue: VecDeque<Path<G>>,
 }
 
 impl<'g, G> BfsIteratorWithPaths<'g, G>
@@ -80,7 +80,7 @@ impl<'g, G> Iterator for BfsIteratorWithPaths<'g, G>
 where
     G: Graph + ?Sized,
 {
-    type Item = Path<G::EdgeId>;
+    type Item = Path<G>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(path) = self.queue.pop_front() {
@@ -152,7 +152,7 @@ where
 pub struct DfsIteratorWithPaths<'g, G: Graph + ?Sized> {
     graph: &'g G,
     visited: HashSet<G::NodeId>,
-    stack: Vec<Path<G::EdgeId>>,
+    stack: Vec<Path<G>>,
 }
 
 impl<'g, G> DfsIteratorWithPaths<'g, G>
@@ -174,7 +174,7 @@ impl<'g, G> Iterator for DfsIteratorWithPaths<'g, G>
 where
     G: Graph + ?Sized,
 {
-    type Item = Path<G::EdgeId>;
+    type Item = Path<G>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(path) = self.stack.pop() {

@@ -88,23 +88,23 @@ pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
         let (n1, n2) = self.ends();
         (*node1 == n1 && *node2 == n2) || (*node1 == n2 && *node2 == n1)
     }
-}
 
-/// A trait which is automatically implemented for directed edges, providing
-/// methods specific to directed edges.
-pub trait EdgeIdDirected: EdgeIdTrait<Directedness = Directed> {
     /// Gets the source node of the edge.
-    fn source(&self) -> Self::NodeId {
+    fn source(&self) -> Self::NodeId
+    where
+        Self: EdgeIdTrait<Directedness = Directed>,
+    {
         self.left()
     }
 
     /// Gets the target node of the edge.
-    fn target(&self) -> Self::NodeId {
+    fn target(&self) -> Self::NodeId
+    where
+        Self: EdgeIdTrait<Directedness = Directed>,
+    {
         self.right()
     }
 }
-
-impl<E> EdgeIdDirected for E where E: EdgeIdTrait<Directedness = Directed> {}
 
 /// Return type of [`Graph::add_edge`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -229,7 +229,7 @@ pub trait Graph {
     /// Creates a new path starting from the given starting node.  This is a
     /// convenience method to avoid having to import the `Path` type separately
     /// and specify its type argument explicity.
-    fn new_path(&self, start: &Self::NodeId) -> Path<Self::EdgeId> {
+    fn new_path(&self, start: &Self::NodeId) -> Path<Self> {
         Path::new(start.clone())
     }
 
@@ -495,7 +495,7 @@ pub trait Graph {
         &self,
         start: &Self::NodeId,
         distance_fn: impl Fn(&Self::EdgeId) -> C,
-    ) -> HashMap<Self::NodeId, (Path<Self::EdgeId>, C)> {
+    ) -> HashMap<Self::NodeId, (Path<Self>, C)> {
         // Find shortest paths using Dijkstra's algorithm.
 
         let mut distances: HashMap<Self::NodeId, C> = HashMap::new();
@@ -538,7 +538,7 @@ pub trait Graph {
         }
 
         // Build paths from predecessors
-        let mut result: HashMap<<Self as Graph>::NodeId, (Path<Self::EdgeId>, C)> = HashMap::new();
+        let mut result: HashMap<<Self as Graph>::NodeId, (Path<Self>, C)> = HashMap::new();
         for (node, &dist) in &distances {
             if node == start {
                 result.insert(start.clone(), (Path::new(start.clone()), C::default()));

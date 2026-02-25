@@ -1,27 +1,30 @@
-use std::{cmp::Ordering, fmt::Debug, hash::Hash, iter::once};
+use std::{cmp::Ordering, iter::once};
 
 use derivative::Derivative;
 
-use crate::{DirectednessTrait, EdgeIdTrait};
+use crate::{DirectednessTrait, EdgeIdTrait, Graph};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
 #[derive(Derivative)]
 #[derivative(
-    Clone(bound = "E: Clone, E::NodeId: Clone"),
-    PartialEq(bound = "E: PartialEq, E::NodeId: PartialEq"),
-    Eq(bound = "E: Eq, E::NodeId: Eq"),
-    Hash(bound = "E: Hash, E::NodeId: Hash"),
-    Debug(bound = "E: Debug, E::NodeId: Debug")
+    Clone(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = ""),
+    Hash(bound = ""),
+    Debug(bound = "")
 )]
-pub struct Path<E: EdgeIdTrait> {
-    edges: Vec<E>,
-    nodes: Vec<E::NodeId>,
+pub struct Path<G: Graph + ?Sized> {
+    edges: Vec<G::EdgeId>,
+    nodes: Vec<G::NodeId>,
 }
 
-impl<E: EdgeIdTrait> Path<E> {
+impl<G> Path<G>
+where
+    G: Graph + ?Sized,
+{
     /// Creates a new path starting at the given node.
-    pub fn new(start: E::NodeId) -> Self {
+    pub fn new(start: G::NodeId) -> Self {
         Self {
             edges: Vec::new(),
             nodes: vec![start],
@@ -31,29 +34,29 @@ impl<E: EdgeIdTrait> Path<E> {
     /// Creates a new path from a sequence of edges and a starting node.  Panics
     /// if the edges do not form a valid path, the edges are empty, or if the
     /// starting node does not match the one end of the first edge.
-    pub fn from_edges(start: E::NodeId, edges: impl IntoIterator<Item = E>) -> Self {
-        let mut path = Path::<E>::new(start);
+    pub fn from_edges(start: G::NodeId, edges: impl IntoIterator<Item = G::EdgeId>) -> Self {
+        let mut path = Self::new(start);
         path.extend(edges);
         path
     }
 
     /// Returns the first node in the path.
-    pub fn first_node(&self) -> E::NodeId {
+    pub fn first_node(&self) -> G::NodeId {
         self.nodes.first().expect("Path has no nodes").clone()
     }
 
     /// Returns the last node in the path.
-    pub fn last_node(&self) -> E::NodeId {
+    pub fn last_node(&self) -> G::NodeId {
         self.nodes.last().expect("Path has no nodes").clone()
     }
 
     /// Returns an iterator over the edges in the path.
-    pub fn edges(&self) -> impl Iterator<Item = E> + '_ {
+    pub fn edges(&self) -> impl Iterator<Item = G::EdgeId> + '_ {
         self.edges.iter().cloned()
     }
 
     /// Returns an iterator over the nodes in the path.
-    pub fn nodes(&self) -> impl Iterator<Item = E::NodeId> + '_ {
+    pub fn nodes(&self) -> impl Iterator<Item = G::NodeId> + '_ {
         self.nodes.iter().cloned()
     }
 
@@ -62,7 +65,9 @@ impl<E: EdgeIdTrait> Path<E> {
     /// node, outgoing_edge)`; the edges are optional but will always be
     /// `Some` except for the first node (no incoming edge) and the last
     /// node (no outgoing edge).
-    pub fn nodes_with_edges(&self) -> impl Iterator<Item = (Option<E>, E::NodeId, Option<E>)> + '_ {
+    pub fn nodes_with_edges(
+        &self,
+    ) -> impl Iterator<Item = (Option<G::EdgeId>, G::NodeId, Option<G::EdgeId>)> + '_ {
         let incoming = once(None).chain(self.edges.iter().cloned().map(Some));
         let outgoing = self.edges.iter().cloned().map(Some).chain(once(None));
         let nodes = self.nodes.iter().cloned();
@@ -83,7 +88,7 @@ impl<E: EdgeIdTrait> Path<E> {
     /// Adds an edge to the end of the path, extending it to the edge's target
     /// node. Panics if the edge's source node does not match the current
     /// last node of the path.
-    pub fn add_edge(&mut self, edge_id: E) {
+    pub fn add_edge(&mut self, edge_id: G::EdgeId) {
         let next_node = edge_id.other_end(&self.last_node());
         self.edges.push(edge_id);
         self.nodes.push(next_node);
@@ -92,7 +97,7 @@ impl<E: EdgeIdTrait> Path<E> {
     /// Adds an edge and its target node to the end of the path. Panics if
     /// the edge's source node does not match the current last node of the
     /// path, or if the provided node does not match the edge's target node.
-    pub fn add_edge_and_node(&mut self, edge_id: E, node_id: E::NodeId) {
+    pub fn add_edge_and_node(&mut self, edge_id: G::EdgeId, node_id: G::NodeId) {
         let last = self.last_node();
 
         if edge_id.directedness().is_directed() {
@@ -114,19 +119,19 @@ impl<E: EdgeIdTrait> Path<E> {
     /// Extends the path by appending all edges from another path. Panics if
     /// the first node of the other path does not match the current last
     /// node of this path.
-    pub fn extend_with(&mut self, other: &Path<E>) {
+    pub fn extend_with(&mut self, other: &Path<G>) {
         for edge_id in other.edges() {
             self.add_edge(edge_id);
         }
     }
 }
 
-impl<E: EdgeIdTrait> PartialOrd for Path<E> {
+impl<G: Graph> PartialOrd for Path<G> {
     /// A path is "less than" another path if its last node matches the
     /// other's first node, and "greater than" if its first node matches the
     /// other's last node. If neither condition is met and the paths are not
     /// equal, they are considered unordered.
-    fn partial_cmp(&self, other: &Path<E>) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Path<G>) -> Option<std::cmp::Ordering> {
         if self == other {
             Some(Ordering::Equal)
         } else if self.last_node() == other.first_node() {
@@ -139,8 +144,11 @@ impl<E: EdgeIdTrait> PartialOrd for Path<E> {
     }
 }
 
-impl<E: EdgeIdTrait> Extend<E> for Path<E> {
-    fn extend<T: IntoIterator<Item = E>>(&mut self, iter: T) {
+impl<G> Extend<G::EdgeId> for Path<G>
+where
+    G: Graph + ?Sized,
+{
+    fn extend<T: IntoIterator<Item = G::EdgeId>>(&mut self, iter: T) {
         for edge_id in iter {
             self.add_edge(edge_id);
         }
