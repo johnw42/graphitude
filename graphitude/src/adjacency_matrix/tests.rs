@@ -719,33 +719,29 @@ where
     }
 }
 
-adjacency_matrix_tests!(directed_hash, HashAdjacencyMatrix<&'static str, Directed>);
-adjacency_matrix_drop_tests!(directed_hash_drop, HashAdjacencyMatrix<DroppableValue, Directed>);
-adjacency_matrix_quickcheck_tests!(directed_hash_quickcheck, HashAdjacencyMatrix<u8, Directed>);
+adjacency_matrix_tests!(directed_hash: AdjacencyMatrixTests<HashAdjacencyMatrix<&'static str, Directed>>);
+adjacency_matrix_drop_tests!(directed_hash_drop: AdjacencyMatrixDropTests<HashAdjacencyMatrix<DroppableValue, Directed>>);
+adjacency_matrix_quickcheck_tests!(directed_hash_quickcheck: AdjacencyMatrixQuickCheckTests<HashAdjacencyMatrix<u8, Directed>>);
 
 adjacency_matrix_tests!(
-    undirected_hash,
-    HashAdjacencyMatrix<&'static str, Undirected>
-);
-adjacency_matrix_drop_tests!(undirected_hash_drop, HashAdjacencyMatrix<DroppableValue, Undirected>);
-adjacency_matrix_quickcheck_tests!(undirected_hash_quickcheck, HashAdjacencyMatrix<u8, Undirected>);
+    undirected_hash: AdjacencyMatrixTests<HashAdjacencyMatrix<&'static str, Undirected>>);
+adjacency_matrix_drop_tests!(undirected_hash_drop: AdjacencyMatrixDropTests<HashAdjacencyMatrix<DroppableValue, Undirected>>);
+adjacency_matrix_quickcheck_tests!(undirected_hash_quickcheck: AdjacencyMatrixQuickCheckTests<HashAdjacencyMatrix<u8, Undirected>>);
 
 #[cfg(feature = "bitvec")]
 adjacency_matrix_tests!(
-    directed_bitvec,
-    BitvecAdjacencyMatrix<&'static str, Directed>
+    directed_bitvec: AdjacencyMatrixTests<BitvecAdjacencyMatrix<&'static str, Directed>>
 );
 #[cfg(feature = "bitvec")]
-adjacency_matrix_drop_tests!(directed_bitvec_drop, BitvecAdjacencyMatrix<DroppableValue, Directed>);
+adjacency_matrix_drop_tests!(directed_bitvec_drop: AdjacencyMatrixDropTests<BitvecAdjacencyMatrix<DroppableValue, Directed>>);
 #[cfg(feature = "bitvec")]
-adjacency_matrix_quickcheck_tests!(directed_bitvec_quickcheck, BitvecAdjacencyMatrix<u8, Directed>);
+adjacency_matrix_quickcheck_tests!(directed_bitvec_quickcheck: AdjacencyMatrixQuickCheckTests<BitvecAdjacencyMatrix<u8, Directed>>);
 
 #[cfg(feature = "bitvec")]
 adjacency_matrix_tests!(
-    undirected_bitvec,
-    BitvecAdjacencyMatrix<&'static str, Undirected>
+    undirected_bitvec: AdjacencyMatrixTests<BitvecAdjacencyMatrix<&'static str, Undirected>>
 );
 #[cfg(feature = "bitvec")]
-adjacency_matrix_drop_tests!(undirected_bitvec_drop, BitvecAdjacencyMatrix<DroppableValue, Undirected>);
+adjacency_matrix_drop_tests!(undirected_bitvec_drop: AdjacencyMatrixDropTests<BitvecAdjacencyMatrix<DroppableValue, Undirected>>);
 #[cfg(feature = "bitvec")]
-adjacency_matrix_quickcheck_tests!(undirected_bitvec_quickcheck, BitvecAdjacencyMatrix<u8, Undirected>);
+adjacency_matrix_quickcheck_tests!(undirected_bitvec_quickcheck: AdjacencyMatrixQuickCheckTests<BitvecAdjacencyMatrix<u8, Undirected>>);
