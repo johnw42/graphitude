@@ -1,4 +1,10 @@
-use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{
+    cell::{RefCell, UnsafeCell},
+    collections::HashSet,
+    fmt::Debug,
+    marker::PhantomData,
+    rc::Rc,
+};
 
 use crate::{
     coordinate_pair::CoordinatePair, copier::GraphCopier, directedness::Directedness,
@@ -14,11 +20,14 @@ pub use edge_id::EdgeId;
 pub use node_id::NodeId;
 
 struct Node<N, E, D: DirectednessTrait> {
-    data: N,
-    edges_out: Vec<Arc<Edge<N, E, D>>>,
+    data: UnsafeCell<N>,
+    // For undirected graphs, `edges` contains all edges incident to the node.
+    // For directed graphs, `edges` contains only outgoing edges, and `back_edges`
+    // contains incoming edges.
+    edges: RefCell<Vec<Rc<Edge<N, E, D>>>>,
     // Only maintained for directed graphs, since for undirected graphs
-    // edges_out is sufficient to find all edges.
-    edges_in: Vec<EdgeId<N, E, D>>,
+    // `edges` is sufficient to find all edges.
+    back_edges: RefCell<Vec<EdgeId<N, E, D>>>,
     directedness: PhantomData<D>,
 }
 
@@ -46,6 +55,20 @@ impl<N, E, D: DirectednessTrait> Edge<N, E, D> {
 /// * `N` - The type of data stored in nodes
 /// * `E` - The type of data stored in edges
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
+///
+/// # Saftey
+///
+/// This graph uses `Rc` and `RefCell` to allow multiple references to nodes and
+/// edges while still allowing mutation.  To ensure safety, all access to node
+/// and edge data is done through the `Graph` and `GraphMut` traits, which
+/// require a valid `NodeId` or `EdgeId`.  The `NodeId` and `EdgeId` types
+/// contain a `graph_id` field that must match the graph's ID, and a weak
+/// pointer to the node or edge data.  This ensures that if a `NodeId` or
+/// `EdgeId` is used after the graph has been dropped, it will fail gracefully
+/// instead of causing undefined behavior.  Additionally, the graph's methods
+/// ensure that there are no mutable references to the graph or its data while
+/// any `NodeId` or `EdgeId` is in use, so there can be no aliasing mutable
+/// references to the data.
 #[derive(Derivative)]
 #[derivative(Default(bound = "D: Default, M: Default"))]
 pub struct LinkedGraph<N, E, D = Directedness, M = EdgeMultiplicity>
@@ -53,7 +76,7 @@ where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
 {
-    nodes: Vec<Arc<Node<N, E, D>>>,
+    nodes: Vec<Rc<Node<N, E, D>>>,
     id: GraphId,
     directedness: D,
     edge_multiplicity: M,
@@ -64,17 +87,17 @@ where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
 {
-    fn node_id(&self, ptr: &Arc<Node<N, E, D>>) -> NodeId<N, E, D> {
+    fn node_id(&self, ptr: &Rc<Node<N, E, D>>) -> NodeId<N, E, D> {
         NodeId {
-            ptr: Arc::downgrade(ptr),
+            ptr: Rc::downgrade(ptr),
             graph_id: self.id.clone(),
             directedness: PhantomData,
         }
     }
 
-    fn edge_id(&self, ptr: &Arc<Edge<N, E, D>>) -> EdgeId<N, E, D> {
+    fn edge_id(&self, ptr: &Rc<Edge<N, E, D>>) -> EdgeId<N, E, D> {
         EdgeId {
-            ptr: Arc::downgrade(ptr),
+            ptr: Rc::downgrade(ptr),
             graph_id: self.id.clone(),
             directedness: self.directedness,
         }
@@ -82,39 +105,16 @@ where
 
     fn node(&self, id: &NodeId<N, E, D>) -> &Node<N, E, D> {
         self.assert_valid_node_id(id);
-        let id = id.ptr.upgrade().expect("NodeId is dangling");
-        // SAFETY: We have checked that the NodeId is valid.  This method is only used internally
-        // where we have &self, so the graph outlives the returned reference.
-        unsafe { &*Arc::as_ptr(&id) }
-    }
-
-    /// Gets a mutable reference to the node with the given identifier.
-    ///
-    /// SAFETY: Caller must ensure that no other references to the node exist,
-    /// and the graph outlives the returned reference.
-    fn node_mut<'a>(&mut self, id: &NodeId<N, E, D>) -> &'a mut Node<N, E, D> {
-        self.assert_valid_node_id(id);
-        let id = id.ptr.upgrade().expect("NodeId is dangling");
-
-        // SAFETY: We have checked that the NodeId is valid.  This method is only used internally
-        // where we have &mut self, so no other references to the nodes can exist.
-        unsafe { &mut *(Arc::as_ptr(&id) as *mut _) }
+        let strong = id.ptr.upgrade().expect("NodeId is dangling");
+        // SAFETY: See note on `LinkedGraph` type.
+        unsafe { &*Rc::as_ptr(&strong) }
     }
 
     fn edge(&self, id: &EdgeId<N, E, D>) -> &Edge<N, E, D> {
         self.assert_valid_edge_id(id);
-        let id = id.ptr.upgrade().expect("EdgeId is dangling");
-        // SAFETY: We have checked that the EdgeId is valid.  This method is only used internally
-        // where we have &self, so the graph outlives the returned reference.
-        unsafe { &*Arc::as_ptr(&id) }
-    }
-
-    fn edge_mut(&mut self, id: &EdgeId<N, E, D>) -> &mut Edge<N, E, D> {
-        self.assert_valid_edge_id(id);
-        let id = id.ptr.upgrade().expect("EdgeId is dangling");
-        // SAFETY: We have checked that the EdgeId is valid.  This method is only used internally
-        // where we have &mut self, so no other references to the edges can exist.
-        unsafe { &mut *(Arc::as_ptr(&id) as *mut _) }
+        let strong = id.ptr.upgrade().expect("EdgeId is dangling");
+        // SAFETY: See note on `LinkedGraph` type.
+        unsafe { &*Rc::as_ptr(&strong) }
     }
 }
 
@@ -139,7 +139,9 @@ where
     }
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
-        &self.node(id).data
+        let node = self.node(id);
+        // SAFETY: See note on `LinkedGraph` type.
+        unsafe { &*node.data.get() }
     }
 
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
@@ -148,31 +150,30 @@ where
 
     fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
         let edge = self.edge(id);
-        // SAFETY: There can be no mutable references to the data, the graph
-        // owns all its data, and there are no mutable references to the graph.
+        // SAFETY: See note on `LinkedGraph` type.
         unsafe { &*edge.data.get() }
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
-        if self.is_directed() {
-            // For directed graphs, just iterate normally
-            self.nodes
-                .iter()
-                .flat_map(|node| node.edges_out.iter().map(|edge| self.edge_id(edge)))
-                .collect::<Vec<_>>()
-                .into_iter()
+        let mut seen = if self.is_directed() {
+            None
         } else {
-            // For undirected graphs, deduplicate by Arc pointer address
-            use std::collections::HashSet;
-            let mut seen = HashSet::new();
-            self.nodes
+            Some(HashSet::<*const _>::new())
+        };
+        self.nodes.iter().flat_map(move |node| {
+            node.edges
+                .borrow()
                 .iter()
-                .flat_map(|node| node.edges_out.iter())
-                .filter(move |edge| seen.insert(Arc::as_ptr(edge)))
+                .filter(|edge| {
+                    if let Some(seen) = &mut seen {
+                        seen.insert(Rc::as_ptr(edge))
+                    } else {
+                        true
+                    }
+                })
                 .map(|edge| self.edge_id(edge))
                 .collect::<Vec<_>>()
-                .into_iter()
-        }
+        })
     }
 
     fn edges_from<'a, 'b: 'a>(
@@ -180,9 +181,12 @@ where
         from: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.node(from)
-            .edges_out
+            .edges
+            .borrow()
             .iter()
             .map(|edge| self.edge_id(edge))
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
     fn edges_into<'a, 'b: 'a>(
@@ -193,18 +197,18 @@ where
             // For directed graphs, use edges_in.  We need to collect to avoid
             // borrowing issues with self.node() below since edges_in contains
             // EdgeIds which borrow self.
-            #[allow(clippy::unnecessary_to_owned)]
-            self.node(into).edges_in.to_vec().into_iter()
+            self.node(into).back_edges.borrow().clone()
         } else {
             // For undirected graphs, edges_into is the same as edges_from
             // since edges appear in both nodes' edges_out lists
             self.node(into)
-                .edges_out
+                .edges
+                .borrow()
                 .iter()
                 .map(|edge| self.edge_id(edge))
                 .collect::<Vec<_>>()
-                .into_iter()
         }
+        .into_iter()
     }
 
     fn edges_from_into<'a, 'b: 'a>(
@@ -212,40 +216,34 @@ where
         from: &'b Self::NodeId,
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.node(from).edges_out.iter().filter_map(move |edge| {
-            let (edge_source, edge_target) = edge.ends.values();
-            let matches = if self.is_directed() {
-                edge_source == from && edge_target == into
-            } else {
-                (edge_source == from && edge_target == into)
-                    || (edge_source == into && edge_target == from)
-            };
-            matches.then(|| self.edge_id(edge))
-        })
+        self.node(from)
+            .edges
+            .borrow()
+            .iter()
+            .filter(move |edge| edge.ends.other_value(from).into_inner() == into)
+            .map(|edge| self.edge_id(edge))
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
     fn has_edge_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
-        self.node(from).edges_out.iter().any(|edge| {
-            let (edge_source, edge_target) = edge.ends.values();
-            if self.is_directed() {
-                edge_source == from && edge_target == into
-            } else {
-                (edge_source == from && edge_target == into)
-                    || (edge_source == into && edge_target == from)
-            }
-        })
+        self.node(from)
+            .edges
+            .borrow()
+            .iter()
+            .any(|edge| edge.ends.other_value(from).into_inner() == into)
     }
 
     fn num_edges_into(&self, into: &Self::NodeId) -> usize {
         if self.is_directed() {
-            self.node(into).edges_in.len()
+            self.node(into).back_edges.borrow().len()
         } else {
-            self.node(into).edges_out.len()
+            self.node(into).edges.borrow().len()
         }
     }
 
     fn num_edges_from(&self, from: &Self::NodeId) -> usize {
-        self.node(from).edges_out.len()
+        self.node(from).edges.borrow().len()
     }
 
     fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
@@ -307,14 +305,13 @@ where
     }
 
     fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData {
-        &mut self.node_mut(id).data
+        // SAFETY: See note on `LinkedGraph` type.
+        unsafe { &mut *self.node(id).data.get() }
     }
 
     fn edge_data_mut(&mut self, id: &Self::EdgeId) -> &mut Self::EdgeData {
-        let edge = self.edge_mut(id);
-        // SAFETY: There can be no mutable references to the data, the graph
-        // owns all its data, and there are no mutable references to the graph.
-        unsafe { &mut *edge.data.get() }
+        // SAFETY: See note on `LinkedGraph` type.
+        unsafe { &mut *self.edge(id).data.get() }
     }
 
     fn clear(&mut self) {
@@ -322,10 +319,10 @@ where
     }
 
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
-        let node = Arc::new(Node {
-            data,
-            edges_out: Vec::new(),
-            edges_in: Vec::new(),
+        let node = Rc::new(Node {
+            data: UnsafeCell::new(data),
+            edges: RefCell::new(Vec::new()),
+            back_edges: RefCell::new(Vec::new()),
             directedness: PhantomData,
         });
         let nid = self.node_id(&node);
@@ -346,15 +343,14 @@ where
         if !self.allows_parallel_edges() {
             debug_assert!(self.num_edges_from_into(from, into) <= 1);
             if let Some(edge) = self
-                .node_mut(from)
-                .edges_out
+                .node(from)
+                .edges
+                .borrow_mut()
                 .iter_mut()
                 .find(|edge| edge.ends == ends)
             {
                 let mut old_data = data;
-                // SAFETY: There can be no mutable references to the data, the graph
-                // owns all its data, and we have &mut self, so no other references
-                // to the graph or edge data can exist.
+                // SAFETY: See note on `LinkedGraph` type.
                 std::mem::swap(unsafe { &mut *edge.data.get() }, &mut old_data);
                 return AddEdgeResult::Updated(self.edge_id(edge), old_data);
             }
@@ -363,7 +359,7 @@ where
 
         let (from, into) = ends.values();
 
-        let edge = Arc::new(Edge::new(
+        let edge = Rc::new(Edge::new(
             data,
             from.clone(),
             into.clone(),
@@ -372,17 +368,17 @@ where
 
         let eid = self.edge_id(&edge);
 
-        self.node_mut(from).edges_out.push(edge.clone());
-
         if self.is_directed() {
-            // For directed graphs, add to the "into" node's edges_in.  We don't
-            // maintain edges_in for undirected graphs since it's redundant with
-            // edges_out.
-            self.node_mut(into).edges_in.push(eid.clone());
+            // For directed graphs, add to the "into" node's `back_edges`.  We don't
+            // maintain `back_edges` for undirected graphs since it's redundant with
+            // `edges`.
+            self.node(into).back_edges.borrow_mut().push(eid.clone());
         } else if from != into {
             // For undirected graphs (non-self-loop), add to the other node's edges_out
-            self.node_mut(into).edges_out.push(edge);
+            self.node(into).edges.borrow_mut().push(Rc::clone(&edge));
         }
+
+        self.node(from).edges.borrow_mut().push(edge);
 
         AddEdgeResult::Added(eid)
     }
@@ -396,18 +392,22 @@ where
         let node = self.nodes.remove(index);
 
         // Remove outgoing edges from other nodes
-        for edge in &node.edges_out {
+        for edge in node.edges.borrow().iter() {
             // For undirected graphs, the "other" node could be either edge.from or edge.into
             match edge.ends.other_value(nid) {
                 OtherValue::First(other_nid) | OtherValue::Second(other_nid) => {
-                    let other_node = self.node_mut(other_nid);
+                    let other_node = self.node(other_nid);
                     if self.is_directed() {
                         // For directed graphs, remove from edges_in
-                        other_node.edges_in.retain(|eid| *eid != self.edge_id(edge));
-                    } else {
-                        // For undirected graphs, remove from edges_out
                         other_node
-                            .edges_out
+                            .back_edges
+                            .borrow_mut()
+                            .retain(|eid| *eid != self.edge_id(edge));
+                    } else {
+                        // For undirected graphs, remove from `edges`
+                        other_node
+                            .edges
+                            .borrow_mut()
                             .retain(|e| self.edge_id(e) != self.edge_id(edge));
                     }
                 }
@@ -417,21 +417,20 @@ where
 
         if self.is_directed() {
             // For directed graphs, also remove incoming edges from source nodes' edges_out
-            for eid in &node.edges_in {
+            for eid in node.back_edges.borrow().iter() {
                 let edge = self.edge(eid);
                 let from_nid = edge.ends.first();
                 if from_nid != nid {
-                    let from_node = self.node_mut(&from_nid.clone());
+                    let from_node = self.node(&from_nid.clone());
                     from_node
-                        .edges_out
+                        .edges
+                        .borrow_mut()
                         .retain(|edge| self.edge_id(edge) != *eid);
                 }
             }
         }
 
-        Arc::into_inner(node)
-            .expect("Node has multiple references")
-            .data
+        Rc::into_inner(node).unwrap().data.into_inner()
     }
 
     fn remove_edge(&mut self, eid: &Self::EdgeId) -> Self::EdgeData {
@@ -440,25 +439,26 @@ where
         let (from_nid, into_nid) = edge.ends.values();
 
         // Remove from source node's edges_out
-        let from_node = self.node_mut(from_nid);
+        let from_node = self.node(from_nid);
         from_node
-            .edges_out
+            .edges
+            .borrow_mut()
             .retain(|edge| *eid != self.edge_id(edge));
 
         if self.is_directed() {
-            // For directed graphs, remove from target node's edges_in
-            let to_node = self.node_mut(into_nid);
-            to_node.edges_in.retain(|eid2| eid != eid2);
+            // For directed graphs, remove from target node's `back_edges`
+            let to_node = self.node(into_nid);
+            to_node.back_edges.borrow_mut().retain(|eid2| eid != eid2);
         } else if from_nid != into_nid {
-            // For undirected graphs (non-self-loop), remove from target node's edges_out
-            let to_node = self.node_mut(into_nid);
-            to_node.edges_out.retain(|edge| *eid != self.edge_id(edge));
+            // For undirected graphs (non-self-loop), remove from target node's `edges`
+            let to_node = self.node(into_nid);
+            to_node
+                .edges
+                .borrow_mut()
+                .retain(|edge| *eid != self.edge_id(edge));
         }
 
-        Arc::into_inner(edge)
-            .expect("Edge has multiple references")
-            .data
-            .into_inner()
+        Rc::into_inner(edge).unwrap().data.into_inner()
     }
 }
 

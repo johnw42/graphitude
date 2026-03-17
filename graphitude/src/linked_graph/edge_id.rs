@@ -2,7 +2,7 @@ use std::{
     fmt::Debug,
     hash::Hash,
     marker::PhantomData,
-    sync::{Arc, Weak},
+    rc::{Rc, Weak},
 };
 
 use derivative::Derivative;
@@ -32,7 +32,7 @@ unsafe impl<N, E, D: DirectednessTrait> Sync for EdgeId<N, E, D> {}
 
 impl<N, E, D: DirectednessTrait> Debug for EdgeId<N, E, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EdgeId({:?}, {:?})", self.ptr, self.graph_id)
+        write!(f, "EdgeId({:?}, {:?})", self.ptr.as_ptr(), self.graph_id)
     }
 }
 
@@ -74,7 +74,7 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
         self.ptr
             .upgrade()
             .map(|edge| NodeId {
-                ptr: Arc::downgrade(
+                ptr: Rc::downgrade(
                     &edge
                         .ends
                         .first()
@@ -92,7 +92,7 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
         self.ptr
             .upgrade()
             .map(|edge| NodeId {
-                ptr: Arc::downgrade(
+                ptr: Rc::downgrade(
                     &edge
                         .ends
                         .second()

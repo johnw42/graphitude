@@ -33,6 +33,16 @@ pub struct DroppableValue {
     dropped: bool,
 }
 
+impl DroppableValue {
+    #[allow(unused)]
+    pub fn id(&self) -> usize {
+        // Just return the address of self as a unique identifier.
+        // This is safe because we never dereference the pointer, and we only use it for testing.
+        let ptr = self as *const Self;
+        ptr as usize
+    }
+}
+
 impl Drop for DroppableValue {
     fn drop(&mut self) {
         assert!(!self.dropped, "DroppableValue was dropped more than once");
