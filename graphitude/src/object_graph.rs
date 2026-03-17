@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData, mem::transmute, ptr::NonNull};
+use std::{fmt::Debug, marker::PhantomData, mem::transmute};
 
 use derivative::Derivative;
 
@@ -20,7 +20,8 @@ use super::Graph;
     PartialOrd(bound = ""),
     Ord(bound = "")
 )]
-pub struct NodeId<'g, N>(NonNull<N>, PhantomData<&'g N>);
+#[repr(transparent)]
+pub struct NodeId<'d, N>(*const N, PhantomData<&'d N>);
 
 // SAFETY: NodeId is Send and Sync because it only contains a raw pointer and
 // PhantomData, and does not allow mutation of the underlying data.  It can only
@@ -29,18 +30,18 @@ pub struct NodeId<'g, N>(NonNull<N>, PhantomData<&'g N>);
 unsafe impl<N> Send for NodeId<'_, N> {}
 unsafe impl<N> Sync for NodeId<'_, N> {}
 
-impl<'a, N> NodeIdTrait for NodeId<'a, N> {}
+impl<'d, N> NodeIdTrait for NodeId<'d, N> {}
 
-impl<'a, N> From<&'a N> for NodeId<'a, N> {
-    fn from(v: &'a N) -> Self {
-        NodeId(NonNull::from(v), PhantomData)
+impl<'d, N> From<&'d N> for NodeId<'d, N> {
+    fn from(n: &'d N) -> Self {
+        NodeId(n as *const N, PhantomData)
     }
 }
 
 /// Edge identifier for [`ObjectGraph`].
 ///
 /// Represented as a tuple of source and target node IDs.
-pub type EdgeId<'g, N> = (NodeId<'g, N>, NodeId<'g, N>);
+pub type EdgeId<'d, N> = (NodeId<'d, N>, NodeId<'d, N>);
 
 /// A graph representation for traversing object graphs using a user-provided neighbor function.
 pub struct ObjectGraph<'a, N, F> {
@@ -71,13 +72,8 @@ where
     }
 
     /// Get the NodeId for a given node reference.
-    ///
-    /// # Safety
-    /// This function is unsafe because it creates a NodeId from a reference.
-    /// The caller must ensure that the reference is to a valid node in the
-    /// graph.
-    pub unsafe fn node_id(&self, v: &'a N) -> NodeId<'a, N> {
-        NodeId::from(v)
+    pub fn node_id(&self, n: &'a N) -> NodeId<'a, N> {
+        NodeId::from(n)
     }
 
     fn neighbors(&self, id: &NodeId<'a, N>) -> Vec<<Self as Graph>::NodeId> {
@@ -110,13 +106,14 @@ impl<'a, N: Debug> EdgeIdTrait for (NodeId<'a, N>, NodeId<'a, N>) {
     }
 }
 
+/// A graph implementions where nodes are objects of type `N` and edges are defined by a user-provided successor function `F`.
 impl<'d, N: Debug, F> Graph for ObjectGraph<'d, N, F>
 where
     F: Fn(&'d N) -> Vec<&'d N>,
 {
     type NodeId = NodeId<'d, N>;
     type NodeData = &'d N;
-    type EdgeId = (Self::NodeId, Self::NodeId);
+    type EdgeId = EdgeId<'d, N>;
     type EdgeData = ();
     type Directedness = Directed;
     type EdgeMultiplicity = MultipleEdges;
@@ -130,7 +127,9 @@ where
     }
 
     fn node_data(&self, id: &NodeId<N>) -> &<Self as Graph>::NodeData {
-        unsafe { transmute::<&NonNull<N>, &&'d N>(&id.0) }
+        // SAFETY: This works becuase *const N and &N have the same memory
+        // layout, and NodeId has #[repr(transparent)].
+        unsafe { transmute::<&*const N, &&'d N>(&id.0) }
     }
 
     fn edge_data(&self, (from, to): &<Self as Graph>::EdgeId) -> &<Self as Graph>::EdgeData {
@@ -237,9 +236,9 @@ mod tests {
         let graph = ObjectGraph::new(&node1, |node: &Node| node.neighbors.clone());
 
         let id1 = graph.roots().next().unwrap();
-        let id2 = unsafe { graph.node_id(&node2) };
-        let id3 = unsafe { graph.node_id(&node3) };
-        let id4 = unsafe { graph.node_id(&node4) };
+        let id2 = graph.node_id(&node2);
+        let id3 = graph.node_id(&node3);
+        let id4 = graph.node_id(&node4);
 
         let paths = graph.shortest_paths(&id1, |_| 1);
 

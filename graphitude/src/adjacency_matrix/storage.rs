@@ -33,7 +33,7 @@ impl CompactionCount for usize {
 /// Trait defining storage backend behavior for adjacency matrices.
 ///
 /// Implemented by [`BitvecStorage`] and [`HashStorage`] marker types.
-pub trait Storage {
+pub trait Storage: Clone + Debug + Default + Eq + Hash + PartialOrd + Ord + Send + Sync {
     #[allow(private_bounds)]
     type CompactionCount: CompactionCount;
 
@@ -44,6 +44,7 @@ pub trait Storage {
 
 /// Marker type for bitvec-based adjacency matrix storage.
 #[cfg(feature = "bitvec")]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct BitvecStorage;
 
 #[cfg(feature = "bitvec")]
@@ -59,6 +60,7 @@ impl Storage for BitvecStorage {
 }
 
 /// Marker type for hash-based adjacency matrix storage.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct HashStorage;
 
 impl Storage for HashStorage {

@@ -7,9 +7,12 @@ use std::{
 
 use derivative::Derivative;
 
-use crate::{EdgeIdTrait, directedness::DirectednessTrait, graph_id::GraphIdClone};
-
-use super::{Edge, NodeId};
+use crate::{
+    EdgeIdTrait,
+    directedness::DirectednessTrait,
+    graph_id::GraphIdClone,
+    linked_graph::{NodeId, graph_impl::Edge},
+};
 
 /// Edge identifier for [`LinkedGraph`](super::LinkedGraph).
 ///
@@ -38,7 +41,17 @@ impl<N, E, D: DirectednessTrait> Debug for EdgeId<N, E, D> {
 
 impl<N, E, D: DirectednessTrait> PartialEq for EdgeId<N, E, D> {
     fn eq(&self, other: &Self) -> bool {
-        self.ptr.as_ptr() == other.ptr.as_ptr()
+        if self.ptr.as_ptr() == other.ptr.as_ptr() {
+            debug_assert!(
+                self.graph_id == other.graph_id,
+                "EdgeIds with the same pointer but different graph IDs: {:?} and {:?}",
+                self,
+                other
+            );
+            true
+        } else {
+            false
+        }
     }
 }
 

@@ -151,15 +151,28 @@ impl<I, D> AddEdgeResult<I, D> {
 /// - [`Self::has_edge_from`]
 /// - [`Self::has_edge_into`]
 pub trait Graph {
+    /// The directedness of the graph.
     type Directedness: DirectednessTrait;
+
+    /// The edge multiplicity of the graph.
     type EdgeMultiplicity: EdgeMultiplicityTrait;
+
+    /// The data stored in each node of the graph.
     type NodeData;
-    type NodeId: NodeIdTrait;
+
+    /// The data stored in each edge of the graph.
     type EdgeData;
+
+    /// The type of the node identifiers used by the graph.
+    type NodeId: NodeIdTrait;
+
+    /// The type of the edge identifiers used by the graph.
     type EdgeId: EdgeIdTrait<NodeId = Self::NodeId, Directedness = Self::Directedness>;
 
+    /// The directedness of the graph.
     fn directedness(&self) -> Self::Directedness;
 
+    /// The edge multiplicity of the graph.
     fn edge_multiplicity(&self) -> Self::EdgeMultiplicity;
 
     /// Returns true if the graph is directed.
@@ -239,51 +252,11 @@ pub trait Graph {
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId>;
 
     /// Gets the data associated with a node.
-    fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData;
+    fn node_data<'a>(&'a self, id: &Self::NodeId) -> &'a Self::NodeData;
 
     /// Gets the number of nodes in the graph.
     fn num_nodes(&self) -> usize {
         self.node_ids().count()
-    }
-
-    /// Checks if a NodeId is valid in the graph, returning a reason if it is
-    /// not. This operation is potentially costly.
-    fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
-        if self.node_ids().any(|nid| &nid == id) {
-            Ok(())
-        } else {
-            Err("NodeId not found in graph")
-        }
-    }
-
-    /// Checks if a NodeId is valid in the graph to the extent that can be
-    /// determined without iterating over all nodes, returning a reason if it is
-    /// not.  This may return false positives for some graph implementations.
-    ///
-    /// By default, this method always returns Ok(()).
-    fn maybe_check_valid_node_id(&self, _id: &Self::NodeId) -> Result<(), &'static str> {
-        Ok(())
-    }
-
-    /// Panics if the given NodeId is not valid in the graph, according to
-    /// [`Self::maybe_check_valid_node_id`].
-    ///
-    /// It is recommended to call this method from implementations of other methods
-    /// that take NodeIds as parameters, to ensure that invalid NodeIds are
-    /// caught early.
-    fn assert_valid_node_id(&self, id: &Self::NodeId) {
-        if let Err(reason) = self.maybe_check_valid_node_id(id) {
-            panic!("Invalid NodeId: {:?}: {}", id, reason);
-        }
-    }
-
-    /// Panics if the given NodeId is not valid in the graph, according to
-    /// [`Self::maybe_check_valid_node_id`], but only in debug builds.
-    fn debug_assert_valid_node_id(&self, id: &Self::NodeId) {
-        #[cfg(debug_assertions)]
-        if let Err(reason) = self.maybe_check_valid_node_id(id) {
-            panic!("Invalid NodeId: {:?}: {}", id, reason);
-        }
     }
 
     /// Gets an iterator over the predecessors nodes of a given node, i.e.
@@ -325,7 +298,7 @@ pub trait Graph {
     // Edges
 
     /// Gets the data associated with an edge.
-    fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData;
+    fn edge_data<'a>(&'a self, id: &Self::EdgeId) -> &'a Self::EdgeData;
 
     /// Gets a vector of all edges in the graph.
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
@@ -628,10 +601,10 @@ pub trait GraphMut: Graph {
         Self: Sized;
 
     /// Gets a mutable reference to the data associated with a node.
-    fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData;
+    fn node_data_mut<'a>(&'a mut self, id: &'a Self::NodeId) -> &'a mut Self::NodeData;
 
     /// Gets a mutable reference to the data associated with an edge.
-    fn edge_data_mut(&mut self, id: &Self::EdgeId) -> &mut Self::EdgeData;
+    fn edge_data_mut<'a>(&'a mut self, id: &'a Self::EdgeId) -> &'a mut Self::EdgeData;
 
     /// Removes all nodes and edges from the graph.
     fn clear(&mut self) {

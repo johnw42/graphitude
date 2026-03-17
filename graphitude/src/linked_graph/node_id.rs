@@ -2,9 +2,7 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData, rc::Weak};
 
 use derivative::Derivative;
 
-use crate::{DirectednessTrait, graph_id::GraphIdClone};
-
-use super::Node;
+use crate::{DirectednessTrait, graph_id::GraphIdClone, linked_graph::graph_impl::Node};
 
 /// Node identifier for [`LinkedGraph`](super::LinkedGraph).
 ///
@@ -29,7 +27,17 @@ impl<N, E, D: DirectednessTrait> Debug for NodeId<N, E, D> {
 
 impl<N, E, D: DirectednessTrait> PartialEq for NodeId<N, E, D> {
     fn eq(&self, other: &Self) -> bool {
-        self.ptr.as_ptr() == other.ptr.as_ptr() && self.graph_id == other.graph_id
+        if self.ptr.as_ptr() == other.ptr.as_ptr() {
+            debug_assert!(
+                self.graph_id == other.graph_id,
+                "NodeIds with the same pointer but different graph IDs: {:?} and {:?}",
+                self,
+                other
+            );
+            true
+        } else {
+            false
+        }
     }
 }
 

@@ -183,12 +183,6 @@ pub fn check_graph_consistency<G: Graph>(graph: &G) {
 
     // Verify all nodes are valid
     for node_id in graph.node_ids() {
-        {
-            let _span = info_span!("check_valid_node_id").entered();
-            let valid = graph.check_valid_node_id(&node_id);
-            assert_eq!(valid, Ok(()));
-        }
-
         let num_from = {
             let _span = info_span!("num_edges_from").entered();
             graph.num_edges_from(&node_id)

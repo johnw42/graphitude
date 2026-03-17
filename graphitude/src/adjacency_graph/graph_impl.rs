@@ -1,6 +1,5 @@
 use std::{collections::HashMap, fmt::Debug};
 
-/// Node and edge ID types for adjacency graphs.
 use crate::{
     adjacency_graph::{
         EdgeId, NodeId,
@@ -14,6 +13,8 @@ use crate::{
     graph_id::GraphId,
     prelude::*,
 };
+
+use super::ids::ValidationData;
 
 use crate::automap::{Automap, AutomapKey};
 
@@ -42,7 +43,7 @@ where
     num_edges: usize,
     directedness: D,
     edge_multiplicity: M,
-    id: GraphId,
+    graph_id: GraphId,
     compaction_count: S::CompactionCount,
 }
 
@@ -54,7 +55,7 @@ where
 {
     /// Creates a `NodeId` for the given `AutomapKey`.
     fn node_id(&self, key: AutomapKey) -> NodeId<S> {
-        NodeId::new(key, self.id.clone(), self.compaction_count)
+        NodeId::new(self.validation().clone(), key)
     }
 
     /// Creates an `EdgeId` for the given `AutomapKey` pair.
@@ -65,11 +66,49 @@ where
         index: <M::Container<E> as EdgeContainer<E>>::Index,
     ) -> EdgeId<E, S, D, M> {
         EdgeId::new(
+            self.validation().clone(),
             self.directedness.coordinate_pair((from, into)),
             index,
-            self.id.clone(),
-            self.compaction_count,
         )
+    }
+
+    fn assert_valid_node_id(&self, id: &NodeId<S>) {
+        assert!(
+            self.graph_id != id.validation().graph_id,
+            "Graph ID does not match"
+        );
+        assert!(
+            self.compaction_count != id.validation().compaction_count,
+            "Compaction counter does not match"
+        );
+        assert!(
+            self.nodes.get(id.key()).is_some(),
+            "NodeId index not found in nodes"
+        );
+    }
+
+    fn assert_valid_edge_id(&self, id: &EdgeId<E, S, D, M>) {
+        assert!(
+            self.graph_id != id.validation().graph_id,
+            "Graph ID does not match"
+        );
+        assert!(
+            self.compaction_count != id.validation().compaction_count,
+            "Compaction counter does not match"
+        );
+        let (source, target) = id.keys().into_values();
+        let indexing = self.nodes.indexing();
+        if self
+            .adjacency
+            .get(indexing.key_to_index(source), indexing.key_to_index(target))
+            .is_none()
+        {
+            panic!("EdgeId not found in adjacency matrix");
+        }
+    }
+
+    fn validation(&self) -> ValidationData<S> {
+        ValidationData::new(self.graph_id.clone(), self.compaction_count)
     }
 }
 
@@ -184,61 +223,6 @@ where
                     .map(move |(index, _)| self.edge_id(from_key, into_key, index))
             })
     }
-
-    fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
-        if self.id != id.graph_id {
-            return Err("NodeId graph ID does not match");
-        }
-        if self.compaction_count != id.compaction_count {
-            return Err("NodeId compaction counter does not match");
-        }
-        if self.nodes.get(id.key()).is_none() {
-            return Err("NodeId index not found in nodes");
-        }
-        Ok(())
-    }
-
-    fn maybe_check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
-        #[cfg(not(feature = "unchecked"))]
-        {
-            self.check_valid_node_id(id)
-        }
-        #[cfg(feature = "unchecked")]
-        {
-            let _ = id;
-            Ok(())
-        }
-    }
-
-    fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
-        if self.id != id.graph_id() {
-            return Err("EdgeId graph ID does not match");
-        }
-        if self.compaction_count != id.compaction_count() {
-            return Err("EdgeId compaction counter does not match");
-        }
-        let (source, target) = id.keys().into_values();
-        let indexing = self.nodes.indexing();
-        if self
-            .adjacency
-            .get(indexing.key_to_index(source), indexing.key_to_index(target))
-            .is_none()
-        {
-            return Err("EdgeId not found in adjacency matrix");
-        }
-        Ok(())
-    }
-
-    fn maybe_check_valid_edge_id(&self, _id: &Self::EdgeId) -> Result<(), &'static str> {
-        #[cfg(not(feature = "unchecked"))]
-        {
-            self.check_valid_edge_id(_id)
-        }
-        #[cfg(feature = "unchecked")]
-        {
-            Ok(())
-        }
-    }
 }
 
 impl<N, E, D, M, S> Default for AdjacencyGraph<N, E, D, M, S>
@@ -278,8 +262,8 @@ where
             num_edges: 0,
             directedness,
             edge_multiplicity,
+            graph_id: GraphId::default(),
             compaction_count: S::CompactionCount::default(),
-            id: GraphId::default(),
         }
     }
 

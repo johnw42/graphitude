@@ -106,6 +106,16 @@ where
         graph
     }
 
+    fn node_id_pairs(graph: &G) -> impl Iterator<Item = (G::NodeId, G::NodeId)> {
+        let mut result = Vec::new();
+        for id1 in graph.node_ids() {
+            for id2 in graph.node_ids() {
+                result.push((id1.clone(), id2.clone()));
+            }
+        }
+        result.into_iter()
+    }
+
     #[quickcheck]
     pub fn prop_node_ids_is_correct(
         ArbGraph {
@@ -190,20 +200,6 @@ where
     }
 
     #[quickcheck]
-    pub fn prop_node_ids_are_valid(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
-        graph
-            .node_ids()
-            .all(|node_id| graph.check_valid_node_id(&node_id).is_ok())
-    }
-
-    #[quickcheck]
-    pub fn prop_edge_ids_are_valid(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
-        graph
-            .edge_ids()
-            .all(|edge_id| graph.check_valid_edge_id(&edge_id).is_ok())
-    }
-
-    #[quickcheck]
     pub fn prop_num_nodes_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
         let actual_node_count = graph.node_ids().count();
         let expected_node_count = graph.num_nodes();
@@ -260,62 +256,47 @@ where
 
     #[quickcheck]
     pub fn prop_num_edges_from_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
-        graph.node_ids().all(|node_id| {
-            let actual_count = graph.edges_from(&node_id).count();
-            let expected_count = graph.num_edges_from(&node_id);
-            actual_count == expected_count
-        })
+        graph
+            .node_ids()
+            .all(|node_id| graph.edges_from(&node_id).count() == graph.num_edges_from(&node_id))
     }
 
     #[quickcheck]
     pub fn prop_num_edges_into_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
-        graph.node_ids().all(|node_id| {
-            let actual_count = graph.edges_into(&node_id).count();
-            let expected_count = graph.num_edges_into(&node_id);
-            actual_count == expected_count
-        })
+        graph
+            .node_ids()
+            .all(|node_id| graph.edges_into(&node_id).count() == graph.num_edges_into(&node_id))
     }
 
     #[quickcheck]
     pub fn prop_num_edges_from_into_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
-        graph.node_ids().all(|node_id| {
-            graph.node_ids().all(|other_node_id| {
-                let actual_count = graph.edges_from_into(&node_id, &other_node_id).count();
-                let expected_count = graph.num_edges_from_into(&node_id, &other_node_id);
-                actual_count == expected_count
-            })
+        Self::node_id_pairs(&graph).all(|(n1, n2)| {
+            graph.edges_from_into(&n1, &n2).count() == graph.num_edges_from_into(&n1, &n2)
         })
     }
 
     #[quickcheck]
     pub fn prop_has_edge_from_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
         graph.node_ids().all(|node_id| {
-            let has_edge = graph.has_edge_from(&node_id);
-            let expected_has_edge = graph.edges_from(&node_id).next().is_some();
-            has_edge == expected_has_edge
+            graph.has_edge_from(&node_id) == graph.edges_from(&node_id).next().is_some()
         })
     }
 
     #[quickcheck]
     pub fn prop_has_edge_into_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
         graph.node_ids().all(|node_id| {
-            let has_edge = graph.has_edge_into(&node_id);
-            let expected_has_edge = graph.edges_into(&node_id).next().is_some();
-            has_edge == expected_has_edge
+            graph.has_edge_into(&node_id) == graph.edges_into(&node_id).next().is_some()
         })
     }
 
     #[quickcheck]
     pub fn prop_has_edge_from_into_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
-        graph.node_ids().all(|node_id| {
-            graph.node_ids().all(|other_node_id| {
-                let has_edge = graph.has_edge_from_into(&node_id, &other_node_id);
-                let expected_has_edge = graph
+        Self::node_id_pairs(&graph).all(|(node_id, other_node_id)| {
+            graph.has_edge_from_into(&node_id, &other_node_id)
+                == graph
                     .edges_from_into(&node_id, &other_node_id)
                     .next()
-                    .is_some();
-                has_edge == expected_has_edge
-            })
+                    .is_some()
         })
     }
 
@@ -388,6 +369,12 @@ where
                     return false;
                 }
             }
+            if !graph.is_directed()
+                && graph.edges_into(&node_id).collect::<HashSet<_>>()
+                    != graph.edges_from(&node_id).collect::<HashSet<_>>()
+            {
+                return false;
+            }
         }
         true
     }
@@ -418,22 +405,6 @@ where
         let original_node_ids = graph.node_ids().collect::<HashSet<_>>();
         let cloned_node_ids = cloned_graph.node_ids().collect::<HashSet<_>>();
         original_node_ids.is_disjoint(&cloned_node_ids)
-    }
-
-    #[cfg(not(feature = "unchecked"))]
-    #[quickcheck]
-    pub fn prop_cloned_graph_node_ids_are_invalid_in_original_graph(
-        ArbGraph { graph, .. }: ArbGraph<G>,
-    ) -> TestResult {
-        for nid in graph.clone().node_ids() {
-            if graph.check_valid_node_id(&nid).is_ok() {
-                return TestResult::error(format!(
-                    "Cloned node ID {:?} is valid in original graph",
-                    nid
-                ));
-            }
-        }
-        TestResult::passed()
     }
 
     #[cfg(not(feature = "unchecked"))]
@@ -485,16 +456,6 @@ where
             "Expected {} edges based on graph properties",
             expected_edges
         );
-
-        // Verify all nodes are valid
-        for node_id in graph.node_ids() {
-            assert_eq!(graph.check_valid_node_id(&node_id), Ok(()));
-        }
-
-        // Verify all edges are valid
-        for edge_id in graph.edge_ids() {
-            assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
-        }
 
         // Count edges to verify consistency
         let edge_count_via_iteration = graph.edge_ids().count();

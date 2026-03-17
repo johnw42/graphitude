@@ -10,29 +10,19 @@ use crate::{
     graph_id::GraphIdClone,
 };
 
-#[derive(Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    Hash(bound = "T: Hash"),
-    // Comparing the graph_id and compaction_count is unfortunate, because
-    // it changes the semantics of equality based on whether error checking
-    // is enabled.  Ideally, we'd like to just assert they're equal,
-    // but that would break the way hash data structures work.
-    PartialEq(bound = "T: PartialEq"),
-    Eq(bound = "T: Eq"),
-    PartialOrd(bound = "T: Ord"),
-    Ord(bound = "T: Ord")
-)]
-pub struct NodeIdOrEdgeId<S: Storage, T: Clone> {
-    payload: T,
+// Comparing the graph_id and compaction_count is unfortunate, because
+// it changes the semantics of equality based on whether error checking
+// is enabled.  Ideally, we'd like to just assert they're equal,
+// but that would break the way hash data structures work.
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ValidationData<S: Storage> {
     pub compaction_count: S::CompactionCount,
     pub graph_id: GraphIdClone,
 }
 
-impl<S: Storage, T: Clone> NodeIdOrEdgeId<S, T> {
-    pub fn new(payload: T, graph_id: GraphIdClone, compaction_count: S::CompactionCount) -> Self {
+impl<S: Storage> ValidationData<S> {
+    pub fn new(graph_id: GraphIdClone, compaction_count: S::CompactionCount) -> Self {
         Self {
-            payload,
             compaction_count,
             graph_id,
         }
@@ -44,14 +34,37 @@ impl<S: Storage, T: Clone> NodeIdOrEdgeId<S, T> {
     }
 }
 
-pub type NodeId<S> = NodeIdOrEdgeId<S, AutomapKey>;
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NodeId<S: Storage> {
+    validation: ValidationData<S>,
+    key: AutomapKey,
+}
+
+impl<S: Storage> NodeId<S> {
+    pub fn new(validation: ValidationData<S>, key: AutomapKey) -> Self {
+        Self { validation, key }
+    }
+
+    pub fn validation(&self) -> &ValidationData<S> {
+        &self.validation
+    }
+
+    pub fn key(&self) -> AutomapKey {
+        self.key
+    }
+
+    pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
+        self.validation = self.validation.with_compaction_count(compaction_count);
+        self
+    }
+}
 
 #[derive(Derivative)]
 #[derivative(
     Clone(bound = ""),
+    Hash(bound = ""),
     PartialEq(bound = ""),
     Eq(bound = ""),
-    Hash(bound = ""),
     PartialOrd(bound = ""),
     Ord(bound = "")
 )]
@@ -61,7 +74,8 @@ where
     D: DirectednessTrait + Default,
     M: EdgeContainerSelector,
 {
-    inner: NodeIdOrEdgeId<S, CoordinatePair<AutomapKey, D>>,
+    validation: ValidationData<S>,
+    key: CoordinatePair<AutomapKey, D>,
     index: <M::Container<E> as EdgeContainer<E>>::Index,
     directedness: D,
     edge_multiplicity: M,
@@ -74,34 +88,30 @@ where
     M: EdgeContainerSelector,
 {
     pub fn new(
-        payload: CoordinatePair<AutomapKey, D>,
+        validation: ValidationData<S>,
+        key: CoordinatePair<AutomapKey, D>,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
-        graph_id: GraphIdClone,
-        compaction_count: S::CompactionCount,
     ) -> Self {
         Self {
-            inner: NodeIdOrEdgeId::new(payload, graph_id, compaction_count),
+            validation,
+            key,
             index,
             directedness: D::default(),
             edge_multiplicity: M::default(),
         }
     }
 
+    pub fn validation(&self) -> &ValidationData<S> {
+        &self.validation
+    }
+
     pub fn keys(&self) -> CoordinatePair<AutomapKey, D> {
-        self.inner.payload.clone()
+        self.key.clone()
     }
 
     pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
-        self.inner = self.inner.with_compaction_count(compaction_count);
+        self.validation = self.validation.with_compaction_count(compaction_count);
         self
-    }
-
-    pub fn compaction_count(&self) -> S::CompactionCount {
-        self.inner.compaction_count
-    }
-
-    pub fn graph_id(&self) -> GraphIdClone {
-        self.inner.graph_id
     }
 
     pub fn index(&self) -> <M::Container<E> as EdgeContainer<E>>::Index {
@@ -111,15 +121,9 @@ where
 
 impl<S: Storage> NodeIdTrait for NodeId<S> {}
 
-impl<S: Storage> NodeId<S> {
-    pub fn key(&self) -> AutomapKey {
-        self.payload
-    }
-}
-
 impl<S: Storage> Debug for NodeId<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NodeId({:?})", self.payload)
+        write!(f, "NodeId({:?})", self.key)
     }
 }
 
@@ -137,19 +141,11 @@ where
     }
 
     fn left(&self) -> NodeId<S> {
-        NodeId::new(
-            *self.inner.payload.first(),
-            self.inner.graph_id,
-            self.inner.compaction_count,
-        )
+        NodeId::new(self.validation.clone(), *self.key.first())
     }
 
     fn right(&self) -> NodeId<S> {
-        NodeId::new(
-            *self.inner.payload.second(),
-            self.inner.graph_id,
-            self.inner.compaction_count,
-        )
+        NodeId::new(self.validation.clone(), *self.key.second())
     }
 }
 
@@ -164,7 +160,7 @@ where
         write!(
             f,
             "EdgeId({:?}, {:?}, {:?})",
-            from, into, self.inner.graph_id
+            from, into, self.validation.graph_id
         )
     }
 }
