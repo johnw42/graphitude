@@ -19,8 +19,14 @@ use syn::{Data, DeriveInput, Fields, parse_macro_input};
 /// impl TryFrom<Directedness> for Directed    { … }
 /// ```
 ///
+/// ## Options
+///
+/// `#[as_enum(arbitrary)]` — also implements `quickcheck::Arbitrary` for the
+/// enum and each generated unit struct (requires `quickcheck` in the user's
+/// crate).
+///
 /// The macro only accepts enums whose every variant carries no data.
-#[proc_macro_derive(AsEnum)]
+#[proc_macro_derive(AsEnum, attributes(as_enum))]
 pub fn derive_as_enum(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     expand(input)
@@ -31,6 +37,21 @@ pub fn derive_as_enum(input: TokenStream) -> TokenStream {
 fn expand(input: DeriveInput) -> Result<TokenStream2, syn::Error> {
     let enum_name = &input.ident;
     let vis = &input.vis;
+
+    // Parse #[as_enum(...)] options.
+    let mut gen_arbitrary = false;
+    for attr in &input.attrs {
+        if attr.path().is_ident("as_enum") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("arbitrary") {
+                    gen_arbitrary = true;
+                    Ok(())
+                } else {
+                    Err(meta.error("unknown as_enum option"))
+                }
+            })?;
+        }
+    }
 
     let variants = match &input.data {
         Data::Enum(data) => &data.variants,
@@ -53,6 +74,7 @@ fn expand(input: DeriveInput) -> Result<TokenStream2, syn::Error> {
     }
 
     let variant_idents: Vec<_> = variants.iter().map(|v| &v.ident).collect();
+    let n = variant_idents.len();
 
     // impl AsEnum<Enum> for Enum  (the enum itself is also AsEnum)
     let enum_impl = quote! {
@@ -63,10 +85,41 @@ fn expand(input: DeriveInput) -> Result<TokenStream2, syn::Error> {
         }
     };
 
-    // For each variant: struct + four impls
+    // Optional: impl quickcheck::Arbitrary for the enum.
+    let enum_arbitrary = if gen_arbitrary {
+        let arms = variant_idents.iter().enumerate().map(|(i, variant)| {
+            quote! { #i => #enum_name::#variant }
+        });
+        quote! {
+            impl ::quickcheck::Arbitrary for #enum_name {
+                fn arbitrary(g: &mut ::quickcheck::Gen) -> Self {
+                    match <usize as ::quickcheck::Arbitrary>::arbitrary(g) % #n {
+                        #(#arms,)*
+                        _ => unreachable!(),
+                    }
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    // For each variant: struct + four impls + optional Arbitrary.
     let variant_items: TokenStream2 = variant_idents
         .iter()
         .map(|variant| {
+            let arbitrary_impl = if gen_arbitrary {
+                quote! {
+                    impl ::quickcheck::Arbitrary for #variant {
+                        fn arbitrary(_g: &mut ::quickcheck::Gen) -> Self {
+                            #variant
+                        }
+                    }
+                }
+            } else {
+                quote! {}
+            };
+
             quote! {
                 #[derive(Clone, Copy, Default, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
                 #vis struct #variant;
@@ -93,12 +146,15 @@ fn expand(input: DeriveInput) -> Result<TokenStream2, syn::Error> {
                         }
                     }
                 }
+
+                #arbitrary_impl
             }
         })
         .collect();
 
     Ok(quote! {
         #enum_impl
+        #enum_arbitrary
         #variant_items
     })
 }

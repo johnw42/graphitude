@@ -7,3 +7,6 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 as_enum_derive = { path = "../as_enum_derive" }
+
+[dev-dependencies]
+quickcheck = "1.0"
