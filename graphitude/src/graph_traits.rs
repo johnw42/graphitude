@@ -14,6 +14,7 @@ use crate::{
     path::Path,
     prelude::*,
     search::{BfsIterator, BfsIteratorWithPaths, DfsIterator, DfsIteratorWithPaths},
+    util::other_value,
 };
 
 /// A trait representing a node identifier in a graph.
@@ -64,17 +65,7 @@ pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
     /// ends of the edge, then the same node ID is returned.  Panics if the given
     /// node ID is not one of the ends of the edge.
     fn other_end(&self, node: &Self::NodeId) -> Self::NodeId {
-        let (n1, n2) = self.ends();
-        if *node == n1 {
-            n2
-        } else if *node == n2 {
-            n1
-        } else {
-            panic!(
-                "Node {:?} is not an end of edge with ends {:?} and {:?}",
-                node, n1, n2
-            );
-        }
+        other_value(self.ends(), node).into_inner()
     }
 
     /// Tests if the edge has the given node as one of its ends.

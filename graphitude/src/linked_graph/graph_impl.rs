@@ -370,7 +370,9 @@ where
         }
 
         Rc::into_inner(node)
-            .expect("Node has multiple references")
+            // This step will always succeed because there are no other strong
+            // reference to the node.
+            .unwrap()
             .data
             .into_inner()
     }
