@@ -1,0 +1,9 @@
+[package]
+name = "as_enum"
+version.workspace = true
+edition.workspace = true
+description = "AsEnum<T> trait and derive macro for data-free enums."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+as_enum_derive = { path = "../as_enum_derive" }
