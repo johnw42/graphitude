@@ -16,6 +16,7 @@ tracing-subscriber = { version = "0.3", features = [
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 test_suite_macro = { path = "../test_suite_macro" }
+as_enum = { path = "../as_enum" }
 
 [dev-dependencies]
 clap = { version = "4.5.59", features = [

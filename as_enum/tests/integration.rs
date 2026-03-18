@@ -2,6 +2,7 @@ use as_enum::AsEnum;
 use as_enum::AsEnum as AsEnumDerive;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, AsEnumDerive)]
+#[as_enum(arbitrary)]
 pub enum Directedness {
     Directed,
     Undirected,
@@ -36,4 +37,19 @@ fn try_from_impls() {
         Ok(Undirected)
     );
     assert_eq!(Undirected::try_from(Directedness::Directed), Err(()));
+}
+
+#[test]
+fn arbitrary_enum_stays_in_range() {
+    let mut g = quickcheck::Gen::new(100);
+    for _ in 0..200 {
+        let _: Directedness = quickcheck::Arbitrary::arbitrary(&mut g);
+    }
+}
+
+#[test]
+fn arbitrary_struct_variants() {
+    let mut g = quickcheck::Gen::new(100);
+    let _: Directed = quickcheck::Arbitrary::arbitrary(&mut g);
+    let _: Undirected = quickcheck::Arbitrary::arbitrary(&mut g);
 }

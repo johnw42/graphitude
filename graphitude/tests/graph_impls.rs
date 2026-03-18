@@ -49,11 +49,11 @@ mod linked {
 }
 
 mod adjacency {
+    use graphitude::graph_test_suite;
     use graphitude::{
-        BitvecStorage, HashStorage, Storage, adjacency_graph::AdjacencyGraph,
-        graph_tests::GraphTests, prelude::*,
+        BitvecStorage, HashStorage, adjacency_graph::AdjacencyGraph, graph_tests::GraphTests,
+        prelude::*,
     };
-    use graphitude::{adjacency_graph::edge_container::EdgeContainerSelector, graph_test_suite};
 
     // macro_rules! graph_test_suite_with_compaction {
     //     ($mod_name:ident, $builder_type:ty) => {

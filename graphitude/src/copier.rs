@@ -265,7 +265,10 @@ where
         NM: IntoHashMapRef<'g, G::NodeId, T::NodeId>,
         EM: IntoHashMapRef<'g, G::EdgeId, T::EdgeId>,
     {
-        let mut target = T::new(self.directedness.into(), self.edge_multiplicity.into());
+        let mut target = T::new(
+            T::Directedness::from(self.directedness),
+            T::EdgeMultiplicity::from(self.edge_multiplicity),
+        );
         self.copy_into(&mut target);
         target
     }
