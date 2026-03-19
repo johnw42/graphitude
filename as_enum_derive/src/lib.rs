@@ -21,12 +21,12 @@ use syn::{Data, DeriveInput, Fields, parse_macro_input};
 ///
 /// ## Options
 ///
-/// `#[as_enum(arbitrary)]` — also implements `quickcheck::Arbitrary` for the
+/// `#[AsEnum(arbitrary)]` — also implements `quickcheck::Arbitrary` for the
 /// enum and each generated unit struct (requires `quickcheck` in the user's
 /// crate).
 ///
 /// The macro only accepts enums whose every variant carries no data.
-#[proc_macro_derive(AsEnum, attributes(as_enum))]
+#[proc_macro_derive(AsEnum, attributes(AsEnum))]
 pub fn derive_as_enum(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     expand(input)
@@ -38,16 +38,16 @@ fn expand(input: DeriveInput) -> Result<TokenStream2, syn::Error> {
     let enum_name = &input.ident;
     let vis = &input.vis;
 
-    // Parse #[as_enum(...)] options.
+    // Parse #[AsEnum(...)] options.
     let mut gen_arbitrary = false;
     for attr in &input.attrs {
-        if attr.path().is_ident("as_enum") {
+        if attr.path().is_ident("AsEnum") {
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("arbitrary") {
                     gen_arbitrary = true;
                     Ok(())
                 } else {
-                    Err(meta.error("unknown as_enum option"))
+                    Err(meta.error("unknown AsEnum option"))
                 }
             })?;
         }

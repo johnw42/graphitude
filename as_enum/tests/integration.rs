@@ -2,7 +2,7 @@ use as_enum::AsEnum;
 use as_enum::AsEnum as AsEnumDerive;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, AsEnumDerive)]
-#[as_enum(arbitrary)]
+#[AsEnum(arbitrary)]
 pub enum Directedness {
     Directed,
     Undirected,

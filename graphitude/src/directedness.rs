@@ -6,7 +6,7 @@ use quickcheck::Arbitrary;
 use crate::{coordinate_pair::CoordinatePair, util::sort_pair_if};
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, AsEnum)]
-#[as_enum(arbitrary)]
+#[AsEnum(arbitrary)]
 pub enum Directedness {
     Directed,
     Undirected,

@@ -5,7 +5,7 @@ use quickcheck::Arbitrary;
 
 /// Enum representing the edge multiplicity of a graph.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, AsEnum)]
-#[as_enum(arbitrary)]
+#[AsEnum(arbitrary)]
 pub enum EdgeMultiplicity {
     SingleEdge,
     MultipleEdges,
