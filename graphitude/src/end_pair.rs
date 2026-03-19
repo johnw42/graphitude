@@ -3,8 +3,8 @@ use std::{fmt::Debug, hash::Hash};
 use derivative::Derivative;
 
 use crate::{
-    DirectednessTrait,
-    util::{OtherValue, other_value, sort_pair},
+    DirectednessTrait, Undirected,
+    util::{OtherValue, other_value, other_value_ref, sort_pair},
 };
 
 #[derive(Derivative)]
@@ -17,12 +17,12 @@ use crate::{
     Ord(bound = "T: Ord"),
     PartialOrd(bound = "T: PartialOrd")
 )]
-pub struct CoordinatePair<T, D: DirectednessTrait> {
+pub struct EndPair<T, D: DirectednessTrait> {
     data: (T, T),
     directedness: D,
 }
 
-impl<T, D> CoordinatePair<T, D>
+impl<T, D> EndPair<T, D>
 where
     D: DirectednessTrait,
 {
@@ -54,11 +54,11 @@ where
         self.directedness
     }
 
-    pub fn first(&self) -> &T {
+    pub fn left(&self) -> &T {
         self.values().0
     }
 
-    pub fn second(&self) -> &T {
+    pub fn right(&self) -> &T {
         self.values().1
     }
 
@@ -66,11 +66,11 @@ where
         (&self.data.0, &self.data.1)
     }
 
-    pub fn into_first(self) -> T {
+    pub fn into_left(self) -> T {
         self.into_values().0
     }
 
-    pub fn into_second(self) -> T {
+    pub fn into_right(self) -> T {
         self.into_values().1
     }
 
@@ -78,30 +78,33 @@ where
         self.data
     }
 
-    pub fn has_both(&self, a: &T, b: &T) -> bool
-    where
-        T: Eq,
-    {
-        (self.first() == a && self.second() == b)
-            || (!self.directedness().is_directed() && self.first() == b && self.second() == a)
-    }
-
     pub fn other_value<'a: 'b, 'b>(&'a self, value: &'b T) -> OtherValue<&'b T>
     where
         T: Eq,
     {
-        other_value(self.values(), &value)
+        let (left, right) = self.values();
+        other_value_ref(left, right, &value)
     }
 
     pub fn into_other_value(self, value: &T) -> OtherValue<T>
     where
         T: Eq,
     {
-        other_value(self.into_values(), value)
+        let (left, right) = self.into_values();
+        other_value(left, right, value)
+    }
+
+    pub fn into_sorted(self) -> EndPair<T, Undirected>
+    where
+        T: Ord + Clone,
+        D: Default,
+    {
+        let (left, right) = self.into_values();
+        EndPair::new(left, right, Undirected)
     }
 }
 
-impl<T: Ord, D: DirectednessTrait + Default> From<(T, T)> for CoordinatePair<T, D> {
+impl<T: Ord, D: DirectednessTrait + Default> From<(T, T)> for EndPair<T, D> {
     fn from((a, b): (T, T)) -> Self {
         Self::new(a, b, D::default())
     }

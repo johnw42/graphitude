@@ -10,6 +10,7 @@ use derivative::Derivative;
 use crate::{
     EdgeIdTrait,
     directedness::DirectednessTrait,
+    end_pair::EndPair,
     graph_id::GraphIdClone,
     linked_graph::{NodeId, graph_impl::Edge},
 };
@@ -79,6 +80,10 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
     type NodeId = NodeId<N, E, D>;
     type Directedness = D;
 
+    fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness> {
+        EndPair::new(self.left(), self.right(), self.directedness)
+    }
+
     fn directedness(&self) -> Self::Directedness {
         self.directedness
     }
@@ -90,7 +95,7 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
                 ptr: Rc::downgrade(
                     &edge
                         .ends
-                        .first()
+                        .left()
                         .ptr
                         .upgrade()
                         .expect("Source node dangling"),
@@ -108,7 +113,7 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
                 ptr: Rc::downgrade(
                     &edge
                         .ends
-                        .second()
+                        .right()
                         .ptr
                         .upgrade()
                         .expect("Target node dangling"),

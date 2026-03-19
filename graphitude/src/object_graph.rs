@@ -2,7 +2,7 @@ use std::{fmt::Debug, marker::PhantomData, mem::transmute};
 
 use derivative::Derivative;
 
-use crate::{EdgeIdTrait, MultipleEdges, NodeIdTrait, directedness::Directed};
+use crate::{EdgeIdTrait, MultipleEdges, NodeIdTrait, directedness::Directed, end_pair::EndPair};
 
 use super::Graph;
 
@@ -103,6 +103,10 @@ impl<'a, N: Debug> EdgeIdTrait for (NodeId<'a, N>, NodeId<'a, N>) {
 
     fn right(&self) -> NodeId<'a, N> {
         self.1
+    }
+
+    fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness> {
+        todo!()
     }
 }
 

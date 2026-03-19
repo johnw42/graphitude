@@ -3,7 +3,7 @@ use std::{fmt::Debug, hash::Hash};
 use as_enum::AsEnum;
 use quickcheck::Arbitrary;
 
-use crate::{coordinate_pair::CoordinatePair, util::sort_pair_if};
+use crate::{end_pair::EndPair, util::sort_pair_if};
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, AsEnum)]
 #[AsEnum(arbitrary)]
@@ -26,8 +26,8 @@ pub trait DirectednessTrait: AsEnum<Directedness> + Arbitrary {
         sort_pair_if(!self.is_directed(), pair)
     }
 
-    fn coordinate_pair<T: Ord>(&self, (first, second): (T, T)) -> CoordinatePair<T, Self> {
-        CoordinatePair::new(first, second, *self)
+    fn coordinate_pair<T: Ord>(&self, (first, second): (T, T)) -> EndPair<T, Self> {
+        EndPair::new(first, second, *self)
     }
 }
 

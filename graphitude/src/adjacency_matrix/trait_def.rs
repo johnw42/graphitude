@@ -1,6 +1,6 @@
-use crate::{DirectednessTrait, Storage, coordinate_pair::CoordinatePair};
+use crate::{DirectednessTrait, Storage, end_pair::EndPair};
 
-type Pair<M> = CoordinatePair<usize, <M as AdjacencyMatrix>::Directedness>;
+type Pair<M> = EndPair<usize, <M as AdjacencyMatrix>::Directedness>;
 
 /// Trait for adjacency matrix data structures.
 ///

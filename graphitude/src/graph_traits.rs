@@ -11,6 +11,7 @@ use {
 
 use crate::{
     debug_graph_view::DebugGraphView,
+    end_pair::EndPair,
     path::Path,
     prelude::*,
     search::{BfsIterator, BfsIteratorWithPaths, DfsIterator, DfsIteratorWithPaths},
@@ -33,6 +34,8 @@ pub trait NodeIdTrait: Eq + Hash + Clone + Debug + Ord + Send + Sync {}
 pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
     type NodeId: NodeIdTrait;
     type Directedness: DirectednessTrait;
+
+    fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness>;
 
     /// Gets the directedness of the edge, which will match the directedness of
     /// the graph it belongs to.
@@ -65,7 +68,8 @@ pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
     /// ends of the edge, then the same node ID is returned.  Panics if the given
     /// node ID is not one of the ends of the edge.
     fn other_end(&self, node: &Self::NodeId) -> Self::NodeId {
-        other_value(self.ends(), node).into_inner()
+        let (n1, n2) = self.ends();
+        other_value(n1, n2, node).into_inner()
     }
 
     /// Tests if the edge has the given node as one of its ends.

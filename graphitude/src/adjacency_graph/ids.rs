@@ -6,7 +6,7 @@ use crate::{
     DirectednessTrait, EdgeIdTrait, NodeIdTrait, Storage,
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
     automap::AutomapKey,
-    coordinate_pair::CoordinatePair,
+    end_pair::EndPair,
     graph_id::GraphIdClone,
 };
 
@@ -75,7 +75,7 @@ where
     M: EdgeContainerSelector,
 {
     validation: ValidationData<S>,
-    key: CoordinatePair<AutomapKey, D>,
+    key: EndPair<AutomapKey, D>,
     index: <M::Container<E> as EdgeContainer<E>>::Index,
     directedness: D,
     edge_multiplicity: M,
@@ -89,7 +89,7 @@ where
 {
     pub fn new(
         validation: ValidationData<S>,
-        key: CoordinatePair<AutomapKey, D>,
+        key: EndPair<AutomapKey, D>,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
     ) -> Self {
         Self {
@@ -105,7 +105,7 @@ where
         &self.validation
     }
 
-    pub fn keys(&self) -> CoordinatePair<AutomapKey, D> {
+    pub fn keys(&self) -> EndPair<AutomapKey, D> {
         self.key.clone()
     }
 
@@ -136,16 +136,20 @@ where
     type NodeId = NodeId<S>;
     type Directedness = D;
 
+    fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness> {
+        EndPair::new(self.left(), self.right(), self.directedness)
+    }
+
     fn directedness(&self) -> Self::Directedness {
         self.directedness
     }
 
     fn left(&self) -> NodeId<S> {
-        NodeId::new(self.validation.clone(), *self.key.first())
+        NodeId::new(self.validation.clone(), *self.key.left())
     }
 
     fn right(&self) -> NodeId<S> {
-        NodeId::new(self.validation.clone(), *self.key.second())
+        NodeId::new(self.validation.clone(), *self.key.right())
     }
 }
 

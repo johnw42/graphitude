@@ -62,33 +62,34 @@ impl<T> OtherValue<T> {
 /// # Panics
 ///
 /// Panics if the target doesn't match either of the two values.
-pub fn other_value<T: Eq>((a, b): (T, T), target: &T) -> OtherValue<T> {
-    if a == *target {
-        if b == *target {
-            OtherValue::Both(b)
+pub fn other_value<T: Eq>(first: T, second: T, target: &T) -> OtherValue<T> {
+    if first == *target {
+        if second == *target {
+            OtherValue::Both(second)
         } else {
-            OtherValue::Second(b)
+            OtherValue::Second(second)
         }
-    } else if b == *target {
-        OtherValue::First(a)
+    } else if second == *target {
+        OtherValue::First(first)
     } else {
         panic!("Neither value matches the target");
     }
 }
 
-#[macro_export]
-macro_rules! static_dynamic_enum {
-    ($vis:vis trait $static_trait:ident : $trait:ident { $($member:tt)* }; $vis2:vis enum $name:ident { $($value:ident),+ $(,)?}) => {
-        $vis trait $static_trait: $trait { $($member)* }
-
-        #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-        $vis enum $name {
-            $($value),+
+pub fn other_value_ref<'a, 'b, T: Eq>(
+    first: &'a T,
+    second: &'a T,
+    target: &'b T,
+) -> OtherValue<&'a T> {
+    if first == target {
+        if second == target {
+            OtherValue::Both(second)
+        } else {
+            OtherValue::Second(second)
         }
-
-        $(
-            #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-            $vis struct $value;
-        )+
-    };
+    } else if second == target {
+        OtherValue::First(first)
+    } else {
+        panic!("Neither value matches the target");
+    }
 }

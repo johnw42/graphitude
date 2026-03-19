@@ -7,10 +7,10 @@ use std::{
 };
 
 use crate::{
-    coordinate_pair::CoordinatePair,
     copier::GraphCopier,
     directedness::Directedness,
     edge_multiplicity::EdgeMultiplicity,
+    end_pair::EndPair,
     format_debug::format_debug,
     graph_id::GraphId,
     graph_traits::AddEdgeResult,
@@ -32,7 +32,7 @@ pub(super) struct Node<N, E, D: DirectednessTrait> {
 
 pub(super) struct Edge<N, E, D: DirectednessTrait> {
     pub(super) data: UnsafeCell<E>,
-    pub(super) ends: CoordinatePair<NodeId<N, E, D>, D>,
+    pub(super) ends: EndPair<NodeId<N, E, D>, D>,
     pub(super) directedness: PhantomData<D>,
 }
 
@@ -40,7 +40,7 @@ impl<N, E, D: DirectednessTrait> Edge<N, E, D> {
     fn new(data: E, from: NodeId<N, E, D>, into: NodeId<N, E, D>, directedness: D) -> Self {
         Self {
             data: UnsafeCell::new(data),
-            ends: CoordinatePair::new(from, into, directedness),
+            ends: EndPair::new(from, into, directedness),
             directedness: PhantomData,
         }
     }
@@ -356,7 +356,7 @@ where
             // For directed graphs, also remove incoming edges from source nodes' edges_out
             for eid in node.back_edges.borrow().iter() {
                 let edge = self.edge(eid);
-                let from_nid = edge.ends.first();
+                let from_nid = edge.ends.left();
                 if from_nid != nid {
                     let from_node = self.node(from_nid);
                     from_node
