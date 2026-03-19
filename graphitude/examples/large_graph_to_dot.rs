@@ -14,6 +14,7 @@ mod inner {
     use std::io::{self, Write};
 
     use clap::{Parser, ValueEnum};
+    use graphitude::GraphImpl as GraphImplTrait;
     use graphitude::directedness::Directedness;
     use graphitude::edge_multiplicity::EdgeMultiplicity;
     use graphitude::generate_large_graph::generate_large_graph;
@@ -99,14 +100,14 @@ mod inner {
     }
 
     /// DOT generator that uses a configurable graph name and has access to the graph.
-    struct ConfigurableGenerator<'a, G> {
+    struct ConfigurableGenerator<'a, G: GraphImplTrait> {
         graph_name: String,
-        graph: &'a G,
+        graph: &'a Graph<G>,
     }
 
     impl<'a, G> DotGenerator<G> for ConfigurableGenerator<'a, G>
     where
-        G: Graph,
+        G: GraphImplTrait,
         G::EdgeData: std::fmt::Display,
     {
         type Error = std::convert::Infallible;
@@ -117,7 +118,7 @@ mod inner {
 
         fn edge_attrs(
             &self,
-            edge_id: &<G as Graph>::EdgeId,
+            edge_id: &EdgeId<G>,
         ) -> Result<Vec<graphitude::dot::attr::Attr>, Self::Error> {
             use graphitude::dot::attr::Attr;
 
@@ -133,12 +134,12 @@ mod inner {
     }
 
     fn write_graph_dot<G>(
-        graph: &G,
+        graph: &Graph<G>,
         graph_name: &str,
         writer: &mut dyn Write,
     ) -> Result<(), Box<dyn std::error::Error>>
     where
-        G: Graph,
+        G: GraphImplTrait,
         G::EdgeData: std::fmt::Display,
     {
         let generator = ConfigurableGenerator {
@@ -174,7 +175,7 @@ mod inner {
         edge_prefix: &str,
         graph_kind: GraphKind,
         strict: bool,
-    ) -> LinkedGraph<Data, Data, Directedness, EdgeMultiplicity> {
+    ) -> Graph<LinkedGraph<Data, Data, Directedness, EdgeMultiplicity>> {
         let directedness = match graph_kind {
             GraphKind::Directed => Directedness::Directed,
             GraphKind::Undirected => Directedness::Undirected,
@@ -184,7 +185,7 @@ mod inner {
         } else {
             EdgeMultiplicity::MultipleEdges
         };
-        let mut graph = LinkedGraph::new(directedness, edge_multiplicity);
+        let mut graph = Graph::new(LinkedGraph::new(directedness, edge_multiplicity));
         generate_large_graph(
             &mut graph,
             |i| node_data_for(i, node_type),
@@ -193,9 +194,12 @@ mod inner {
         graph
     }
 
-    fn write_graph_output<G>(graph: &G, args: &Args) -> Result<(), Box<dyn std::error::Error>>
+    fn write_graph_output<G>(
+        graph: &Graph<G>,
+        args: &Args,
+    ) -> Result<(), Box<dyn std::error::Error>>
     where
-        G: Graph,
+        G: GraphImplTrait,
         G::EdgeData: std::fmt::Display,
     {
         eprintln!("Graph generated:");

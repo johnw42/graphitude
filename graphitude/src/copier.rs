@@ -3,7 +3,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    AddEdgeResult, DirectednessTrait, EdgeIdTrait, EdgeMultiplicityTrait, Graph, GraphMut,
+    AddEdgeResult, DirectednessTrait, EdgeId, EdgeMultiplicityTrait, Graph, GraphImpl,
+    GraphImplMut, NodeId,
 };
 
 /// Utility for copying graphs with flexible transformations and mapping of node
@@ -44,14 +45,15 @@ use crate::{
 /// // `node_id_map` and `edge_id_map` contain the mappings of IDs
 /// // from `source_graphs` to `target_graph`.
 /// ```
-pub struct GraphCopier<'g, G, D, M, NT, ET, NM, EM>
+pub struct GraphCopier<'g, G1, G2, D, M, NT, ET>
 where
-    G: Graph + ?Sized,
+    G1: GraphImpl,
+    G2: GraphImplMut,
 {
     /// The source graph to copy from.  This is a reference with lifetime `'g`
     /// to allow the copier to borrow data from the source graph during copying,
     /// such as for transformations or ID mappings.
-    source: &'g G,
+    source: &'g Graph<G1>,
     /// The directedness to use for the target graph when creating a new graph with
     /// [`Self::copy`].  This is ignored when copying into an existing graph with
     /// [`Self::copy_into`], which will use the target graph's directedness instead.
@@ -72,55 +74,53 @@ where
     /// from the source graph to the target graph.  If provided, this map will be
     /// cleared and populated during the copying process, allowing the caller to
     /// track how node IDs in the source graph correspond to node IDs in the target graph.
-    node_map: NM,
+    node_map: Option<&'g mut HashMap<NodeId<G1>, NodeId<G2>>>,
     /// An optional mutable reference to a map for tracking the mapping of edge IDs
     /// from the source graph to the target graph.  If provided, this map will be
     /// cleared and populated during the copying process, allowing the caller to
     /// track how edge IDs in the source graph correspond to edge IDs in the target graph.
-    edge_map: EM,
+    edge_map: Option<&'g mut HashMap<EdgeId<G1>, EdgeId<G2>>>,
 }
 
-impl<'g, G>
+impl<'g, G1, G2>
     GraphCopier<
         'g,
-        G,
-        G::Directedness,
-        G::EdgeMultiplicity,
-        fn(&G::NodeData) -> (),
-        fn(&G::EdgeData) -> (),
-        (),
-        (),
+        G1,
+        G2,
+        G1::Directedness,
+        G1::EdgeMultiplicity,
+        fn(&G1::NodeData) -> (),
+        fn(&G1::EdgeData) -> (),
     >
 where
-    G: Graph + ?Sized,
+    G1: GraphImpl,
+    G2: GraphImplMut,
 {
     /// Creates a new `GraphCopier` for the given source graph with default transformations and no ID mappings.
-    pub fn new(source: &'g G) -> Self {
+    pub fn new(source: &'g Graph<G1>) -> Self {
         Self {
             source,
             directedness: source.directedness(),
             edge_multiplicity: source.edge_multiplicity(),
             node_transformer: |_| (),
             edge_transformer: |_| (),
-            node_map: (),
-            edge_map: (),
+            node_map: None,
+            edge_map: None,
         }
     }
 }
 
-impl<'g, G, D, M, NT, ET, NM, EM> GraphCopier<'g, G, D, M, NT, ET, NM, EM>
+impl<'g, G1, G2, D, M, NT, ET> GraphCopier<'g, G1, G2, D, M, NT, ET>
 where
-    G: Graph + ?Sized,
+    G1: GraphImpl,
+    G2: GraphImplMut,
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
 {
     /// Sets the directedness for the target graph, returning a new
     /// `GraphCopier`.  When using [`Self::copy_into`], this setting is ignored and
     /// the target graph's directedness will be used instead.
-    pub fn with_directedness<D2>(
-        self,
-        directedness: D2,
-    ) -> GraphCopier<'g, G, D2, M, NT, ET, NM, EM>
+    pub fn with_directedness<D2>(self, directedness: D2) -> GraphCopier<'g, G1, G2, D2, M, NT, ET>
     where
         D2: DirectednessTrait,
     {
@@ -141,7 +141,7 @@ where
     pub fn with_edge_multiplicity<M2>(
         self,
         multiplicity: M2,
-    ) -> GraphCopier<'g, G, D, M2, NT, ET, NM, EM>
+    ) -> GraphCopier<'g, G1, G2, D, M2, NT, ET>
     where
         M2: EdgeMultiplicityTrait,
     {
@@ -160,17 +160,17 @@ where
     /// returning a new `GraphCopier`.  This map will be populated during the
     /// copying process, allowing the caller to map node IDs in the source graph
     /// to the target graph.
-    pub fn with_node_map<V>(
+    pub fn with_node_map(
         self,
-        node_map: &'g mut HashMap<G::NodeId, V>,
-    ) -> GraphCopier<'g, G, D, M, NT, ET, &'g mut HashMap<G::NodeId, V>, EM> {
+        node_map: &'g mut HashMap<NodeId<G1>, NodeId<G2>>,
+    ) -> GraphCopier<'g, G1, G2, D, M, NT, ET> {
         GraphCopier {
             source: self.source,
             directedness: self.directedness,
             edge_multiplicity: self.edge_multiplicity,
             node_transformer: self.node_transformer,
             edge_transformer: self.edge_transformer,
-            node_map,
+            node_map: Some(node_map),
             edge_map: self.edge_map,
         }
     }
@@ -179,10 +179,10 @@ where
     /// returning a new `GraphCopier`.  This map will be populated during the
     /// copying process, allowing the caller to map edge IDs in the source graph
     /// to the target graph.
-    pub fn with_edge_map<V>(
+    pub fn with_edge_map(
         self,
-        edge_map: &'g mut HashMap<G::EdgeId, V>,
-    ) -> GraphCopier<'g, G, D, M, NT, ET, NM, &'g mut HashMap<G::EdgeId, V>> {
+        edge_map: &'g mut HashMap<EdgeId<G1>, EdgeId<G2>>,
+    ) -> GraphCopier<'g, G1, G2, D, M, NT, ET> {
         GraphCopier {
             source: self.source,
             directedness: self.directedness,
@@ -190,35 +190,31 @@ where
             node_transformer: self.node_transformer,
             edge_transformer: self.edge_transformer,
             node_map: self.node_map,
-            edge_map,
+            edge_map: Some(edge_map),
         }
     }
 
     /// Returns a new `GraphCopier` with a node transformer that clones the data.
-    pub fn clone_nodes(
-        self,
-    ) -> GraphCopier<'g, G, D, M, fn(&G::NodeData) -> G::NodeData, ET, NM, EM>
+    pub fn clone_nodes(self) -> GraphCopier<'g, G1, G2, D, M, fn(&G1::NodeData) -> G1::NodeData, ET>
     where
-        G::NodeData: Clone,
+        G1::NodeData: Clone,
     {
         self.transform_nodes(|n| n.clone())
     }
 
     /// Returns a new `GraphCopier` with an edge transformer that clones the data.
-    pub fn clone_edges(
-        self,
-    ) -> GraphCopier<'g, G, D, M, NT, fn(&G::EdgeData) -> G::EdgeData, NM, EM>
+    pub fn clone_edges(self) -> GraphCopier<'g, G1, G2, D, M, NT, fn(&G1::EdgeData) -> G1::EdgeData>
     where
-        G::EdgeData: Clone,
+        G1::EdgeData: Clone,
     {
         self.transform_edges(|e| e.clone())
     }
 
     /// Returns a new `GraphCopier` with the given node transformer function,
     /// which will be applied to each node's data during copying.
-    pub fn transform_nodes<F, TN>(self, transformer: F) -> GraphCopier<'g, G, D, M, F, ET, NM, EM>
+    pub fn transform_nodes<F, TN>(self, transformer: F) -> GraphCopier<'g, G1, G2, D, M, F, ET>
     where
-        F: FnMut(&G::NodeData) -> TN,
+        F: FnMut(&G1::NodeData) -> TN,
     {
         GraphCopier {
             source: self.source,
@@ -233,9 +229,9 @@ where
 
     /// Returns a new `GraphCopier` with the given edge transformer function,
     /// which will be applied to each edge's data during copying.
-    pub fn transform_edges<F, TE>(self, transformer: F) -> GraphCopier<'g, G, D, M, NT, F, NM, EM>
+    pub fn transform_edges<F, TE>(self, transformer: F) -> GraphCopier<'g, G1, G2, D, M, NT, F>
     where
-        F: FnMut(&G::EdgeData) -> TE,
+        F: FnMut(&G1::EdgeData) -> TE,
     {
         GraphCopier {
             source: self.source,
@@ -253,39 +249,37 @@ where
     /// directedness and edge multiplicity.  If you want to copy into an
     /// existing graph instead of creating a new one, use [`Self::copy_into`]
     /// instead.
-    pub fn copy<T>(self) -> T
+    pub fn copy(self) -> Graph<G2>
     where
-        T: GraphMut,
-        T::NodeId: 'g,
-        T::EdgeId: 'g,
-        T::Directedness: From<D>,
-        T::EdgeMultiplicity: From<M>,
-        NT: FnMut(&G::NodeData) -> T::NodeData,
-        ET: FnMut(&G::EdgeData) -> T::EdgeData,
-        NM: IntoHashMapRef<'g, G::NodeId, T::NodeId>,
-        EM: IntoHashMapRef<'g, G::EdgeId, T::EdgeId>,
+        G2: 'g,
+        G2::NodeId: 'g,
+        G2::EdgeId: 'g,
+        G2::Directedness: From<D>,
+        G2::EdgeMultiplicity: From<M>,
+        NT: FnMut(&G1::NodeData) -> G2::NodeData,
+        ET: FnMut(&G1::EdgeData) -> G2::EdgeData,
     {
-        let mut target = T::new(
-            T::Directedness::from(self.directedness),
-            T::EdgeMultiplicity::from(self.edge_multiplicity),
-        );
+        let mut target = Graph::new(<G2>::new(
+            G2::Directedness::from(self.directedness),
+            G2::EdgeMultiplicity::from(self.edge_multiplicity),
+        ));
         self.copy_into(&mut target);
         target
     }
 
     /// Copies the data and structure from the source graph into the given target graph using
     /// the specified transformations, and the target graph's directedness and edge multiplicity.
-    pub fn copy_into<T>(mut self, target: &mut T)
+    pub fn copy_into(mut self, target: &mut Graph<G2>)
     where
-        T: GraphMut,
-        T::NodeId: 'g,
-        T::EdgeId: 'g,
-        NT: FnMut(&G::NodeData) -> T::NodeData,
-        ET: FnMut(&G::EdgeData) -> T::EdgeData,
-        NM: IntoHashMapRef<'g, G::NodeId, T::NodeId>,
-        EM: IntoHashMapRef<'g, G::EdgeId, T::EdgeId>,
+        G2: 'g,
+        G2::NodeId: 'g,
+        G2::EdgeId: 'g,
+        G2::Directedness: From<D>,
+        G2::EdgeMultiplicity: From<M>,
+        NT: FnMut(&G1::NodeData) -> G2::NodeData,
+        ET: FnMut(&G1::EdgeData) -> G2::EdgeData,
     {
-        let node_map = match self.node_map.into_hash_map_ref() {
+        let node_map = match self.node_map {
             Some(map) => map,
             None => &mut HashMap::new(),
         };
@@ -298,10 +292,7 @@ where
         }
 
         // Prepare edge maps if needed.
-        let mut edge_maps = self
-            .edge_map
-            .into_hash_map_ref()
-            .map(|m| (m, HashMap::new()));
+        let mut edge_map = self.edge_map.map(|m| (m, HashMap::new()));
 
         // Copy all the edges, using the node map to find the new source and target IDs.
         for edge_id in self.source.edge_ids() {
@@ -311,7 +302,7 @@ where
             let add_edge_result = target.add_edge(source_node_id, target_node_id, edge_data);
 
             // Maintain the edge map if the user provided one.
-            if let Some((ref mut edge_map, ref mut reverse_edge_map)) = edge_maps {
+            if let Some((ref mut edge_map, ref mut reverse_edge_map)) = edge_map {
                 match add_edge_result {
                     AddEdgeResult::Added(new_edge_id) => {
                         edge_map.insert(edge_id.clone(), new_edge_id.clone());
@@ -325,25 +316,5 @@ where
                 }
             }
         }
-    }
-}
-
-#[doc(hidden)]
-pub trait IntoHashMapRef<'a, K, V> {
-    fn into_hash_map_ref(self) -> Option<&'a mut HashMap<K, V>>;
-}
-
-impl<'a, K, V> IntoHashMapRef<'a, K, V> for () {
-    fn into_hash_map_ref(self) -> Option<&'a mut HashMap<K, V>> {
-        None
-    }
-}
-
-impl<'a, K, V> IntoHashMapRef<'a, K, V> for &'a mut HashMap<K, V>
-where
-    K: Eq + std::hash::Hash,
-{
-    fn into_hash_map_ref(self) -> Option<&'a mut HashMap<K, V>> {
-        Some(self)
     }
 }

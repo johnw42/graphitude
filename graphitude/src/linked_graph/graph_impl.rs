@@ -1,19 +1,15 @@
 use std::{
     cell::{Ref, RefCell, UnsafeCell},
     collections::HashSet,
-    fmt::Debug,
     marker::PhantomData,
     rc::Rc,
 };
 
 use crate::{
-    copier::GraphCopier,
     directedness::Directedness,
     edge_multiplicity::EdgeMultiplicity,
     end_pair::EndPair,
-    format_debug::format_debug,
-    graph_id::GraphId,
-    graph_traits::AddEdgeResult,
+    graph_traits::{AddEdgeResult, EdgeIdTrait},
     linked_graph::{EdgeId, NodeId},
     prelude::*,
     util::OtherValue,
@@ -76,7 +72,6 @@ where
     M: EdgeMultiplicityTrait,
 {
     nodes: Vec<Rc<Node<N, E, D>>>,
-    id: GraphId,
     directedness: D,
     edge_multiplicity: M,
 }
@@ -89,7 +84,6 @@ where
     fn node_id(&self, ptr: &Rc<Node<N, E, D>>) -> NodeId<N, E, D> {
         NodeId {
             ptr: Rc::downgrade(ptr),
-            graph_id: self.id.clone(),
             directedness: PhantomData,
         }
     }
@@ -97,31 +91,24 @@ where
     fn edge_id(&self, ptr: &Rc<Edge<N, E, D>>) -> EdgeId<N, E, D> {
         EdgeId {
             ptr: Rc::downgrade(ptr),
-            graph_id: self.id.clone(),
             directedness: self.directedness,
         }
     }
 
     fn node(&self, id: &NodeId<N, E, D>) -> &Node<N, E, D> {
-        if self.id != id.graph_id {
-            panic!("NodeId graph_id does not match graph");
-        }
         let ptr = Rc::as_ptr(&id.ptr.upgrade().expect("NodeId is dangling"));
         // SAFETY: See note on `LinkedGraph` type.
         unsafe { &*ptr }
     }
 
     fn edge(&self, id: &EdgeId<N, E, D>) -> &Edge<N, E, D> {
-        if self.id != id.graph_id {
-            panic!("EdgeId graph_id does not match graph");
-        }
         let ptr: *const Edge<N, E, D> = Rc::as_ptr(&id.ptr.upgrade().expect("EdgeId is dangling"));
         // SAFETY: See note on `LinkedGraph` type.
         unsafe { &*ptr }
     }
 }
 
-impl<N, E, D, M> Graph for LinkedGraph<N, E, D, M>
+impl<N, E, D, M> GraphImpl for LinkedGraph<N, E, D, M>
 where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
@@ -156,14 +143,14 @@ where
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        self.nodes.iter().flat_map(move |node| {
-            // For undirected graphs, deduplicate by Rc pointer address
-            let mut seen: HashSet<*const Edge<N, E, D>> = HashSet::new();
+        // For undirected graphs, deduplicate by Rc pointer address
+        let mut seen: HashSet<*const Edge<N, E, D>> = HashSet::new();
 
+        self.nodes.iter().flat_map(move |node| {
             node.edges
                 .borrow()
                 .iter()
-                .filter(move |edge| self.is_directed() || seen.insert(Rc::as_ptr(edge)))
+                .filter(|edge| self.directedness().is_directed() || seen.insert(Rc::as_ptr(edge)))
                 .map(|edge| self.edge_id(edge))
                 .collect::<Vec<_>>()
         })
@@ -185,19 +172,19 @@ where
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         let node = self.node(into);
-        debug_assert!(self.is_directed() || node.back_edges.borrow().is_empty());
+        debug_assert!(self.directedness().is_directed() || node.back_edges.borrow().is_empty());
         std::iter::chain(
             EdgesInIter {
                 borrow: node.back_edges.borrow(),
                 index: 0,
             }
-            .take_while(|_| self.is_directed()),
+            .take_while(|_| self.directedness().is_directed()),
             EdgesOutIter {
                 borrow: node.edges.borrow(),
                 graph: self,
                 index: 0,
             }
-            .take_while(|_| !self.is_directed()),
+            .take_while(|_| !self.directedness().is_directed()),
         )
     }
 
@@ -207,7 +194,7 @@ where
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edges_from(from)
-            .filter(move |edge| edge.other_end(from) == *into)
+            .filter(move |edge| edge.other_end(&from) == *into)
     }
 
     fn has_edge_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
@@ -215,7 +202,7 @@ where
     }
 
     fn num_edges_into(&self, into: &Self::NodeId) -> usize {
-        if self.is_directed() {
+        if self.directedness().is_directed() {
             self.node(into).back_edges.borrow().len()
         } else {
             self.node(into).edges.borrow().len()
@@ -227,7 +214,7 @@ where
     }
 }
 
-impl<N, E, D, M> GraphMut for LinkedGraph<N, E, D, M>
+impl<N, E, D, M> GraphImplMut for LinkedGraph<N, E, D, M>
 where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
@@ -235,7 +222,6 @@ where
     fn new(directedness: D, edge_multiplicity: M) -> Self {
         Self {
             nodes: Vec::new(),
-            id: GraphId::default(),
             directedness,
             edge_multiplicity,
         }
@@ -277,7 +263,7 @@ where
             .directedness
             .coordinate_pair((from.clone(), into.clone()));
 
-        if !self.allows_parallel_edges() {
+        if !self.edge_multiplicity().allows_parallel_edges() {
             debug_assert!(self.num_edges_from_into(from, into) <= 1);
             if let Some(edge) = self
                 .node(from)
@@ -305,7 +291,7 @@ where
 
         let eid = self.edge_id(&edge);
 
-        if self.is_directed() {
+        if self.directedness().is_directed() {
             // For directed graphs, add to the "into" node's edges_in.  We don't
             // maintain edges_in for undirected graphs since it's redundant with
             // edges_out.
@@ -335,7 +321,7 @@ where
                 OtherValue::Both(_) => {}
                 OtherValue::First(other_nid) | OtherValue::Second(other_nid) => {
                     let other_node = self.node(other_nid);
-                    if self.is_directed() {
+                    if self.directedness().is_directed() {
                         // For directed graphs, remove from edges_in
                         other_node
                             .back_edges
@@ -352,7 +338,7 @@ where
             };
         }
 
-        if self.is_directed() {
+        if self.directedness().is_directed() {
             // For directed graphs, also remove incoming edges from source nodes' edges_out
             for eid in node.back_edges.borrow().iter() {
                 let edge = self.edge(eid);
@@ -389,7 +375,7 @@ where
             .borrow_mut()
             .retain(|edge| *eid != self.edge_id(edge));
 
-        if self.is_directed() {
+        if self.directedness().is_directed() {
             // For directed graphs, remove from target node's edges_in
             let to_node = self.node(into_nid);
             to_node.back_edges.borrow_mut().retain(|eid2| eid != eid2);
@@ -403,30 +389,6 @@ where
         }
 
         Rc::into_inner(edge).unwrap().data.into_inner()
-    }
-}
-
-impl<N, E, D, M> Clone for LinkedGraph<N, E, D, M>
-where
-    N: Clone,
-    E: Clone,
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
-{
-    fn clone(&self) -> Self {
-        GraphCopier::new(self).clone_nodes().clone_edges().copy()
-    }
-}
-
-impl<N, E, D, M> Debug for LinkedGraph<N, E, D, M>
-where
-    N: Debug,
-    E: Debug,
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        format_debug(self, f, "LinkedGraph")
     }
 }
 

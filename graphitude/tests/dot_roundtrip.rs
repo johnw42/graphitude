@@ -38,16 +38,19 @@ impl std::fmt::Display for TestError {
 impl std::error::Error for TestError {}
 
 impl GraphBuilder for TestBuilder {
-    type Graph = LinkedGraph<NodeData, EdgeData>;
+    type GraphImpl = LinkedGraph<NodeData, EdgeData>;
     type Error = TestError;
 
     fn make_empty_graph(
         &mut self,
         _name: Option<&str>,
-        directedness: <Self::Graph as Graph>::Directedness,
-        edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
-    ) -> Result<Self::Graph, Self::Error> {
-        Ok(LinkedGraph::new(directedness, edge_multiplicity))
+        directedness: <Self::GraphImpl as GraphImpl>::Directedness,
+        edge_multiplicity: <Self::GraphImpl as GraphImpl>::EdgeMultiplicity,
+    ) -> Result<Graph<Self::GraphImpl>, Self::Error> {
+        Ok(Graph::new(LinkedGraph::new(
+            directedness,
+            edge_multiplicity,
+        )))
     }
 
     fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<NodeData, Self::Error> {
@@ -79,13 +82,13 @@ impl GraphBuilder for TestBuilder {
     }
 }
 
-struct TestDotGenerator<'a, G: Graph> {
-    graph: &'a G,
+struct TestDotGenerator<'a, G: GraphImpl> {
+    graph: &'a Graph<G>,
 }
 
 impl<'a, G> DotGenerator<G> for TestDotGenerator<'a, G>
 where
-    G: Graph<NodeData = NodeData, EdgeData = EdgeData>,
+    G: GraphImpl<NodeData = NodeData, EdgeData = EdgeData>,
 {
     type Error = TestError;
 
@@ -93,14 +96,14 @@ where
         Ok("TestGraph".to_string())
     }
 
-    fn node_name(&self, node_id: &G::NodeId, _index: usize) -> Result<String, Self::Error> {
+    fn node_name(&self, node_id: &NodeId<G>, _index: usize) -> Result<String, Self::Error> {
         let data = self.graph.node_data(node_id);
         Ok(data.id.clone())
     }
 
     fn node_attrs(
         &self,
-        node_id: &G::NodeId,
+        node_id: &NodeId<G>,
         _name: &mut String,
     ) -> Result<Vec<Attr>, Self::Error> {
         let data = self.graph.node_data(node_id);
@@ -113,7 +116,7 @@ where
         Ok(attrs)
     }
 
-    fn edge_attrs(&self, edge_id: &G::EdgeId) -> Result<Vec<Attr>, Self::Error> {
+    fn edge_attrs(&self, edge_id: &EdgeId<G>) -> Result<Vec<Attr>, Self::Error> {
         let data = self.graph.edge_data(edge_id);
         let mut attrs = Vec::new();
         for (k, v) in &data.attrs {
@@ -127,7 +130,7 @@ where
 
 #[allow(clippy::type_complexity)]
 fn normalize_graph_structure<G>(
-    graph: &G,
+    graph: &Graph<G>,
 ) -> (
     HashSet<String>,
     HashSet<(String, String)>,
@@ -135,7 +138,7 @@ fn normalize_graph_structure<G>(
     HashMap<(String, String), HashSet<(String, String)>>,
 )
 where
-    G: Graph<NodeData = NodeData, EdgeData = EdgeData>,
+    G: GraphImpl<NodeData = NodeData, EdgeData = EdgeData>,
 {
     let nodes: HashSet<String> = graph
         .node_ids()
@@ -200,8 +203,8 @@ fn test_directed_graph_roundtrip() {
 
     // Parse DOT into graph
     let mut builder = TestBuilder;
-    let graph1: LinkedGraph<NodeData, EdgeData> =
-        LinkedGraph::from_dot_string(input_dot, &mut builder).expect("Failed to parse DOT");
+    let graph1: Graph<LinkedGraph<NodeData, EdgeData>> =
+        Graph::from_dot_string(input_dot, &mut builder).expect("Failed to parse DOT");
 
     // Generate DOT from graph
     let generator = TestDotGenerator { graph: &graph1 };
@@ -211,8 +214,8 @@ fn test_directed_graph_roundtrip() {
 
     // Parse generated DOT back into graph
     let mut builder2 = TestBuilder;
-    let graph2: LinkedGraph<NodeData, EdgeData> =
-        LinkedGraph::from_dot_string(&generated_dot, &mut builder2)
+    let graph2: Graph<LinkedGraph<NodeData, EdgeData>> =
+        Graph::from_dot_string(&generated_dot, &mut builder2)
             .expect("Failed to parse generated DOT");
 
     // Compare graph structures (ignoring ordering)
@@ -239,8 +242,8 @@ fn test_undirected_graph_roundtrip() {
 
     // Parse DOT into graph
     let mut builder = TestBuilder;
-    let graph1: LinkedGraph<NodeData, EdgeData> =
-        LinkedGraph::from_dot_string(input_dot, &mut builder).expect("Failed to parse DOT");
+    let graph1: Graph<LinkedGraph<NodeData, EdgeData>> =
+        Graph::from_dot_string(input_dot, &mut builder).expect("Failed to parse DOT");
 
     // Generate DOT from graph
     let generator = TestDotGenerator { graph: &graph1 };
@@ -250,8 +253,8 @@ fn test_undirected_graph_roundtrip() {
 
     // Parse generated DOT back into graph
     let mut builder2 = TestBuilder;
-    let graph2: LinkedGraph<NodeData, EdgeData> =
-        LinkedGraph::from_dot_string(&generated_dot, &mut builder2)
+    let graph2: Graph<LinkedGraph<NodeData, EdgeData>> =
+        Graph::from_dot_string(&generated_dot, &mut builder2)
             .expect("Failed to parse generated DOT");
 
     // Compare graph structures (ignoring ordering)
@@ -269,8 +272,8 @@ fn test_empty_graph_roundtrip() {
     let input_dot = r#"digraph Empty {}"#;
 
     let mut builder = TestBuilder;
-    let graph1: LinkedGraph<NodeData, EdgeData> =
-        LinkedGraph::from_dot_string(input_dot, &mut builder).expect("Failed to parse DOT");
+    let graph1: Graph<LinkedGraph<NodeData, EdgeData>> =
+        Graph::from_dot_string(input_dot, &mut builder).expect("Failed to parse DOT");
 
     let generator = TestDotGenerator { graph: &graph1 };
     let mut output = Vec::new();
@@ -278,8 +281,8 @@ fn test_empty_graph_roundtrip() {
     let generated_dot = String::from_utf8(output).expect("Invalid UTF-8");
 
     let mut builder2 = TestBuilder;
-    let graph2: LinkedGraph<NodeData, EdgeData> =
-        LinkedGraph::from_dot_string(&generated_dot, &mut builder2)
+    let graph2: Graph<LinkedGraph<NodeData, EdgeData>> =
+        Graph::from_dot_string(&generated_dot, &mut builder2)
             .expect("Failed to parse generated DOT");
 
     assert_eq!(graph1.num_nodes(), graph2.num_nodes());

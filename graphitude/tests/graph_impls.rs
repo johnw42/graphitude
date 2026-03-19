@@ -43,7 +43,10 @@ mod linked {
     graph_test_suite!(
         dyn_undirected_single =
             GraphTests::<LinkedGraph<i32, String, Directedness, EdgeMultiplicity>>::new(|| {
-                LinkedGraph::new(Directedness::Undirected, EdgeMultiplicity::SingleEdge)
+                Graph::new(LinkedGraph::new(
+                    Directedness::Undirected,
+                    EdgeMultiplicity::SingleEdge,
+                ))
             },)
     );
 }

@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData, rc::Weak};
 
 use derivative::Derivative;
 
-use crate::{DirectednessTrait, graph_id::GraphIdClone, linked_graph::graph_impl::Node};
+use crate::{DirectednessTrait, linked_graph::graph_impl::Node};
 
 /// Node identifier for [`LinkedGraph`](super::LinkedGraph).
 ///
@@ -11,7 +11,6 @@ use crate::{DirectednessTrait, graph_id::GraphIdClone, linked_graph::graph_impl:
 #[derivative(Clone(bound = ""))]
 pub struct NodeId<N, E, D: DirectednessTrait> {
     pub(super) ptr: Weak<Node<N, E, D>>,
-    pub(super) graph_id: GraphIdClone,
     pub(super) directedness: PhantomData<D>,
 }
 
@@ -27,17 +26,7 @@ impl<N, E, D: DirectednessTrait> Debug for NodeId<N, E, D> {
 
 impl<N, E, D: DirectednessTrait> PartialEq for NodeId<N, E, D> {
     fn eq(&self, other: &Self) -> bool {
-        if self.ptr.as_ptr() == other.ptr.as_ptr() {
-            debug_assert!(
-                self.graph_id == other.graph_id,
-                "NodeIds with the same pointer but different graph IDs: {:?} and {:?}",
-                self,
-                other
-            );
-            true
-        } else {
-            false
-        }
+        self.ptr.as_ptr() == other.ptr.as_ptr()
     }
 }
 
@@ -46,7 +35,6 @@ impl<N, E, D: DirectednessTrait> Eq for NodeId<N, E, D> {}
 impl<N, E, D: DirectednessTrait> Hash for NodeId<N, E, D> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.ptr.as_ptr().hash(state);
-        self.graph_id.hash(state);
     }
 }
 

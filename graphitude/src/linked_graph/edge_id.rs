@@ -11,7 +11,6 @@ use crate::{
     EdgeIdTrait,
     directedness::DirectednessTrait,
     end_pair::EndPair,
-    graph_id::GraphIdClone,
     linked_graph::{NodeId, graph_impl::Edge},
 };
 
@@ -22,7 +21,6 @@ use crate::{
 #[derivative(Clone(bound = "D: Clone"))]
 pub struct EdgeId<N, E, D: DirectednessTrait> {
     pub(super) ptr: Weak<Edge<N, E, D>>,
-    pub(super) graph_id: GraphIdClone,
     pub(super) directedness: D,
 }
 
@@ -36,23 +34,13 @@ unsafe impl<N, E, D: DirectednessTrait> Sync for EdgeId<N, E, D> {}
 
 impl<N, E, D: DirectednessTrait> Debug for EdgeId<N, E, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EdgeId({:?}, {:?})", self.ptr.as_ptr(), self.graph_id)
+        write!(f, "EdgeId({:?})", self.ptr.as_ptr())
     }
 }
 
 impl<N, E, D: DirectednessTrait> PartialEq for EdgeId<N, E, D> {
     fn eq(&self, other: &Self) -> bool {
-        if self.ptr.as_ptr() == other.ptr.as_ptr() {
-            debug_assert!(
-                self.graph_id == other.graph_id,
-                "EdgeIds with the same pointer but different graph IDs: {:?} and {:?}",
-                self,
-                other
-            );
-            true
-        } else {
-            false
-        }
+        self.ptr.as_ptr() == other.ptr.as_ptr()
     }
 }
 
@@ -100,7 +88,6 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
                         .upgrade()
                         .expect("Source node dangling"),
                 ),
-                graph_id: self.graph_id,
                 directedness: PhantomData,
             })
             .expect("EdgeId is dangling")
@@ -118,7 +105,6 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
                         .upgrade()
                         .expect("Target node dangling"),
                 ),
-                graph_id: self.graph_id,
                 directedness: PhantomData,
             })
             .expect("EdgeId is dangling")

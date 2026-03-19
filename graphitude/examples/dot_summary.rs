@@ -65,11 +65,11 @@ mod inner {
         }
     }
 
-    fn parse_or_exit<B>(data: &str, builder: &mut B) -> LinkedGraph<NodeInfo, EdgeInfo>
+    fn parse_or_exit<B>(data: &str, builder: &mut B) -> Graph<LinkedGraph<NodeInfo, EdgeInfo>>
     where
-        B: GraphBuilder<Graph = LinkedGraph<NodeInfo, EdgeInfo>>,
+        B: GraphBuilder<GraphImpl = LinkedGraph<NodeInfo, EdgeInfo>>,
     {
-        match LinkedGraph::from_dot_string(data, builder) {
+        match Graph::from_dot_string(data, builder) {
             Ok(graph) => graph,
             Err(err) => {
                 eprintln!("Invalid DOT input: {err}");
@@ -78,8 +78,8 @@ mod inner {
         }
     }
 
-    fn print_summary_with_attrs<G: Graph<NodeData = NodeInfo, EdgeData = EdgeInfo>>(
-        graph: &G,
+    fn print_summary_with_attrs<G: GraphImpl<NodeData = NodeInfo, EdgeData = EdgeInfo>>(
+        graph: &Graph<G>,
         sample_nodes: usize,
     ) {
         println!("DOT file parsed successfully.");
@@ -173,7 +173,7 @@ mod inner {
     struct AttributeBuilder;
 
     impl GraphBuilder for AttributeBuilder {
-        type Graph = LinkedGraph<NodeInfo, EdgeInfo>;
+        type GraphImpl = LinkedGraph<NodeInfo, EdgeInfo>;
         type Error = std::convert::Infallible;
 
         fn make_empty_graph(
@@ -181,8 +181,11 @@ mod inner {
             _name: Option<&str>,
             directedness: Directedness,
             edge_multiplicity: EdgeMultiplicity,
-        ) -> Result<Self::Graph, Self::Error> {
-            Ok(LinkedGraph::new(directedness, edge_multiplicity))
+        ) -> Result<Graph<Self::GraphImpl>, Self::Error> {
+            Ok(Graph::new(Self::GraphImpl::new(
+                directedness,
+                edge_multiplicity,
+            )))
         }
 
         fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<NodeInfo, Self::Error> {

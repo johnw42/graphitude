@@ -41,7 +41,7 @@ pub enum DotError<E> {
 
 /// Trait for generating DOT representations of graphs.  Users can implement
 /// this trait to customize node names and attributes in the generated DOT file.
-pub trait DotGenerator<G: Graph> {
+pub trait DotGenerator<G: GraphImpl> {
     type Error: Error + 'static;
 
     /// Returns the name of the graph to be used in the DOT output.
@@ -55,7 +55,7 @@ pub trait DotGenerator<G: Graph> {
     /// IDs iterator, which can be used to generate unique names.
     ///
     /// By default, this returns "n{index}".
-    fn node_name(&self, node_id: &G::NodeId, index: usize) -> Result<String, Self::Error> {
+    fn node_name(&self, node_id: &NodeId<G>, index: usize) -> Result<String, Self::Error> {
         let _ = node_id;
         Ok(format!("n{}", index))
     }
@@ -63,24 +63,24 @@ pub trait DotGenerator<G: Graph> {
     /// Returns a list of attributes for a given node.  The `name` parameter is
     /// the name returned by `node_name` for the same node.  After this method
     /// has been called for each node, all nodes must have unique names.
-    fn node_attrs(&self, node_id: &G::NodeId, name: &mut String) -> Result<Vec<Attr>, Self::Error> {
+    fn node_attrs(&self, node_id: &NodeId<G>, name: &mut String) -> Result<Vec<Attr>, Self::Error> {
         let _ = (node_id, name);
         Ok(vec![])
     }
 
     /// Returns a list of attributes for a given edge.
-    fn edge_attrs(&self, edge_id: &G::EdgeId) -> Result<Vec<Attr>, Self::Error> {
+    fn edge_attrs(&self, edge_id: &EdgeId<G>) -> Result<Vec<Attr>, Self::Error> {
         let _ = edge_id;
         Ok(vec![])
     }
 
     /// Returns whether the graph is directed (true for digraph) or undirected (false for graph).
-    fn is_digraph(&self, graph: &G) -> bool {
+    fn is_digraph(&self, graph: &Graph<G>) -> bool {
         graph.directedness().is_directed()
     }
 
     /// Returns whether the graph is strict (no parallel edges allowed).
-    fn is_strict(&self, graph: &G) -> bool {
+    fn is_strict(&self, graph: &Graph<G>) -> bool {
         !graph.edge_multiplicity().allows_parallel_edges()
     }
 }
@@ -88,12 +88,12 @@ pub trait DotGenerator<G: Graph> {
 // Generates a DOT representation for any `Graph` implementation.
 #[cfg(feature = "dot")]
 pub fn generate_dot_file<G, D>(
-    graph: &G,
+    graph: &Graph<G>,
     generator: &D,
     output: &mut impl io::Write,
 ) -> Result<(), DotError<D::Error>>
 where
-    G: Graph,
+    G: GraphImpl,
     D: DotGenerator<G>,
 {
     struct NodeInfo {
@@ -105,16 +105,16 @@ where
         attrs: Vec<Attr>,
     }
 
-    struct GraphWrapper<'a, G: Graph> {
+    struct GraphWrapper<'a, G: GraphImpl> {
         _phantom: std::marker::PhantomData<&'a G>,
-        node_info: HashMap<G::NodeId, NodeInfo>,
-        edge_info: HashMap<G::EdgeId, EdgeInfo>,
+        node_info: HashMap<NodeId<G>, NodeInfo>,
+        edge_info: HashMap<EdgeId<G>, EdgeInfo>,
         graph_name: String,
     }
 
-    impl<'a, G: Graph> GraphWrapper<'a, G> {
+    impl<'a, G: GraphImpl> GraphWrapper<'a, G> {
         fn new<D: DotGenerator<G>>(
-            graph: &'a G,
+            graph: &'a Graph<G>,
             generator: &D,
         ) -> Result<Self, DotError<D::Error>> {
             // Validate graph name
@@ -282,8 +282,7 @@ where
 mod tests {
     use super::*;
     use crate::{
-        GraphMut, directedness::Directedness, edge_multiplicity::EdgeMultiplicity,
-        linked_graph::LinkedGraph,
+        directedness::Directedness, edge_multiplicity::EdgeMultiplicity, linked_graph::LinkedGraph,
     };
 
     #[test]
@@ -330,7 +329,7 @@ mod tests {
     }
 
     impl TestGenerator {
-        fn for_graph(graph_name: &str, graph: &LinkedGraph<String, ()>) -> Self {
+        fn for_graph(graph_name: &str, graph: &Graph<LinkedGraph<String, ()>>) -> Self {
             Self {
                 graph_name: graph_name.to_string(),
                 directedness: graph.directedness(),
@@ -339,26 +338,28 @@ mod tests {
         }
     }
 
-    impl<G: Graph> DotGenerator<G> for TestGenerator {
+    impl<G: GraphImpl> DotGenerator<G> for TestGenerator {
         type Error = std::convert::Infallible;
 
         fn graph_name(&self) -> Result<String, Self::Error> {
             Ok(self.graph_name.clone())
         }
 
-        fn is_digraph(&self, _graph: &G) -> bool {
+        fn is_digraph(&self, _graph: &Graph<G>) -> bool {
             matches!(self.directedness, Directedness::Directed)
         }
 
-        fn is_strict(&self, _graph: &G) -> bool {
+        fn is_strict(&self, _graph: &Graph<G>) -> bool {
             matches!(self.edge_multiplicity, EdgeMultiplicity::SingleEdge)
         }
     }
 
     #[test]
     fn test_generate_empty_directed_graph() {
-        let graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
+            Directedness::Directed,
+            EdgeMultiplicity::MultipleEdges,
+        ));
         let generator = TestGenerator::for_graph("Empty", &graph);
         let mut output = Vec::new();
 
@@ -372,8 +373,10 @@ mod tests {
 
     #[test]
     fn test_generate_empty_undirected_graph() {
-        let graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Undirected, EdgeMultiplicity::MultipleEdges);
+        let graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
+            Directedness::Undirected,
+            EdgeMultiplicity::MultipleEdges,
+        ));
         let generator = TestGenerator::for_graph("Empty", &graph);
         let mut output = Vec::new();
 
@@ -387,8 +390,10 @@ mod tests {
 
     #[test]
     fn test_generate_simple_directed_graph() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
+            Directedness::Directed,
+            EdgeMultiplicity::MultipleEdges,
+        ));
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_edge(&a, &b, ());
@@ -408,8 +413,10 @@ mod tests {
 
     #[test]
     fn test_generate_simple_undirected_graph() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Undirected, EdgeMultiplicity::MultipleEdges);
+        let mut graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
+            Directedness::Undirected,
+            EdgeMultiplicity::MultipleEdges,
+        ));
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_edge(&a, &b, ());
@@ -429,7 +436,7 @@ mod tests {
 
     struct InvalidNameGenerator;
 
-    impl<G: Graph> DotGenerator<G> for InvalidNameGenerator {
+    impl<G: GraphImpl> DotGenerator<G> for InvalidNameGenerator {
         type Error = std::convert::Infallible;
 
         fn graph_name(&self) -> Result<String, Self::Error> {
@@ -439,8 +446,10 @@ mod tests {
 
     #[test]
     fn test_generate_invalid_graph_name() {
-        let graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
+            Directedness::Directed,
+            EdgeMultiplicity::MultipleEdges,
+        ));
         let generator = InvalidNameGenerator;
         let mut output = Vec::new();
 
@@ -450,18 +459,20 @@ mod tests {
 
     struct InvalidNodeNameGenerator;
 
-    impl<G: Graph> DotGenerator<G> for InvalidNodeNameGenerator {
+    impl<G: GraphImpl> DotGenerator<G> for InvalidNodeNameGenerator {
         type Error = std::convert::Infallible;
 
-        fn node_name(&self, _node_id: &G::NodeId, _index: usize) -> Result<String, Self::Error> {
+        fn node_name(&self, _node_id: &NodeId<G>, _index: usize) -> Result<String, Self::Error> {
             Ok("node name!".to_string())
         }
     }
 
     #[test]
     fn test_generate_invalid_node_name() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: Graph<LinkedGraph<_, ()>> = Graph::new(LinkedGraph::new(
+            Directedness::Directed,
+            EdgeMultiplicity::MultipleEdges,
+        ));
         graph.add_node("a".to_string());
 
         let generator = InvalidNodeNameGenerator;
@@ -473,18 +484,18 @@ mod tests {
 
     struct AttributeGenerator;
 
-    impl<G: Graph> DotGenerator<G> for AttributeGenerator {
+    impl<G: GraphImpl> DotGenerator<G> for AttributeGenerator {
         type Error = std::convert::Infallible;
 
         fn node_attrs(
             &self,
-            _node_id: &G::NodeId,
+            _node_id: &NodeId<G>,
             _name: &mut String,
         ) -> Result<Vec<Attr>, Self::Error> {
             Ok(vec![Attr::Label("Test Label".to_string())])
         }
 
-        fn edge_attrs(&self, _edge_id: &G::EdgeId) -> Result<Vec<Attr>, Self::Error> {
+        fn edge_attrs(&self, _edge_id: &EdgeId<G>) -> Result<Vec<Attr>, Self::Error> {
             Ok(vec![
                 Attr::Label("Edge Label".to_string()),
                 Attr::Color(vec![crate::dot::types::Color::Named("red".to_string())]),
@@ -494,8 +505,10 @@ mod tests {
 
     #[test]
     fn test_generate_with_attributes() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
+            Directedness::Directed,
+            EdgeMultiplicity::MultipleEdges,
+        ));
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_edge(&a, &b, ());
@@ -514,8 +527,10 @@ mod tests {
     #[test]
     fn test_format_dot_value_quoting() {
         // Test that values are quoted when necessary
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
+            Directedness::Directed,
+            EdgeMultiplicity::MultipleEdges,
+        ));
         let a = graph.add_node("hello world".to_string());
         let b = graph.add_node("foo-bar".to_string());
         graph.add_edge(&a, &b, ());
@@ -533,8 +548,10 @@ mod tests {
 
     #[test]
     fn test_generate_self_loop() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
+            Directedness::Directed,
+            EdgeMultiplicity::MultipleEdges,
+        ));
         let a = graph.add_node("a".to_string());
         graph.add_edge(&a, &a, ());
 
@@ -549,8 +566,10 @@ mod tests {
 
     #[test]
     fn test_generate_multiple_edges() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: Graph<LinkedGraph<_, _>> = Graph::new(LinkedGraph::new(
+            Directedness::Directed,
+            EdgeMultiplicity::MultipleEdges,
+        ));
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         let c = graph.add_node("c".to_string());

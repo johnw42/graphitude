@@ -1,17 +1,18 @@
+use derivative::Derivative;
+use quickcheck::Arbitrary;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
-
-use quickcheck::Arbitrary;
 use tracing::info_span;
 
 use crate::prelude::*;
 use crate::tracing_support::{TimingScope, init_tracing, set_timing_scope};
 
-#[derive(Debug)]
-pub struct ArbGraph<G: Graph> {
+#[derive(Derivative)]
+#[derivative(Debug(bound = "G::NodeData: Debug, G::EdgeData: Debug"))]
+pub struct ArbGraph<G: GraphImplMut> {
     /// The graph to test.
-    pub graph: G,
+    pub graph: Graph<G>,
     /// The node data used to construct the graph, for verification purposes.
     pub node_data: Vec<G::NodeData>,
     /// The edge data used to construct the graph, for verification purposes.
@@ -19,14 +20,14 @@ pub struct ArbGraph<G: Graph> {
     /// and target of each edge, along with the edge data.
     pub edge_data: Vec<((usize, usize), G::EdgeData)>,
     /// The node IDs corresponding to the `node_data` vector, for verification purposes.
-    pub node_ids: Vec<G::NodeId>,
+    pub node_ids: Vec<NodeId<G>>,
     /// The edge IDs corresponding to the `edge_data` vector, for verification purposes.
-    pub edge_ids: Vec<G::EdgeId>,
+    pub edge_ids: Vec<EdgeId<G>>,
 }
 
 impl<G> ArbGraph<G>
 where
-    G: GraphMut + 'static,
+    G: GraphImplMut + 'static,
     G::NodeData: Arbitrary + Clone + Hash + Eq + 'static,
     G::EdgeData: Arbitrary + Clone + Hash + Eq + 'static,
 {
@@ -36,7 +37,7 @@ where
         node_data: Vec<G::NodeData>,
         edge_data: Vec<((usize, usize), G::EdgeData)>,
     ) -> Self {
-        let mut graph = G::new(directedness, edge_multiplicity);
+        let mut graph = Graph::new(G::new(directedness, edge_multiplicity));
         let mut node_ids = Vec::new();
         for data in node_data.iter() {
             node_ids.push(graph.add_node(data.clone()));
@@ -59,7 +60,7 @@ where
 
 impl<G> Clone for ArbGraph<G>
 where
-    G: GraphMut + 'static,
+    G: GraphImplMut + 'static,
     G::NodeData: Arbitrary + Clone + Hash + Eq + 'static,
     G::EdgeData: Arbitrary + Clone + Hash + Eq + 'static,
 {
@@ -75,7 +76,7 @@ where
 
 impl<G> Arbitrary for ArbGraph<G>
 where
-    G: GraphMut + 'static,
+    G: GraphImplMut + 'static,
     G::NodeData: Arbitrary + Clone + Hash + Eq + 'static,
     G::EdgeData: Arbitrary + Clone + Hash + Eq + 'static,
 {
@@ -173,13 +174,9 @@ pub fn has_duplicates<T: Eq + Hash>(items: impl IntoIterator<Item = T>) -> bool 
 }
 
 /// Checks the internal consistency of a graph.
-pub fn check_graph_consistency<G: Graph>(graph: &G) {
+pub fn check_graph_consistency<G: GraphImpl>(graph: &Graph<G>) {
     let _scope = set_timing_scope(TimingScope::Consistency);
     init_tracing();
-    if graph.is_very_slow() {
-        eprintln!("Skipping consistency check for very slow graph implementation.");
-        return;
-    }
 
     // Verify all nodes are valid
     for node_id in graph.node_ids() {
@@ -241,12 +238,6 @@ pub fn check_graph_consistency<G: Graph>(graph: &G) {
                 graph.num_edges_from_into(&edge_id.left(), &edge_id.right()),
                 1
             );
-        }
-
-        {
-            let _span = info_span!("check_valid_edge_id").entered();
-            let valid = graph.check_valid_edge_id(&edge_id);
-            assert_eq!(valid, Ok(()));
         }
 
         {

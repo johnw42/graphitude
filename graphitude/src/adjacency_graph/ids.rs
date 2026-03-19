@@ -7,25 +7,34 @@ use crate::{
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
     automap::AutomapKey,
     end_pair::EndPair,
-    graph_id::GraphIdClone,
 };
 
 // Comparing the graph_id and compaction_count is unfortunate, because
 // it changes the semantics of equality based on whether error checking
 // is enabled.  Ideally, we'd like to just assert they're equal,
 // but that would break the way hash data structures work.
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ValidationData<S: Storage> {
-    pub compaction_count: S::CompactionCount,
-    pub graph_id: GraphIdClone,
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Validated<T, S: Storage> {
+    data: T,
+    compaction_count: S::CompactionCount,
 }
 
-impl<S: Storage> ValidationData<S> {
-    pub fn new(graph_id: GraphIdClone, compaction_count: S::CompactionCount) -> Self {
+impl<T, S: Storage> Validated<T, S> {
+    pub fn new(data: T, compaction_count: S::CompactionCount) -> Self {
         Self {
+            data,
             compaction_count,
-            graph_id,
         }
+    }
+
+    pub fn validate(&self, compaction_count: S::CompactionCount) -> &T {
+        assert!(self.compaction_count == compaction_count);
+        &self.data
+    }
+
+    pub fn with_data(mut self, data: T) -> Self {
+        self.data = data;
+        self
     }
 
     pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
@@ -34,30 +43,8 @@ impl<S: Storage> ValidationData<S> {
     }
 }
 
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct NodeId<S: Storage> {
-    validation: ValidationData<S>,
-    key: AutomapKey,
-}
-
-impl<S: Storage> NodeId<S> {
-    pub fn new(validation: ValidationData<S>, key: AutomapKey) -> Self {
-        Self { validation, key }
-    }
-
-    pub fn validation(&self) -> &ValidationData<S> {
-        &self.validation
-    }
-
-    pub fn key(&self) -> AutomapKey {
-        self.key
-    }
-
-    pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
-        self.validation = self.validation.with_compaction_count(compaction_count);
-        self
-    }
-}
+pub type InnerNodeId = AutomapKey;
+impl<S: Storage> NodeIdTrait for Validated<InnerNodeId, S> {}
 
 #[derive(Derivative)]
 #[derivative(
@@ -68,50 +55,36 @@ impl<S: Storage> NodeId<S> {
     PartialOrd(bound = ""),
     Ord(bound = "")
 )]
-pub struct EdgeId<E, S, D, M>
+pub struct InnerEdgeId<E, D, M>
 where
-    S: Storage,
     D: DirectednessTrait + Default,
     M: EdgeContainerSelector,
 {
-    validation: ValidationData<S>,
-    key: EndPair<AutomapKey, D>,
+    ends: EndPair<InnerNodeId, D>,
     index: <M::Container<E> as EdgeContainer<E>>::Index,
     directedness: D,
     edge_multiplicity: M,
 }
 
-impl<E, S, D, M> EdgeId<E, S, D, M>
+impl<E, D, M> InnerEdgeId<E, D, M>
 where
-    S: Storage,
     D: DirectednessTrait + Default,
     M: EdgeContainerSelector,
 {
     pub fn new(
-        validation: ValidationData<S>,
-        key: EndPair<AutomapKey, D>,
+        ends: EndPair<InnerNodeId, D>,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
     ) -> Self {
         Self {
-            validation,
-            key,
+            ends,
             index,
             directedness: D::default(),
             edge_multiplicity: M::default(),
         }
     }
 
-    pub fn validation(&self) -> &ValidationData<S> {
-        &self.validation
-    }
-
-    pub fn keys(&self) -> EndPair<AutomapKey, D> {
-        self.key.clone()
-    }
-
-    pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
-        self.validation = self.validation.with_compaction_count(compaction_count);
-        self
+    pub fn ends(&self) -> EndPair<InnerNodeId, D> {
+        self.ends.clone()
     }
 
     pub fn index(&self) -> <M::Container<E> as EdgeContainer<E>>::Index {
@@ -119,52 +92,44 @@ where
     }
 }
 
-impl<S: Storage> NodeIdTrait for NodeId<S> {}
-
-impl<S: Storage> Debug for NodeId<S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NodeId({:?})", self.key)
-    }
-}
-
-impl<E, S, D, M> EdgeIdTrait for EdgeId<E, S, D, M>
+impl<E, D, M, S> EdgeIdTrait for Validated<InnerEdgeId<E, D, M>, S>
 where
     S: Storage,
     D: DirectednessTrait + Default,
     M: EdgeContainerSelector,
 {
-    type NodeId = NodeId<S>;
+    type NodeId = Validated<InnerNodeId, S>;
     type Directedness = D;
 
     fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness> {
-        EndPair::new(self.left(), self.right(), self.directedness)
+        EndPair::new(self.left(), self.right(), self.directedness())
     }
 
     fn directedness(&self) -> Self::Directedness {
-        self.directedness
+        self.data.directedness
     }
 
-    fn left(&self) -> NodeId<S> {
-        NodeId::new(self.validation.clone(), *self.key.left())
+    fn left(&self) -> Self::NodeId {
+        Validated::new(*self.data.ends.left(), self.compaction_count)
     }
 
-    fn right(&self) -> NodeId<S> {
-        NodeId::new(self.validation.clone(), *self.key.right())
+    fn right(&self) -> Self::NodeId {
+        Validated::new(*self.data.ends.right(), self.compaction_count)
     }
 }
 
-impl<E, S, D, M> Debug for EdgeId<E, S, D, M>
+impl<E, D, M> Debug for InnerEdgeId<E, D, M>
 where
-    S: Storage,
     D: DirectednessTrait + Default,
     M: EdgeContainerSelector,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (from, into) = self.keys().into_values();
         write!(
             f,
-            "EdgeId({:?}, {:?}, {:?})",
-            from, into, self.validation.graph_id
+            "({:?}, {:?}, {:?})",
+            self.ends.left(),
+            self.ends.right(),
+            self.index
         )
     }
 }

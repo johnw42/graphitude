@@ -27,13 +27,13 @@
 pub mod adjacency_graph;
 pub mod adjacency_matrix;
 pub mod copier;
-pub mod debug_graph_view;
 pub mod directedness;
 #[cfg(feature = "dot")]
 pub mod dot;
 pub mod edge_multiplicity;
 pub mod end_pair;
 pub mod generate_large_graph;
+pub mod graph;
 pub mod graph_traits;
 pub mod linked_graph;
 pub mod object_graph;
@@ -43,7 +43,6 @@ pub mod search;
 
 // Modules for creating new graph implementations.
 pub mod format_debug;
-pub mod graph_id;
 #[macro_use]
 pub mod graph_tests;
 #[doc(hidden)]
@@ -63,7 +62,9 @@ pub use adjacency_matrix::{HashStorage, Storage};
 pub use copier::GraphCopier;
 pub use directedness::{Directed, Directedness, DirectednessTrait, Undirected};
 pub use edge_multiplicity::{EdgeMultiplicity, EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
+pub use graph::{EdgeId, Graph, NodeId};
 pub use graph_traits::{
-    AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphUndirected, NodeIdTrait,
+    AddEdgeResult, EdgeIdTrait, GraphDirected, GraphImpl, GraphImplMut, GraphUndirected,
+    NodeIdTrait,
 };
 pub use linked_graph::LinkedGraph;

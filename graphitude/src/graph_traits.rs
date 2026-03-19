@@ -1,22 +1,7 @@
 use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
 #[cfg(feature = "pathfinding")]
-use std::{collections::HashMap, ops::Add};
-
-#[cfg(feature = "dot")]
-use {
-    crate::dot::{parser, renderer},
-    std::io,
-};
-
-use crate::{
-    debug_graph_view::DebugGraphView,
-    end_pair::EndPair,
-    path::Path,
-    prelude::*,
-    search::{BfsIterator, BfsIteratorWithPaths, DfsIterator, DfsIteratorWithPaths},
-    util::other_value,
-};
+use crate::{end_pair::EndPair, prelude::*, util::other_value};
 
 /// A trait representing a node identifier in a graph.
 ///
@@ -31,7 +16,7 @@ pub trait NodeIdTrait: Eq + Hash + Clone + Debug + Ord + Send + Sync {}
 /// A trait representing an edge identifier in a graph.
 ///
 /// Implementors mu implement either `left` and `right`, or `ends`.
-pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
+pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Ord + Send + Sync {
     type NodeId: NodeIdTrait;
     type Directedness: DirectednessTrait;
 
@@ -83,22 +68,6 @@ pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
         let (n1, n2) = self.ends();
         (*node1 == n1 && *node2 == n2) || (*node1 == n2 && *node2 == n1)
     }
-
-    /// Gets the source node of the edge.
-    fn source(&self) -> Self::NodeId
-    where
-        Self: EdgeIdTrait<Directedness = Directed>,
-    {
-        self.left()
-    }
-
-    /// Gets the target node of the edge.
-    fn target(&self) -> Self::NodeId
-    where
-        Self: EdgeIdTrait<Directedness = Directed>,
-    {
-        self.right()
-    }
 }
 
 /// Return type of [`Graph::add_edge`].
@@ -116,6 +85,13 @@ impl<I, D> AddEdgeResult<I, D> {
         match self {
             AddEdgeResult::Added(id) => id,
             AddEdgeResult::Updated(id, _) => id,
+        }
+    }
+
+    pub fn map_edge_id<J>(self, f: impl FnOnce(I) -> J) -> AddEdgeResult<J, D> {
+        match self {
+            AddEdgeResult::Added(id) => AddEdgeResult::Added(f(id)),
+            AddEdgeResult::Updated(id, data) => AddEdgeResult::Updated(f(id), data),
         }
     }
 }
@@ -145,7 +121,7 @@ impl<I, D> AddEdgeResult<I, D> {
 /// - [`Self::num_edges_into`]
 /// - [`Self::has_edge_from`]
 /// - [`Self::has_edge_into`]
-pub trait Graph {
+pub trait GraphImpl {
     /// The directedness of the graph.
     type Directedness: DirectednessTrait;
 
@@ -170,16 +146,6 @@ pub trait Graph {
     /// The edge multiplicity of the graph.
     fn edge_multiplicity(&self) -> Self::EdgeMultiplicity;
 
-    /// Returns true if the graph is directed.
-    fn is_directed(&self) -> bool {
-        self.directedness().is_directed()
-    }
-
-    /// Returns true if the graph allows parallel edges between the same pair of nodes.
-    fn allows_parallel_edges(&self) -> bool {
-        self.edge_multiplicity().allows_parallel_edges()
-    }
-
     /// Checks if the graph is empty (has no nodes or edges).
     fn is_empty(&self) -> bool {
         if self.node_ids().next().is_none() {
@@ -188,57 +154,6 @@ pub trait Graph {
         } else {
             false
         }
-    }
-
-    /// Creates a new graph view in which node and edge data are hidden.
-    fn to_debug(&self) -> impl Graph + Debug {
-        self.to_debug_with(|_| (), |_| ())
-    }
-
-    /// Creates a new graph view with custom debug formatting for nodes and edges.
-    fn to_debug_with<N, E>(
-        &self,
-        node_fmt: impl FnMut(&Self::NodeData) -> N,
-        edge_fmt: impl FnMut(&Self::EdgeData) -> E,
-    ) -> impl Graph + Debug
-    where
-        N: Debug,
-        E: Debug,
-    {
-        DebugGraphView::new(self, node_fmt, edge_fmt)
-    }
-
-    /// Writes a DOT representation of the graph to the given output.
-    #[cfg(feature = "dot")]
-    fn write_dot<D>(
-        &self,
-        generator: &D,
-        output: &mut impl io::Write,
-    ) -> Result<(), renderer::DotError<D::Error>>
-    where
-        D: renderer::DotGenerator<Self>,
-        Self: Sized,
-    {
-        renderer::generate_dot_file(self, generator, output)
-    }
-
-    /// Generates a DOT representation of the graph as a String.
-    #[cfg(feature = "dot")]
-    fn to_dot_string<D>(&self, generator: &D) -> Result<String, renderer::DotError<D::Error>>
-    where
-        D: renderer::DotGenerator<Self>,
-        Self: Sized,
-    {
-        let mut output = Vec::new();
-        self.write_dot(generator, &mut output)?;
-        Ok(String::from_utf8(output).expect("Generated DOT is not valid UTF-8"))
-    }
-
-    /// Creates a new path starting from the given starting node.  This is a
-    /// convenience method to avoid having to import the `Path` type separately
-    /// and specify its type argument explicity.
-    fn new_path(&self, start: &Self::NodeId) -> Path<Self> {
-        Path::new(start.clone())
     }
 
     // Nodes
@@ -411,126 +326,6 @@ pub trait Graph {
         self.edges_from_into(from, into).count()
     }
 
-    // Searches
-
-    /// Performs a breadth-first search starting from the given node.
-    fn bfs(&self, start: &Self::NodeId) -> BfsIterator<'_, Self> {
-        self.bfs_multi(vec![start.clone()])
-    }
-
-    /// Performs a breadth-first search starting from the given nodes.
-    fn bfs_multi(&self, start: Vec<Self::NodeId>) -> BfsIterator<'_, Self> {
-        BfsIterator::new(self, start)
-    }
-
-    /// Performs a depth-first search starting from the given node.
-    fn dfs(&self, start: &Self::NodeId) -> DfsIterator<'_, Self> {
-        self.dfs_multi(vec![start.clone()])
-    }
-
-    /// Performs a depth-first search starting from the given node.
-    fn dfs_multi(&self, start: Vec<Self::NodeId>) -> DfsIterator<'_, Self> {
-        DfsIterator::new(self, start)
-    }
-
-    /// Performs a breadth-first search starting from the given node.
-    fn bfs_with_paths(&self, start: &Self::NodeId) -> BfsIteratorWithPaths<'_, Self> {
-        self.bfs_multi_with_paths(vec![start.clone()])
-    }
-
-    /// Performs a breadth-first search starting from the given nodes.
-    fn bfs_multi_with_paths(&self, start: Vec<Self::NodeId>) -> BfsIteratorWithPaths<'_, Self> {
-        BfsIteratorWithPaths::new(self, start)
-    }
-
-    /// Performs a depth-first search starting from the given node.
-    fn dfs_with_paths(&self, start: &Self::NodeId) -> DfsIteratorWithPaths<'_, Self> {
-        self.dfs_multi_with_paths(vec![start.clone()])
-    }
-
-    /// Performs a depth-first search starting from the given nodes.
-    fn dfs_multi_with_paths(&self, start: Vec<Self::NodeId>) -> DfsIteratorWithPaths<'_, Self> {
-        DfsIteratorWithPaths::new(self, start)
-    }
-
-    // Pathfinding
-
-    /// Finds shortest paths from a starting node to all other nodes using
-    /// Dijkstra's algorithm.  Returns a map from each reachable node to a
-    /// tuple of the path taken and the total cost.
-    #[cfg(feature = "pathfinding")]
-    fn shortest_paths<C: Default + Ord + Copy + Add<Output = C>>(
-        &self,
-        start: &Self::NodeId,
-        distance_fn: impl Fn(&Self::EdgeId) -> C,
-    ) -> HashMap<Self::NodeId, (Path<Self>, C)> {
-        // Find shortest paths using Dijkstra's algorithm.
-
-        let mut distances: HashMap<Self::NodeId, C> = HashMap::new();
-        let mut predecessors: HashMap<Self::NodeId, (Self::EdgeId, Self::NodeId)> = HashMap::new();
-        let mut unvisited: HashSet<Self::NodeId> = self.node_ids().collect();
-
-        distances.insert(start.clone(), C::default());
-
-        while !unvisited.is_empty() {
-            // Find unvisited node with minimum distance
-            let current = unvisited
-                .iter()
-                .filter_map(|node| distances.get(node).map(|&dist| (node.clone(), dist)))
-                .min_by_key(|(_, dist)| *dist);
-
-            let (current_node, current_dist) = match current {
-                Some(pair) => pair,
-                None => break, // No more reachable nodes
-            };
-
-            unvisited.remove(&current_node);
-
-            // Update distances to neighbors
-            for edge_id in self.edges_from(&current_node) {
-                let neighbor = edge_id.other_end(&current_node);
-                if unvisited.contains(&neighbor) {
-                    let edge_distance = distance_fn(&edge_id);
-                    let new_dist = current_dist + edge_distance;
-
-                    let should_update = distances
-                        .get(&neighbor)
-                        .is_none_or(|&old_dist| new_dist < old_dist);
-
-                    if should_update {
-                        distances.insert(neighbor.clone(), new_dist);
-                        predecessors.insert(neighbor.clone(), (edge_id, current_node.clone()));
-                    }
-                }
-            }
-        }
-
-        // Build paths from predecessors
-        let mut result: HashMap<<Self as Graph>::NodeId, (Path<Self>, C)> = HashMap::new();
-        for (node, &dist) in &distances {
-            if node == start {
-                result.insert(start.clone(), (Path::new(start.clone()), C::default()));
-            } else {
-                let mut current = node.clone();
-
-                let mut path_edges = Vec::new();
-                while let Some(pred) = predecessors.get(&current) {
-                    path_edges.push(pred.0.clone());
-                    current = pred.1.clone();
-                }
-
-                let mut path = Path::new(start.clone());
-                for edge_id in path_edges.iter().rev() {
-                    path.add_edge(edge_id.clone());
-                }
-
-                result.insert(node.clone(), (path, dist));
-            }
-        }
-
-        result
-    }
-
     /// Returns true if the graph implementation is known to be very slow for
     /// large graphs (e.g., due to using a dense adjacency matrix).  This is mainly
     /// intended to be used to skip certain tests that would take an unreasonable
@@ -543,7 +338,7 @@ pub trait Graph {
 
 /// A trait which is automatically implemented for directed graphs, providing
 /// methods specific to directed graphs.
-pub trait GraphDirected: Graph {
+pub trait GraphDirected: GraphImpl {
     /// Finds the strongly connected component containing the given node.
     #[cfg(feature = "pathfinding")]
     fn strongly_connected_component(&self, start: &Self::NodeId) -> Vec<Self::NodeId> {
@@ -570,11 +365,11 @@ pub trait GraphDirected: Graph {
     }
 }
 
-impl<G> GraphDirected for G where G: Graph<Directedness = Directed> {}
+impl<G> GraphDirected for G where G: GraphImpl<Directedness = Directed> {}
 
 /// A trait which is automatically implemented for undirected graphs, providing
 /// methods specific to undirected graphs.
-pub trait GraphUndirected: Graph {
+pub trait GraphUndirected: GraphImpl {
     #[cfg(feature = "pathfinding")]
     fn connected_components(&self) -> Vec<HashSet<Self::NodeId>> {
         pathfinding::prelude::connected_components(&self.node_ids().collect::<Vec<_>>(), |nid| {
@@ -583,13 +378,13 @@ pub trait GraphUndirected: Graph {
     }
 }
 
-impl<G> GraphUndirected for G where G: Graph<Directedness = Undirected> {}
+impl<G> GraphUndirected for G where G: GraphImpl<Directedness = Undirected> {}
 
 /// A trait for graphs that support mutation operations.
 ///
-/// This trait extends [`Graph`] with methods for adding and removing nodes and edges.
+/// This trait extends [`GraphImpl`] with methods for adding and removing nodes and edges.
 /// All graph implementations that support modification should implement this trait.
-pub trait GraphMut: Graph {
+pub trait GraphImplMut: GraphImpl {
     /// Creates a new empty graph.
     fn new(directedness: Self::Directedness, edge_multiplicity: Self::EdgeMultiplicity) -> Self
     where
@@ -625,7 +420,7 @@ pub trait GraphMut: Graph {
         data: Self::EdgeData,
     ) -> Self::EdgeId
     where
-        Self: Graph<EdgeMultiplicity = MultipleEdges>,
+        Self: GraphImpl<EdgeMultiplicity = MultipleEdges>,
     {
         match self.add_edge(from, into, data) {
             AddEdgeResult::Added(eid) => eid,
@@ -666,13 +461,6 @@ pub trait GraphMut: Graph {
 
     /// Compacts internal storage used by the graph to minimize memory usage
     /// without reallocation.  Does nothing by default.  May invalidate existing
-    /// NodeIds and EdgeIds.
-    fn compact(&mut self) {
-        self.compact_with(|_, _| {}, |_, _| {});
-    }
-
-    /// Compacts internal storage used by the graph to minimize memory usage
-    /// without reallocation.  Does nothing by default.  May invalidate existing
     /// NodeIds and EdgeIds.  Calls a closure for each node ID mapping
     /// (old_id, new_id) and edge ID mapping (old_id, new_id) as they are created.
     fn compact_with(
@@ -687,15 +475,4 @@ pub trait GraphMut: Graph {
     /// Shrinks internal storage used by the graph to fit its current size.
     /// Does nothing by default.
     fn shrink_to_fit(&mut self) {}
-
-    /// Parses a DOT representation of a graph from a string, using the given
-    /// graph builder to construct the graph.
-    #[cfg(feature = "dot")]
-    fn from_dot_string<B>(data: &str, builder: &mut B) -> Result<Self, parser::ParseError<B>>
-    where
-        Self: Sized,
-        B: parser::GraphBuilder<Graph = Self>,
-    {
-        parser::parse_dot_into_graph(data, builder)
-    }
 }

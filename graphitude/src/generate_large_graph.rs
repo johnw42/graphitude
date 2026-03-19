@@ -1,4 +1,4 @@
-use crate::{Graph, GraphMut};
+use crate::{Graph, GraphImpl, GraphImplMut};
 
 /// Generates a large graph with an irregular structure using custom closures
 /// for node and edge data generation.
@@ -19,11 +19,14 @@ use crate::{Graph, GraphMut};
 ///
 /// * `new_node_data` - A closure that takes an index and returns node data
 /// * `new_edge_data` - A closure that takes an index and returns edge data
-pub fn generate_large_graph<G, FN, FE>(graph: &mut G, mut new_node_data: FN, mut new_edge_data: FE)
-where
-    G: GraphMut,
-    FN: FnMut(usize) -> <G as Graph>::NodeData,
-    FE: FnMut(usize) -> <G as Graph>::EdgeData,
+pub fn generate_large_graph<G, FN, FE>(
+    graph: &mut Graph<G>,
+    mut new_node_data: FN,
+    mut new_edge_data: FE,
+) where
+    G: GraphImplMut,
+    FN: FnMut(usize) -> <G as GraphImpl>::NodeData,
+    FE: FnMut(usize) -> <G as GraphImpl>::EdgeData,
 {
     let mut node_counter = 0;
     let mut edge_counter = 0;

@@ -10,17 +10,17 @@ const DEFAULT_HASH_SET_CAPACITY: usize = 64;
 ///
 /// Visits nodes in breadth-first order starting from one or more root nodes.
 /// Each node is visited at most once.
-pub struct BfsIterator<'g, G: Graph + ?Sized> {
-    graph: &'g G,
-    visited: HashSet<G::NodeId>,
-    queue: VecDeque<G::NodeId>,
+pub struct BfsIterator<'g, G: GraphImpl + ?Sized> {
+    graph: &'g Graph<G>,
+    visited: HashSet<NodeId<G>>,
+    queue: VecDeque<NodeId<G>>,
 }
 
 impl<'g, G> BfsIterator<'g, G>
 where
-    G: Graph + ?Sized,
+    G: GraphImpl + ?Sized,
 {
-    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
+    pub fn new(graph: &'g Graph<G>, start: Vec<NodeId<G>>) -> Self {
         Self {
             graph,
             visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
@@ -31,9 +31,9 @@ where
 
 impl<'g, G> Iterator for BfsIterator<'g, G>
 where
-    G: Graph + ?Sized,
+    G: GraphImpl,
 {
-    type Item = G::NodeId;
+    type Item = NodeId<G>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(nid) = self.queue.pop_front() {
@@ -57,17 +57,17 @@ where
 ///
 /// Visits nodes in breadth-first order and yields the path from a root to each visited node.
 /// Each node is visited at most once, and the first path found is returned.
-pub struct BfsIteratorWithPaths<'g, G: Graph + ?Sized> {
-    graph: &'g G,
-    visited: HashSet<G::NodeId>,
+pub struct BfsIteratorWithPaths<'g, G: GraphImpl + ?Sized> {
+    graph: &'g Graph<G>,
+    visited: HashSet<NodeId<G>>,
     queue: VecDeque<Path<G>>,
 }
 
 impl<'g, G> BfsIteratorWithPaths<'g, G>
 where
-    G: Graph + ?Sized,
+    G: GraphImpl + ?Sized,
 {
-    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
+    pub fn new(graph: &'g Graph<G>, start: Vec<NodeId<G>>) -> Self {
         Self {
             graph,
             visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
@@ -78,7 +78,7 @@ where
 
 impl<'g, G> Iterator for BfsIteratorWithPaths<'g, G>
 where
-    G: Graph + ?Sized,
+    G: GraphImpl,
 {
     type Item = Path<G>;
 
@@ -105,17 +105,17 @@ where
 ///
 /// Visits nodes in depth-first order starting from one or more root nodes.
 /// Each node is visited at most once.
-pub struct DfsIterator<'g, G: Graph + ?Sized> {
-    graph: &'g G,
-    visited: HashSet<G::NodeId>,
-    stack: Vec<G::NodeId>,
+pub struct DfsIterator<'g, G: GraphImpl + ?Sized> {
+    graph: &'g Graph<G>,
+    visited: HashSet<NodeId<G>>,
+    stack: Vec<NodeId<G>>,
 }
 
 impl<'g, G> DfsIterator<'g, G>
 where
-    G: Graph + ?Sized,
+    G: GraphImpl + ?Sized,
 {
-    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
+    pub fn new(graph: &'g Graph<G>, start: Vec<NodeId<G>>) -> Self {
         let mut stack = start;
         stack.reverse();
         Self {
@@ -128,9 +128,9 @@ where
 
 impl<'g, G> Iterator for DfsIterator<'g, G>
 where
-    G: Graph + ?Sized,
+    G: GraphImpl,
 {
-    type Item = G::NodeId;
+    type Item = NodeId<G>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(nid) = self.stack.pop() {
@@ -149,17 +149,17 @@ where
 ///
 /// Visits nodes in depth-first order and yields the path from a root to each visited node.
 /// Each node is visited at most once, and the first path found is returned.
-pub struct DfsIteratorWithPaths<'g, G: Graph + ?Sized> {
-    graph: &'g G,
-    visited: HashSet<G::NodeId>,
+pub struct DfsIteratorWithPaths<'g, G: GraphImpl + ?Sized> {
+    graph: &'g Graph<G>,
+    visited: HashSet<NodeId<G>>,
     stack: Vec<Path<G>>,
 }
 
 impl<'g, G> DfsIteratorWithPaths<'g, G>
 where
-    G: Graph + ?Sized,
+    G: GraphImpl + ?Sized,
 {
-    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
+    pub fn new(graph: &'g Graph<G>, start: Vec<NodeId<G>>) -> Self {
         let mut stack = start.into_iter().map(Path::new).collect::<Vec<_>>();
         stack.reverse();
         Self {
@@ -172,7 +172,7 @@ where
 
 impl<'g, G> Iterator for DfsIteratorWithPaths<'g, G>
 where
-    G: Graph + ?Sized,
+    G: GraphImpl,
 {
     type Item = Path<G>;
 
@@ -195,16 +195,17 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{Directed, GraphMut, LinkedGraph, MultipleEdges};
+    use crate::{Directed, LinkedGraph, MultipleEdges};
 
     use super::*;
 
-    type TestGraph = LinkedGraph<usize, (), Directed, MultipleEdges>;
+    type TestGraphImpl = LinkedGraph<i32, (), Directed, MultipleEdges>;
+    type TestGraph = Graph<TestGraphImpl>;
 
     fn create_simple_graph() -> (
         TestGraph,
-        Vec<<TestGraph as Graph>::NodeId>,
-        Vec<<TestGraph as Graph>::EdgeId>,
+        Vec<NodeId<TestGraphImpl>>,
+        Vec<EdgeId<TestGraphImpl>>,
     ) {
         let mut graph = TestGraph::default();
         let n0 = graph.add_node(0);
@@ -221,8 +222,8 @@ mod tests {
 
     fn create_cyclic_graph() -> (
         TestGraph,
-        Vec<<TestGraph as Graph>::NodeId>,
-        Vec<<TestGraph as Graph>::EdgeId>,
+        Vec<NodeId<TestGraphImpl>>,
+        Vec<EdgeId<TestGraphImpl>>,
     ) {
         let mut graph = TestGraph::default();
         let n0 = graph.add_node(0);
