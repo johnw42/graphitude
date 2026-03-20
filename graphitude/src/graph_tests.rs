@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use quickcheck::TestResult;
 use test_suite_macro::test_suite_macro;
@@ -407,29 +408,189 @@ where
         original_node_ids.is_disjoint(&cloned_node_ids)
     }
 
-    // TODO
-    // #[cfg(not(feature = "unchecked"))]
-    // #[quickcheck]
-    // pub fn prop_cloned_graph_edge_ids_are_invalid_in_original_graph(
-    //     ArbGraph { graph, .. }: ArbGraph<G>,
-    // ) -> TestResult {
-    //     for eid in graph.clone().edge_ids() {
-    //         if graph.check_valid_edge_id(&eid).is_ok() {
-    //             return TestResult::error(format!(
-    //                 "Cloned edge ID {:?} is valid in original graph",
-    //                 eid
-    //             ));
-    //         }
-    //     }
-    //     TestResult::passed()
-    // }
-
     #[quickcheck]
     pub fn prop_cloned_graph_has_distinct_edge_ids(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
         let cloned_graph = graph.clone();
         let original_edge_ids = graph.edge_ids().collect::<HashSet<_>>();
         let cloned_edge_ids = cloned_graph.edge_ids().collect::<HashSet<_>>();
         original_edge_ids.is_disjoint(&cloned_edge_ids)
+    }
+
+    /// Removes about half the nodes in an `ArbGraph` and returns the removed node IDs.
+    fn remove_some_nodes<'a>(a: &mut ArbGraph<G>) -> Vec<NodeId<G>> {
+        let to_remove_range = 0..a.node_ids.len() / 2;
+        let to_remove = a
+            .node_ids
+            .drain(to_remove_range.clone())
+            .collect::<Vec<_>>();
+        a.node_data.drain(to_remove_range);
+        for node_id in &to_remove {
+            a.graph.remove_node(node_id);
+        }
+        to_remove
+    }
+
+    #[cfg(not(feature = "unchecked"))]
+    #[quickcheck]
+    pub fn prop_removal_invalidates_removed_node_ids(mut a: ArbGraph<G>) -> TestResult {
+        use std::panic::catch_unwind;
+
+        let removed = Self::remove_some_nodes(&mut a);
+        for node_id in &removed {
+            use std::panic::AssertUnwindSafe;
+
+            if catch_unwind(AssertUnwindSafe(|| a.graph.node_data(&node_id))).is_ok() {
+                return TestResult::error(format!(
+                    "Expected node ID {:?} to be invalid after removal, but it was still valid",
+                    node_id
+                ));
+            }
+        }
+
+        TestResult::passed()
+    }
+
+    #[quickcheck]
+    pub fn prop_removal_preserves_node_ids(mut a: ArbGraph<G>) -> TestResult {
+        Self::remove_some_nodes(&mut a);
+
+        for (node_id, node_data) in a.node_ids.iter().zip(a.node_data.iter()) {
+            if a.graph.node_data(&node_id) != node_data {
+                return TestResult::error(format!(
+                    "Expected node ID {:?} to still be valid after removal, but it was not",
+                    node_id
+                ));
+            }
+        }
+
+        TestResult::passed()
+    }
+
+    /// Removes about half the edges in an `ArbGraph` and returns the removed edge IDs.
+    fn remove_some_edges<'a>(a: &mut ArbGraph<G>) -> Vec<EdgeId<G>> {
+        let to_remove_range = 0..a.edge_ids.len() / 2;
+        let to_remove = a
+            .edge_ids
+            .drain(to_remove_range.clone())
+            .collect::<Vec<_>>();
+        a.edge_data.drain(to_remove_range);
+        for edge_id in &to_remove {
+            a.graph.remove_edge(edge_id);
+        }
+        to_remove
+    }
+
+    #[cfg(not(feature = "unchecked"))]
+    #[quickcheck]
+    pub fn prop_removal_invalidates_removed_edge_ids(mut a: ArbGraph<G>) -> TestResult {
+        use std::panic::catch_unwind;
+
+        let removed = Self::remove_some_edges(&mut a);
+        for edge_id in &removed {
+            use std::panic::AssertUnwindSafe;
+
+            if catch_unwind(AssertUnwindSafe(|| a.graph.edge_data(&edge_id))).is_ok() {
+                return TestResult::error(format!(
+                    "Expected edge ID {:?} to be invalid after removal, but it was still valid",
+                    edge_id
+                ));
+            }
+        }
+
+        TestResult::passed()
+    }
+
+    #[quickcheck]
+    pub fn prop_removal_preserves_edge_ids(mut a: ArbGraph<G>) -> TestResult {
+        Self::remove_some_edges(&mut a);
+
+        for (edge_id, (_, edge_data)) in a.edge_ids.iter().zip(a.edge_data.iter()) {
+            if a.graph.edge_data(&edge_id) != edge_data {
+                return TestResult::error(format!(
+                    "Expected edge ID {:?} to still be valid after removal, but it was not",
+                    edge_id
+                ));
+            }
+        }
+
+        TestResult::passed()
+    }
+
+    #[quickcheck]
+    pub fn prop_shrink_to_fit_preserves_ids(mut a: ArbGraph<G>) -> TestResult {
+        Self::remove_some_nodes(&mut a);
+        a.graph.shrink_to_fit();
+
+        for (node_id, node_data) in a.node_ids.iter().zip(a.node_data.iter()) {
+            if a.graph.node_data(&node_id) != node_data {
+                return TestResult::error(format!(
+                    "Expected node ID {:?} to still be valid after shrink_to_fit, but it was not",
+                    node_id
+                ));
+            }
+        }
+
+        TestResult::passed()
+    }
+
+    #[quickcheck]
+    pub fn prop_compact_preserves_or_invalidates_ids(mut a: ArbGraph<G>) -> TestResult {
+        Self::remove_some_nodes(&mut a);
+
+        let mut node_id_map = HashMap::new();
+        let mut edge_id_map = HashMap::new();
+        a.graph.compact_with(
+            |old_node_id, new_node_id| {
+                node_id_map.insert(old_node_id.clone(), new_node_id.clone());
+            },
+            |old_edge_id, new_edge_id| {
+                edge_id_map.insert(old_edge_id.clone(), new_edge_id.clone());
+            },
+        );
+
+        for (node_id, node_data) in a.node_ids.iter().zip(a.node_data.iter()) {
+            match node_id_map.get(node_id) {
+                Some(mapped_node_id) => {
+                    if a.graph.node_data(mapped_node_id) != node_data {
+                        return TestResult::error(format!(
+                            "Expected node ID {:?} to still be valid after compact, but it was not",
+                            node_id
+                        ));
+                    }
+                }
+                None => {
+                    if catch_unwind(AssertUnwindSafe(|| a.graph.node_data(&node_id))).is_ok() {
+                        return TestResult::error(format!(
+                            "Expected node ID {:?} to be invalid after compact, but it was still valid",
+                            node_id
+                        ));
+                    }
+                }
+            }
+        }
+
+        for (edge_id, (_, edge_data)) in a.edge_ids.iter().zip(a.edge_data.iter()) {
+            match edge_id_map.get(edge_id) {
+                Some(mapped_edge_id) => {
+                    if a.graph.edge_data(mapped_edge_id) != edge_data {
+                        return TestResult::error(format!(
+                            "Expected edge ID {:?} to still be valid after compact, but it was not",
+                            edge_id
+                        ));
+                    }
+                }
+                None => {
+                    if catch_unwind(AssertUnwindSafe(|| a.graph.edge_data(&edge_id))).is_ok() {
+                        return TestResult::error(format!(
+                            "Expected edge ID {:?} to be invalid after compact, but it was still valid",
+                            edge_id
+                        ));
+                    }
+                }
+            }
+        }
+
+        TestResult::passed()
     }
 
     #[test]
