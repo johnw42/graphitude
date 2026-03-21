@@ -155,125 +155,122 @@ where
     }
 }
 
-// TODO: Convert to test suite object
 #[cfg(test)]
-#[cfg(feature = "bitvec")]
 mod tests {
-    macro_rules! tests {
-        ($mod: ident,$type: ty) => {
-            mod $mod {
-                use crate::adjacency_graph::AdjacencyGraph;
-                use $crate::prelude::*;
+    use std::marker::PhantomData;
 
-                #[test]
-                fn test_new_path() {
-                    let mut graph = Graph::<$type>::default();
-                    let n1 = graph.add_node("n1");
-                    let path = graph.new_path(&n1);
-                    assert_eq!(path.first_node(), n1);
-                    assert_eq!(path.last_node(), n1);
-                }
+    use test_suite_macro::test_suite_macro;
 
-                #[test]
-                fn test_add_edge() {
-                    let mut graph = Graph::<$type>::default();
-                    let n1 = graph.add_node("n1");
-                    let n2 = graph.add_node("n2");
-                    let e1 = graph.add_edge(&n1, &n2, "e1").edge_id();
+    use crate::{AdjacencyGraph, Directed, Graph, GraphImplMut, Undirected};
 
-                    let mut path = graph.new_path(&n1);
-                    path.add_edge(e1);
+    struct PathTests<G>(PhantomData<G>);
 
-                    assert_eq!(path.last_node(), n2);
-                    assert_eq!(path.edges().count(), 1);
-                    assert_eq!(path.nodes().count(), 2);
-                }
+    #[test_suite_macro(path_tests)]
+    impl<G> PathTests<G>
+    where
+        G: GraphImplMut<NodeData = &'static str, EdgeData = &'static str> + Default,
+    {
+        #[test]
+        fn test_new_path() {
+            let mut graph = Graph::<G>::default();
+            let n1 = graph.add_node("n1");
+            let path = graph.new_path(&n1);
+            assert_eq!(path.first_node(), n1);
+            assert_eq!(path.last_node(), n1);
+        }
 
-                #[test]
-                fn test_nodes_with_edges() {
-                    let mut graph = Graph::<$type>::default();
-                    let n1 = graph.add_node("n1");
-                    let n2 = graph.add_node("n2");
-                    let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(&n1, &n2, "e1").edge_id();
-                    let e2 = graph.add_edge(&n2, &n3, "e2").edge_id();
-                    let mut path = graph.new_path(&n1);
-                    path.add_edge(e1.clone());
-                    path.add_edge(e2.clone());
-                    let mut iter = path.nodes_with_edges();
-                    assert_eq!(iter.next(), Some((None, n1.clone(), Some(e1.clone()))));
-                    assert_eq!(
-                        iter.next(),
-                        Some((Some(e1.clone()), n2.clone(), Some(e2.clone())))
-                    );
-                    assert_eq!(iter.next(), Some((Some(e2.clone()), n3.clone(), None)));
-                    assert_eq!(iter.next(), None);
-                }
+        #[test]
+        fn test_add_edge() {
+            let mut graph = Graph::<G>::default();
+            let n1 = graph.add_node("n1");
+            let n2 = graph.add_node("n2");
+            let e1 = graph.add_edge(&n1, &n2, "e1").edge_id();
 
-                #[test]
-                fn test_extend_with() {
-                    let mut graph = Graph::<$type>::default();
-                    let n1 = graph.add_node("n1");
-                    let n2 = graph.add_node("n2");
-                    let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(&n1, &n2, "e12").edge_id();
-                    let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
+            let mut path = graph.new_path(&n1);
+            path.add_edge(e1);
 
-                    let mut path1 = graph.new_path(&n1);
-                    path1.add_edge(e1);
+            assert_eq!(path.last_node(), n2);
+            assert_eq!(path.edges().count(), 1);
+            assert_eq!(path.nodes().count(), 2);
+        }
 
-                    let mut path2 = graph.new_path(&n2);
-                    path2.add_edge(e2);
+        #[test]
+        fn test_nodes_with_edges() {
+            let mut graph = Graph::<G>::default();
+            let n1 = graph.add_node("n1");
+            let n2 = graph.add_node("n2");
+            let n3 = graph.add_node("n3");
+            let e1 = graph.add_edge(&n1, &n2, "e1").edge_id();
+            let e2 = graph.add_edge(&n2, &n3, "e2").edge_id();
+            let mut path = graph.new_path(&n1);
+            path.add_edge(e1.clone());
+            path.add_edge(e2.clone());
+            let mut iter = path.nodes_with_edges();
+            assert_eq!(iter.next(), Some((None, n1.clone(), Some(e1.clone()))));
+            assert_eq!(
+                iter.next(),
+                Some((Some(e1.clone()), n2.clone(), Some(e2.clone())))
+            );
+            assert_eq!(iter.next(), Some((Some(e2.clone()), n3.clone(), None)));
+            assert_eq!(iter.next(), None);
+        }
 
-                    path1.extend_with(&path2);
+        #[test]
+        fn test_extend_with() {
+            let mut graph = Graph::<G>::default();
+            let n1 = graph.add_node("n1");
+            let n2 = graph.add_node("n2");
+            let n3 = graph.add_node("n3");
+            let e1 = graph.add_edge(&n1, &n2, "e12").edge_id();
+            let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
 
-                    assert_eq!(path1.nodes().count(), 3);
-                    assert_eq!(path1.edges().count(), 2);
-                }
+            let mut path1 = graph.new_path(&n1);
+            path1.add_edge(e1);
 
-                #[test]
-                fn test_extend() {
-                    let mut graph = Graph::<$type>::default();
-                    let n1 = graph.add_node("n1");
-                    let n2 = graph.add_node("n2");
-                    let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(&n1, &n2, "e12").edge_id();
-                    let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
+            let mut path2 = graph.new_path(&n2);
+            path2.add_edge(e2);
 
-                    let mut path = graph.new_path(&n1);
-                    path.extend(vec![e1, e2]);
+            path1.extend_with(&path2);
 
-                    assert_eq!(path.nodes().count(), 3);
-                    assert_eq!(path.edges().count(), 2);
-                }
+            assert_eq!(path1.nodes().count(), 3);
+            assert_eq!(path1.edges().count(), 2);
+        }
 
-                #[test]
-                fn test_debug() {
-                    let mut graph = Graph::<$type>::default();
-                    let n1 = graph.add_node("n1");
-                    let n2 = graph.add_node("n2");
-                    let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(&n1, &n2, "e12").edge_id();
-                    let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
-                    let e3 = graph.add_edge(&n3, &n1, "e31").edge_id();
+        #[test]
+        fn test_extend() {
+            let mut graph = Graph::<G>::default();
+            let n1 = graph.add_node("n1");
+            let n2 = graph.add_node("n2");
+            let n3 = graph.add_node("n3");
+            let e1 = graph.add_edge(&n1, &n2, "e12").edge_id();
+            let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
 
-                    let mut path = graph.new_path(&n1);
-                    path.extend(vec![e1, e2, e3]);
-                    let debug_str = format!("{:?}", path);
-                    assert!(debug_str.contains("Path"));
-                    assert!(debug_str.contains("nodes"));
-                    assert!(debug_str.contains("edges"));
-                }
-            }
-        };
+            let mut path = graph.new_path(&n1);
+            path.extend(vec![e1, e2]);
+
+            assert_eq!(path.nodes().count(), 3);
+            assert_eq!(path.edges().count(), 2);
+        }
+
+        #[test]
+        fn test_debug() {
+            let mut graph = Graph::<G>::default();
+            let n1 = graph.add_node("n1");
+            let n2 = graph.add_node("n2");
+            let n3 = graph.add_node("n3");
+            let e1 = graph.add_edge(&n1, &n2, "e12").edge_id();
+            let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
+            let e3 = graph.add_edge(&n3, &n1, "e31").edge_id();
+
+            let mut path = graph.new_path(&n1);
+            path.extend(vec![e1, e2, e3]);
+            let debug_str = format!("{:?}", path);
+            assert!(debug_str.contains("Path"));
+            assert!(debug_str.contains("nodes"));
+            assert!(debug_str.contains("edges"));
+        }
     }
 
-    tests!(
-        directed,
-        AdjacencyGraph<&'static str, &'static str, Directed>
-    );
-    tests!(
-        undirected,
-        AdjacencyGraph<&'static str, &'static str, Undirected>
-    );
+    path_tests!(directed: PathTests<AdjacencyGraph<&'static str, &'static str, Directed>>);
+    path_tests!(undirected: PathTests<AdjacencyGraph<&'static str, &'static str, Undirected>>);
 }

@@ -30,9 +30,9 @@ where
         graph,
         fmt,
         name,
-        &mut |nid| node_tags[nid].clone(),
-        &|nid| graph.node_data(&nid),
-        &|eid| graph.edge_data(&eid),
+        |nid| node_tags[nid].clone(),
+        |nid| graph.node_data(&nid),
+        |eid| graph.edge_data(&eid),
     )
 }
 
@@ -49,14 +49,14 @@ pub fn format_debug_with<'g, 'f, G, T, N, E, NF, EF>(
     graph: &'g Graph<G>,
     fmt: &mut Formatter<'f>,
     name: &str,
-    // TODO: Pass functions by value
-    node_tag: &mut T,
-    node_data_fn: &NF,
-    edge_data_fn: &EF,
+    mut node_tag: T,
+    node_data_fn: NF,
+    edge_data_fn: EF,
 ) -> std::fmt::Result
 where
     G: GraphImpl,
     T: FnMut(&NodeId<G>) -> String,
+    // We need to use Fn rather than FnMut to satisfy the bounds of FormatDebugWith.
     NF: Fn(NodeId<G>) -> N,
     EF: Fn(EdgeId<G>) -> E,
     N: Debug,

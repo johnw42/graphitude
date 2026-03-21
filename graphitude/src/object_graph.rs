@@ -106,7 +106,7 @@ impl<'a, N: Debug> EdgeIdTrait for (NodeId<'a, N>, NodeId<'a, N>) {
     }
 
     fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness> {
-        todo!()
+        EndPair::new(self.0, self.1, Directed)
     }
 }
 
