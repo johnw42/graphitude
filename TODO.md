@@ -20,3 +20,6 @@
 [x] Store regular and reflected data in a single bitvec
 [ ] Clean up TODOs in code
 [ ] Support graphs with both directed and undirected edges
+[ ] Revise documentation for test_suite_macro
+[ ] Add allocator parameters
+[ ] Change test_suite_macro so macro arguments are evaluated in the parent module
