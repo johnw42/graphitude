@@ -1,4 +1,9 @@
-use std::fmt::{Debug, Formatter};
+use std::{
+    fmt::{Debug, Formatter},
+    panic::UnwindSafe,
+};
+
+use derivative::Derivative;
 
 /// Sorts a pair of values into nondescending order.
 pub fn sort_pair<K: Ord>((a, b): (K, K)) -> (K, K) {
@@ -91,5 +96,38 @@ pub fn other_value_ref<'a, 'b, T: Eq>(
         OtherValue::First(first)
     } else {
         panic!("Neither value matches the target");
+    }
+}
+
+/// A pointer that cannot be dereferenced, used for identity purposes without allowing access to the underlying value.
+#[derive(Derivative)]
+#[derivative(
+    Clone(bound = ""),
+    Copy(bound = ""),
+    Hash(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = ""),
+    PartialOrd(bound = ""),
+    Ord(bound = "")
+)]
+pub struct NonDereferenceable<T: ?Sized>(*const T);
+
+impl<T: ?Sized> UnwindSafe for NonDereferenceable<T> {}
+
+impl<T: ?Sized> Debug for NonDereferenceable<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<T: ?Sized> From<*const T> for NonDereferenceable<T> {
+    fn from(ptr: *const T) -> Self {
+        NonDereferenceable(ptr)
+    }
+}
+
+impl<T: ?Sized> From<&T> for NonDereferenceable<T> {
+    fn from(ptr: &T) -> Self {
+        NonDereferenceable(ptr as *const T)
     }
 }

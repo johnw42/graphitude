@@ -21,7 +21,7 @@ use crate::{
 mod ids {
     use derivative::Derivative;
 
-    use crate::{Directed, EdgeIdTrait, GraphImpl};
+    use crate::{Directed, EdgeIdTrait, GraphImpl, util::NonDereferenceable};
 
     #[derive(Derivative)]
     #[derivative(
@@ -35,7 +35,7 @@ mod ids {
     )]
     pub struct NodeId<G: GraphImpl + ?Sized> {
         inner: G::NodeId,
-        graph: *const G,
+        graph: NonDereferenceable<G>,
     }
 
     #[derive(Derivative)]
@@ -50,7 +50,7 @@ mod ids {
     )]
     pub struct EdgeId<G: GraphImpl + ?Sized> {
         inner: G::EdgeId,
-        graph: *const G,
+        graph: NonDereferenceable<G>,
     }
 
     impl<G: GraphImpl + ?Sized> EdgeId<G> {
@@ -137,12 +137,15 @@ mod ids {
 
         #[inline(always)]
         fn wrap(inner: Self::Inner, graph: *const G) -> Self {
-            NodeId { inner, graph }
+            NodeId {
+                inner,
+                graph: graph.into(),
+            }
         }
 
         #[inline(always)]
         fn unwrap(&self, graph: *const G) -> &Self::Inner {
-            assert_eq!(self.graph, graph);
+            assert_eq!(self.graph, graph.into());
             &self.inner
         }
     }
@@ -152,12 +155,15 @@ mod ids {
 
         #[inline(always)]
         fn wrap(inner: Self::Inner, graph: *const G) -> Self {
-            EdgeId { inner, graph }
+            EdgeId {
+                inner,
+                graph: graph.into(),
+            }
         }
 
         #[inline(always)]
         fn unwrap(&self, graph: *const G) -> &Self::Inner {
-            assert_eq!(self.graph, graph);
+            assert_eq!(self.graph, graph.into());
             &self.inner
         }
     }
