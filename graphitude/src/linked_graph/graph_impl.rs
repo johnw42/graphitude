@@ -1,7 +1,8 @@
 use std::{
-    cell::{Ref, RefCell, UnsafeCell},
+    cell::{RefCell, UnsafeCell},
     collections::HashSet,
     marker::PhantomData,
+    panic::panic_any,
     rc::Rc,
 };
 
@@ -10,6 +11,7 @@ use crate::{
     edge_multiplicity::EdgeMultiplicity,
     end_pair::EndPair,
     graph_traits::{AddEdgeResult, EdgeIdTrait},
+    invalid_id::InvalidId,
     linked_graph::{EdgeId, NodeId},
     prelude::*,
     util::OtherValue,
@@ -95,16 +97,18 @@ where
         }
     }
 
-    fn node(&self, id: &NodeId<N, E, D>) -> &Node<N, E, D> {
-        let ptr = Rc::as_ptr(&id.ptr.upgrade().expect("NodeId is dangling"));
-        // SAFETY: See note on `LinkedGraph` type.
-        unsafe { &*ptr }
+    fn node(&self, id: &NodeId<N, E, D>) -> Rc<Node<N, E, D>> {
+        match id.ptr.upgrade() {
+            Some(node) => node,
+            None => panic_any(InvalidId),
+        }
     }
 
-    fn edge(&self, id: &EdgeId<N, E, D>) -> &Edge<N, E, D> {
-        let ptr: *const Edge<N, E, D> = Rc::as_ptr(&id.ptr.upgrade().expect("EdgeId is dangling"));
-        // SAFETY: See note on `LinkedGraph` type.
-        unsafe { &*ptr }
+    fn edge(&self, id: &EdgeId<N, E, D>) -> Rc<Edge<N, E, D>> {
+        match id.ptr.upgrade() {
+            Some(edge) => edge,
+            None => panic_any(InvalidId),
+        }
     }
 }
 
@@ -160,11 +164,7 @@ where
         &'a self,
         from: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        EdgesOutIter {
-            borrow: self.node(from).edges.borrow(),
-            graph: self,
-            index: 0,
-        }
+        EdgesOutIter::new(self, self.node(from))
     }
 
     fn edges_into<'a, 'b: 'a>(
@@ -174,17 +174,8 @@ where
         let node = self.node(into);
         debug_assert!(self.directedness().is_directed() || node.back_edges.borrow().is_empty());
         std::iter::chain(
-            EdgesInIter {
-                borrow: node.back_edges.borrow(),
-                index: 0,
-            }
-            .take_while(|_| self.directedness().is_directed()),
-            EdgesOutIter {
-                borrow: node.edges.borrow(),
-                graph: self,
-                index: 0,
-            }
-            .take_while(|_| !self.directedness().is_directed()),
+            EdgesInIter::new(Rc::clone(&node)).take_while(|_| self.directedness().is_directed()),
+            EdgesOutIter::new(self, node).take_while(|_| !self.directedness().is_directed()),
         )
     }
 
@@ -364,8 +355,7 @@ where
     }
 
     fn remove_edge(&mut self, eid: &Self::EdgeId) -> Self::EdgeData {
-        self.assert_valid_edge_id(eid);
-        let edge = eid.ptr.upgrade().expect("EdgeId is dangling");
+        let edge = self.edge(eid);
         let (from_nid, into_nid) = edge.ends.values();
 
         // Remove from source node's edges_out
@@ -393,9 +383,19 @@ where
 }
 
 struct EdgesOutIter<'a, N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> {
-    borrow: Ref<'a, Vec<Rc<Edge<N, E, D>>>>,
+    node: Rc<Node<N, E, D>>,
     graph: &'a LinkedGraph<N, E, D, M>,
     index: usize,
+}
+
+impl<'a, N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> EdgesOutIter<'a, N, E, D, M> {
+    fn new(graph: &'a LinkedGraph<N, E, D, M>, node: Rc<Node<N, E, D>>) -> Self {
+        Self {
+            node,
+            graph,
+            index: 0,
+        }
+    }
 }
 
 impl<'a, N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> Iterator
@@ -403,21 +403,29 @@ impl<'a, N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> Iterator
 {
     type Item = EdgeId<N, E, D>;
     fn next(&mut self) -> Option<Self::Item> {
-        let edge = self.borrow.get(self.index)?;
+        let borrow = self.node.edges.borrow();
+        let edge = borrow.get(self.index)?;
         self.index += 1;
         Some(self.graph.edge_id(edge))
     }
 }
 
-struct EdgesInIter<'a, N, E, D: DirectednessTrait> {
-    borrow: Ref<'a, Vec<EdgeId<N, E, D>>>,
+struct EdgesInIter<N, E, D: DirectednessTrait> {
+    node: Rc<Node<N, E, D>>,
     index: usize,
 }
 
-impl<'a, N, E, D: DirectednessTrait> Iterator for EdgesInIter<'a, N, E, D> {
+impl<N, E, D: DirectednessTrait> EdgesInIter<N, E, D> {
+    fn new(node: Rc<Node<N, E, D>>) -> Self {
+        Self { node, index: 0 }
+    }
+}
+
+impl<N, E, D: DirectednessTrait> Iterator for EdgesInIter<N, E, D> {
     type Item = EdgeId<N, E, D>;
     fn next(&mut self) -> Option<Self::Item> {
-        let edge_id = self.borrow.get(self.index)?;
+        let borrow = self.node.back_edges.borrow();
+        let edge_id = borrow.get(self.index)?;
         self.index += 1;
         Some(edge_id.clone())
     }

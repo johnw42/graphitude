@@ -7,42 +7,42 @@ mod linked {
 
     graph_test_suite!(
         directed_multiple:
-            GraphTests<LinkedGraph<i32, String, Directed, MultipleEdges>>
+            GraphTests<LinkedGraph<i32, i32, Directed, MultipleEdges>>
     );
 
     graph_test_suite!(
         directed_single:
-            GraphTests<LinkedGraph<i32, String, Directed, SingleEdge>>
+            GraphTests<LinkedGraph<i32, i32, Directed, SingleEdge>>
     );
 
     graph_test_suite!(
         undirected_multiple:
-            GraphTests<LinkedGraph<i32, String, Undirected, MultipleEdges>>
+            GraphTests<LinkedGraph<i32, i32, Undirected, MultipleEdges>>
     );
 
     graph_test_suite!(
         undirected_single:
-            GraphTests<LinkedGraph<i32, String, Undirected, SingleEdge>>
+            GraphTests<LinkedGraph<i32, i32, Undirected, SingleEdge>>
     );
 
     graph_test_suite!(
         dyn_directed_multiple:
-            GraphTests<LinkedGraph<i32, String, Directed, MultipleEdges>>
+            GraphTests<LinkedGraph<i32, i32, Directed, MultipleEdges>>
     );
 
     graph_test_suite!(
         dyn_directed_single:
-            GraphTests<LinkedGraph<i32, String, Directed, SingleEdge>>
+            GraphTests<LinkedGraph<i32, i32, Directed, SingleEdge>>
     );
 
     graph_test_suite!(
         dyn_undirected_multiple:
-            GraphTests<LinkedGraph<i32, String, Undirected, MultipleEdges>>
+            GraphTests<LinkedGraph<i32, i32, Undirected, MultipleEdges>>
     );
 
     graph_test_suite!(
         dyn_undirected_single =
-            GraphTests::<LinkedGraph<i32, String, Directedness, EdgeMultiplicity>>::new(|| {
+            GraphTests::<LinkedGraph<i32, i32, Directedness, EdgeMultiplicity>>::new(|| {
                 Graph::new(LinkedGraph::new(
                     Directedness::Undirected,
                     EdgeMultiplicity::SingleEdge,
@@ -89,41 +89,41 @@ mod adjacency {
 
     graph_test_suite!(
         directed_single_bitvec:
-            GraphTests::<AdjacencyGraph<i32, String, Directed, SingleEdge, BitvecStorage>>
+            GraphTests::<AdjacencyGraph<i32, i32, Directed, SingleEdge, BitvecStorage>>
     );
 
     graph_test_suite!(
         undirected_single_bitvec:
-            GraphTests::<AdjacencyGraph<i32, String, Undirected, SingleEdge, BitvecStorage>>
+            GraphTests::<AdjacencyGraph<i32, i32, Undirected, SingleEdge, BitvecStorage>>
     );
 
     graph_test_suite!(
         directed_single_hash:
-            GraphTests::<AdjacencyGraph<i32, String, Directed, SingleEdge, HashStorage>>
+            GraphTests::<AdjacencyGraph<i32, i32, Directed, SingleEdge, HashStorage>>
     );
 
     graph_test_suite!(
         undirected_single_hash:
-            GraphTests::<AdjacencyGraph<i32, String, Undirected, SingleEdge, HashStorage>>
+            GraphTests::<AdjacencyGraph<i32, i32, Undirected, SingleEdge, HashStorage>>
     );
 
     graph_test_suite!(
         directed_multiple_bitvec:
-            GraphTests::<AdjacencyGraph<i32, String, Directed, MultipleEdges, BitvecStorage>>
+            GraphTests::<AdjacencyGraph<i32, i32, Directed, MultipleEdges, BitvecStorage>>
     );
 
     graph_test_suite!(
         undirected_multiple_bitvec:
-            GraphTests::<AdjacencyGraph<i32, String, Undirected, MultipleEdges, BitvecStorage>>
+            GraphTests::<AdjacencyGraph<i32, i32, Undirected, MultipleEdges, BitvecStorage>>
     );
 
     graph_test_suite!(
         directed_multiple_hash:
-            GraphTests::<AdjacencyGraph<i32, String, Directed, MultipleEdges, HashStorage>>
+            GraphTests::<AdjacencyGraph<i32, i32, Directed, MultipleEdges, HashStorage>>
     );
 
     graph_test_suite!(
         undirected_multiple_hash:
-            GraphTests::<AdjacencyGraph<i32, String, Undirected, MultipleEdges, HashStorage>>
+            GraphTests::<AdjacencyGraph<i32, i32, Undirected, MultipleEdges, HashStorage>>
     );
 }

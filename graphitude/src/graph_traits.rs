@@ -213,47 +213,6 @@ pub trait GraphImpl {
     /// Gets a vector of all edges in the graph.
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
 
-    /// Checks if a EdgeId is valid in the graph to the extent that can be
-    /// determined without iterating over all edges, returning a reason if it is
-    /// not.  This may return false positives for some graph implementations.
-    fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
-        if self.edge_ids().any(|eid| &eid == id) {
-            Ok(())
-        } else {
-            Err("EdgeId not found in graph")
-        }
-    }
-
-    /// Checks if a EdgeId is valid in the graph to the extent that can be
-    /// determined without iterating over all edges, returning a reason if it is
-    /// not.  May return false positives for some graph implementations.
-    ///
-    /// By default, this method always returns Ok(()).
-    fn maybe_check_valid_edge_id(&self, _id: &Self::EdgeId) -> Result<(), &'static str> {
-        Ok(())
-    }
-
-    /// Panics if the given EdgeId is not valid in the graph, according to
-    /// [`Self::maybe_check_valid_edge_id`].
-    ///
-    /// It is recommended to call this method from implementations of other methods
-    /// that take EdgeIds as parameters, to ensure that invalid EdgeIds are
-    /// caught early.
-    fn assert_valid_edge_id(&self, id: &Self::EdgeId) {
-        if let Err(reason) = self.maybe_check_valid_edge_id(id) {
-            panic!("Invalid EdgeId: {:?}: {}", id, reason);
-        }
-    }
-
-    /// Panics if the given EdgeId is not valid in the graph, according to
-    /// [`Self::maybe_check_valid_edge_id`], but only in debug builds.
-    fn debug_assert_valid_edge_id(&self, id: &Self::EdgeId) {
-        #[cfg(debug_assertions)]
-        if let Err(reason) = self.maybe_check_valid_edge_id(id) {
-            panic!("Invalid EdgeId: {:?}: {}", id, reason);
-        }
-    }
-
     /// Gets an iterator over the outgoing edges from a given node.
     fn edges_from<'a, 'b: 'a>(
         &'a self,

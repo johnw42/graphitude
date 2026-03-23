@@ -7,6 +7,7 @@ use tracing::info_span;
 
 use crate::prelude::*;
 use crate::tracing_support::{TimingScope, init_tracing, set_timing_scope};
+use crate::util::sort_pair_if;
 
 #[derive(Derivative)]
 #[derivative(Debug(bound = "G::NodeData: Debug, G::EdgeData: Debug"))]
@@ -81,35 +82,46 @@ where
     G::EdgeData: Arbitrary + Clone + Hash + Eq + 'static,
 {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let num_nodes = usize::arbitrary(g) % (g.size() + 1);
+        let directedness = G::Directedness::arbitrary(g);
+        let edge_multiplicity = G::EdgeMultiplicity::arbitrary(g);
+
+        let num_nodes = g.size().min(100);
         let num_edges = usize::arbitrary(g) % (num_nodes * 2 + 1);
-        let num_extra_parallel_edges = usize::arbitrary(g) % (num_edges + 1);
-        let num_extra_self_loops = usize::arbitrary(g) % (num_nodes + 1);
 
         let node_data: Vec<_> = (0..num_nodes).map(|_| G::NodeData::arbitrary(g)).collect();
 
         let mut edge_data = Vec::new();
-        for i in 0..num_edges {
+        let mut node_index_pairs = HashSet::new();
+        for _ in 0..num_edges {
             if node_data.len() < 2 {
                 break;
             }
-            let source = usize::arbitrary(g) % node_data.len();
-            let target = usize::arbitrary(g) % node_data.len();
+            let (source, target) = loop {
+                let (source, target) = sort_pair_if(
+                    !directedness.is_directed(),
+                    (
+                        usize::arbitrary(g) % node_data.len(),
+                        usize::arbitrary(g) % node_data.len(),
+                    ),
+                );
+                if edge_multiplicity.allows_parallel_edges()
+                    || node_index_pairs.insert((source, target))
+                {
+                    break (source, target);
+                }
+            };
             edge_data.push(((source, target), G::EdgeData::arbitrary(g)));
-            if i < num_extra_parallel_edges {
-                edge_data.push(((source, target), G::EdgeData::arbitrary(g)));
-            }
-            if i < num_extra_self_loops {
-                edge_data.push(((source, source), G::EdgeData::arbitrary(g)));
+            if edge_multiplicity.allows_parallel_edges() {
+                if usize::arbitrary(g) % 3 == 0 {
+                    edge_data.push(((source, target), G::EdgeData::arbitrary(g)));
+                }
+                if usize::arbitrary(g) % 3 == 0 {
+                    edge_data.push(((source, source), G::EdgeData::arbitrary(g)));
+                }
             }
         }
 
-        ArbGraph::new(
-            G::Directedness::arbitrary(g),
-            G::EdgeMultiplicity::arbitrary(g),
-            node_data,
-            edge_data,
-        )
+        ArbGraph::new(directedness, edge_multiplicity, node_data, edge_data)
     }
 
     fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
