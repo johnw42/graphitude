@@ -8,6 +8,7 @@ use test_suite_macro::test_suite_macro;
 
 use crate::generate_large_graph::generate_large_graph;
 use crate::graph_test_support::{ArbGraph, check_graph_consistency, has_duplicates};
+use crate::invalid_id::InvalidId;
 use crate::{GraphCopier, prelude::*};
 
 pub trait GraphTestData {
@@ -439,11 +440,20 @@ where
         for node_id in &removed {
             use std::panic::AssertUnwindSafe;
 
-            if catch_unwind(AssertUnwindSafe(|| a.graph.node_data(&node_id))).is_ok() {
-                return TestResult::error(format!(
-                    "Expected node ID {:?} to be invalid after removal, but it was still valid",
-                    node_id
-                ));
+            match catch_unwind(AssertUnwindSafe(|| a.graph.node_data(&node_id))) {
+                Err(any) if any.is::<InvalidId>() => {}
+                Err(_) => {
+                    return TestResult::error(format!(
+                        "Expected node ID {:?} to be invalid after removal, but it panicked with a different error",
+                        node_id
+                    ));
+                }
+                Ok(_) => {
+                    return TestResult::error(format!(
+                        "Expected node ID {:?} to be invalid after removal, but it was still valid",
+                        node_id
+                    ));
+                }
             }
         }
 
@@ -489,11 +499,20 @@ where
         for edge_id in &removed {
             use std::panic::AssertUnwindSafe;
 
-            if catch_unwind(AssertUnwindSafe(|| a.graph.edge_data(&edge_id))).is_ok() {
-                return TestResult::error(format!(
-                    "Expected edge ID {:?} to be invalid after removal, but it was still valid",
-                    edge_id
-                ));
+            match catch_unwind(AssertUnwindSafe(|| a.graph.edge_data(&edge_id))) {
+                Err(any) if any.is::<InvalidId>() => {}
+                Err(_) => {
+                    return TestResult::error(format!(
+                        "Expected edge ID {:?} to be invalid after removal, but it panicked with a different error",
+                        edge_id
+                    ));
+                }
+                Ok(_) => {
+                    return TestResult::error(format!(
+                        "Expected edge ID {:?} to be invalid after removal, but it was still valid",
+                        edge_id
+                    ));
+                }
             }
         }
 
@@ -558,14 +577,21 @@ where
                         ));
                     }
                 }
-                None => {
-                    if catch_unwind(AssertUnwindSafe(|| a.graph.node_data(&node_id))).is_ok() {
+                None => match catch_unwind(AssertUnwindSafe(|| a.graph.node_data(&node_id))) {
+                    Err(any) if any.is::<InvalidId>() => {}
+                    Err(_) => {
+                        return TestResult::error(format!(
+                            "Expected node ID {:?} to be invalid after compact, but it panicked with a different error",
+                            node_id
+                        ));
+                    }
+                    Ok(_) => {
                         return TestResult::error(format!(
                             "Expected node ID {:?} to be invalid after compact, but it was still valid",
                             node_id
                         ));
                     }
-                }
+                },
             }
         }
 
@@ -579,14 +605,21 @@ where
                         ));
                     }
                 }
-                None => {
-                    if catch_unwind(AssertUnwindSafe(|| a.graph.edge_data(&edge_id))).is_ok() {
+                None => match catch_unwind(AssertUnwindSafe(|| a.graph.edge_data(&edge_id))) {
+                    Err(any) if any.is::<InvalidId>() => {}
+                    Err(_) => {
+                        return TestResult::error(format!(
+                            "Expected edge ID {:?} to be invalid after compact, but it panicked with a different error",
+                            edge_id
+                        ));
+                    }
+                    Ok(_) => {
                         return TestResult::error(format!(
                             "Expected edge ID {:?} to be invalid after compact, but it was still valid",
                             edge_id
                         ));
                     }
-                }
+                },
             }
         }
 

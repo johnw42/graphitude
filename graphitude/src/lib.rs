@@ -35,6 +35,7 @@ pub mod end_pair;
 pub mod generate_large_graph;
 pub mod graph;
 pub mod graph_traits;
+pub mod invalid_id;
 pub mod linked_graph;
 pub mod object_graph;
 pub mod path;
