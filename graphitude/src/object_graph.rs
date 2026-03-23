@@ -2,7 +2,7 @@ use std::{collections::HashSet, fmt::Debug, marker::PhantomData, mem::transmute}
 
 use derivative::Derivative;
 
-use crate::{EdgeIdTrait, MultipleEdges, NodeIdTrait, directedness::Directed, end_pair::EndPair};
+use crate::{EdgeIdImpl, MultipleEdges, NodeIdImpl, directedness::Directed, end_pair::EndPair};
 
 use super::GraphImpl;
 
@@ -30,7 +30,7 @@ pub struct NodeId<'d, N>(*const N, PhantomData<&'d N>);
 unsafe impl<N> Send for NodeId<'_, N> {}
 unsafe impl<N> Sync for NodeId<'_, N> {}
 
-impl<'d, N> NodeIdTrait for NodeId<'d, N> {}
+impl<'d, N> NodeIdImpl for NodeId<'d, N> {}
 
 impl<'d, N> From<&'d N> for NodeId<'d, N> {
     fn from(n: &'d N) -> Self {
@@ -89,7 +89,7 @@ where
     }
 }
 
-impl<'a, N: Debug> EdgeIdTrait for (NodeId<'a, N>, NodeId<'a, N>) {
+impl<'a, N: Debug> EdgeIdImpl for (NodeId<'a, N>, NodeId<'a, N>) {
     type NodeId = NodeId<'a, N>;
     type Directedness = Directed;
 

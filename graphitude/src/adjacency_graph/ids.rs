@@ -3,9 +3,9 @@ use std::{fmt::Debug, hash::Hash, panic::panic_any};
 use derivative::Derivative;
 
 use crate::{
-    DirectednessTrait, EdgeIdTrait, NodeIdTrait, Storage,
+    Directedness, EdgeIdImpl, NodeIdImpl, Storage,
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
-    automap::AutomapKey,
+    automap::DefaultAutomapKey,
     end_pair::EndPair,
     invalid_id::InvalidId,
 };
@@ -46,8 +46,8 @@ impl<T, S: Storage> Validated<T, S> {
     }
 }
 
-pub type InnerNodeId = AutomapKey;
-impl<S: Storage> NodeIdTrait for Validated<InnerNodeId, S> {}
+pub type InnerNodeId = DefaultAutomapKey;
+impl<S: Storage> NodeIdImpl for Validated<InnerNodeId, S> {}
 
 #[derive(Derivative)]
 #[derivative(
@@ -60,7 +60,7 @@ impl<S: Storage> NodeIdTrait for Validated<InnerNodeId, S> {}
 )]
 pub struct InnerEdgeId<E, D, M>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
 {
     ends: EndPair<InnerNodeId, D>,
@@ -71,7 +71,7 @@ where
 
 impl<E, D, M> InnerEdgeId<E, D, M>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
 {
     pub fn new(
@@ -95,10 +95,10 @@ where
     }
 }
 
-impl<E, D, M, S> EdgeIdTrait for Validated<InnerEdgeId<E, D, M>, S>
+impl<E, D, M, S> EdgeIdImpl for Validated<InnerEdgeId<E, D, M>, S>
 where
     S: Storage,
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
 {
     type NodeId = Validated<InnerNodeId, S>;
@@ -123,7 +123,7 @@ where
 
 impl<E, D, M> Debug for InnerEdgeId<E, D, M>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

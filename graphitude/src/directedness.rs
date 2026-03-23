@@ -7,7 +7,7 @@ use crate::{end_pair::EndPair, util::sort_pair_if};
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, AsEnum)]
 #[AsEnum(arbitrary)]
-pub enum Directedness {
+pub enum DynDirectedness {
     Directed,
     Undirected,
 }
@@ -16,10 +16,10 @@ pub enum Directedness {
 ///
 /// This trait is implemented by [`Directed`] and [`Undirected`] marker types to
 /// provide compile-time specialization of graph behavior, as well as by the
-/// [`Directedness`] enum for dynamic directedness.
-pub trait DirectednessTrait: AsEnum<Directedness> + Arbitrary {
+/// [`DynDirectedness`] enum for dynamic directedness.
+pub trait Directedness: AsEnum<DynDirectedness> + Arbitrary {
     fn is_directed(&self) -> bool {
-        matches!(self.as_enum(), Directedness::Directed)
+        matches!(self.as_enum(), DynDirectedness::Directed)
     }
 
     fn sort_pair<T: Ord>(&self, pair: (T, T)) -> (T, T) {
@@ -31,4 +31,4 @@ pub trait DirectednessTrait: AsEnum<Directedness> + Arbitrary {
     }
 }
 
-impl<T> DirectednessTrait for T where T: AsEnum<Directedness> + Arbitrary {}
+impl<T> Directedness for T where T: AsEnum<DynDirectedness> + Arbitrary {}

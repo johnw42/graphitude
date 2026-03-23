@@ -8,7 +8,6 @@ use test_suite_macro::test_suite_macro;
 
 use crate::generate_large_graph::generate_large_graph;
 use crate::graph_test_support::{ArbGraph, check_graph_consistency, has_duplicates};
-use crate::invalid_id::InvalidId;
 use crate::{GraphCopier, prelude::*};
 
 pub trait GraphTestData {
@@ -159,22 +158,6 @@ where
             a.graph.remove_edge(edge_id);
         }
         to_remove
-    }
-
-    /// Returns a failing test result or None.
-    fn catch_unwind_as_invalid_id<T, F>(f: F) -> Option<TestResult>
-    where
-        F: FnOnce() -> T,
-    {
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
-            Err(any) if any.is::<InvalidId>() => None,
-            Err(_) => Some(TestResult::error(
-                "Expected an InvalidId panic, but got a different panic",
-            )),
-            Ok(_) => Some(TestResult::error(
-                "Expected an InvalidId panic, but the function returned successfully",
-            )),
-        }
     }
 
     #[quickcheck]

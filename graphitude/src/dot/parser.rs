@@ -8,7 +8,8 @@ use dot_parser::ast::{
 };
 
 use crate::{
-    directedness::Directedness, dot::attr::Attr, edge_multiplicity::EdgeMultiplicity, prelude::*,
+    directedness::DynDirectedness, dot::attr::Attr, edge_multiplicity::DynEdgeMultiplicity,
+    prelude::*,
 };
 
 /// Recursively extract all node IDs from a node/subgraph specification.
@@ -62,10 +63,10 @@ pub enum ParseError<B: GraphBuilder> {
     DuplicateEdge(String, String),
     /// The DOT data specifies a directedness that is not supported by the graph builder.
     #[error("Unsupported directedness: {0:?}")]
-    UnsupportedDirectedness(Directedness),
+    UnsupportedDirectedness(DynDirectedness),
     /// The DOT data specifies an edge multiplicity that is not supported by the graph builder.
     #[error("Unsupported edge multiplicity: {0:?}")]
-    UnsupportedEdgeMultiplicity(EdgeMultiplicity),
+    UnsupportedEdgeMultiplicity(DynEdgeMultiplicity),
     /// An error occurred in the graph builder.
     #[error("Builder error: {0}")]
     Builder(#[source] B::Error),
@@ -175,14 +176,14 @@ where
         .map_err(|e| ParseError::ParseError(format!("Failed to parse DOT data: {:?}", e)))?;
 
     let directedness = if dot_ast.is_digraph {
-        Directedness::Directed
+        DynDirectedness::Directed
     } else {
-        Directedness::Undirected
+        DynDirectedness::Undirected
     };
     let edge_multiplicity = if dot_ast.strict {
-        EdgeMultiplicity::SingleEdge
+        DynEdgeMultiplicity::SingleEdge
     } else {
-        EdgeMultiplicity::MultipleEdges
+        DynEdgeMultiplicity::MultipleEdges
     };
     let mut graph = builder
         .make_empty_graph(

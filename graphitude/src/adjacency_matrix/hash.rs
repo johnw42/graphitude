@@ -6,7 +6,7 @@ use std::{
 use derivative::Derivative;
 
 use crate::{
-    DirectednessTrait,
+    Directedness,
     adjacency_matrix::{AdjacencyMatrix, HashStorage, trait_def::format_debug},
 };
 
@@ -31,7 +31,7 @@ pub struct HashAdjacencyMatrix<V, D> {
 
 impl<V, D> AdjacencyMatrix for HashAdjacencyMatrix<V, D>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
 {
     type Value = V;
     type Directedness = D;
@@ -221,7 +221,7 @@ where
 impl<V, D> Debug for HashAdjacencyMatrix<V, D>
 where
     V: Debug,
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "HashAdjacencyMatrix")

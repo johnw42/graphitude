@@ -7,10 +7,10 @@ use std::{
 };
 
 use crate::{
-    directedness::Directedness,
-    edge_multiplicity::EdgeMultiplicity,
+    directedness::DynDirectedness,
+    edge_multiplicity::DynEdgeMultiplicity,
     end_pair::EndPair,
-    graph_traits::{AddEdgeResult, EdgeIdTrait},
+    graph_traits::{AddEdgeResult, EdgeIdImpl},
     invalid_id::InvalidId,
     linked_graph::{EdgeId, NodeId},
     prelude::*,
@@ -19,7 +19,7 @@ use crate::{
 
 use derivative::Derivative;
 
-pub(super) struct Node<N, E, D: DirectednessTrait> {
+pub(super) struct Node<N, E, D: Directedness> {
     data: UnsafeCell<N>,
     edges: RefCell<Vec<Rc<Edge<N, E, D>>>>,
     // Only maintained for directed graphs, since for undirected graphs
@@ -28,13 +28,13 @@ pub(super) struct Node<N, E, D: DirectednessTrait> {
     directedness: PhantomData<D>,
 }
 
-pub(super) struct Edge<N, E, D: DirectednessTrait> {
+pub(super) struct Edge<N, E, D: Directedness> {
     pub(super) data: UnsafeCell<E>,
     pub(super) ends: EndPair<NodeId<N, E, D>, D>,
     pub(super) directedness: PhantomData<D>,
 }
 
-impl<N, E, D: DirectednessTrait> Edge<N, E, D> {
+impl<N, E, D: Directedness> Edge<N, E, D> {
     fn new(data: E, from: NodeId<N, E, D>, into: NodeId<N, E, D>, directedness: D) -> Self {
         Self {
             data: UnsafeCell::new(data),
@@ -68,10 +68,10 @@ impl<N, E, D: DirectednessTrait> Edge<N, E, D> {
 /// references to the data.
 #[derive(Derivative)]
 #[derivative(Default(bound = "D: Default, M: Default"))]
-pub struct LinkedGraph<N, E, D = Directedness, M = EdgeMultiplicity>
+pub struct LinkedGraph<N, E, D = DynDirectedness, M = DynEdgeMultiplicity>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
     nodes: Vec<Rc<Node<N, E, D>>>,
     directedness: D,
@@ -80,8 +80,8 @@ where
 
 impl<N, E, D, M> LinkedGraph<N, E, D, M>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
     fn node_id(&self, ptr: &Rc<Node<N, E, D>>) -> NodeId<N, E, D> {
         NodeId {
@@ -114,8 +114,8 @@ where
 
 impl<N, E, D, M> GraphImpl for LinkedGraph<N, E, D, M>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
     type NodeId = NodeId<N, E, D>;
     type NodeData = N;
@@ -207,8 +207,8 @@ where
 
 impl<N, E, D, M> GraphImplMut for LinkedGraph<N, E, D, M>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
     fn new(directedness: D, edge_multiplicity: M) -> Self {
         Self {
@@ -382,13 +382,13 @@ where
     }
 }
 
-struct EdgesOutIter<'a, N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> {
+struct EdgesOutIter<'a, N, E, D: Directedness, M: EdgeMultiplicity> {
     node: Rc<Node<N, E, D>>,
     graph: &'a LinkedGraph<N, E, D, M>,
     index: usize,
 }
 
-impl<'a, N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> EdgesOutIter<'a, N, E, D, M> {
+impl<'a, N, E, D: Directedness, M: EdgeMultiplicity> EdgesOutIter<'a, N, E, D, M> {
     fn new(graph: &'a LinkedGraph<N, E, D, M>, node: Rc<Node<N, E, D>>) -> Self {
         Self {
             node,
@@ -398,9 +398,7 @@ impl<'a, N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> EdgesOutIter<'a, 
     }
 }
 
-impl<'a, N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> Iterator
-    for EdgesOutIter<'a, N, E, D, M>
-{
+impl<'a, N, E, D: Directedness, M: EdgeMultiplicity> Iterator for EdgesOutIter<'a, N, E, D, M> {
     type Item = EdgeId<N, E, D>;
     fn next(&mut self) -> Option<Self::Item> {
         let borrow = self.node.edges.borrow();
@@ -410,18 +408,18 @@ impl<'a, N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> Iterator
     }
 }
 
-struct EdgesInIter<N, E, D: DirectednessTrait> {
+struct EdgesInIter<N, E, D: Directedness> {
     node: Rc<Node<N, E, D>>,
     index: usize,
 }
 
-impl<N, E, D: DirectednessTrait> EdgesInIter<N, E, D> {
+impl<N, E, D: Directedness> EdgesInIter<N, E, D> {
     fn new(node: Rc<Node<N, E, D>>) -> Self {
         Self { node, index: 0 }
     }
 }
 
-impl<N, E, D: DirectednessTrait> Iterator for EdgesInIter<N, E, D> {
+impl<N, E, D: Directedness> Iterator for EdgesInIter<N, E, D> {
     type Item = EdgeId<N, E, D>;
     fn next(&mut self) -> Option<Self::Item> {
         let borrow = self.node.back_edges.borrow();

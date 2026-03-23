@@ -9,16 +9,16 @@ use crate::{end_pair::EndPair, prelude::*, util::other_value};
 /// as node identifiers.  This has the unfortunatel side-effect of preventing
 /// the use of primitive types (e.g., `usize`, `u32`, etc.) as node identifiers,
 /// since they do not implement this trait.  To work around this, you can define
-/// a newtype wrapper around the primitive type and implement `NodeIdTrait` for the
+/// a newtype wrapper around the primitive type and implement `NodeIdImpl` for the
 /// newtype.
-pub trait NodeIdTrait: Eq + Hash + Clone + Debug + Ord + Send + Sync {}
+pub trait NodeIdImpl: Eq + Hash + Clone + Debug + Ord + Send + Sync {}
 
 /// A trait representing an edge identifier in a graph.
 ///
 /// Implementors mu implement either `left` and `right`, or `ends`.
-pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Ord + Send + Sync {
-    type NodeId: NodeIdTrait;
-    type Directedness: DirectednessTrait;
+pub trait EdgeIdImpl: Eq + Hash + Clone + Debug + Ord + Send + Sync {
+    type NodeId: NodeIdImpl;
+    type Directedness: Directedness;
 
     fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness>;
 
@@ -123,10 +123,10 @@ impl<I, D> AddEdgeResult<I, D> {
 /// - [`Self::has_edge_into`]
 pub trait GraphImpl {
     /// The directedness of the graph.
-    type Directedness: DirectednessTrait;
+    type Directedness: Directedness;
 
     /// The edge multiplicity of the graph.
-    type EdgeMultiplicity: EdgeMultiplicityTrait;
+    type EdgeMultiplicity: EdgeMultiplicity;
 
     /// The data stored in each node of the graph.
     type NodeData;
@@ -135,10 +135,10 @@ pub trait GraphImpl {
     type EdgeData;
 
     /// The type of the node identifiers used by the graph.
-    type NodeId: NodeIdTrait;
+    type NodeId: NodeIdImpl;
 
     /// The type of the edge identifiers used by the graph.
-    type EdgeId: EdgeIdTrait<NodeId = Self::NodeId, Directedness = Self::Directedness>;
+    type EdgeId: EdgeIdImpl<NodeId = Self::NodeId, Directedness = Self::Directedness>;
 
     /// The directedness of the graph.
     fn directedness(&self) -> Self::Directedness;

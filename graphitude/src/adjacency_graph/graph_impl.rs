@@ -6,14 +6,14 @@ use crate::{
         edge_container::{EdgeContainer, EdgeContainerSelector},
     },
     adjacency_matrix::{AdjacencyMatrix, CompactionCount as _, HashStorage, Storage},
-    automap::trait_def::{AutomapIndexing as _, AutomapTrait as _},
-    directedness::DirectednessTrait,
+    automap::trait_def::{Automap as _, AutomapIndexing as _},
+    directedness::Directedness,
     prelude::*,
 };
 
 use super::ids::Validated;
 
-use crate::automap::{Automap, AutomapKey};
+use crate::automap::{DefaultAutomap, DefaultAutomapKey};
 
 /// A graph implementation using an adjacency matrix for edge storage.
 ///
@@ -31,11 +31,11 @@ use crate::automap::{Automap, AutomapKey};
 /// * `S` - The storage type ([`HashStorage`] or [`BitvecStorage`](crate::adjacency_matrix::BitvecStorage))
 pub struct AdjacencyGraph<N, E, D = Directed, M = SingleEdge, S = HashStorage>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
     S: Storage,
 {
-    nodes: Automap<N>,
+    nodes: DefaultAutomap<N>,
     adjacency: S::Matrix<M::Container<E>, D>,
     num_edges: usize,
     directedness: D,
@@ -45,20 +45,20 @@ where
 
 impl<N, E, D, M, S> AdjacencyGraph<N, E, D, M, S>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
     S: Storage,
 {
     /// Creates a `NodeId` for the given `AutomapKey`.
-    fn node_id(&self, key: AutomapKey) -> Validated<InnerNodeId, S> {
+    fn node_id(&self, key: DefaultAutomapKey) -> Validated<InnerNodeId, S> {
         Validated::new(key, self.compaction_count)
     }
 
     /// Creates an `EdgeId` for the given `AutomapKey` pair.
     fn edge_id(
         &self,
-        from: AutomapKey,
-        into: AutomapKey,
+        from: DefaultAutomapKey,
+        into: DefaultAutomapKey,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
     ) -> Validated<InnerEdgeId<E, D, M>, S> {
         Validated::new(
@@ -70,7 +70,7 @@ where
 
 impl<N, E, D, M, S> GraphImpl for AdjacencyGraph<N, E, D, M, S>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
     S: Storage,
 {
@@ -182,7 +182,7 @@ where
 
 impl<N, E, D, M, S> Default for AdjacencyGraph<N, E, D, M, S>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
     S: Storage,
 {
@@ -193,13 +193,13 @@ where
 
 impl<N, E, D, M, S> GraphImplMut for AdjacencyGraph<N, E, D, M, S>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
     S: Storage,
 {
     fn new(directedness: D, edge_multiplicity: M) -> Self {
         Self {
-            nodes: Automap::default(),
+            nodes: DefaultAutomap::default(),
             adjacency: S::Matrix::default(),
             num_edges: 0,
             directedness,
@@ -316,7 +316,7 @@ where
         let new_compaction_count = self.compaction_count.increment();
 
         // Compact nodes and build ID mapping.
-        let mut automap_map: HashMap<AutomapKey, AutomapKey> =
+        let mut automap_map: HashMap<DefaultAutomapKey, DefaultAutomapKey> =
             HashMap::with_capacity(self.nodes.len());
         let old_indexing = self.nodes.indexing();
         self.nodes.compact_with(&mut |old_key, new_key_opt| {

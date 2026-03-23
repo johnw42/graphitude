@@ -3,7 +3,7 @@ use std::{fmt::Debug, mem::MaybeUninit, ops::Range};
 use bitvec::{slice::BitSlice, vec::BitVec};
 
 use crate::{
-    DirectednessTrait,
+    Directedness,
     adjacency_matrix::{
         AdjacencyMatrix, BitvecStorage,
         bitvec::indexing::{DataIndex, LivenessIndex, MatrixIndexing},
@@ -21,7 +21,7 @@ use crate::{
 /// Requires indices that can be converted to/from usize.
 pub struct BitvecAdjacencyMatrix<V, D>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
 {
     /// Linear storage of adjacency data.
     data: Vec<MaybeUninit<V>>,
@@ -46,7 +46,7 @@ where
 
 impl<V, D> BitvecAdjacencyMatrix<V, D>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
 {
     fn liveness_range(&self) -> Range<usize> {
         0..self.indexing.liveness_storage_size()
@@ -110,7 +110,7 @@ where
 
 impl<V, D> Drop for BitvecAdjacencyMatrix<V, D>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
 {
     fn drop(&mut self) {
         // Drop all initialized values (only iterate over the liveness bits)
@@ -129,7 +129,7 @@ where
 
 impl<V, D> AdjacencyMatrix for BitvecAdjacencyMatrix<V, D>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
 {
     type Value = V;
     type Directedness = D;
@@ -421,7 +421,7 @@ where
 
 impl<V, D> Default for BitvecAdjacencyMatrix<V, D>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
 {
     fn default() -> Self {
         Self::with_size(0)
@@ -431,7 +431,7 @@ where
 impl<V, D> Clone for BitvecAdjacencyMatrix<V, D>
 where
     V: Clone,
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
 {
     fn clone(&self) -> Self {
         let mut new_self = Self::with_size(self.size_bound());
@@ -452,7 +452,7 @@ where
 impl<V, D> Debug for BitvecAdjacencyMatrix<V, D>
 where
     V: Debug,
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "BitvecAdjacencyMatrix")

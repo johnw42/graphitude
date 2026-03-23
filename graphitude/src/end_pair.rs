@@ -3,7 +3,7 @@ use std::{fmt::Debug, hash::Hash};
 use derivative::Derivative;
 
 use crate::{
-    DirectednessTrait, Undirected,
+    Directedness, Undirected,
     util::{OtherValue, other_value, other_value_ref, sort_pair},
 };
 
@@ -17,14 +17,14 @@ use crate::{
     Ord(bound = "T: Ord"),
     PartialOrd(bound = "T: PartialOrd")
 )]
-pub struct EndPair<T, D: DirectednessTrait> {
+pub struct EndPair<T, D: Directedness> {
     data: (T, T),
     directedness: D,
 }
 
 impl<T, D> EndPair<T, D>
 where
-    D: DirectednessTrait,
+    D: Directedness,
 {
     pub fn new(source: T, target: T, directedness: D) -> Self
     where
@@ -104,7 +104,7 @@ where
     }
 }
 
-impl<T: Ord, D: DirectednessTrait + Default> From<(T, T)> for EndPair<T, D> {
+impl<T: Ord, D: Directedness + Default> From<(T, T)> for EndPair<T, D> {
     fn from((a, b): (T, T)) -> Self {
         Self::new(a, b, D::default())
     }

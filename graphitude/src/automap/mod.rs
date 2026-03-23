@@ -10,12 +10,12 @@ pub mod trait_def;
 pub use indexed::IndexedAutomap;
 #[cfg(not(feature = "bitvec"))]
 pub use indexed::{
-    IndexedAutomap as Automap, IndexedAutomapIndexing as AutomapIndexing,
-    IndexedAutomapKey as AutomapKey,
+    IndexedAutomap as DefaultAutomap, IndexedAutomapIndexing as DefaultAutomapIndexing,
+    IndexedAutomapKey as DefaultAutomapKey,
 };
 #[cfg(feature = "bitvec")]
 pub use offset::{
-    OffsetAutomap as Automap, OffsetAutomapIndexing as AutomapIndexing,
-    OffsetAutomapKey as AutomapKey,
+    OffsetAutomap as DefaultAutomap, OffsetAutomapIndexing as DefaultAutomapIndexing,
+    OffsetAutomapKey as DefaultAutomapKey,
 };
-pub use trait_def::AutomapTrait;
+pub use trait_def::Automap;

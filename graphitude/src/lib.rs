@@ -61,11 +61,12 @@ pub use adjacency_graph::AdjacencyGraph;
 pub use adjacency_matrix::BitvecStorage;
 pub use adjacency_matrix::{HashStorage, Storage};
 pub use copier::GraphCopier;
-pub use directedness::{Directed, Directedness, DirectednessTrait, Undirected};
-pub use edge_multiplicity::{EdgeMultiplicity, EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
+pub use directedness::{Directed, Directedness, DynDirectedness, Undirected};
+pub use edge_multiplicity::{
+    DynEdgeMultiplicity, EdgeMultiplicity, MultipleEdges, SingleEdge,
+};
 pub use graph::{EdgeId, Graph, NodeId};
 pub use graph_traits::{
-    AddEdgeResult, EdgeIdTrait, GraphDirected, GraphImpl, GraphImplMut, GraphUndirected,
-    NodeIdTrait,
+    AddEdgeResult, EdgeIdImpl, GraphDirected, GraphImpl, GraphImplMut, GraphUndirected, NodeIdImpl,
 };
 pub use linked_graph::LinkedGraph;

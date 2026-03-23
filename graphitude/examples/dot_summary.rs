@@ -12,8 +12,8 @@ mod inner {
     use std::process;
 
     use clap::Parser;
-    use graphitude::directedness::Directedness;
-    use graphitude::edge_multiplicity::EdgeMultiplicity;
+    use graphitude::directedness::DynDirectedness;
+    use graphitude::edge_multiplicity::DynEdgeMultiplicity;
     use graphitude::{
         dot::{attr::Attr, parser::GraphBuilder},
         linked_graph::LinkedGraph,
@@ -179,8 +179,8 @@ mod inner {
         fn make_empty_graph(
             &mut self,
             _name: Option<&str>,
-            directedness: Directedness,
-            edge_multiplicity: EdgeMultiplicity,
+            directedness: DynDirectedness,
+            edge_multiplicity: DynEdgeMultiplicity,
         ) -> Result<Graph<Self::GraphImpl>, Self::Error> {
             Ok(Graph::new(Self::GraphImpl::new(
                 directedness,

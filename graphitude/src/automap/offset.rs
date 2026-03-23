@@ -12,14 +12,14 @@ use std::{
 
 use bitvec::vec::BitVec;
 
-use crate::automap::trait_def::{AutomapIndexing, AutomapKeyTrait, AutomapTrait};
+use crate::automap::trait_def::{Automap, AutomapIndexing, AutomapKey};
 
 /// An key for an `Automap`. Stable across insertions and removals, but not
 /// across `compact` operations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct OffsetAutomapKey(usize);
 
-impl AutomapKeyTrait for OffsetAutomapKey {}
+impl AutomapKey for OffsetAutomapKey {}
 
 // Needed for AdjacencyGraph implementation.
 impl From<OffsetAutomapKey> for usize {
@@ -91,7 +91,7 @@ impl<T> Default for OffsetAutomap<T> {
     }
 }
 
-impl<T> AutomapTrait<T> for OffsetAutomap<T> {
+impl<T> Automap<T> for OffsetAutomap<T> {
     type Key = OffsetAutomapKey;
     type Indexing = OffsetAutomapIndexing;
 
@@ -283,7 +283,7 @@ impl<T> Drop for OffsetAutomap<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::trait_def::AutomapTrait;
+    use super::super::trait_def::Automap;
     use super::*;
     use crate::automap_tests;
 

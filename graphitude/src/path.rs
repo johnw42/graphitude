@@ -2,7 +2,7 @@ use std::{cmp::Ordering, iter::once};
 
 use derivative::Derivative;
 
-use crate::{DirectednessTrait, EdgeId, GraphImpl, NodeId};
+use crate::{Directedness, EdgeId, GraphImpl, NodeId};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.

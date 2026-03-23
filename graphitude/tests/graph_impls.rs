@@ -1,9 +1,6 @@
 mod linked {
     pub use graphitude::{LinkedGraph, prelude::*};
-    use graphitude::{
-        directedness::Directedness, edge_multiplicity::EdgeMultiplicity, graph_test_suite,
-        graph_tests::GraphTests,
-    };
+    use graphitude::{graph_test_suite, graph_tests::GraphTests};
 
     graph_test_suite!(
         directed_multiple:
@@ -42,10 +39,10 @@ mod linked {
 
     graph_test_suite!(
         dyn_undirected_single =
-            GraphTests::<LinkedGraph<i32, i32, Directedness, EdgeMultiplicity>>::new(|| {
+            GraphTests::<LinkedGraph<i32, i32, DynDirectedness, DynEdgeMultiplicity>>::new(|| {
                 Graph::new(LinkedGraph::new(
-                    Directedness::Undirected,
-                    EdgeMultiplicity::SingleEdge,
+                    DynDirectedness::Undirected,
+                    DynEdgeMultiplicity::SingleEdge,
                 ))
             },)
     );

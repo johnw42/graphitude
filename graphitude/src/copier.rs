@@ -3,8 +3,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    AddEdgeResult, DirectednessTrait, EdgeId, EdgeMultiplicityTrait, Graph, GraphImpl,
-    GraphImplMut, NodeId,
+    AddEdgeResult, Directedness, EdgeId, EdgeMultiplicity, Graph, GraphImpl, GraphImplMut, NodeId,
 };
 
 /// Utility for copying graphs with flexible transformations and mapping of node
@@ -114,15 +113,15 @@ impl<'g, G1, G2, D, M, NT, ET> GraphCopier<'g, G1, G2, D, M, NT, ET>
 where
     G1: GraphImpl,
     G2: GraphImplMut,
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
     /// Sets the directedness for the target graph, returning a new
     /// `GraphCopier`.  When using [`Self::copy_into`], this setting is ignored and
     /// the target graph's directedness will be used instead.
     pub fn with_directedness<D2>(self, directedness: D2) -> GraphCopier<'g, G1, G2, D2, M, NT, ET>
     where
-        D2: DirectednessTrait,
+        D2: Directedness,
     {
         GraphCopier {
             source: self.source,
@@ -143,7 +142,7 @@ where
         multiplicity: M2,
     ) -> GraphCopier<'g, G1, G2, D, M2, NT, ET>
     where
-        M2: EdgeMultiplicityTrait,
+        M2: EdgeMultiplicity,
     {
         GraphCopier {
             source: self.source,

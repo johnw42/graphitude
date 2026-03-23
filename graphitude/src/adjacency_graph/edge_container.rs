@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash};
 
 use derivative::Derivative;
 
-use crate::{EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
+use crate::{EdgeMultiplicity, MultipleEdges, SingleEdge};
 
 #[allow(clippy::len_without_is_empty)]
 pub trait EdgeContainer<T>: Sized {
@@ -187,7 +187,7 @@ where
     }
 }
 
-pub trait EdgeContainerSelector: EdgeMultiplicityTrait + Default {
+pub trait EdgeContainerSelector: EdgeMultiplicity + Default {
     type Container<T>: EdgeContainer<T>;
 }
 

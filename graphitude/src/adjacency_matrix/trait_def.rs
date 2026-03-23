@@ -1,4 +1,4 @@
-use crate::{DirectednessTrait, Storage, end_pair::EndPair};
+use crate::{Directedness, Storage, end_pair::EndPair};
 
 type Pair<M> = EndPair<usize, <M as AdjacencyMatrix>::Directedness>;
 
@@ -11,7 +11,7 @@ where
     Self: Sized,
 {
     type Value;
-    type Directedness: DirectednessTrait + Default;
+    type Directedness: Directedness + Default;
     type Storage: Storage;
 
     /// Creates a new, empty adjacency matrix.

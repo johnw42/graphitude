@@ -11,7 +11,7 @@ use std::{
 use crate::dot;
 
 use crate::{
-    AddEdgeResult, DirectednessTrait, EdgeMultiplicityTrait, GraphCopier, GraphImpl, GraphImplMut,
+    AddEdgeResult, Directedness, EdgeMultiplicity, GraphCopier, GraphImpl, GraphImplMut,
     MultipleEdges,
     format_debug::format_debug,
     path::Path,
@@ -23,9 +23,7 @@ mod ids {
 
     use derivative::Derivative;
 
-    use crate::{
-        Directed, EdgeIdTrait, GraphImpl, invalid_id::InvalidId, util::NonDereferenceable,
-    };
+    use crate::{Directed, EdgeIdImpl, GraphImpl, invalid_id::InvalidId, util::NonDereferenceable};
 
     #[derive(Derivative)]
     #[derivative(
@@ -115,7 +113,7 @@ mod ids {
         /// Gets the source node of the edge.
         pub fn source(&self) -> NodeId<G>
         where
-            G: EdgeIdTrait<Directedness = Directed>,
+            G: EdgeIdImpl<Directedness = Directed>,
         {
             self.left()
         }
@@ -123,7 +121,7 @@ mod ids {
         /// Gets the target node of the edge.
         pub fn target(&self) -> NodeId<G>
         where
-            G: EdgeIdTrait<Directedness = Directed>,
+            G: EdgeIdImpl<Directedness = Directed>,
         {
             self.right()
         }

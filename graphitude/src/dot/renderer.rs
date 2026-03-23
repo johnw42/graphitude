@@ -282,7 +282,8 @@ where
 mod tests {
     use super::*;
     use crate::{
-        directedness::Directedness, edge_multiplicity::EdgeMultiplicity, linked_graph::LinkedGraph,
+        directedness::DynDirectedness, edge_multiplicity::DynEdgeMultiplicity,
+        linked_graph::LinkedGraph,
     };
 
     #[test]
@@ -324,8 +325,8 @@ mod tests {
 
     struct TestGenerator {
         graph_name: String,
-        directedness: Directedness,
-        edge_multiplicity: EdgeMultiplicity,
+        directedness: DynDirectedness,
+        edge_multiplicity: DynEdgeMultiplicity,
     }
 
     impl TestGenerator {
@@ -346,19 +347,19 @@ mod tests {
         }
 
         fn is_digraph(&self, _graph: &Graph<G>) -> bool {
-            matches!(self.directedness, Directedness::Directed)
+            matches!(self.directedness, DynDirectedness::Directed)
         }
 
         fn is_strict(&self, _graph: &Graph<G>) -> bool {
-            matches!(self.edge_multiplicity, EdgeMultiplicity::SingleEdge)
+            matches!(self.edge_multiplicity, DynEdgeMultiplicity::SingleEdge)
         }
     }
 
     #[test]
     fn test_generate_empty_directed_graph() {
         let graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
-            Directedness::Directed,
-            EdgeMultiplicity::MultipleEdges,
+            DynDirectedness::Directed,
+            DynEdgeMultiplicity::MultipleEdges,
         ));
         let generator = TestGenerator::for_graph("Empty", &graph);
         let mut output = Vec::new();
@@ -374,8 +375,8 @@ mod tests {
     #[test]
     fn test_generate_empty_undirected_graph() {
         let graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
-            Directedness::Undirected,
-            EdgeMultiplicity::MultipleEdges,
+            DynDirectedness::Undirected,
+            DynEdgeMultiplicity::MultipleEdges,
         ));
         let generator = TestGenerator::for_graph("Empty", &graph);
         let mut output = Vec::new();
@@ -391,8 +392,8 @@ mod tests {
     #[test]
     fn test_generate_simple_directed_graph() {
         let mut graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
-            Directedness::Directed,
-            EdgeMultiplicity::MultipleEdges,
+            DynDirectedness::Directed,
+            DynEdgeMultiplicity::MultipleEdges,
         ));
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
@@ -414,8 +415,8 @@ mod tests {
     #[test]
     fn test_generate_simple_undirected_graph() {
         let mut graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
-            Directedness::Undirected,
-            EdgeMultiplicity::MultipleEdges,
+            DynDirectedness::Undirected,
+            DynEdgeMultiplicity::MultipleEdges,
         ));
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
@@ -447,8 +448,8 @@ mod tests {
     #[test]
     fn test_generate_invalid_graph_name() {
         let graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
-            Directedness::Directed,
-            EdgeMultiplicity::MultipleEdges,
+            DynDirectedness::Directed,
+            DynEdgeMultiplicity::MultipleEdges,
         ));
         let generator = InvalidNameGenerator;
         let mut output = Vec::new();
@@ -470,8 +471,8 @@ mod tests {
     #[test]
     fn test_generate_invalid_node_name() {
         let mut graph: Graph<LinkedGraph<_, ()>> = Graph::new(LinkedGraph::new(
-            Directedness::Directed,
-            EdgeMultiplicity::MultipleEdges,
+            DynDirectedness::Directed,
+            DynEdgeMultiplicity::MultipleEdges,
         ));
         graph.add_node("a".to_string());
 
@@ -506,8 +507,8 @@ mod tests {
     #[test]
     fn test_generate_with_attributes() {
         let mut graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
-            Directedness::Directed,
-            EdgeMultiplicity::MultipleEdges,
+            DynDirectedness::Directed,
+            DynEdgeMultiplicity::MultipleEdges,
         ));
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
@@ -528,8 +529,8 @@ mod tests {
     fn test_format_dot_value_quoting() {
         // Test that values are quoted when necessary
         let mut graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
-            Directedness::Directed,
-            EdgeMultiplicity::MultipleEdges,
+            DynDirectedness::Directed,
+            DynEdgeMultiplicity::MultipleEdges,
         ));
         let a = graph.add_node("hello world".to_string());
         let b = graph.add_node("foo-bar".to_string());
@@ -549,8 +550,8 @@ mod tests {
     #[test]
     fn test_generate_self_loop() {
         let mut graph: Graph<LinkedGraph<String, ()>> = Graph::new(LinkedGraph::new(
-            Directedness::Directed,
-            EdgeMultiplicity::MultipleEdges,
+            DynDirectedness::Directed,
+            DynEdgeMultiplicity::MultipleEdges,
         ));
         let a = graph.add_node("a".to_string());
         graph.add_edge(&a, &a, ());
@@ -567,8 +568,8 @@ mod tests {
     #[test]
     fn test_generate_multiple_edges() {
         let mut graph: Graph<LinkedGraph<_, _>> = Graph::new(LinkedGraph::new(
-            Directedness::Directed,
-            EdgeMultiplicity::MultipleEdges,
+            DynDirectedness::Directed,
+            DynEdgeMultiplicity::MultipleEdges,
         ));
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());

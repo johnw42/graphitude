@@ -15,8 +15,8 @@ mod inner {
 
     use clap::{Parser, ValueEnum};
     use graphitude::GraphImpl as GraphImplTrait;
-    use graphitude::directedness::Directedness;
-    use graphitude::edge_multiplicity::EdgeMultiplicity;
+    use graphitude::directedness::DynDirectedness;
+    use graphitude::edge_multiplicity::DynEdgeMultiplicity;
     use graphitude::generate_large_graph::generate_large_graph;
     use graphitude::{dot::renderer::DotGenerator, linked_graph::LinkedGraph, prelude::*};
 
@@ -175,15 +175,15 @@ mod inner {
         edge_prefix: &str,
         graph_kind: GraphKind,
         strict: bool,
-    ) -> Graph<LinkedGraph<Data, Data, Directedness, EdgeMultiplicity>> {
+    ) -> Graph<LinkedGraph<Data, Data, DynDirectedness, DynEdgeMultiplicity>> {
         let directedness = match graph_kind {
-            GraphKind::Directed => Directedness::Directed,
-            GraphKind::Undirected => Directedness::Undirected,
+            GraphKind::Directed => DynDirectedness::Directed,
+            GraphKind::Undirected => DynDirectedness::Undirected,
         };
         let edge_multiplicity = if strict {
-            EdgeMultiplicity::SingleEdge
+            DynEdgeMultiplicity::SingleEdge
         } else {
-            EdgeMultiplicity::MultipleEdges
+            DynEdgeMultiplicity::MultipleEdges
         };
         let mut graph = Graph::new(LinkedGraph::new(directedness, edge_multiplicity));
         generate_large_graph(

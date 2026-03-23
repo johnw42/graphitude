@@ -3,12 +3,12 @@
 use std::{fmt::Debug, hash::Hash};
 
 /// A trait for keys of `Automap` implementations.
-pub trait AutomapKeyTrait: Clone + Eq + Hash + Ord + Debug + Send + Sync {}
+pub trait AutomapKey: Clone + Eq + Hash + Ord + Debug + Send + Sync {}
 
 /// A trait for exposing the ability to convert between `AutomapKey` and
 /// zero-based indices for use in adjacency matrices and similar structures.
 pub trait AutomapIndexing {
-    type Key: AutomapKeyTrait;
+    type Key: AutomapKey;
 
     /// Decodes an automap key into an index smaller than the size of the map.
     /// Used for correlating items in the map with other data structures that
@@ -35,8 +35,8 @@ pub trait AutomapIndexing {
 ///
 /// - `OffsetAutomap`: Uses a bitvec to track liveness with key offset management.
 /// - `IndexedAutomap`: Uses dense index mapping for O(1) swap-remove operations.
-pub trait AutomapTrait<T> {
-    type Key: AutomapKeyTrait;
+pub trait Automap<T> {
+    type Key: AutomapKey;
     type Indexing: AutomapIndexing<Key = Self::Key>;
 
     /// Inserts a value and returns a stable key for accessing it.
