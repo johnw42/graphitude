@@ -2,7 +2,6 @@ use std::{
     cell::{RefCell, UnsafeCell},
     collections::HashSet,
     marker::PhantomData,
-    panic::panic_any,
     rc::Rc,
 };
 
@@ -11,7 +10,6 @@ use crate::{
     edge_multiplicity::DynEdgeMultiplicity,
     end_pair::EndPair,
     graph_traits::{AddEdgeResult, EdgeIdImpl},
-    invalid_id::InvalidId,
     linked_graph::{EdgeId, NodeId},
     prelude::*,
     util::OtherValue,
@@ -98,17 +96,11 @@ where
     }
 
     fn node(&self, id: &NodeId<N, E, D>) -> Rc<Node<N, E, D>> {
-        match id.ptr.upgrade() {
-            Some(node) => node,
-            None => panic_any(InvalidId),
-        }
+        id.ptr.upgrade().expect("Node ID is dangling")
     }
 
     fn edge(&self, id: &EdgeId<N, E, D>) -> Rc<Edge<N, E, D>> {
-        match id.ptr.upgrade() {
-            Some(edge) => edge,
-            None => panic_any(InvalidId),
-        }
+        id.ptr.upgrade().expect("Edge ID is dangling")
     }
 }
 

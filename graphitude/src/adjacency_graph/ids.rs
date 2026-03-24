@@ -1,4 +1,4 @@
-use std::{fmt::Debug, hash::Hash, panic::panic_any};
+use std::{fmt::Debug, hash::Hash};
 
 use derivative::Derivative;
 
@@ -7,7 +7,6 @@ use crate::{
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
     automap::DefaultAutomapKey,
     end_pair::EndPair,
-    invalid_id::InvalidId,
 };
 
 // Comparing the graph_id and compaction_count is unfortunate, because
@@ -29,9 +28,7 @@ impl<T, S: Storage> Validated<T, S> {
     }
 
     pub fn validate(&self, compaction_count: S::CompactionCount) -> &T {
-        if self.compaction_count != compaction_count {
-            panic_any(InvalidId);
-        }
+        assert!(self.compaction_count == compaction_count);
         &self.data
     }
 

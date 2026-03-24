@@ -19,11 +19,9 @@ use crate::{
 };
 
 mod ids {
-    use std::panic::panic_any;
-
     use derivative::Derivative;
 
-    use crate::{Directed, EdgeIdImpl, GraphImpl, invalid_id::InvalidId, util::NonDereferenceable};
+    use crate::{Directed, EdgeIdImpl, GraphImpl, util::NonDereferenceable};
 
     #[derive(Derivative)]
     #[derivative(
@@ -165,9 +163,7 @@ mod ids {
 
         #[inline(always)]
         fn unwrap(&self, graph: *const G) -> &Self::Inner {
-            if self.graph != graph.into() {
-                panic_any(InvalidId);
-            }
+            assert_eq!(self.graph, graph.into());
             &self.inner
         }
     }

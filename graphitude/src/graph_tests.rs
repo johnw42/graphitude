@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::catch_unwind;
 
 use quickcheck::TestResult;
 use test_suite_macro::test_suite_macro;
@@ -464,9 +464,11 @@ where
     pub fn prop_removal_invalidates_removed_node_ids(mut a: ArbGraph<G>) -> TestResult {
         let removed = Self::remove_some_nodes(&mut a);
         for node_id in &removed {
+            use std::panic::AssertUnwindSafe;
+
             if catch_unwind(AssertUnwindSafe(|| a.graph.node_data(&node_id))).is_ok() {
                 return TestResult::error(format!(
-                    "Expected node ID {:?} to be invalid after removal, but it was not",
+                    "Expected node ID {:?} to be invalid after removal, but it was still valid",
                     node_id
                 ));
             }
@@ -496,9 +498,11 @@ where
     pub fn prop_removal_invalidates_removed_edge_ids(mut a: ArbGraph<G>) -> TestResult {
         let removed = Self::remove_some_edges(&mut a);
         for edge_id in &removed {
+            use std::panic::AssertUnwindSafe;
+
             if catch_unwind(AssertUnwindSafe(|| a.graph.edge_data(&edge_id))).is_ok() {
                 return TestResult::error(format!(
-                    "Expected edge ID {:?} to be invalid after removal, but it was not",
+                    "Expected edge ID {:?} to be invalid after removal, but it was still valid",
                     edge_id
                 ));
             }
