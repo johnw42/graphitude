@@ -38,7 +38,7 @@ where
         node_data: Vec<G::NodeData>,
         edge_data: Vec<((usize, usize), G::EdgeData)>,
     ) -> Self {
-        let mut graph = Graph::new(G::new(directedness, edge_multiplicity));
+        let mut graph = Graph::new(directedness, edge_multiplicity);
         let mut node_ids = Vec::new();
         for data in node_data.iter() {
             node_ids.push(graph.add_node(data.clone()));

@@ -258,10 +258,10 @@ where
         NT: FnMut(&G1::NodeData) -> G2::NodeData,
         ET: FnMut(&G1::EdgeData) -> G2::EdgeData,
     {
-        let mut target = Graph::new(<G2>::new(
+        let mut target = Graph::new(
             G2::Directedness::from(self.directedness),
             G2::EdgeMultiplicity::from(self.edge_multiplicity),
-        ));
+        );
         self.copy_into(&mut target);
         target
     }

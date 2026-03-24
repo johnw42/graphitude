@@ -284,15 +284,6 @@ pub trait GraphImpl {
     fn num_edges_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> usize {
         self.edges_from_into(from, into).count()
     }
-
-    /// Returns true if the graph implementation is known to be very slow for
-    /// large graphs (e.g., due to using a dense adjacency matrix).  This is mainly
-    /// intended to be used to skip certain tests that would take an unreasonable
-    /// amount of time to complete.
-    #[doc(hidden)]
-    fn is_very_slow(&self) -> bool {
-        false
-    }
 }
 
 /// A trait which is automatically implemented for directed graphs, providing
@@ -368,26 +359,6 @@ pub trait GraphImplMut: GraphImpl {
     /// Removes a node from the graph, returning its data.  Any edges
     /// connected to the node are also be removed.
     fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData;
-
-    /// Adds an edge with the given data between two nodes and returns the
-    /// `EdgeId`.  Use [`Self::add_edge`] for graphs that do not
-    /// support parallel edges.
-    fn add_new_edge(
-        &mut self,
-        from: &Self::NodeId,
-        into: &Self::NodeId,
-        data: Self::EdgeData,
-    ) -> Self::EdgeId
-    where
-        Self: GraphImpl<EdgeMultiplicity = MultipleEdges>,
-    {
-        match self.add_edge(from, into, data) {
-            AddEdgeResult::Added(eid) => eid,
-            AddEdgeResult::Updated(_, _) => {
-                unreachable!("Edge already exists between {:?} and {:?}", from, into)
-            }
-        }
-    }
 
     /// Add an edge if possible, or replaces the data of an existing edge.  If
     /// no edge exists, or the graph supports parallel edges, the new edge is

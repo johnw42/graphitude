@@ -47,10 +47,7 @@ impl GraphBuilder for TestBuilder {
         directedness: <Self::GraphImpl as GraphImpl>::Directedness,
         edge_multiplicity: <Self::GraphImpl as GraphImpl>::EdgeMultiplicity,
     ) -> Result<Graph<Self::GraphImpl>, Self::Error> {
-        Ok(Graph::new(LinkedGraph::new(
-            directedness,
-            edge_multiplicity,
-        )))
+        Ok(Graph::new(directedness, edge_multiplicity))
     }
 
     fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<NodeData, Self::Error> {

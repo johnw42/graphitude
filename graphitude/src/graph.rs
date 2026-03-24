@@ -21,7 +21,9 @@ use crate::{
 mod ids {
     use derivative::Derivative;
 
-    use crate::{Directed, EdgeIdImpl, GraphImpl, util::NonDereferenceable};
+    use crate::{
+        Directed, EdgeIdImpl, GraphImpl, NodeIdImpl, end_pair::EndPair, util::NonDereferenceable,
+    };
 
     #[derive(Derivative)]
     #[derivative(
@@ -37,6 +39,8 @@ mod ids {
         inner: G::NodeId,
         graph: NonDereferenceable<G>,
     }
+
+    impl<G: GraphImpl + ?Sized> NodeIdImpl for NodeId<G> {}
 
     #[derive(Derivative)]
     #[derivative(
@@ -54,6 +58,7 @@ mod ids {
     }
 
     impl<G: GraphImpl + ?Sized> EdgeId<G> {
+        #[inline(always)]
         fn wrap(&self, inner: G::NodeId) -> NodeId<G> {
             NodeId {
                 inner,
@@ -125,7 +130,64 @@ mod ids {
         }
     }
 
-    pub trait IdWrapper<G: GraphImpl + ?Sized> {
+    // The trait impl mostly just calls inherent methods of the same name.  The
+    // methods are inherent instead of trait methods to allow them to be called
+    // on EdgeIds without needing to import the trait, which is more ergonomic
+    // since these methods are commonly used and it's not important to be able
+    // to call them on trait objects or generic parameters.
+    impl<G: GraphImpl + ?Sized> EdgeIdImpl for EdgeId<G> {
+        type Directedness = G::Directedness;
+        type NodeId = NodeId<G>;
+
+        fn directedness(&self) -> G::Directedness {
+            self.directedness()
+        }
+
+        fn left(&self) -> NodeId<G> {
+            self.left()
+        }
+
+        fn right(&self) -> NodeId<G> {
+            self.right()
+        }
+
+        fn ends(&self) -> (NodeId<G>, NodeId<G>) {
+            self.ends()
+        }
+
+        fn other_end(&self, node: &NodeId<G>) -> NodeId<G> {
+            self.other_end(node)
+        }
+
+        fn has_end(&self, node: &NodeId<G>) -> bool {
+            self.has_end(node)
+        }
+
+        fn has_ends(&self, node1: &NodeId<G>, node2: &NodeId<G>) -> bool {
+            self.has_ends(node1, node2)
+        }
+
+        fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness> {
+            let directedness = self.directedness();
+            let (left, right) = self.inner.into_ends().into_values();
+            EndPair::new(
+                NodeId {
+                    inner: left,
+                    graph: self.graph,
+                },
+                NodeId {
+                    inner: right,
+                    graph: self.graph,
+                },
+                directedness,
+            )
+        }
+    }
+
+    /// A trait that abstracts over the common behavior of NodeId and EdgeId,
+    /// allowing them to be wrapped and unwrapped from their inner
+    /// graph-specific IDs.
+    pub(super) trait IdWrapper<G: GraphImpl + ?Sized> {
         type Inner;
 
         fn wrap(inner: Self::Inner, graph: *const G) -> Self;
@@ -169,7 +231,8 @@ mod ids {
     }
 }
 
-pub use ids::{EdgeId, IdWrapper, NodeId};
+use ids::IdWrapper;
+pub use ids::{EdgeId, NodeId};
 
 pub struct Graph<G: GraphImpl + ?Sized> {
     inner: Box<G>,
@@ -189,10 +252,8 @@ where
         node_id.unwrap(&*self.inner)
     }
 
-    pub fn new(inner: G) -> Self {
-        Self {
-            inner: Box::new(inner),
-        }
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
     }
 
     /// The directedness of the graph.
@@ -213,11 +274,6 @@ where
     /// Returns true if the graph allows parallel edges between the same pair of nodes.
     pub fn allows_parallel_edges(&self) -> bool {
         self.edge_multiplicity().allows_parallel_edges()
-    }
-
-    /// Checks if the graph is empty (has no nodes or edges).
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
     }
 
     /// Writes a DOT representation of the graph to the given output.
@@ -255,8 +311,6 @@ where
     pub fn new_path(&self, start: &NodeId<G>) -> Path<G> {
         Path::new(start.clone())
     }
-
-    // Nodes
 
     /// Gets a vector of all NodeIds in the graph.
     pub fn node_ids(&self) -> impl Iterator<Item = NodeId<G>> {
@@ -308,8 +362,6 @@ where
             visited.insert(nid.clone()).then_some(nid)
         })
     }
-
-    // Edges
 
     /// Gets the data associated with an edge.
     pub fn edge_data<'a>(&'a self, id: &EdgeId<G>) -> &'a G::EdgeData {
@@ -515,6 +567,16 @@ where
 }
 
 impl<G: GraphImplMut> Graph<G> {
+    /// Creates a new graph with the given directedness and edge multiplicity.
+    pub fn new(directedness: G::Directedness, edge_multiplicity: G::EdgeMultiplicity) -> Self
+    where
+        Self: Sized,
+    {
+        Self {
+            inner: Box::new(G::new(directedness, edge_multiplicity)),
+        }
+    }
+
     /// Gets a mutable reference to the data associated with a node.
     pub fn node_data_mut<'a>(&'a mut self, id: &'a NodeId<G>) -> &'a mut G::NodeData {
         self.inner.node_data_mut(self.unwrap(id))
@@ -645,6 +707,175 @@ impl<G: GraphImplMut> Graph<G> {
         B: dot::parser::GraphBuilder<GraphImpl = G>,
     {
         dot::parser::parse_dot_into_graph(data, builder)
+    }
+}
+
+// This trait impl just delegates to inherent methods of the same name.  The
+// methods are inherent instead of trait methods to allow them to be called on
+// Graphs without needing to import the traits, and to make the generated
+// documentation easier to navigate.
+impl<G: GraphImpl> GraphImpl for Graph<G> {
+    type NodeId = NodeId<G>;
+    type EdgeId = EdgeId<G>;
+    type NodeData = G::NodeData;
+    type EdgeData = G::EdgeData;
+    type Directedness = G::Directedness;
+    type EdgeMultiplicity = G::EdgeMultiplicity;
+
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+
+    fn num_nodes(&self) -> usize {
+        self.num_nodes()
+    }
+
+    fn edges_from<'a, 'b: 'a>(
+        &'a self,
+        from: &'b NodeId<G>,
+    ) -> impl Iterator<Item = EdgeId<G>> + 'a {
+        self.edges_from(from)
+    }
+
+    fn edges_into<'a, 'b: 'a>(
+        &'a self,
+        into: &'b NodeId<G>,
+    ) -> impl Iterator<Item = EdgeId<G>> + 'a {
+        self.edges_into(into)
+    }
+
+    fn edges_from_into<'a, 'b: 'a>(
+        &'a self,
+        from: &'b NodeId<G>,
+        into: &'b NodeId<G>,
+    ) -> impl Iterator<Item = EdgeId<G>> + 'a {
+        self.edges_from_into(from, into)
+    }
+
+    fn has_edge_from(&self, from: &Self::NodeId) -> bool {
+        self.has_edge_from(from)
+    }
+
+    fn has_edge_into(&self, into: &Self::NodeId) -> bool {
+        self.has_edge_into(into)
+    }
+
+    fn has_edge_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> bool {
+        self.has_edge_from_into(from, into)
+    }
+
+    fn num_edges(&self) -> usize {
+        self.num_edges()
+    }
+
+    fn num_edges_into(&self, into: &Self::NodeId) -> usize {
+        self.num_edges_into(into)
+    }
+
+    fn num_edges_from(&self, from: &Self::NodeId) -> usize {
+        self.num_edges_from(from)
+    }
+
+    fn num_edges_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> usize {
+        self.num_edges_from_into(from, into)
+    }
+
+    fn directedness(&self) -> G::Directedness {
+        self.directedness()
+    }
+
+    fn edge_multiplicity(&self) -> G::EdgeMultiplicity {
+        self.edge_multiplicity()
+    }
+
+    fn node_ids(&self) -> impl Iterator<Item = NodeId<G>> {
+        self.node_ids()
+    }
+
+    fn node_data<'a>(&'a self, id: &NodeId<G>) -> &'a G::NodeData {
+        self.node_data(id)
+    }
+
+    fn edge_data<'a>(&'a self, id: &EdgeId<G>) -> &'a G::EdgeData {
+        self.edge_data(id)
+    }
+
+    fn edge_ids(&self) -> impl Iterator<Item = EdgeId<G>> + '_ {
+        self.edge_ids()
+    }
+}
+
+// See comment on GraphImpl impl above.
+impl<G: GraphImplMut> GraphImplMut for Graph<G> {
+    fn new(directedness: Self::Directedness, edge_multiplicity: Self::EdgeMultiplicity) -> Self
+    where
+        Self: Sized,
+    {
+        Self::new(directedness, edge_multiplicity)
+    }
+
+    fn clear(&mut self) {
+        self.clear();
+    }
+
+    fn node_data_mut<'a>(&'a mut self, id: &'a Self::NodeId) -> &'a mut Self::NodeData {
+        self.node_data_mut(id)
+    }
+
+    fn edge_data_mut<'a>(&'a mut self, id: &'a Self::EdgeId) -> &'a mut Self::EdgeData {
+        self.edge_data_mut(id)
+    }
+
+    fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
+        self.add_node(data)
+    }
+
+    fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData {
+        self.remove_node(id)
+    }
+
+    fn add_edge(
+        &mut self,
+        from: &Self::NodeId,
+        into: &Self::NodeId,
+        data: Self::EdgeData,
+    ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
+        self.add_edge(from, into, data)
+    }
+
+    fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData {
+        self.remove_edge(id)
+    }
+
+    fn reserve(&mut self, additional_nodes: usize, additional_edges: usize) {
+        self.reserve(additional_nodes, additional_edges);
+    }
+
+    fn reserve_exact(&mut self, additional_nodes: usize, additional_edges: usize) {
+        self.reserve_exact(additional_nodes, additional_edges);
+    }
+
+    fn compact_with(
+        &mut self,
+        node_id_callback: impl FnMut(&'_ Self::NodeId, &'_ Self::NodeId),
+        edge_id_callback: impl FnMut(&'_ Self::EdgeId, &'_ Self::EdgeId),
+    ) {
+        self.compact_with(node_id_callback, edge_id_callback);
+    }
+
+    fn shrink_to_fit(&mut self) {
+        self.shrink_to_fit();
+    }
+}
+
+impl<G: GraphImpl> From<G> for Graph<G>
+where
+    G: GraphImpl,
+{
+    fn from(value: G) -> Self {
+        Graph {
+            inner: Box::new(value),
+        }
     }
 }
 

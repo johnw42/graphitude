@@ -112,6 +112,12 @@ pub fn other_value_ref<'a, 'b, T: Eq>(
 )]
 pub struct NonDereferenceable<T: ?Sized>(*const T);
 
+// SAFETY: This type is safe to send and share across threads as long as the
+// underlying pointer is not dereferenced, which is guaranteed by the API
+// design.
+unsafe impl<T: ?Sized> Sync for NonDereferenceable<T> {}
+unsafe impl<T: ?Sized> Send for NonDereferenceable<T> {}
+
 impl<T: ?Sized> UnwindSafe for NonDereferenceable<T> {}
 
 impl<T: ?Sized> Debug for NonDereferenceable<T> {

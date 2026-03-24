@@ -182,10 +182,7 @@ mod inner {
             directedness: DynDirectedness,
             edge_multiplicity: DynEdgeMultiplicity,
         ) -> Result<Graph<Self::GraphImpl>, Self::Error> {
-            Ok(Graph::new(Self::GraphImpl::new(
-                directedness,
-                edge_multiplicity,
-            )))
+            Ok(Graph::new(directedness, edge_multiplicity))
         }
 
         fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<NodeInfo, Self::Error> {

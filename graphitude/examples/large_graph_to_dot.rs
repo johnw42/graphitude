@@ -185,7 +185,7 @@ mod inner {
         } else {
             DynEdgeMultiplicity::MultipleEdges
         };
-        let mut graph = Graph::new(LinkedGraph::new(directedness, edge_multiplicity));
+        let mut graph = Graph::new(directedness, edge_multiplicity);
         generate_large_graph(
             &mut graph,
             |i| node_data_for(i, node_type),
