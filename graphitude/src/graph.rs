@@ -187,11 +187,12 @@ mod ids {
     /// A trait that abstracts over the common behavior of NodeId and EdgeId,
     /// allowing them to be wrapped and unwrapped from their inner
     /// graph-specific IDs.
-    pub(super) trait IdWrapper<G: GraphImpl + ?Sized> {
+    pub(crate) trait IdWrapper<G: GraphImpl + ?Sized> {
         type Inner;
 
         fn wrap(inner: Self::Inner, graph: *const G) -> Self;
-        fn unwrap(&self, graph: *const G) -> &Self::Inner;
+        fn unwrap(self, graph: *const G) -> Self::Inner;
+        fn unwrap_ref(&self, graph: *const G) -> &Self::Inner;
     }
 
     impl<G: GraphImpl + ?Sized> IdWrapper<G> for NodeId<G> {
@@ -206,7 +207,13 @@ mod ids {
         }
 
         #[inline(always)]
-        fn unwrap(&self, graph: *const G) -> &Self::Inner {
+        fn unwrap(self, graph: *const G) -> Self::Inner {
+            assert_eq!(self.graph, graph.into());
+            self.inner
+        }
+
+        #[inline(always)]
+        fn unwrap_ref(&self, graph: *const G) -> &Self::Inner {
             assert_eq!(self.graph, graph.into());
             &self.inner
         }
@@ -224,7 +231,13 @@ mod ids {
         }
 
         #[inline(always)]
-        fn unwrap(&self, graph: *const G) -> &Self::Inner {
+        fn unwrap(self, graph: *const G) -> Self::Inner {
+            assert_eq!(self.graph, graph.into());
+            self.inner
+        }
+
+        #[inline(always)]
+        fn unwrap_ref(&self, graph: *const G) -> &Self::Inner {
             assert_eq!(self.graph, graph.into());
             &self.inner
         }
@@ -243,13 +256,19 @@ where
     G: GraphImpl,
 {
     #[inline(always)]
-    fn wrap<W: IdWrapper<G>>(&self, node_id: W::Inner) -> W {
+    pub(crate) fn wrap_id<W: IdWrapper<G>>(&self, node_id: W::Inner) -> W {
         W::wrap(node_id, &*self.inner)
     }
 
+    #[allow(unused)]
     #[inline(always)]
-    fn unwrap<'a, 'b, W: IdWrapper<G>>(&'a self, node_id: &'b W) -> &'b W::Inner {
+    pub(crate) fn unwrap_id<W: IdWrapper<G>>(&self, node_id: W) -> W::Inner {
         node_id.unwrap(&*self.inner)
+    }
+
+    #[inline(always)]
+    pub(crate) fn unwrap_id_ref<'a, 'b, W: IdWrapper<G>>(&'a self, node_id: &'b W) -> &'b W::Inner {
+        node_id.unwrap_ref(&*self.inner)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -309,17 +328,17 @@ where
     /// convenience method to avoid having to import the `Path` type separately
     /// and specify its type argument explicity.
     pub fn new_path(&self, start: &NodeId<G>) -> Path<G> {
-        Path::new(start.clone())
+        Path::new(self.unwrap_id_ref(start).clone())
     }
 
     /// Gets a vector of all NodeIds in the graph.
     pub fn node_ids(&self) -> impl Iterator<Item = NodeId<G>> {
-        self.inner.node_ids().map(|nid| self.wrap(nid))
+        self.inner.node_ids().map(|nid| self.wrap_id(nid))
     }
 
     /// Gets the data associated with a node.
     pub fn node_data<'a>(&'a self, id: &NodeId<G>) -> &'a G::NodeData {
-        self.inner.node_data(self.unwrap(id))
+        self.inner.node_data(self.unwrap_id_ref(id))
     }
 
     /// Gets the number of nodes in the graph.
@@ -365,7 +384,7 @@ where
 
     /// Gets the data associated with an edge.
     pub fn edge_data<'a>(&'a self, id: &EdgeId<G>) -> &'a G::EdgeData {
-        self.inner.edge_data(self.unwrap(id))
+        self.inner.edge_data(self.unwrap_id_ref(id))
     }
 
     /// Gets a vector of all edges in the graph.
@@ -381,8 +400,8 @@ where
         from: &'b NodeId<G>,
     ) -> impl Iterator<Item = EdgeId<G>> + 'a {
         self.inner
-            .edges_from(self.unwrap(from))
-            .map(|id| self.wrap(id))
+            .edges_from(self.unwrap_id_ref(from))
+            .map(|id| self.wrap_id(id))
     }
 
     /// Gets an iterator over the incoming edges to a given node.
@@ -391,8 +410,8 @@ where
         into: &'b NodeId<G>,
     ) -> impl Iterator<Item = EdgeId<G>> + 'a {
         self.inner
-            .edges_into(self.unwrap(into))
-            .map(|id| self.wrap(id))
+            .edges_into(self.unwrap_id_ref(into))
+            .map(|id| self.wrap_id(id))
     }
 
     /// Gets an iterator over the edges from one node into another.
@@ -402,24 +421,24 @@ where
         into: &'b NodeId<G>,
     ) -> impl Iterator<Item = EdgeId<G>> + 'a {
         self.inner
-            .edges_from_into(self.unwrap(from), self.unwrap(into))
-            .map(|id| self.wrap(id))
+            .edges_from_into(self.unwrap_id_ref(from), self.unwrap_id_ref(into))
+            .map(|id| self.wrap_id(id))
     }
 
     /// Checks if there is at least one outgoing edge from the given node.
     pub fn has_edge_from(&self, from: &NodeId<G>) -> bool {
-        self.inner.has_edge_from(self.unwrap(from))
+        self.inner.has_edge_from(self.unwrap_id_ref(from))
     }
 
     /// Checks if there is at least one incoming edge to the given node.
     pub fn has_edge_into(&self, into: &NodeId<G>) -> bool {
-        self.inner.has_edge_into(self.unwrap(into))
+        self.inner.has_edge_into(self.unwrap_id_ref(into))
     }
 
     /// Checks if there at least one edge from one node to another.
     pub fn has_edge_from_into(&self, from: &NodeId<G>, into: &NodeId<G>) -> bool {
         self.inner
-            .has_edge_from_into(self.unwrap(from), self.unwrap(into))
+            .has_edge_from_into(self.unwrap_id_ref(from), self.unwrap_id_ref(into))
     }
 
     /// Gets the number of edges in the graph.
@@ -429,59 +448,59 @@ where
 
     /// Gets the number of incoming edges to a given node.
     pub fn num_edges_into(&self, into: &NodeId<G>) -> usize {
-        self.inner.num_edges_into(self.unwrap(into))
+        self.inner.num_edges_into(self.unwrap_id_ref(into))
     }
 
     /// Gets the number of outgoing edges from a given node.
     pub fn num_edges_from(&self, from: &NodeId<G>) -> usize {
-        self.inner.num_edges_from(self.unwrap(from))
+        self.inner.num_edges_from(self.unwrap_id_ref(from))
     }
 
     /// Gets the number of edges from one node into another.
     pub fn num_edges_from_into(&self, from: &NodeId<G>, into: &NodeId<G>) -> usize {
         self.inner
-            .num_edges_from_into(self.unwrap(from), self.unwrap(into))
+            .num_edges_from_into(self.unwrap_id_ref(from), self.unwrap_id_ref(into))
     }
 
     // Searches
 
     /// Performs a breadth-first search starting from the given node.
-    pub fn bfs(&self, start: &NodeId<G>) -> BfsIterator<'_, G> {
+    pub fn bfs(&self, start: &NodeId<G>) -> BfsIterator<'_, Self> {
         self.bfs_multi(vec![start.clone()])
     }
 
     /// Performs a breadth-first search starting from the given nodes.
-    pub fn bfs_multi(&self, start: Vec<NodeId<G>>) -> BfsIterator<'_, G> {
+    pub fn bfs_multi(&self, start: Vec<NodeId<G>>) -> BfsIterator<'_, Self> {
         BfsIterator::new(self, start)
     }
 
     /// Performs a depth-first search starting from the given node.
-    pub fn dfs(&self, start: &NodeId<G>) -> DfsIterator<'_, G> {
+    pub fn dfs(&self, start: &NodeId<G>) -> DfsIterator<'_, Self> {
         self.dfs_multi(vec![start.clone()])
     }
 
     /// Performs a depth-first search starting from the given node.
-    pub fn dfs_multi(&self, start: Vec<NodeId<G>>) -> DfsIterator<'_, G> {
+    pub fn dfs_multi(&self, start: Vec<NodeId<G>>) -> DfsIterator<'_, Self> {
         DfsIterator::new(self, start)
     }
 
     /// Performs a breadth-first search starting from the given node.
-    pub fn bfs_with_paths(&self, start: &NodeId<G>) -> BfsIteratorWithPaths<'_, G> {
+    pub fn bfs_with_paths(&self, start: &NodeId<G>) -> BfsIteratorWithPaths<'_, Self> {
         self.bfs_multi_with_paths(vec![start.clone()])
     }
 
     /// Performs a breadth-first search starting from the given nodes.
-    pub fn bfs_multi_with_paths(&self, start: Vec<NodeId<G>>) -> BfsIteratorWithPaths<'_, G> {
+    pub fn bfs_multi_with_paths(&self, start: Vec<NodeId<G>>) -> BfsIteratorWithPaths<'_, Self> {
         BfsIteratorWithPaths::new(self, start)
     }
 
     /// Performs a depth-first search starting from the given node.
-    pub fn dfs_with_paths(&self, start: &NodeId<G>) -> DfsIteratorWithPaths<'_, G> {
+    pub fn dfs_with_paths(&self, start: &NodeId<G>) -> DfsIteratorWithPaths<'_, Self> {
         self.dfs_multi_with_paths(vec![start.clone()])
     }
 
     /// Performs a depth-first search starting from the given nodes.
-    pub fn dfs_multi_with_paths(&self, start: Vec<NodeId<G>>) -> DfsIteratorWithPaths<'_, G> {
+    pub fn dfs_multi_with_paths(&self, start: Vec<NodeId<G>>) -> DfsIteratorWithPaths<'_, Self> {
         DfsIteratorWithPaths::new(self, start)
     }
 
@@ -495,7 +514,7 @@ where
         &self,
         start: &NodeId<G>,
         distance_fn: impl Fn(&EdgeId<G>) -> C,
-    ) -> HashMap<NodeId<G>, (Path<G>, C)> {
+    ) -> HashMap<NodeId<G>, (Path<Self>, C)> {
         // Find shortest paths using Dijkstra's algorithm.
 
         use std::collections::HashMap;
@@ -540,7 +559,7 @@ where
         }
 
         // Build paths from predecessors
-        let mut result: HashMap<NodeId<G>, (Path<G>, C)> = HashMap::new();
+        let mut result: HashMap<NodeId<G>, (Path<Self>, C)> = HashMap::new();
         for (node, &dist) in &distances {
             if node == start {
                 result.insert(start.clone(), (Path::new(start.clone()), C::default()));
@@ -579,12 +598,12 @@ impl<G: GraphImplMut> Graph<G> {
 
     /// Gets a mutable reference to the data associated with a node.
     pub fn node_data_mut<'a>(&'a mut self, id: &'a NodeId<G>) -> &'a mut G::NodeData {
-        self.inner.node_data_mut(self.unwrap(id))
+        self.inner.node_data_mut(self.unwrap_id_ref(id))
     }
 
     /// Gets a mutable reference to the data associated with an edge.
     pub fn edge_data_mut<'a>(&'a mut self, id: &'a EdgeId<G>) -> &'a mut G::EdgeData {
-        self.inner.edge_data_mut(self.unwrap(id))
+        self.inner.edge_data_mut(self.unwrap_id_ref(id))
     }
 
     /// Removes all nodes and edges from the graph.
@@ -597,13 +616,13 @@ impl<G: GraphImplMut> Graph<G> {
     /// Adds a node with the given data to the graph and returns its NodeId.
     pub fn add_node(&mut self, data: G::NodeData) -> NodeId<G> {
         let node_id = self.inner.add_node(data);
-        self.wrap(node_id)
+        self.wrap_id(node_id)
     }
 
     /// Removes a node from the graph, returning its data.  Any edges
     /// connected to the node are also be removed.
     pub fn remove_node(&mut self, id: &NodeId<G>) -> G::NodeData {
-        self.inner.remove_node(self.unwrap(id))
+        self.inner.remove_node(self.unwrap_id_ref(id))
     }
 
     /// Adds an edge with the given data between two nodes and returns the
@@ -634,13 +653,13 @@ impl<G: GraphImplMut> Graph<G> {
         data: G::EdgeData,
     ) -> AddEdgeResult<EdgeId<G>, G::EdgeData> {
         self.inner
-            .add_edge(self.unwrap(from), self.unwrap(into), data)
-            .map_edge_id(|id| self.wrap(id))
+            .add_edge(self.unwrap_id_ref(from), self.unwrap_id_ref(into), data)
+            .map_edge_id(|id| self.wrap_id(id))
     }
 
     /// Remove an edge between two nodes, returning its data.
     pub fn remove_edge(&mut self, id: &EdgeId<G>) -> G::EdgeData {
-        self.inner.remove_edge(self.unwrap(id))
+        self.inner.remove_edge(self.unwrap_id_ref(id))
     }
 
     /// Reserves capacity for at least the given number of additional nodes

@@ -1,8 +1,11 @@
-use std::{collections::HashSet, fmt::Debug, marker::PhantomData, mem::transmute};
+use std::{fmt::Debug, marker::PhantomData, mem::transmute};
 
 use derivative::Derivative;
 
-use crate::{EdgeIdImpl, MultipleEdges, NodeIdImpl, directedness::Directed, end_pair::EndPair};
+use crate::{
+    EdgeIdImpl, MultipleEdges, NodeIdImpl, directedness::Directed, end_pair::EndPair,
+    search::DfsIterator,
+};
 
 use super::GraphImpl;
 
@@ -158,23 +161,7 @@ where
     }
 
     fn node_ids(&self) -> impl Iterator<Item = <Self as GraphImpl>::NodeId> {
-        let mut visited = HashSet::new();
-        let mut stack = self.roots().collect::<Vec<_>>();
-        let mut output = Vec::new();
-        while let Some(nid) = stack.pop() {
-            if visited.contains(&nid) {
-                continue;
-            }
-            visited.insert(nid.clone());
-            for eid in self.edges_from(&nid) {
-                let neighbor = eid.other_end(&nid);
-                if !visited.contains(&neighbor) {
-                    stack.push(neighbor);
-                }
-            }
-            output.push(nid);
-        }
-        output.into_iter()
+        DfsIterator::new(self, self.roots().collect())
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
@@ -225,65 +212,69 @@ mod tests {
         assert!(!graph.has_edge_from_into(&root_id, &second_neighbors[0]));
     }
 
-    // TODO
-    // #[cfg(feature = "pathfinding")]
-    // #[test]
-    // fn test_shortest_paths() {
-    //     #[derive(Debug)]
-    //     struct Node<'a> {
-    //         value: i32,
-    //         neighbors: Vec<&'a Node<'a>>,
-    //     }
+    #[cfg(feature = "pathfinding")]
+    #[test]
+    fn test_shortest_paths() {
+        use crate::Graph;
 
-    //     //     1
-    //     //    /|
-    //     //   2 |
-    //     //  / \|
-    //     // 3   4
-    //     let node4 = Node {
-    //         value: 4,
-    //         neighbors: vec![],
-    //     };
-    //     let node3 = Node {
-    //         value: 3,
-    //         neighbors: vec![],
-    //     };
-    //     let node2 = Node {
-    //         value: 2,
-    //         neighbors: vec![&node3, &node4],
-    //     };
-    //     let node1 = Node {
-    //         value: 1,
-    //         neighbors: vec![&node2, &node4],
-    //     };
+        #[derive(Debug)]
+        struct Node<'a> {
+            value: i32,
+            neighbors: Vec<&'a Node<'a>>,
+        }
 
-    //     let graph = ObjectGraph::new(&node1, |node: &Node| node.neighbors.clone());
+        //     1
+        //    /|
+        //   2 |
+        //  / \|
+        // 3   4
+        let node4 = Node {
+            value: 4,
+            neighbors: vec![],
+        };
+        let node3 = Node {
+            value: 3,
+            neighbors: vec![],
+        };
+        let node2 = Node {
+            value: 2,
+            neighbors: vec![&node3, &node4],
+        };
+        let node1 = Node {
+            value: 1,
+            neighbors: vec![&node2, &node4],
+        };
 
-    //     let id1 = graph.roots().next().unwrap();
-    //     let id2 = graph.node_id(&node2);
-    //     let id3 = graph.node_id(&node3);
-    //     let id4 = graph.node_id(&node4);
+        let roots = vec![&node1];
+        let graph = Graph::from(ObjectGraph::new_multi(roots.clone(), |node: &Node| {
+            node.neighbors.clone()
+        }));
 
-    //     let paths = graph.shortest_paths(&id1, |_| 1);
+        let id1 = graph.wrap_id(NodeId::from(&node1));
+        let id2 = graph.wrap_id(NodeId::from(&node2));
+        let id3 = graph.wrap_id(NodeId::from(&node3));
+        let id4 = graph.wrap_id(NodeId::from(&node4));
 
-    //     let values = |id| {
-    //         paths
-    //             .get(id)
-    //             .unwrap()
-    //             .0
-    //             .nodes()
-    //             .map(|nid| graph.node_data(&nid).value)
-    //             .collect::<Vec<_>>()
-    //     };
-    //     assert_eq!(paths.len(), 4);
+        let paths = graph.shortest_paths(&id1, |_| 1);
 
-    //     assert_eq!(paths.get(&id1).unwrap().1, 0);
-    //     assert_eq!(values(&id1), vec![1]);
-    //     assert_eq!(paths.get(&id2).unwrap().1, 1);
-    //     assert_eq!(values(&id2), vec![1, 2]);
-    //     assert_eq!(paths.get(&id3).unwrap().1, 2);
-    //     assert_eq!(values(&id3), vec![1, 2, 3]);
-    //     assert_eq!(paths.get(&id4).unwrap().1, 1);
-    //     assert_eq!(values(&id4), vec![1, 4]);
-    // }
+        let values = |id| {
+            paths
+                .get(id)
+                .unwrap()
+                .0
+                .nodes()
+                .map(|nid| graph.node_data(&nid).value)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(paths.len(), 4);
+
+        assert_eq!(paths.get(&id1).unwrap().1, 0);
+        assert_eq!(values(&id1), vec![1]);
+        assert_eq!(paths.get(&id2).unwrap().1, 1);
+        assert_eq!(values(&id2), vec![1, 2]);
+        assert_eq!(paths.get(&id3).unwrap().1, 2);
+        assert_eq!(values(&id3), vec![1, 2, 3]);
+        assert_eq!(paths.get(&id4).unwrap().1, 1);
+        assert_eq!(values(&id4), vec![1, 4]);
+    }
 }

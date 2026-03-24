@@ -1,8 +1,8 @@
 use std::collections::{HashSet, VecDeque};
 
+use crate::graph_traits::EdgeIdImpl;
 use crate::path::Path;
-
-use super::prelude::*;
+use crate::prelude::*;
 
 const DEFAULT_HASH_SET_CAPACITY: usize = 64;
 
@@ -11,16 +11,16 @@ const DEFAULT_HASH_SET_CAPACITY: usize = 64;
 /// Visits nodes in breadth-first order starting from one or more root nodes.
 /// Each node is visited at most once.
 pub struct BfsIterator<'g, G: GraphImpl + ?Sized> {
-    graph: &'g Graph<G>,
-    visited: HashSet<NodeId<G>>,
-    queue: VecDeque<NodeId<G>>,
+    graph: &'g G,
+    visited: HashSet<G::NodeId>,
+    queue: VecDeque<G::NodeId>,
 }
 
 impl<'g, G> BfsIterator<'g, G>
 where
     G: GraphImpl + ?Sized,
 {
-    pub fn new(graph: &'g Graph<G>, start: Vec<NodeId<G>>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
         Self {
             graph,
             visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
@@ -33,7 +33,7 @@ impl<'g, G> Iterator for BfsIterator<'g, G>
 where
     G: GraphImpl,
 {
-    type Item = NodeId<G>;
+    type Item = G::NodeId;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(nid) = self.queue.pop_front() {
@@ -58,8 +58,8 @@ where
 /// Visits nodes in breadth-first order and yields the path from a root to each visited node.
 /// Each node is visited at most once, and the first path found is returned.
 pub struct BfsIteratorWithPaths<'g, G: GraphImpl + ?Sized> {
-    graph: &'g Graph<G>,
-    visited: HashSet<NodeId<G>>,
+    graph: &'g G,
+    visited: HashSet<G::NodeId>,
     queue: VecDeque<Path<G>>,
 }
 
@@ -67,7 +67,7 @@ impl<'g, G> BfsIteratorWithPaths<'g, G>
 where
     G: GraphImpl + ?Sized,
 {
-    pub fn new(graph: &'g Graph<G>, start: Vec<NodeId<G>>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
         Self {
             graph,
             visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
@@ -106,16 +106,16 @@ where
 /// Visits nodes in depth-first order starting from one or more root nodes.
 /// Each node is visited at most once.
 pub struct DfsIterator<'g, G: GraphImpl + ?Sized> {
-    graph: &'g Graph<G>,
-    visited: HashSet<NodeId<G>>,
-    stack: Vec<NodeId<G>>,
+    graph: &'g G,
+    visited: HashSet<G::NodeId>,
+    stack: Vec<G::NodeId>,
 }
 
 impl<'g, G> DfsIterator<'g, G>
 where
     G: GraphImpl + ?Sized,
 {
-    pub fn new(graph: &'g Graph<G>, start: Vec<NodeId<G>>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
         let mut stack = start;
         stack.reverse();
         Self {
@@ -130,7 +130,7 @@ impl<'g, G> Iterator for DfsIterator<'g, G>
 where
     G: GraphImpl,
 {
-    type Item = NodeId<G>;
+    type Item = G::NodeId;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(nid) = self.stack.pop() {
@@ -150,8 +150,8 @@ where
 /// Visits nodes in depth-first order and yields the path from a root to each visited node.
 /// Each node is visited at most once, and the first path found is returned.
 pub struct DfsIteratorWithPaths<'g, G: GraphImpl + ?Sized> {
-    graph: &'g Graph<G>,
-    visited: HashSet<NodeId<G>>,
+    graph: &'g G,
+    visited: HashSet<G::NodeId>,
     stack: Vec<Path<G>>,
 }
 
@@ -159,7 +159,7 @@ impl<'g, G> DfsIteratorWithPaths<'g, G>
 where
     G: GraphImpl + ?Sized,
 {
-    pub fn new(graph: &'g Graph<G>, start: Vec<NodeId<G>>) -> Self {
+    pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
         let mut stack = start.into_iter().map(Path::new).collect::<Vec<_>>();
         stack.reverse();
         Self {

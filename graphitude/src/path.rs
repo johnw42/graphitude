@@ -2,7 +2,7 @@ use std::{cmp::Ordering, iter::once};
 
 use derivative::Derivative;
 
-use crate::{Directedness, EdgeId, GraphImpl, NodeId};
+use crate::{Directedness, EdgeIdImpl, GraphImpl};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
@@ -15,8 +15,8 @@ use crate::{Directedness, EdgeId, GraphImpl, NodeId};
     Debug(bound = "")
 )]
 pub struct Path<G: GraphImpl + ?Sized> {
-    edges: Vec<EdgeId<G>>,
-    nodes: Vec<NodeId<G>>,
+    edges: Vec<G::EdgeId>,
+    nodes: Vec<G::NodeId>,
 }
 
 impl<G> Path<G>
@@ -24,7 +24,7 @@ where
     G: GraphImpl + ?Sized,
 {
     /// Creates a new path starting at the given node.
-    pub fn new(start: NodeId<G>) -> Self {
+    pub fn new(start: G::NodeId) -> Self {
         Self {
             edges: Vec::new(),
             nodes: vec![start],
@@ -34,29 +34,29 @@ where
     /// Creates a new path from a sequence of edges and a starting node.  Panics
     /// if the edges do not form a valid path, the edges are empty, or if the
     /// starting node does not match the one end of the first edge.
-    pub fn from_edges(start: NodeId<G>, edges: impl IntoIterator<Item = EdgeId<G>>) -> Self {
+    pub fn from_edges(start: G::NodeId, edges: impl IntoIterator<Item = G::EdgeId>) -> Self {
         let mut path = Self::new(start);
         path.extend(edges);
         path
     }
 
     /// Returns the first node in the path.
-    pub fn first_node(&self) -> NodeId<G> {
+    pub fn first_node(&self) -> G::NodeId {
         self.nodes.first().expect("Path has no nodes").clone()
     }
 
     /// Returns the last node in the path.
-    pub fn last_node(&self) -> NodeId<G> {
+    pub fn last_node(&self) -> G::NodeId {
         self.nodes.last().expect("Path has no nodes").clone()
     }
 
     /// Returns an iterator over the edges in the path.
-    pub fn edges(&self) -> impl Iterator<Item = EdgeId<G>> + '_ {
+    pub fn edges(&self) -> impl Iterator<Item = G::EdgeId> + '_ {
         self.edges.iter().cloned()
     }
 
     /// Returns an iterator over the nodes in the path.
-    pub fn nodes(&self) -> impl Iterator<Item = NodeId<G>> + '_ {
+    pub fn nodes(&self) -> impl Iterator<Item = G::NodeId> + '_ {
         self.nodes.iter().cloned()
     }
 
@@ -67,7 +67,7 @@ where
     /// node (no outgoing edge).
     pub fn nodes_with_edges(
         &self,
-    ) -> impl Iterator<Item = (Option<EdgeId<G>>, NodeId<G>, Option<EdgeId<G>>)> + '_ {
+    ) -> impl Iterator<Item = (Option<G::EdgeId>, G::NodeId, Option<G::EdgeId>)> + '_ {
         let incoming = once(None).chain(self.edges.iter().cloned().map(Some));
         let outgoing = self.edges.iter().cloned().map(Some).chain(once(None));
         let nodes = self.nodes.iter().cloned();
@@ -88,7 +88,7 @@ where
     /// Adds an edge to the end of the path, extending it to the edge's target
     /// node. Panics if the edge's source node does not match the current
     /// last node of the path.
-    pub fn add_edge(&mut self, edge_id: EdgeId<G>) {
+    pub fn add_edge(&mut self, edge_id: G::EdgeId) {
         let next_node = edge_id.other_end(&self.last_node());
         self.edges.push(edge_id);
         self.nodes.push(next_node);
@@ -97,7 +97,7 @@ where
     /// Adds an edge and its target node to the end of the path. Panics if
     /// the edge's source node does not match the current last node of the
     /// path, or if the provided node does not match the edge's target node.
-    pub fn add_edge_and_node(&mut self, edge_id: EdgeId<G>, node_id: NodeId<G>) {
+    pub fn add_edge_and_node(&mut self, edge_id: G::EdgeId, node_id: G::NodeId) {
         let last = self.last_node();
 
         if edge_id.directedness().is_directed() {
@@ -144,11 +144,11 @@ impl<G: GraphImpl> PartialOrd for Path<G> {
     }
 }
 
-impl<G> Extend<EdgeId<G>> for Path<G>
+impl<G> Extend<G::EdgeId> for Path<G>
 where
     G: GraphImpl + ?Sized,
 {
-    fn extend<T: IntoIterator<Item = EdgeId<G>>>(&mut self, iter: T) {
+    fn extend<T: IntoIterator<Item = G::EdgeId>>(&mut self, iter: T) {
         for edge_id in iter {
             self.add_edge(edge_id);
         }
@@ -161,7 +161,7 @@ mod tests {
 
     use test_suite_macro::test_suite_macro;
 
-    use crate::{AdjacencyGraph, Directed, Graph, GraphImplMut, Undirected};
+    use crate::{AdjacencyGraph, Directed, GraphImplMut, Undirected, path::Path};
 
     struct PathTests<G>(PhantomData<G>);
 
@@ -172,21 +172,21 @@ mod tests {
     {
         #[test]
         fn test_new_path() {
-            let mut graph = Graph::<G>::default();
+            let mut graph = G::default();
             let n1 = graph.add_node("n1");
-            let path = graph.new_path(&n1);
+            let path = Path::<G>::new(n1.clone());
             assert_eq!(path.first_node(), n1);
             assert_eq!(path.last_node(), n1);
         }
 
         #[test]
         fn test_add_edge() {
-            let mut graph = Graph::<G>::default();
+            let mut graph = G::default();
             let n1 = graph.add_node("n1");
             let n2 = graph.add_node("n2");
             let e1 = graph.add_edge(&n1, &n2, "e1").edge_id();
 
-            let mut path = graph.new_path(&n1);
+            let mut path = Path::<G>::new(n1);
             path.add_edge(e1);
 
             assert_eq!(path.last_node(), n2);
@@ -196,13 +196,13 @@ mod tests {
 
         #[test]
         fn test_nodes_with_edges() {
-            let mut graph = Graph::<G>::default();
+            let mut graph = G::default();
             let n1 = graph.add_node("n1");
             let n2 = graph.add_node("n2");
             let n3 = graph.add_node("n3");
             let e1 = graph.add_edge(&n1, &n2, "e1").edge_id();
             let e2 = graph.add_edge(&n2, &n3, "e2").edge_id();
-            let mut path = graph.new_path(&n1);
+            let mut path = Path::<G>::new(n1.clone());
             path.add_edge(e1.clone());
             path.add_edge(e2.clone());
             let mut iter = path.nodes_with_edges();
@@ -217,17 +217,17 @@ mod tests {
 
         #[test]
         fn test_extend_with() {
-            let mut graph = Graph::<G>::default();
+            let mut graph = G::default();
             let n1 = graph.add_node("n1");
             let n2 = graph.add_node("n2");
             let n3 = graph.add_node("n3");
             let e1 = graph.add_edge(&n1, &n2, "e12").edge_id();
             let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
 
-            let mut path1 = graph.new_path(&n1);
+            let mut path1 = Path::<G>::new(n1);
             path1.add_edge(e1);
 
-            let mut path2 = graph.new_path(&n2);
+            let mut path2 = Path::<G>::new(n2);
             path2.add_edge(e2);
 
             path1.extend_with(&path2);
@@ -238,14 +238,14 @@ mod tests {
 
         #[test]
         fn test_extend() {
-            let mut graph = Graph::<G>::default();
+            let mut graph = G::default();
             let n1 = graph.add_node("n1");
             let n2 = graph.add_node("n2");
             let n3 = graph.add_node("n3");
             let e1 = graph.add_edge(&n1, &n2, "e12").edge_id();
             let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
 
-            let mut path = graph.new_path(&n1);
+            let mut path = Path::<G>::new(n1);
             path.extend(vec![e1, e2]);
 
             assert_eq!(path.nodes().count(), 3);
@@ -254,7 +254,7 @@ mod tests {
 
         #[test]
         fn test_debug() {
-            let mut graph = Graph::<G>::default();
+            let mut graph = G::default();
             let n1 = graph.add_node("n1");
             let n2 = graph.add_node("n2");
             let n3 = graph.add_node("n3");
@@ -262,7 +262,7 @@ mod tests {
             let e2 = graph.add_edge(&n2, &n3, "e23").edge_id();
             let e3 = graph.add_edge(&n3, &n1, "e31").edge_id();
 
-            let mut path = graph.new_path(&n1);
+            let mut path = Path::<G>::new(n1);
             path.extend(vec![e1, e2, e3]);
             let debug_str = format!("{:?}", path);
             assert!(debug_str.contains("Path"));
