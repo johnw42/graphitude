@@ -36,7 +36,7 @@ impl<N, E, D: Directedness> Edge<N, E, D> {
     fn new(data: E, from: NodeId<N, E, D>, into: NodeId<N, E, D>, directedness: D) -> Self {
         Self {
             data: UnsafeCell::new(data),
-            ends: EndPair::new(from, into, directedness),
+            ends: EndPair::new((from, into), directedness),
             directedness: PhantomData,
         }
     }
@@ -129,7 +129,7 @@ where
         unsafe { &*self.node(id).data.get() }
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
+    fn nodes(&self) -> impl Iterator<Item = Self::NodeId> {
         self.nodes.iter().map(|node| self.node_id(node))
     }
 
@@ -138,7 +138,7 @@ where
         unsafe { &*self.edge(id).data.get() }
     }
 
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
         // For undirected graphs, deduplicate by Rc pointer address
         let mut seen: HashSet<*const Edge<N, E, D>> = HashSet::new();
 
@@ -242,9 +242,7 @@ where
         into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
-        let ends = self
-            .directedness
-            .coordinate_pair((from.clone(), into.clone()));
+        let ends = self.directedness.end_pair((from.clone(), into.clone()));
 
         if !self.edge_multiplicity().allows_parallel_edges() {
             debug_assert!(self.num_edges_from_into(from, into) <= 1);
@@ -371,6 +369,18 @@ where
         }
 
         Rc::into_inner(edge).unwrap().data.into_inner()
+    }
+}
+
+impl<N, E, D, M> Clone for LinkedGraph<N, E, D, M>
+where
+    N: Clone,
+    E: Clone,
+    D: Directedness,
+    M: EdgeMultiplicity,
+{
+    fn clone(&self) -> Self {
+        GraphCopier::clone(self)
     }
 }
 

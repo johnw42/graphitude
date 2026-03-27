@@ -7,7 +7,6 @@ use crate::{
     },
     adjacency_matrix::{AdjacencyMatrix, CompactionCount as _, HashStorage, Storage},
     automap::trait_def::{Automap as _, AutomapIndexing as _},
-    directedness::Directedness,
     prelude::*,
 };
 
@@ -62,7 +61,7 @@ where
         index: <M::Container<E> as EdgeContainer<E>>::Index,
     ) -> Validated<InnerEdgeId<E, D, M>, S> {
         Validated::new(
-            InnerEdgeId::new(self.directedness.coordinate_pair((from, into)), index),
+            InnerEdgeId::new(self.directedness.end_pair((from, into)), index),
             self.compaction_count,
         )
     }
@@ -95,7 +94,7 @@ where
             .expect("no such node")
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = <Self as GraphImpl>::NodeId> {
+    fn nodes(&self) -> impl Iterator<Item = <Self as GraphImpl>::NodeId> {
         self.nodes.iter_keys().map(|key| self.node_id(key))
     }
 
@@ -112,7 +111,7 @@ where
             .expect("no such edge index")
     }
 
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.adjacency
             .iter()
             .flat_map(move |(from, into, container)| {
@@ -378,5 +377,18 @@ where
     fn shrink_to_fit(&mut self) {
         self.nodes.shrink_to_fit();
         self.adjacency.shrink_to_fit();
+    }
+}
+
+impl<N, E, D, M, S> Clone for AdjacencyGraph<N, E, D, M, S>
+where
+    N: Clone,
+    E: Clone,
+    D: Directedness + Default,
+    M: EdgeContainerSelector,
+    S: Storage,
+{
+    fn clone(&self) -> Self {
+        GraphCopier::clone(self)
     }
 }

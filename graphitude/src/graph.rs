@@ -11,8 +11,7 @@ use std::{
 use crate::dot;
 
 use crate::{
-    AddEdgeResult, Directedness, EdgeMultiplicity, GraphCopier, GraphImpl, GraphImplMut,
-    MultipleEdges,
+    AddEdgeResult, Directedness, EdgeMultiplicity, GraphImpl, GraphImplMut, MultipleEdges,
     format_debug::format_debug,
     path::Path,
     search::{BfsIterator, BfsIteratorWithPaths, DfsIterator, DfsIteratorWithPaths},
@@ -21,9 +20,7 @@ use crate::{
 mod ids {
     use derivative::Derivative;
 
-    use crate::{
-        Directed, EdgeIdImpl, GraphImpl, NodeIdImpl, end_pair::EndPair, util::NonDereferenceable,
-    };
+    use crate::{EdgeIdImpl, GraphImpl, NodeIdImpl, util::NonDereferenceable};
 
     #[derive(Derivative)]
     #[derivative(
@@ -64,12 +61,6 @@ mod ids {
                 inner,
                 graph: self.graph,
             }
-        }
-
-        /// Gets the directedness of the edge, which will match the directedness of
-        /// the graph it belongs to.
-        pub fn directedness(&self) -> G::Directedness {
-            self.inner.directedness()
         }
 
         /// Gets one end of the edge.  For directed edges, this is the source node.
@@ -116,7 +107,7 @@ mod ids {
         /// Gets the source node of the edge.
         pub fn source(&self) -> NodeId<G>
         where
-            G: EdgeIdImpl<Directedness = Directed>,
+            G: EdgeIdImpl,
         {
             self.left()
         }
@@ -124,7 +115,7 @@ mod ids {
         /// Gets the target node of the edge.
         pub fn target(&self) -> NodeId<G>
         where
-            G: EdgeIdImpl<Directedness = Directed>,
+            G: EdgeIdImpl,
         {
             self.right()
         }
@@ -136,12 +127,7 @@ mod ids {
     // since these methods are commonly used and it's not important to be able
     // to call them on trait objects or generic parameters.
     impl<G: GraphImpl + ?Sized> EdgeIdImpl for EdgeId<G> {
-        type Directedness = G::Directedness;
         type NodeId = NodeId<G>;
-
-        fn directedness(&self) -> G::Directedness {
-            self.directedness()
-        }
 
         fn left(&self) -> NodeId<G> {
             self.left()
@@ -150,49 +136,27 @@ mod ids {
         fn right(&self) -> NodeId<G> {
             self.right()
         }
-
-        fn ends(&self) -> (NodeId<G>, NodeId<G>) {
-            self.ends()
-        }
-
-        fn other_end(&self, node: &NodeId<G>) -> NodeId<G> {
-            self.other_end(node)
-        }
-
-        fn has_end(&self, node: &NodeId<G>) -> bool {
-            self.has_end(node)
-        }
-
-        fn has_ends(&self, node1: &NodeId<G>, node2: &NodeId<G>) -> bool {
-            self.has_ends(node1, node2)
-        }
-
-        fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness> {
-            let directedness = self.directedness();
-            let (left, right) = self.inner.into_ends().into_values();
-            EndPair::new(
-                NodeId {
-                    inner: left,
-                    graph: self.graph,
-                },
-                NodeId {
-                    inner: right,
-                    graph: self.graph,
-                },
-                directedness,
-            )
-        }
     }
 
     /// A trait that abstracts over the common behavior of NodeId and EdgeId,
     /// allowing them to be wrapped and unwrapped from their inner
     /// graph-specific IDs.
-    pub(crate) trait IdWrapper<G: GraphImpl + ?Sized> {
+    pub(crate) trait IdWrapper<G: GraphImpl + ?Sized>: Sized {
         type Inner;
 
         fn wrap(inner: Self::Inner, graph: *const G) -> Self;
-        fn unwrap(self, graph: *const G) -> Self::Inner;
-        fn unwrap_ref(&self, graph: *const G) -> &Self::Inner;
+        fn try_unwrap(self, graph: *const G) -> Option<Self::Inner>;
+        fn try_unwrap_ref(&self, graph: *const G) -> Option<&Self::Inner>;
+
+        fn unwrap(self, graph: *const G) -> Self::Inner {
+            self.try_unwrap(graph)
+                .expect("Attempted to unwrap an ID with the wrong graph")
+        }
+
+        fn unwrap_ref(&self, graph: *const G) -> &Self::Inner {
+            self.try_unwrap_ref(graph)
+                .expect("Attempted to unwrap an ID with the wrong graph")
+        }
     }
 
     impl<G: GraphImpl + ?Sized> IdWrapper<G> for NodeId<G> {
@@ -207,15 +171,13 @@ mod ids {
         }
 
         #[inline(always)]
-        fn unwrap(self, graph: *const G) -> Self::Inner {
-            assert_eq!(self.graph, graph.into());
-            self.inner
+        fn try_unwrap(self, graph: *const G) -> Option<Self::Inner> {
+            (self.graph == graph.into()).then_some(self.inner)
         }
 
         #[inline(always)]
-        fn unwrap_ref(&self, graph: *const G) -> &Self::Inner {
-            assert_eq!(self.graph, graph.into());
-            &self.inner
+        fn try_unwrap_ref(&self, graph: *const G) -> Option<&Self::Inner> {
+            (self.graph == graph.into()).then_some(&self.inner)
         }
     }
 
@@ -231,15 +193,13 @@ mod ids {
         }
 
         #[inline(always)]
-        fn unwrap(self, graph: *const G) -> Self::Inner {
-            assert_eq!(self.graph, graph.into());
-            self.inner
+        fn try_unwrap(self, graph: *const G) -> Option<Self::Inner> {
+            (self.graph == graph.into()).then_some(self.inner)
         }
 
         #[inline(always)]
-        fn unwrap_ref(&self, graph: *const G) -> &Self::Inner {
-            assert_eq!(self.graph, graph.into());
-            &self.inner
+        fn try_unwrap_ref(&self, graph: *const G) -> Option<&Self::Inner> {
+            (self.graph == graph.into()).then_some(&self.inner)
         }
     }
 }
@@ -253,7 +213,7 @@ pub struct Graph<G: GraphImpl + ?Sized> {
 
 impl<G> Graph<G>
 where
-    G: GraphImpl,
+    G: GraphImpl + ?Sized,
 {
     #[inline(always)]
     pub(crate) fn wrap_id<W: IdWrapper<G>>(&self, node_id: W::Inner) -> W {
@@ -295,45 +255,27 @@ where
         self.edge_multiplicity().allows_parallel_edges()
     }
 
-    /// Writes a DOT representation of the graph to the given output.
-    #[cfg(feature = "dot")]
-    pub fn write_dot<D>(
-        &self,
-        generator: &D,
-        output: &mut impl io::Write,
-    ) -> Result<(), dot::renderer::DotError<D::Error>>
-    where
-        D: dot::renderer::DotGenerator<G>,
-        Self: Sized,
-    {
-        dot::renderer::generate_dot_file(self, generator, output)
+    /// Gets an iterator over all NodeIds in the graph.
+    pub fn nodes(&self) -> impl Iterator<Item = NodeId<G>> {
+        self.inner.nodes().map(|nid| self.wrap_id(nid))
     }
 
-    /// Generates a DOT representation of the graph as a String.
-    #[cfg(feature = "dot")]
-    pub fn to_dot_string<D>(
-        &self,
-        generator: &D,
-    ) -> Result<String, dot::renderer::DotError<D::Error>>
-    where
-        D: dot::renderer::DotGenerator<G>,
-        Self: Sized,
-    {
-        let mut output = Vec::new();
-        self.write_dot(generator, &mut output)?;
-        Ok(String::from_utf8(output).expect("Generated DOT is not valid UTF-8"))
+    /// Tests whether a node with the given ID exists in the graph.  This method
+    /// runs in O(1) time if the node is from another graph, but it make take
+    /// O(n) time if the node is from this graph.
+    pub fn has_node(&self, id: &NodeId<G>) -> bool {
+        id.try_unwrap_ref(&*self.inner).is_some() && self.inner.has_node(self.unwrap_id_ref(id))
     }
 
-    /// Creates a new path starting from the given starting node.  This is a
-    /// convenience method to avoid having to import the `Path` type separately
-    /// and specify its type argument explicity.
-    pub fn new_path(&self, start: &NodeId<G>) -> Path<G> {
-        Path::new(self.unwrap_id_ref(start).clone())
-    }
-
-    /// Gets a vector of all NodeIds in the graph.
-    pub fn node_ids(&self) -> impl Iterator<Item = NodeId<G>> {
-        self.inner.node_ids().map(|nid| self.wrap_id(nid))
+    /// Tests whether a node with the given ID exists in the graph if it can be
+    /// done in O(1) time, otherwise returns `None`.  Always returns
+    /// `Some(false)` if the node ID belongs to a different graph.
+    pub fn try_has_node(&self, id: &NodeId<G>) -> Option<bool> {
+        if let Some(inner_id) = id.try_unwrap_ref(&*self.inner) {
+            self.inner.try_has_node(inner_id)
+        } else {
+            Some(false)
+        }
     }
 
     /// Gets the data associated with a node.
@@ -387,11 +329,33 @@ where
         self.inner.edge_data(self.unwrap_id_ref(id))
     }
 
-    /// Gets a vector of all edges in the graph.
-    pub fn edge_ids(&self) -> impl Iterator<Item = EdgeId<G>> + '_ {
+    /// Gets an iterator over all edges in the graph.
+    pub fn edges(&self) -> impl Iterator<Item = EdgeId<G>> + '_ {
         self.inner
-            .edge_ids()
+            .edges()
             .map(|eid| EdgeId::wrap(eid, &*self.inner))
+    }
+
+    /// Tests whether an edge with the given ID exists in the graph.  This method
+    /// runs in O(1) time if the edge is from another graph, but it make take
+    /// O(n) time if the edge is from this graph.
+    pub fn has_edge(&self, id: &EdgeId<G>) -> bool {
+        if let Some(inner_id) = id.try_unwrap_ref(&*self.inner) {
+            self.inner.has_edge(inner_id)
+        } else {
+            false
+        }
+    }
+
+    /// Tests whether an edge with the given ID exists in the graph if it can be
+    /// done in O(1) time, otherwise returns `None`.  Always returns
+    /// `Some(false)` if the edge ID belongs to a different graph.
+    pub fn try_has_edge(&self, id: &EdgeId<G>) -> Option<bool> {
+        if let Some(inner_id) = id.try_unwrap_ref(&*self.inner) {
+            self.inner.try_has_edge(inner_id)
+        } else {
+            Some(false)
+        }
     }
 
     /// Gets an iterator over the outgoing edges from a given node.
@@ -462,45 +426,65 @@ where
             .num_edges_from_into(self.unwrap_id_ref(from), self.unwrap_id_ref(into))
     }
 
+    /// Writes a DOT representation of the graph to the given output.
+    #[cfg(feature = "dot")]
+    pub fn write_dot<D>(
+        &self,
+        generator: &D,
+        output: &mut impl io::Write,
+    ) -> Result<(), dot::renderer::DotError<D::Error>>
+    where
+        D: dot::renderer::DotGenerator<G>,
+        G: Sized,
+    {
+        dot::renderer::generate_dot_file(self, generator, output)
+    }
+
     // Searches
 
     /// Performs a breadth-first search starting from the given node.
-    pub fn bfs(&self, start: &NodeId<G>) -> BfsIterator<'_, Self> {
+    pub fn bfs(&self, start: &NodeId<G>) -> impl Iterator<Item = NodeId<G>> + '_ {
         self.bfs_multi(vec![start.clone()])
     }
 
     /// Performs a breadth-first search starting from the given nodes.
-    pub fn bfs_multi(&self, start: Vec<NodeId<G>>) -> BfsIterator<'_, Self> {
+    pub fn bfs_multi(&self, start: Vec<NodeId<G>>) -> impl Iterator<Item = NodeId<G>> + '_ {
         BfsIterator::new(self, start)
     }
 
     /// Performs a depth-first search starting from the given node.
-    pub fn dfs(&self, start: &NodeId<G>) -> DfsIterator<'_, Self> {
+    pub fn dfs(&self, start: &NodeId<G>) -> impl Iterator<Item = NodeId<G>> + '_ {
         self.dfs_multi(vec![start.clone()])
     }
 
     /// Performs a depth-first search starting from the given node.
-    pub fn dfs_multi(&self, start: Vec<NodeId<G>>) -> DfsIterator<'_, Self> {
+    pub fn dfs_multi(&self, start: Vec<NodeId<G>>) -> impl Iterator<Item = NodeId<G>> + '_ {
         DfsIterator::new(self, start)
     }
 
     /// Performs a breadth-first search starting from the given node.
-    pub fn bfs_with_paths(&self, start: &NodeId<G>) -> BfsIteratorWithPaths<'_, Self> {
+    pub fn bfs_with_paths(&self, start: &NodeId<G>) -> impl Iterator<Item = Path<Self>> + '_ {
         self.bfs_multi_with_paths(vec![start.clone()])
     }
 
     /// Performs a breadth-first search starting from the given nodes.
-    pub fn bfs_multi_with_paths(&self, start: Vec<NodeId<G>>) -> BfsIteratorWithPaths<'_, Self> {
+    pub fn bfs_multi_with_paths(
+        &self,
+        start: Vec<NodeId<G>>,
+    ) -> impl Iterator<Item = Path<Self>> + '_ {
         BfsIteratorWithPaths::new(self, start)
     }
 
     /// Performs a depth-first search starting from the given node.
-    pub fn dfs_with_paths(&self, start: &NodeId<G>) -> DfsIteratorWithPaths<'_, Self> {
+    pub fn dfs_with_paths(&self, start: &NodeId<G>) -> impl Iterator<Item = Path<Self>> + '_ {
         self.dfs_multi_with_paths(vec![start.clone()])
     }
 
     /// Performs a depth-first search starting from the given nodes.
-    pub fn dfs_multi_with_paths(&self, start: Vec<NodeId<G>>) -> DfsIteratorWithPaths<'_, Self> {
+    pub fn dfs_multi_with_paths(
+        &self,
+        start: Vec<NodeId<G>>,
+    ) -> impl Iterator<Item = Path<Self>> + '_ {
         DfsIteratorWithPaths::new(self, start)
     }
 
@@ -519,11 +503,12 @@ where
 
         use std::collections::HashMap;
 
-        let mut distances: HashMap<NodeId<G>, C> = HashMap::new();
-        let mut predecessors: HashMap<NodeId<G>, (EdgeId<G>, NodeId<G>)> = HashMap::new();
-        let mut unvisited: HashSet<NodeId<G>> = self.node_ids().collect();
+        let node_ids: Vec<NodeId<G>> = self.nodes().collect();
+        let mut distances: HashMap<&NodeId<G>, C> = HashMap::new();
+        let mut predecessors: HashMap<&NodeId<G>, (EdgeId<G>, NodeId<G>)> = HashMap::new();
+        let mut unvisited: HashSet<&NodeId<G>> = node_ids.iter().collect();
 
-        distances.insert(start.clone(), C::default());
+        distances.insert(start, C::default());
 
         while !unvisited.is_empty() {
             // Find unvisited node with minimum distance
@@ -542,39 +527,39 @@ where
             // Update distances to neighbors
             for edge_id in self.edges_from(&current_node) {
                 let neighbor = edge_id.other_end(&current_node);
-                if unvisited.contains(&neighbor) {
+                if let Some(&neighbor) = unvisited.get(&neighbor) {
                     let edge_distance = distance_fn(&edge_id);
                     let new_dist = current_dist + edge_distance;
 
                     let should_update = distances
-                        .get(&neighbor)
+                        .get(neighbor)
                         .is_none_or(|&old_dist| new_dist < old_dist);
 
                     if should_update {
-                        distances.insert(neighbor.clone(), new_dist);
-                        predecessors.insert(neighbor.clone(), (edge_id, current_node.clone()));
+                        distances.insert(neighbor, new_dist);
+                        predecessors.insert(neighbor, (edge_id, current_node.clone()));
                     }
                 }
             }
         }
 
         // Build paths from predecessors
-        let mut result: HashMap<NodeId<G>, (Path<Self>, C)> = HashMap::new();
-        for (node, &dist) in &distances {
+        let mut result = HashMap::new();
+        for (&node, &dist) in &distances {
             if node == start {
-                result.insert(start.clone(), (Path::new(start.clone()), C::default()));
+                result.insert(start.clone(), (self.path_from(start.clone()), C::default()));
             } else {
-                let mut current = node.clone();
+                let mut current = node;
 
                 let mut path_edges = Vec::new();
                 while let Some(pred) = predecessors.get(&current) {
                     path_edges.push(pred.0.clone());
-                    current = pred.1.clone();
+                    current = &pred.1;
                 }
 
-                let mut path = Path::new(start.clone());
+                let mut path = self.path_from(start.clone());
                 for edge_id in path_edges.iter().rev() {
-                    path.add_edge(edge_id.clone());
+                    path.push(edge_id.clone());
                 }
 
                 result.insert(node.clone(), (path, dist));
@@ -582,6 +567,86 @@ where
         }
 
         result
+    }
+
+    // Misc
+
+    /// Generates a DOT representation of the graph as a String.
+    #[cfg(feature = "dot")]
+    pub fn to_dot_string<D>(
+        &self,
+        generator: &D,
+    ) -> Result<String, dot::renderer::DotError<D::Error>>
+    where
+        D: dot::renderer::DotGenerator<G>,
+        G: Sized,
+    {
+        let mut output = Vec::new();
+        self.write_dot(generator, &mut output)?;
+        Ok(String::from_utf8(output).expect("Generated DOT is not valid UTF-8"))
+    }
+
+    /// Creates a new path starting from the given starting node.
+    pub fn path_from(&self, start: NodeId<G>) -> Path<Self> {
+        assert_ne!(
+            self.try_has_node(&start),
+            Some(false),
+            "Starting node does not exist in the graph"
+        );
+        debug_assert!(
+            self.has_node(&start),
+            "Starting node does not exist in the graph"
+        );
+        //Path::new(start, self.directedness())
+        todo!()
+    }
+
+    /// Finds the strongly connected component containing the given node.
+    #[cfg(feature = "pathfinding")]
+    fn strongly_connected_component(&self, start: &NodeId<G>) -> Vec<NodeId<G>> {
+        assert!(
+            self.is_directed(),
+            "Strongly connected components are only defined for directed graphs"
+        );
+        pathfinding::prelude::strongly_connected_component(start, |nid| {
+            self.successors(nid).collect::<Vec<_>>()
+        })
+    }
+
+    /// Partitions the graph into strongly connected components.
+    #[cfg(feature = "pathfinding")]
+    fn strongly_connected_components(&self) -> Vec<Vec<NodeId<G>>> {
+        assert!(
+            self.is_directed(),
+            "Strongly connected components are only defined for directed graphs"
+        );
+        pathfinding::prelude::strongly_connected_components(
+            &self.nodes().collect::<Vec<_>>(),
+            |nid| self.successors(nid).collect::<Vec<_>>(),
+        )
+    }
+
+    /// Partitions nodes reachable from a starting point into strongly connected components.
+    #[cfg(feature = "pathfinding")]
+    fn strongly_connected_components_from(&self, start: &NodeId<G>) -> Vec<Vec<NodeId<G>>> {
+        assert!(
+            self.is_directed(),
+            "Strongly connected components are only defined for directed graphs"
+        );
+        pathfinding::prelude::strongly_connected_components_from(start, |nid| {
+            self.successors(nid).collect::<Vec<_>>()
+        })
+    }
+
+    #[cfg(feature = "pathfinding")]
+    fn connected_components(&self) -> Vec<HashSet<NodeId<G>>> {
+        assert!(
+            !self.is_directed(),
+            "Connected components are only defined for undirected graphs"
+        );
+        pathfinding::prelude::connected_components(&self.nodes().collect::<Vec<_>>(), |nid| {
+            self.successors(nid).collect::<Vec<_>>()
+        })
     }
 }
 
@@ -608,7 +673,7 @@ impl<G: GraphImplMut> Graph<G> {
 
     /// Removes all nodes and edges from the graph.
     pub fn clear(&mut self) {
-        for nid in self.node_ids().collect::<Vec<_>>() {
+        for nid in self.nodes().collect::<Vec<_>>() {
             self.remove_node(&nid);
         }
     }
@@ -733,7 +798,7 @@ impl<G: GraphImplMut> Graph<G> {
 // methods are inherent instead of trait methods to allow them to be called on
 // Graphs without needing to import the traits, and to make the generated
 // documentation easier to navigate.
-impl<G: GraphImpl> GraphImpl for Graph<G> {
+impl<G: GraphImpl + ?Sized> GraphImpl for Graph<G> {
     type NodeId = NodeId<G>;
     type EdgeId = EdgeId<G>;
     type NodeData = G::NodeData;
@@ -741,12 +806,52 @@ impl<G: GraphImpl> GraphImpl for Graph<G> {
     type Directedness = G::Directedness;
     type EdgeMultiplicity = G::EdgeMultiplicity;
 
+    fn directedness(&self) -> G::Directedness {
+        self.directedness()
+    }
+
+    fn edge_multiplicity(&self) -> G::EdgeMultiplicity {
+        self.edge_multiplicity()
+    }
+
     fn is_empty(&self) -> bool {
         self.is_empty()
     }
 
+    fn nodes(&self) -> impl Iterator<Item = NodeId<G>> {
+        self.nodes()
+    }
+
+    fn has_node(&self, id: &Self::NodeId) -> bool {
+        self.has_node(id)
+    }
+
+    fn try_has_node(&self, id: &Self::NodeId) -> Option<bool> {
+        self.try_has_node(id)
+    }
+
+    fn node_data<'a>(&'a self, id: &NodeId<G>) -> &'a G::NodeData {
+        self.node_data(id)
+    }
+
     fn num_nodes(&self) -> usize {
         self.num_nodes()
+    }
+
+    fn edge_data<'a>(&'a self, id: &EdgeId<G>) -> &'a G::EdgeData {
+        self.edge_data(id)
+    }
+
+    fn edges(&self) -> impl Iterator<Item = EdgeId<G>> + '_ {
+        self.edges()
+    }
+
+    fn has_edge(&self, id: &Self::EdgeId) -> bool {
+        self.has_edge(id)
+    }
+
+    fn try_has_edge(&self, id: &Self::EdgeId) -> Option<bool> {
+        self.try_has_edge(id)
     }
 
     fn edges_from<'a, 'b: 'a>(
@@ -798,30 +903,6 @@ impl<G: GraphImpl> GraphImpl for Graph<G> {
     fn num_edges_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> usize {
         self.num_edges_from_into(from, into)
     }
-
-    fn directedness(&self) -> G::Directedness {
-        self.directedness()
-    }
-
-    fn edge_multiplicity(&self) -> G::EdgeMultiplicity {
-        self.edge_multiplicity()
-    }
-
-    fn node_ids(&self) -> impl Iterator<Item = NodeId<G>> {
-        self.node_ids()
-    }
-
-    fn node_data<'a>(&'a self, id: &NodeId<G>) -> &'a G::NodeData {
-        self.node_data(id)
-    }
-
-    fn edge_data<'a>(&'a self, id: &EdgeId<G>) -> &'a G::EdgeData {
-        self.edge_data(id)
-    }
-
-    fn edge_ids(&self) -> impl Iterator<Item = EdgeId<G>> + '_ {
-        self.edge_ids()
-    }
 }
 
 // See comment on GraphImpl impl above.
@@ -833,16 +914,16 @@ impl<G: GraphImplMut> GraphImplMut for Graph<G> {
         Self::new(directedness, edge_multiplicity)
     }
 
-    fn clear(&mut self) {
-        self.clear();
-    }
-
     fn node_data_mut<'a>(&'a mut self, id: &'a Self::NodeId) -> &'a mut Self::NodeData {
         self.node_data_mut(id)
     }
 
     fn edge_data_mut<'a>(&'a mut self, id: &'a Self::EdgeId) -> &'a mut Self::EdgeData {
         self.edge_data_mut(id)
+    }
+
+    fn clear(&mut self) {
+        self.clear();
     }
 
     fn add_node(&mut self, data: Self::NodeData) -> Self::NodeId {
@@ -911,11 +992,10 @@ where
 
 impl<G: GraphImplMut> Clone for Graph<G>
 where
-    G::NodeData: Clone,
-    G::EdgeData: Clone,
+    G: Clone,
 {
     fn clone(&self) -> Self {
-        GraphCopier::new(self).clone_nodes().clone_edges().copy()
+        Self::from((*self.inner).clone())
     }
 }
 

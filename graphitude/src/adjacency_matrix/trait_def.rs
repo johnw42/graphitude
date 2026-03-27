@@ -73,7 +73,7 @@ where
     /// `(i1, i2)` such that for symmetric matrices, `i1 <= i2`.
     #[doc(hidden)]
     fn entry_indices(i1: usize, i2: usize) -> Pair<Self> {
-        Self::Directedness::default().coordinate_pair((i1, i2))
+        Self::Directedness::default().end_pair((i1, i2))
     }
 
     /// Gets the entry at the given row and col.

@@ -10,7 +10,6 @@ use derivative::Derivative;
 use crate::{
     EdgeIdImpl,
     directedness::Directedness,
-    end_pair::EndPair,
     linked_graph::{NodeId, graph_impl::Edge},
 };
 
@@ -66,15 +65,6 @@ impl<N, E, D: Directedness> Ord for EdgeId<N, E, D> {
 
 impl<N, E, D: Directedness> EdgeIdImpl for EdgeId<N, E, D> {
     type NodeId = NodeId<N, E, D>;
-    type Directedness = D;
-
-    fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness> {
-        EndPair::new(self.left(), self.right(), self.directedness)
-    }
-
-    fn directedness(&self) -> Self::Directedness {
-        self.directedness
-    }
 
     fn left(&self) -> NodeId<N, E, D> {
         self.ptr

@@ -1,8 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 
-use crate::graph_traits::EdgeIdImpl;
-use crate::path::Path;
-use crate::prelude::*;
+use crate::{EdgeIdImpl as _, GraphImpl, path::Path};
 
 const DEFAULT_HASH_SET_CAPACITY: usize = 64;
 
@@ -71,14 +69,17 @@ where
         Self {
             graph,
             visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
-            queue: start.into_iter().map(Path::new).collect(),
+            queue: start
+                .into_iter()
+                .map(|n| Path::new(n, graph.directedness()))
+                .collect(),
         }
     }
 }
 
 impl<'g, G> Iterator for BfsIteratorWithPaths<'g, G>
 where
-    G: GraphImpl,
+    G: GraphImpl + ?Sized,
 {
     type Item = Path<G>;
 
@@ -90,7 +91,7 @@ where
                     let neighbor = eid.other_end(&nid);
                     if !self.visited.contains(&neighbor) {
                         let mut new_path = path.clone();
-                        new_path.add_edge_and_node(eid, neighbor);
+                        new_path.push_with_node(eid, neighbor);
                         self.queue.push_back(new_path);
                     }
                 }
@@ -128,7 +129,7 @@ where
 
 impl<'g, G> Iterator for DfsIterator<'g, G>
 where
-    G: GraphImpl,
+    G: GraphImpl + ?Sized,
 {
     type Item = G::NodeId;
 
@@ -160,7 +161,10 @@ where
     G: GraphImpl + ?Sized,
 {
     pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
-        let mut stack = start.into_iter().map(Path::new).collect::<Vec<_>>();
+        let mut stack = start
+            .into_iter()
+            .map(|n| Path::new(n, graph.directedness()))
+            .collect::<Vec<_>>();
         stack.reverse();
         Self {
             graph,
@@ -172,7 +176,7 @@ where
 
 impl<'g, G> Iterator for DfsIteratorWithPaths<'g, G>
 where
-    G: GraphImpl,
+    G: GraphImpl + ?Sized,
 {
     type Item = Path<G>;
 
@@ -183,7 +187,7 @@ where
                 let edges = self.graph.edges_from(&nid).collect::<Vec<_>>();
                 for eid in edges.into_iter().rev() {
                     let mut new_path = path.clone();
-                    new_path.add_edge_and_node(eid.clone(), eid.other_end(&nid));
+                    new_path.push_with_node(eid.clone(), eid.other_end(&nid));
                     self.stack.push(new_path);
                 }
                 return Some(path);
@@ -195,17 +199,16 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{Directed, LinkedGraph, MultipleEdges};
+    use crate::{Directed, GraphImplMut, LinkedGraph, MultipleEdges};
 
     use super::*;
 
-    type TestGraphImpl = LinkedGraph<i32, (), Directed, MultipleEdges>;
-    type TestGraph = Graph<TestGraphImpl>;
+    type TestGraph = LinkedGraph<i32, (), Directed, MultipleEdges>;
 
     fn create_simple_graph() -> (
         TestGraph,
-        Vec<NodeId<TestGraphImpl>>,
-        Vec<EdgeId<TestGraphImpl>>,
+        Vec<<TestGraph as GraphImpl>::NodeId>,
+        Vec<<TestGraph as GraphImpl>::EdgeId>,
     ) {
         let mut graph = TestGraph::default();
         let n0 = graph.add_node(0);
@@ -222,8 +225,8 @@ mod tests {
 
     fn create_cyclic_graph() -> (
         TestGraph,
-        Vec<NodeId<TestGraphImpl>>,
-        Vec<EdgeId<TestGraphImpl>>,
+        Vec<<TestGraph as GraphImpl>::NodeId>,
+        Vec<<TestGraph as GraphImpl>::EdgeId>,
     ) {
         let mut graph = TestGraph::default();
         let n0 = graph.add_node(0);
@@ -337,6 +340,16 @@ mod tests {
         assert_eq!(bfs_visited, dfs_visited);
     }
 
+    fn make_path<G: GraphImpl + ?Sized>(
+        graph: &G,
+        node: &G::NodeId,
+        edges: &[G::EdgeId],
+    ) -> Path<G> {
+        let mut path = Path::new(node.clone(), graph.directedness());
+        path.extend(edges.iter().cloned());
+        path
+    }
+
     #[test]
     fn test_bfs_wth_paths() {
         let (graph, nodes, edges) = create_simple_graph();
@@ -345,10 +358,10 @@ mod tests {
         assert_eq!(
             paths,
             vec![
-                Path::new(nodes[0].clone()),
-                Path::from_edges(nodes[0].clone(), vec![edges[0].clone()]),
-                Path::from_edges(nodes[0].clone(), vec![edges[1].clone()]),
-                Path::from_edges(nodes[0].clone(), vec![edges[0].clone(), edges[2].clone()]),
+                make_path(&graph, &nodes[0], &[]),
+                make_path(&graph, &nodes[0], &[edges[0].clone()]),
+                make_path(&graph, &nodes[0], &[edges[1].clone()]),
+                make_path(&graph, &nodes[0], &[edges[0].clone(), edges[2].clone()]),
             ]
         );
     }
@@ -360,10 +373,10 @@ mod tests {
         assert_eq!(
             visited,
             vec![
-                Path::new(nodes[0].clone()),
-                Path::from_edges(nodes[0].clone(), vec![edges[0].clone()]),
-                Path::from_edges(nodes[0].clone(), vec![edges[0].clone(), edges[2].clone()]),
-                Path::from_edges(nodes[0].clone(), vec![edges[1].clone()]),
+                make_path(&graph, &nodes[0], &[]),
+                make_path(&graph, &nodes[0], &[edges[0].clone()]),
+                make_path(&graph, &nodes[0], &[edges[0].clone(), edges[2].clone()]),
+                make_path(&graph, &nodes[0], &[edges[1].clone()]),
             ]
         );
     }

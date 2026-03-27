@@ -7,7 +7,7 @@ use tracing::info_span;
 
 use crate::prelude::*;
 use crate::tracing_support::{TimingScope, init_tracing, set_timing_scope};
-use crate::util::sort_pair_if;
+use crate::util::sort_tuple_if;
 
 #[derive(Derivative)]
 #[derivative(Debug(bound = "G::NodeData: Debug, G::EdgeData: Debug"))]
@@ -97,7 +97,7 @@ where
                 break;
             }
             let (source, target) = loop {
-                let (source, target) = sort_pair_if(
+                let (source, target) = sort_tuple_if(
                     !directedness.is_directed(),
                     (
                         usize::arbitrary(g) % node_data.len(),
@@ -191,7 +191,7 @@ pub fn check_graph_consistency<G: GraphImpl>(graph: &Graph<G>) {
     init_tracing();
 
     // Verify all nodes are valid
-    for node_id in graph.node_ids() {
+    for node_id in graph.nodes() {
         let num_from = {
             let _span = info_span!("num_edges_from").entered();
             graph.num_edges_from(&node_id)
@@ -230,7 +230,7 @@ pub fn check_graph_consistency<G: GraphImpl>(graph: &Graph<G>) {
     }
 
     // Verify all edges are valid
-    for edge_id in graph.edge_ids() {
+    for edge_id in graph.edges() {
         assert_eq!(
             graph
                 .edges_from_into(&edge_id.left(), &edge_id.right())
@@ -303,14 +303,14 @@ pub fn check_graph_consistency<G: GraphImpl>(graph: &Graph<G>) {
     }
 
     // Verify node and edge IDs are unique.
-    let node_ids: HashSet<_> = graph.node_ids().collect();
-    assert_eq!(node_ids.len(), graph.node_ids().count());
-    let edge_ids: HashSet<_> = graph.edge_ids().collect();
-    assert_eq!(edge_ids.len(), graph.edge_ids().count());
+    let node_ids: HashSet<_> = graph.nodes().collect();
+    assert_eq!(node_ids.len(), graph.nodes().count());
+    let edge_ids: HashSet<_> = graph.edges().collect();
+    assert_eq!(edge_ids.len(), graph.edges().count());
 
     // Verify counts are correct
-    assert_eq!(graph.node_ids().count(), graph.num_nodes(),);
-    assert_eq!(graph.edge_ids().count(), graph.num_edges(),);
+    assert_eq!(graph.nodes().count(), graph.num_nodes(),);
+    assert_eq!(graph.edges().count(), graph.num_edges(),);
 
     // Check is_empty consistency
     assert_eq!(graph.is_empty(), graph.num_nodes() == 0);

@@ -5,7 +5,7 @@ use bitvec::slice::BitSlice;
 use crate::{
     Directedness,
     triangular::{triangular, triangular_inv_floor},
-    util::sort_pair,
+    util::sort_tuple,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,7 +120,7 @@ where
         if self.directedness.is_directed() {
             DataIndex(i * self.size + j)
         } else {
-            let (k1, k2) = sort_pair((i, j));
+            let (k1, k2) = sort_tuple((i, j));
             DataIndex(triangular(k2) + k1)
         }
     }
@@ -142,7 +142,7 @@ where
         } else {
             let row = triangular_inv_floor(index.0);
             let col = index.0 - triangular(row);
-            sort_pair((col, row))
+            sort_tuple((col, row))
         }
     }
 

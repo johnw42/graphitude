@@ -99,15 +99,6 @@ where
     M: EdgeContainerSelector,
 {
     type NodeId = Validated<InnerNodeId, S>;
-    type Directedness = D;
-
-    fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness> {
-        EndPair::new(self.left(), self.right(), self.directedness())
-    }
-
-    fn directedness(&self) -> Self::Directedness {
-        self.data.directedness
-    }
 
     fn left(&self) -> Self::NodeId {
         Validated::new(*self.data.ends.left(), self.compaction_count)

@@ -138,12 +138,12 @@ where
     G: GraphImpl<NodeData = NodeData, EdgeData = EdgeData>,
 {
     let nodes: HashSet<String> = graph
-        .node_ids()
+        .nodes()
         .map(|id| graph.node_data(&id).id.clone())
         .collect();
 
     let edges: HashSet<(String, String)> = graph
-        .edge_ids()
+        .edges()
         .map(|eid| {
             let (left, right) = eid.ends();
             let mut left_id = graph.node_data(&left).id.clone();
@@ -157,7 +157,7 @@ where
         .collect();
 
     let node_attrs: HashMap<String, HashSet<(String, String)>> = graph
-        .node_ids()
+        .nodes()
         .map(|id| {
             let data = graph.node_data(&id);
             let attrs: HashSet<_> = data.attrs.iter().cloned().collect();
@@ -166,7 +166,7 @@ where
         .collect();
 
     let edge_attrs: HashMap<(String, String), HashSet<(String, String)>> = graph
-        .edge_ids()
+        .edges()
         .map(|eid| {
             let (left, right) = eid.ends();
             let mut left_id = graph.node_data(&left).id.clone();

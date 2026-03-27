@@ -1,7 +1,7 @@
 use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
 #[cfg(feature = "pathfinding")]
-use crate::{end_pair::EndPair, prelude::*, util::other_value};
+use crate::{prelude::*, util::other_value};
 
 /// A trait representing a node identifier in a graph.
 ///
@@ -18,13 +18,6 @@ pub trait NodeIdImpl: Eq + Hash + Clone + Debug + Ord + Send + Sync {}
 /// Implementors mu implement either `left` and `right`, or `ends`.
 pub trait EdgeIdImpl: Eq + Hash + Clone + Debug + Ord + Send + Sync {
     type NodeId: NodeIdImpl;
-    type Directedness: Directedness;
-
-    fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness>;
-
-    /// Gets the directedness of the edge, which will match the directedness of
-    /// the graph it belongs to.
-    fn directedness(&self) -> Self::Directedness;
 
     /// Gets one end of the edge.  For directed edges, this is the source node.
     /// For undirected edges, this is one of the two nodes, but it is not
@@ -46,15 +39,10 @@ pub trait EdgeIdImpl: Eq + Hash + Clone + Debug + Ord + Send + Sync {
         (self.left(), self.right())
     }
 
-    /// Gets the other end of the edge given one end.  If the edge is directed,
-    /// the direction is ignored and the other end is returned.  If the edge is
-    /// undirected, the other end is returned regardless of which end is passed
-    /// in.  If the edge is a self-loop and the given end is the same as both
-    /// ends of the edge, then the same node ID is returned.  Panics if the given
-    /// node ID is not one of the ends of the edge.
+    /// Gets the other end of the edge given one end.  For self loops, this
+    /// returns the same node.
     fn other_end(&self, node: &Self::NodeId) -> Self::NodeId {
-        let (n1, n2) = self.ends();
-        other_value(n1, n2, node).into_inner()
+        other_value(self.ends(), node).into_inner()
     }
 
     /// Tests if the edge has the given node as one of its ends.
@@ -138,7 +126,7 @@ pub trait GraphImpl {
     type NodeId: NodeIdImpl;
 
     /// The type of the edge identifiers used by the graph.
-    type EdgeId: EdgeIdImpl<NodeId = Self::NodeId, Directedness = Self::Directedness>;
+    type EdgeId: EdgeIdImpl<NodeId = Self::NodeId>;
 
     /// The directedness of the graph.
     fn directedness(&self) -> Self::Directedness;
@@ -148,8 +136,8 @@ pub trait GraphImpl {
 
     /// Checks if the graph is empty (has no nodes or edges).
     fn is_empty(&self) -> bool {
-        if self.node_ids().next().is_none() {
-            debug_assert!(self.edge_ids().next().is_none());
+        if self.nodes().next().is_none() {
+            debug_assert!(self.edges().next().is_none());
             true
         } else {
             false
@@ -159,14 +147,26 @@ pub trait GraphImpl {
     // Nodes
 
     /// Gets a vector of all NodeIds in the graph.
-    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId>;
+    fn nodes(&self) -> impl Iterator<Item = Self::NodeId>;
+
+    /// Checks if the graph contains a node with the given ID.  This operation is O(n).
+    fn has_node(&self, id: &Self::NodeId) -> bool {
+        self.try_has_node(id)
+            .unwrap_or_else(|| self.nodes().any(|nid| &nid == id))
+    }
+
+    /// Checks if the graph contains a node with the given ID if it can be done
+    /// in O(1) time, otherwise returns `None`.
+    fn try_has_node(&self, _: &Self::NodeId) -> Option<bool> {
+        None
+    }
 
     /// Gets the data associated with a node.
     fn node_data<'a>(&'a self, id: &Self::NodeId) -> &'a Self::NodeData;
 
     /// Gets the number of nodes in the graph.
     fn num_nodes(&self) -> usize {
-        self.node_ids().count()
+        self.nodes().count()
     }
 
     /// Gets an iterator over the predecessors nodes of a given node, i.e.
@@ -211,14 +211,25 @@ pub trait GraphImpl {
     fn edge_data<'a>(&'a self, id: &Self::EdgeId) -> &'a Self::EdgeData;
 
     /// Gets a vector of all edges in the graph.
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
+    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
+
+    /// Checks if the graph contains an edge with the given ID.  This operation is O(n).
+    fn has_edge(&self, id: &Self::EdgeId) -> bool {
+        self.try_has_edge(id)
+            .unwrap_or_else(|| self.edges().any(|eid| &eid == id))
+    }
+
+    /// Checks if the graph contains an edge with the given ID if it can be done in O(1) time, otherwise returns `None`.
+    fn try_has_edge(&self, _: &Self::EdgeId) -> Option<bool> {
+        None
+    }
 
     /// Gets an iterator over the outgoing edges from a given node.
     fn edges_from<'a, 'b: 'a>(
         &'a self,
         from: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.edge_ids().filter(|eid| {
+        self.edges().filter(|eid| {
             let (source, target) = eid.ends();
             source == *from || !self.directedness().is_directed() && target == *from
         })
@@ -229,7 +240,7 @@ pub trait GraphImpl {
         &'a self,
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.edge_ids().filter(|eid| {
+        self.edges().filter(|eid| {
             let (source, target) = eid.ends();
             target == *into || !self.directedness().is_directed() && source == *into
         })
@@ -241,7 +252,7 @@ pub trait GraphImpl {
         from: &'b Self::NodeId,
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.edge_ids().filter(move |eid| {
+        self.edges().filter(move |eid| {
             let (edge_source, edge_target) = eid.ends();
             (edge_source == *from && edge_target == *into)
                 || (!self.directedness().is_directed()
@@ -267,7 +278,7 @@ pub trait GraphImpl {
 
     /// Gets the number of edges in the graph.
     fn num_edges(&self) -> usize {
-        self.edge_ids().count()
+        self.edges().count()
     }
 
     /// Gets the number of incoming edges to a given node.
@@ -285,50 +296,6 @@ pub trait GraphImpl {
         self.edges_from_into(from, into).count()
     }
 }
-
-/// A trait which is automatically implemented for directed graphs, providing
-/// methods specific to directed graphs.
-pub trait GraphDirected: GraphImpl {
-    /// Finds the strongly connected component containing the given node.
-    #[cfg(feature = "pathfinding")]
-    fn strongly_connected_component(&self, start: &Self::NodeId) -> Vec<Self::NodeId> {
-        pathfinding::prelude::strongly_connected_component(start, |nid| {
-            self.successors(nid).collect::<Vec<_>>()
-        })
-    }
-
-    /// Partitions the graph into strongly connected components.
-    #[cfg(feature = "pathfinding")]
-    fn strongly_connected_components(&self) -> Vec<Vec<Self::NodeId>> {
-        pathfinding::prelude::strongly_connected_components(
-            &self.node_ids().collect::<Vec<_>>(),
-            |nid| self.successors(nid).collect::<Vec<_>>(),
-        )
-    }
-
-    /// Partitions nodes reachable from a starting point into strongly connected components.
-    #[cfg(feature = "pathfinding")]
-    fn strongly_connected_components_from(&self, start: &Self::NodeId) -> Vec<Vec<Self::NodeId>> {
-        pathfinding::prelude::strongly_connected_components_from(start, |nid| {
-            self.successors(nid).collect::<Vec<_>>()
-        })
-    }
-}
-
-impl<G> GraphDirected for G where G: GraphImpl<Directedness = Directed> {}
-
-/// A trait which is automatically implemented for undirected graphs, providing
-/// methods specific to undirected graphs.
-pub trait GraphUndirected: GraphImpl {
-    #[cfg(feature = "pathfinding")]
-    fn connected_components(&self) -> Vec<HashSet<Self::NodeId>> {
-        pathfinding::prelude::connected_components(&self.node_ids().collect::<Vec<_>>(), |nid| {
-            self.successors(nid).collect::<Vec<_>>()
-        })
-    }
-}
-
-impl<G> GraphUndirected for G where G: GraphImpl<Directedness = Undirected> {}
 
 /// A trait for graphs that support mutation operations.
 ///
@@ -348,7 +315,7 @@ pub trait GraphImplMut: GraphImpl {
 
     /// Removes all nodes and edges from the graph.
     fn clear(&mut self) {
-        for nid in self.node_ids().collect::<Vec<_>>() {
+        for nid in self.nodes().collect::<Vec<_>>() {
             self.remove_node(&nid);
         }
     }

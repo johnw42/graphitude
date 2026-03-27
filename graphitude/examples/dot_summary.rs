@@ -99,7 +99,7 @@ mod inner {
         }
 
         let nodes: Vec<String> = graph
-            .node_ids()
+            .nodes()
             .take(sample_nodes)
             .map(|id| {
                 let data = graph.node_data(&id).clone();
@@ -116,7 +116,7 @@ mod inner {
         let edge_count = graph.num_edges().min(sample_nodes);
         if edge_count > 0 {
             println!("\nSample edges (up to {sample_nodes}):");
-            for edge_id in graph.edge_ids().take(edge_count) {
+            for edge_id in graph.edges().take(edge_count) {
                 let (left, right) = edge_id.ends();
                 let left_data = &graph.node_data(&left).id;
                 let right_data = &graph.node_data(&right).id;

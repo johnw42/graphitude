@@ -326,7 +326,7 @@ where
                         let mut current_rhs = Some(&edge_stmt.next);
 
                         while let Some(rhs) = current_rhs {
-                            let to_node_ids: Vec<(String, NodeId<G>)> = extract_node_ids(&rhs.to)
+                            let into_node_ids: Vec<(String, NodeId<G>)> = extract_node_ids(&rhs.to)
                                 .into_iter()
                                 .filter_map(|id_str| {
                                     node_map
@@ -336,26 +336,26 @@ where
                                 })
                                 .collect();
 
-                            for (to_id_string, to_id) in to_node_ids.iter() {
+                            for (into_id_string, into_id) in into_node_ids.iter() {
                                 let attrs =
                                     parse_edge_attrs(edge_stmt).map_err(ParseError::ParseError)?;
                                 let edge_data = builder
                                     .make_edge_data(&attrs)
                                     .map_err(ParseError::Builder)?;
                                 if let AddEdgeResult::Updated(_, _) =
-                                    graph.add_edge(&current_from, to_id, edge_data)
+                                    graph.add_edge(&current_from, into_id, edge_data)
                                 {
                                     return Err(ParseError::DuplicateEdge(
                                         from_id_string.clone(),
-                                        to_id_string.clone(),
+                                        into_id_string.clone(),
                                     ));
                                 }
                             }
 
-                            // For edge chains, the "to" becomes the "from" for the next segment
+                            // For edge chains, the "into" becomes the "from" for the next segment
                             // Use the first node if it's a subgraph
-                            if let Some((_, first_to)) = to_node_ids.first() {
-                                current_from = first_to.clone();
+                            if let Some((_, first_into)) = into_node_ids.first() {
+                                current_from = first_into.clone();
                             }
 
                             current_rhs = rhs.next.as_deref();
@@ -380,7 +380,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::linked_graph::LinkedGraph;
+    use crate::{GraphImpl, linked_graph::LinkedGraph};
 
     // Simple builder that creates string node data from node IDs and empty edge data
     #[derive(Debug)]
@@ -440,7 +440,7 @@ mod tests {
 
         // Verify nodes exist
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
@@ -484,7 +484,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 1);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
@@ -547,7 +547,7 @@ mod tests {
 
         // Verify that attributes are reflected in node data
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
 
@@ -696,7 +696,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 2);
 
         // Verify edges exist by checking edge IDs
-        let edge_ids: Vec<_> = graph.edge_ids().collect();
+        let edge_ids: Vec<_> = graph.edges().collect();
         assert_eq!(edge_ids.len(), 2);
 
         // All edges should have default weight of 1
@@ -722,7 +722,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 2);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
@@ -764,7 +764,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 4);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
@@ -915,7 +915,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 1);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
 
@@ -963,7 +963,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 1);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
 
@@ -1035,7 +1035,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 3);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
 
@@ -1071,9 +1071,9 @@ mod tests {
                 assert_eq!(graph.num_nodes(), 2);
                 assert_eq!(graph.num_edges(), 2); // Parallel edges allowed
             }
-            Err(ParseError::DuplicateEdge(from, to)) => {
+            Err(ParseError::DuplicateEdge(from, into)) => {
                 assert_eq!(from, "a");
-                assert_eq!(to, "b");
+                assert_eq!(into, "b");
             }
             Err(e) => panic!("Unexpected error: {:?}", e),
         }

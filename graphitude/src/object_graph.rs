@@ -2,10 +2,7 @@ use std::{fmt::Debug, marker::PhantomData, mem::transmute};
 
 use derivative::Derivative;
 
-use crate::{
-    EdgeIdImpl, MultipleEdges, NodeIdImpl, directedness::Directed, end_pair::EndPair,
-    search::DfsIterator,
-};
+use crate::{EdgeIdImpl, MultipleEdges, NodeIdImpl, directedness::Directed, search::DfsIterator};
 
 use super::GraphImpl;
 
@@ -87,18 +84,13 @@ where
             .collect()
     }
 
-    fn make_edge_id(&self, from: &NodeId<'a, N>, to: &NodeId<'a, N>) -> EdgeId<'a, N> {
-        (*from, *to)
+    fn make_edge_id(&self, from: &NodeId<'a, N>, into: &NodeId<'a, N>) -> EdgeId<'a, N> {
+        (*from, *into)
     }
 }
 
 impl<'a, N: Debug> EdgeIdImpl for (NodeId<'a, N>, NodeId<'a, N>) {
     type NodeId = NodeId<'a, N>;
-    type Directedness = Directed;
-
-    fn directedness(&self) -> Self::Directedness {
-        Directed
-    }
 
     fn left(&self) -> NodeId<'a, N> {
         self.0
@@ -106,10 +98,6 @@ impl<'a, N: Debug> EdgeIdImpl for (NodeId<'a, N>, NodeId<'a, N>) {
 
     fn right(&self) -> NodeId<'a, N> {
         self.1
-    }
-
-    fn into_ends(self) -> EndPair<Self::NodeId, Self::Directedness> {
-        EndPair::new(self.0, self.1, Directed)
     }
 }
 
@@ -141,12 +129,12 @@ where
 
     fn edge_data(
         &self,
-        (from, to): &<Self as GraphImpl>::EdgeId,
+        (from, into): &<Self as GraphImpl>::EdgeId,
     ) -> &<Self as GraphImpl>::EdgeData {
         let neighbors = (self.neighbors_fn)(self.node_data(from));
         neighbors
             .iter()
-            .position(|&v| NodeId::from(v) == *to)
+            .position(|&v| NodeId::from(v) == *into)
             .map(|_| &())
             .expect("Edge does not exist")
     }
@@ -157,15 +145,15 @@ where
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.neighbors(from)
             .into_iter()
-            .map(move |to| self.make_edge_id(from, &to))
+            .map(move |into| self.make_edge_id(from, &into))
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = <Self as GraphImpl>::NodeId> {
+    fn nodes(&self) -> impl Iterator<Item = <Self as GraphImpl>::NodeId> {
         DfsIterator::new(self, self.roots().collect())
     }
 
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        self.node_ids()
+    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
+        self.nodes()
             .flat_map(|from| self.edges_from(&from).collect::<Vec<_>>())
     }
 }

@@ -125,7 +125,7 @@ where
 
             // Pre-generate and validate all node names and attributes
             let mut node_info = HashMap::new();
-            for (index, node_id) in graph.node_ids().enumerate() {
+            for (index, node_id) in graph.nodes().enumerate() {
                 let mut name = generator
                     .node_name(&node_id, index)
                     .map_err(DotError::Generator)?;
@@ -143,7 +143,7 @@ where
 
             // Pre-generate edge attributes
             let mut edge_info = HashMap::new();
-            for edge_id in graph.edge_ids() {
+            for edge_id in graph.edges() {
                 let attrs = generator
                     .edge_attrs(&edge_id)
                     .map_err(DotError::Generator)?;
@@ -197,7 +197,7 @@ where
     .map_err(DotError::IoError)?;
 
     // Write nodes
-    for node_id in graph.node_ids() {
+    for node_id in graph.nodes() {
         let node_info = wrapper
             .node_info
             .get(&node_id)
@@ -231,7 +231,7 @@ where
     }
 
     // Write edges
-    for edge_id in graph.edge_ids() {
+    for edge_id in graph.edges() {
         let source_id = edge_id.left();
         let target_id = edge_id.right();
         let source_info = wrapper
@@ -282,7 +282,7 @@ where
 mod tests {
     use super::*;
     use crate::{
-        directedness::DynDirectedness, edge_multiplicity::DynEdgeMultiplicity,
+        GraphImpl, directedness::DynDirectedness, edge_multiplicity::DynEdgeMultiplicity,
         linked_graph::LinkedGraph,
     };
 

@@ -5,14 +5,22 @@ use std::{
 
 use derivative::Derivative;
 
-/// Sorts a pair of values into nondescending order.
-pub fn sort_pair<K: Ord>((a, b): (K, K)) -> (K, K) {
-    if a <= b { (a, b) } else { (b, a) }
+/// Sorts a tuple of values into nondescending order.
+pub fn sort_tuple<K: Ord, const N: usize, Tuple: From<[K; N]> + Into<[K; N]>>(
+    tuple: Tuple,
+) -> Tuple {
+    let mut array = tuple.into();
+    array.sort();
+    array.into()
 }
 
-/// Sorts a pair of values into nondescending order if `should_sort` is true, otherwise returns them in the original order.
-pub fn sort_pair_if<K: Ord>(should_sort: bool, pair: (K, K)) -> (K, K) {
-    if should_sort { sort_pair(pair) } else { pair }
+/// Sorts a tuple of values into nondescending order if `should_sort` is true, otherwise returns them in the original order.
+pub fn sort_tuple_if<K: Ord>(should_sort: bool, tuple: (K, K)) -> (K, K) {
+    if should_sort {
+        sort_tuple(tuple)
+    } else {
+        tuple
+    }
 }
 
 /// A wrapper type that implements `Debug` by delegating to a closure.
@@ -67,7 +75,7 @@ impl<T> OtherValue<T> {
 /// # Panics
 ///
 /// Panics if the target doesn't match either of the two values.
-pub fn other_value<T: Eq>(first: T, second: T, target: &T) -> OtherValue<T> {
+pub fn other_value<T: Eq>((first, second): (T, T), target: &T) -> OtherValue<T> {
     if first == *target {
         if second == *target {
             OtherValue::Both(second)
@@ -82,8 +90,7 @@ pub fn other_value<T: Eq>(first: T, second: T, target: &T) -> OtherValue<T> {
 }
 
 pub fn other_value_ref<'a, 'b, T: Eq>(
-    first: &'a T,
-    second: &'a T,
+    (first, second): (&'a T, &'a T),
     target: &'b T,
 ) -> OtherValue<&'a T> {
     if first == target {

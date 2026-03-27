@@ -3,7 +3,7 @@ use std::{fmt::Debug, hash::Hash};
 use as_enum::AsEnum;
 use quickcheck::Arbitrary;
 
-use crate::{end_pair::EndPair, util::sort_pair_if};
+use crate::end_pair::EndPair;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, AsEnum)]
 #[AsEnum(arbitrary)]
@@ -18,16 +18,20 @@ pub enum DynDirectedness {
 /// provide compile-time specialization of graph behavior, as well as by the
 /// [`DynDirectedness`] enum for dynamic directedness.
 pub trait Directedness: AsEnum<DynDirectedness> + Arbitrary {
+    /// Returns `true` if the directedness is directed.
     fn is_directed(&self) -> bool {
         matches!(self.as_enum(), DynDirectedness::Directed)
     }
 
+    /// Sorts a pair of values if the directedness is undirected, and returns
+    /// them in the original order if directed.
     fn sort_pair<T: Ord>(&self, pair: (T, T)) -> (T, T) {
-        sort_pair_if(!self.is_directed(), pair)
+        self.end_pair(pair).into_values()
     }
 
-    fn coordinate_pair<T: Ord>(&self, (first, second): (T, T)) -> EndPair<T, Self> {
-        EndPair::new(first, second, *self)
+    /// Creates an `EndPair` from a pair of values.
+    fn end_pair<T: Ord>(&self, pair: (T, T)) -> EndPair<T, Self> {
+        EndPair::new(pair, *self)
     }
 }
 
