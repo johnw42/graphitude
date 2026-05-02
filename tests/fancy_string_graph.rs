@@ -287,9 +287,9 @@ impl TestDataBuilder for StringGraphBuilder {
 }
 
 graph_test_suite!(
-    tests,
-    StringGraphBuilder,
-    StringGraphBuilder,
-    |data| format!("{}-copied", data),
-    |data| format!("{}-copied", data)
+    tests: GraphTests<StringGraphBuilder> = GraphTests::new(
+        StringGraphBuilder,
+        |data| format!("{}-copied", data),
+        |data| format!("{}-copied", data)
+    )
 );

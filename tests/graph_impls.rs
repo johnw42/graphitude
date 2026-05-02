@@ -41,37 +41,61 @@ mod linked {
         }
     }
 
-    graph_test_suite!(directed_multiple, LinkedGraphBuilder<Directed, MultipleEdges>, LinkedGraphBuilder::new(Directed, MultipleEdges),
+    graph_test_suite!(directed_multiple:
+        GraphTests<LinkedGraphBuilder<Directed, MultipleEdges>> =
+        GraphTests::new(
+            LinkedGraphBuilder::new(Directed, MultipleEdges),
             |data| data * 2,
-            |data| format!("{}-copied", data));
+            |data| format!("{}-copied", data)));
 
-    graph_test_suite!(directed_single, LinkedGraphBuilder<Directed, SingleEdge>, LinkedGraphBuilder::new(Directed, SingleEdge),
+    graph_test_suite!(directed_single:
+        GraphTests<LinkedGraphBuilder<Directed, SingleEdge>> =
+        GraphTests::new(
+            LinkedGraphBuilder::new(Directed, SingleEdge),
             |data| data * 2,
-            |data| format!("{}-copied", data));
+            |data| format!("{}-copied", data)));
 
-    graph_test_suite!(undirected_multiple, LinkedGraphBuilder<Undirected, MultipleEdges>, LinkedGraphBuilder::new(Undirected, MultipleEdges),
+    graph_test_suite!(undirected_multiple:
+        GraphTests<LinkedGraphBuilder<Undirected, MultipleEdges>> =
+        GraphTests::new(
+            LinkedGraphBuilder::new(Undirected, MultipleEdges),
             |data| data * 2,
-            |data| format!("{}-copied", data));
+            |data| format!("{}-copied", data)));
 
-    graph_test_suite!(undirected_single, LinkedGraphBuilder<Undirected, SingleEdge>, LinkedGraphBuilder::new(Undirected, SingleEdge),
+    graph_test_suite!(undirected_single:
+         GraphTests<LinkedGraphBuilder<Undirected, SingleEdge>> =
+        GraphTests::new(
+            LinkedGraphBuilder::new(Undirected, SingleEdge),
             |data| data * 2,
-            |data| format!("{}-copied", data));
+            |data| format!("{}-copied", data)));
 
-    graph_test_suite!(dyn_directed_multiple, LinkedGraphBuilder<Directedness, EdgeMultiplicity>, LinkedGraphBuilder::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges),
+    graph_test_suite!(dyn_directed_multiple:
+        GraphTests<LinkedGraphBuilder<Directedness, EdgeMultiplicity>> =
+        GraphTests::new( LinkedGraphBuilder::new(
+            Directedness::Directed, EdgeMultiplicity::MultipleEdges),
             |data| data * 2,
-            |data| format!("{}-copied", data));
+            |data| format!("{}-copied", data)));
 
-    graph_test_suite!(dyn_directed_single, LinkedGraphBuilder<Directedness, EdgeMultiplicity>, LinkedGraphBuilder::new(Directedness::Directed, EdgeMultiplicity::SingleEdge),
+    graph_test_suite!(dyn_directed_single:
+        GraphTests<LinkedGraphBuilder<Directedness, EdgeMultiplicity>> =
+        GraphTests::new(
+            LinkedGraphBuilder::new(Directedness::Directed, EdgeMultiplicity::SingleEdge),
             |data| data * 2,
-            |data| format!("{}-copied", data));
+            |data| format!("{}-copied", data)));
 
-    graph_test_suite!(dyn_undirected_multiple, LinkedGraphBuilder<Directedness, EdgeMultiplicity>, LinkedGraphBuilder::new(Directedness::Undirected, EdgeMultiplicity::MultipleEdges),
+    graph_test_suite!(dyn_undirected_multiple:
+        GraphTests<LinkedGraphBuilder<Directedness, EdgeMultiplicity>> =
+        GraphTests::new(
+            LinkedGraphBuilder::new(Directedness::Undirected, EdgeMultiplicity::MultipleEdges),
             |data| data * 2,
-            |data| format!("{}-copied", data));
+            |data| format!("{}-copied", data)));
 
-    graph_test_suite!(dyn_undirected_single, LinkedGraphBuilder<Directedness, EdgeMultiplicity>, LinkedGraphBuilder::new(Directedness::Undirected, EdgeMultiplicity::SingleEdge),
+    graph_test_suite!(dyn_undirected_single:
+        GraphTests<LinkedGraphBuilder<Directedness, EdgeMultiplicity>> =
+        GraphTests::new(
+            LinkedGraphBuilder::new(Directedness::Undirected, EdgeMultiplicity::SingleEdge),
             |data| data * 2,
-            |data| format!("{}-copied", data));
+            |data| format!("{}-copied", data)));
 }
 
 mod adjacency {
@@ -143,70 +167,78 @@ mod adjacency {
     // }
 
     graph_test_suite!(
-        directed_single_bitvec,
-        AdjacencyGraphBuilder<Directed, SingleEdge, BitvecStorage>,
-        AdjacencyGraphBuilder::new(),
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data)
+        directed_single_bitvec:
+        GraphTests<AdjacencyGraphBuilder<Directed, SingleEdge, BitvecStorage>> =
+        GraphTests::new(
+            AdjacencyGraphBuilder::new(),
+            |data| data * 2,
+            |data: &String| format!("{}-copied", data))
 
         //test_compaction!(AdjacencyGraphBuilder<Directed, SingleEdge, BitvecStorage>);
     );
 
     graph_test_suite!(
-        undirected_single_bitvec,
-        AdjacencyGraphBuilder<Undirected, SingleEdge, BitvecStorage>,
-        AdjacencyGraphBuilder::new(),
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data)
+        undirected_single_bitvec:
+        GraphTests<AdjacencyGraphBuilder<Undirected, SingleEdge, BitvecStorage>> =
+        GraphTests::new(
+            AdjacencyGraphBuilder::new(),
+            |data| data * 2,
+            |data: &String| format!("{}-copied", data))
 
         //test_compaction!(AdjacencyGraphBuilder<Undirected, SingleEdge, BitvecStorage>);
     );
 
     graph_test_suite!(
-        directed_single_hash,
-        AdjacencyGraphBuilder<Directed, SingleEdge, HashStorage>,
-        AdjacencyGraphBuilder::new(),
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data));
+        directed_single_hash:
+        GraphTests<AdjacencyGraphBuilder<Directed, SingleEdge, HashStorage>> =
+        GraphTests::new(
+            AdjacencyGraphBuilder::new(),
+            |data| data * 2,
+            |data: &String| format!("{}-copied", data)));
 
     graph_test_suite!(
-        undirected_single_hash,
-        AdjacencyGraphBuilder<Undirected, SingleEdge, HashStorage>,
-        AdjacencyGraphBuilder::new(),
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data));
+        undirected_single_hash:
+        GraphTests<AdjacencyGraphBuilder<Undirected, SingleEdge, HashStorage>> =
+        GraphTests::new(
+            AdjacencyGraphBuilder::new(),
+            |data| data * 2,
+            |data: &String| format!("{}-copied", data)));
 
     graph_test_suite!(
-        directed_multiple_bitvec,
-        AdjacencyGraphBuilder<Directed, MultipleEdges, BitvecStorage>,
-        AdjacencyGraphBuilder::new(),
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data)
+        directed_multiple_bitvec:
+        GraphTests<AdjacencyGraphBuilder<Directed, MultipleEdges, BitvecStorage>> =
+        GraphTests::new(
+            AdjacencyGraphBuilder::new(),
+            |data| data * 2,
+            |data: &String| format!("{}-copied", data))
 
         // test_compaction!(AdjacencyGraphBuilder<Directed, MultipleEdges, BitvecStorage>);
     );
 
     graph_test_suite!(
-        undirected_multiple_bitvec,
-        AdjacencyGraphBuilder<Undirected, MultipleEdges, BitvecStorage>,
-        AdjacencyGraphBuilder::new(),
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data)
+        undirected_multiple_bitvec:
+        GraphTests<AdjacencyGraphBuilder<Undirected, MultipleEdges, BitvecStorage>> =
+        GraphTests::new(
+            AdjacencyGraphBuilder::new(),
+            |data| data * 2,
+            |data: &String| format!("{}-copied", data))
 
         // test_compaction!(AdjacencyGraphBuilder<Undirected, MultipleEdges, BitvecStorage>);
     );
 
     graph_test_suite!(
-        directed_multiple_hash,
-        AdjacencyGraphBuilder<Directed, MultipleEdges, HashStorage>,
-        AdjacencyGraphBuilder::new(),
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data));
+        directed_multiple_hash:
+        GraphTests<AdjacencyGraphBuilder<Directed, MultipleEdges, HashStorage>> =
+        GraphTests::new(
+            AdjacencyGraphBuilder::new(),
+            |data| data * 2,
+            |data: &String| format!("{}-copied", data)));
 
     graph_test_suite!(
-        undirected_multiple_hash,
-        AdjacencyGraphBuilder<Undirected, MultipleEdges, HashStorage>,
-        AdjacencyGraphBuilder::new(),
-        |data| data * 2,
-        |data: &String| format!("{}-copied", data));
+        undirected_multiple_hash:
+        GraphTests<AdjacencyGraphBuilder<Undirected, MultipleEdges, HashStorage>> =
+        GraphTests::new(
+            AdjacencyGraphBuilder::new(),
+            |data| data * 2,
+            |data: &String| format!("{}-copied", data)));
 }

@@ -51,7 +51,7 @@ where
     TestNodeData<B>: Clone + Eq + Hash + Debug,
     TestEdgeData<B>: Clone + Eq + Hash + Debug,
 {
-    fn new(
+    pub fn new(
         builder: B,
         transform_node: impl Fn(&TestNodeData<B>) -> TestNodeData<B> + 'static,
         transform_edge: impl Fn(&TestEdgeData<B>) -> TestEdgeData<B> + 'static,
@@ -616,7 +616,7 @@ where
         let _test_guard = test_span.entered();
         let mut graph = {
             let _span = info_span!("generate_large_graph").entered();
-            generate_large_graph(&self.builder.builder)
+            self.generate_large_graph()
         };
 
         // We use a hash set instead of a vec so the edges are removed in
