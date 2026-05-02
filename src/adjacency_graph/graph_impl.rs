@@ -7,7 +7,6 @@ use crate::{
         edge_container::{EdgeContainer, EdgeContainerSelector},
     },
     adjacency_matrix::{AdjacencyMatrix, CompactionCount as _, HashStorage, Storage},
-    automap::trait_def::{AutomapIndexing as _, AutomapTrait as _},
     copier::GraphCopier,
     directedness::DirectednessTrait,
     format_debug::format_debug,
@@ -15,7 +14,7 @@ use crate::{
     prelude::*,
 };
 
-use crate::automap::{Automap, AutomapKey};
+use crate::bag::{Bag, BagKey};
 
 /// A graph implementation using an adjacency matrix for edge storage.
 ///
@@ -37,7 +36,7 @@ where
     M: EdgeContainerSelector,
     S: Storage,
 {
-    nodes: Automap<N>,
+    nodes: Bag<N>,
     adjacency: S::Matrix<M::Container<E>, D>,
     num_edges: usize,
     directedness: D,
@@ -52,16 +51,16 @@ where
     M: EdgeContainerSelector,
     S: Storage,
 {
-    /// Creates a `NodeId` for the given `AutomapKey`.
-    fn node_id(&self, key: AutomapKey) -> NodeId<S> {
+    /// Creates a `NodeId` for the given `BagKey`.
+    fn node_id(&self, key: BagKey) -> NodeId<S> {
         NodeId::new(key, self.id.clone(), self.compaction_count)
     }
 
-    /// Creates an `EdgeId` for the given `AutomapKey` pair.
+    /// Creates an `EdgeId` for the given `BagKey` pair.
     fn edge_id(
         &self,
-        from: AutomapKey,
-        into: AutomapKey,
+        from: BagKey,
+        into: BagKey,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
     ) -> EdgeId<E, S, D, M> {
         EdgeId::new(
@@ -107,10 +106,7 @@ where
         self.assert_valid_edge_id(eid);
         let (from, to) = eid.keys().into_values();
         self.adjacency
-            .get(
-                self.nodes.indexing().key_to_index(from),
-                self.nodes.indexing().key_to_index(to),
-            )
+            .get(from.to_index(), to.to_index())
             .expect("no such edge")
             .get(eid.index())
             .expect("no such edge index")
@@ -121,8 +117,8 @@ where
             .iter()
             .flat_map(move |(from, into, container)| {
                 container.iter().map(move |(index, _)| {
-                    let from_key = self.nodes.indexing().index_to_key(from);
-                    let into_key = self.nodes.indexing().index_to_key(into);
+                    let from_key = BagKey::from_index(from);
+                    let into_key = BagKey::from_index(into);
                     self.edge_id(from_key, into_key, index)
                 })
             })
@@ -139,12 +135,8 @@ where
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.assert_valid_node_id(from);
         self.assert_valid_node_id(into);
-        let indexing = self.nodes.indexing();
         self.adjacency
-            .entry_at(
-                indexing.key_to_index(from.key()),
-                indexing.key_to_index(into.key()),
-            )
+            .entry_at(from.key().to_index(), into.key().to_index())
             .into_iter()
             .flat_map(move |(_, container)| {
                 container
@@ -160,9 +152,9 @@ where
         self.assert_valid_node_id(into);
         let into_key = into.key();
         self.adjacency
-            .entries_in_col(self.nodes.indexing().key_to_index(into.key()))
+            .entries_in_col(into.key().to_index())
             .flat_map(move |(from, container)| {
-                let from_key = self.nodes.indexing().index_to_key(from);
+                let from_key = BagKey::from_index(from);
                 container
                     .iter()
                     .map(move |(index, _)| self.edge_id(from_key, into_key, index))
@@ -176,9 +168,9 @@ where
         self.assert_valid_node_id(from);
         let from_key = from.key();
         self.adjacency
-            .entries_in_row(self.nodes.indexing().key_to_index(from.key()))
+            .entries_in_row(from.key().to_index())
             .flat_map(move |(into, container)| {
-                let into_key = self.nodes.indexing().index_to_key(into);
+                let into_key = BagKey::from_index(into);
                 container
                     .iter()
                     .map(move |(index, _)| self.edge_id(from_key, into_key, index))
@@ -218,10 +210,9 @@ where
             return Err("EdgeId compaction counter does not match");
         }
         let (source, target) = id.keys().into_values();
-        let indexing = self.nodes.indexing();
         if self
             .adjacency
-            .get(indexing.key_to_index(source), indexing.key_to_index(target))
+            .get(source.to_index(), target.to_index())
             .is_none()
         {
             return Err("EdgeId not found in adjacency matrix");
@@ -273,7 +264,7 @@ where
 {
     fn new(directedness: D, edge_multiplicity: M) -> Self {
         Self {
-            nodes: Automap::default(),
+            nodes: Bag::default(),
             adjacency: S::Matrix::default(),
             num_edges: 0,
             directedness,
@@ -292,10 +283,7 @@ where
         self.assert_valid_edge_id(id);
         let (from, to) = id.keys().into_values();
         self.adjacency
-            .get_mut(
-                self.nodes.indexing().key_to_index(from),
-                self.nodes.indexing().key_to_index(to),
-            )
+            .get_mut(from.to_index(), to.to_index())
             .expect("no such edge")
             .get_mut(id.index())
             .expect("no such edge index")
@@ -315,8 +303,8 @@ where
         self.assert_valid_node_id(from);
         self.assert_valid_node_id(into);
 
-        let from_index = self.nodes.indexing().key_to_index(from.key());
-        let into_index = self.nodes.indexing().key_to_index(into.key());
+        let from_index = from.key().to_index();
+        let into_index = into.key().to_index();
         let old_data = self.adjacency.remove(from_index, into_index);
         let (new_data, index, replaced) = EdgeContainer::append(old_data, data);
         self.adjacency.insert(from_index, into_index, new_data);
@@ -331,7 +319,7 @@ where
     }
 
     fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData {
-        let row_col = self.nodes.indexing().key_to_index(id.key());
+        let row_col = id.key().to_index();
         for (_col, container) in self.adjacency.entries_in_row(row_col) {
             self.num_edges -= container.len();
         }
@@ -348,18 +336,14 @@ where
 
     fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData {
         let (source, target) = id.keys().into_values();
-        let indexing = self.nodes.indexing();
         let container = self
             .adjacency
-            .remove(indexing.key_to_index(source), indexing.key_to_index(target))
+            .remove(source.to_index(), target.to_index())
             .expect("Invalid edge ID");
         let (container, removed) = container.without(id.index());
         if let Some(container) = container {
-            self.adjacency.insert(
-                indexing.key_to_index(source),
-                indexing.key_to_index(target),
-                container,
-            );
+            self.adjacency
+                .insert(source.to_index(), target.to_index(), container);
         }
         self.num_edges -= 1;
         removed.expect("Invalid edge ID")
@@ -390,67 +374,6 @@ where
         mut node_id_callback: impl FnMut(&Self::NodeId, &Self::NodeId),
         mut edge_id_callback: impl FnMut(&Self::EdgeId, &Self::EdgeId),
     ) {
-        let old_compaction_count = self.compaction_count;
-        let new_compaction_count = self.compaction_count.increment();
-
-        // Compact nodes and build ID mapping.
-        let mut automap_map: HashMap<AutomapKey, AutomapKey> =
-            HashMap::with_capacity(self.nodes.len());
-        let old_indexing = self.nodes.indexing();
-        self.nodes.compact_with(&mut |old_key, new_key_opt| {
-            if let Some(new_key) = new_key_opt {
-                automap_map.insert(old_key, new_key);
-            }
-        });
-        let new_indexing = self.nodes.indexing();
-
-        // Call node_id_callback for each node ID mapping
-        for (&old_index, &new_index) in &automap_map {
-            let old_node_id = self
-                .node_id(old_index)
-                .with_compaction_count(old_compaction_count);
-            let new_node_id = self
-                .node_id(new_index)
-                .with_compaction_count(new_compaction_count);
-            node_id_callback(&old_node_id, &new_node_id);
-        }
-
-        // Update adjacency matrix with new node indices.
-        if !automap_map.is_empty() {
-            let mut old_adjacency = S::Matrix::<M::Container<E>, D>::default();
-            std::mem::swap(&mut self.adjacency, &mut old_adjacency);
-            self.adjacency.reserve(self.nodes.len());
-            for (old_from_index, old_into_index, container) in old_adjacency.into_iter() {
-                let old_from = old_indexing.index_to_key(old_from_index);
-                let old_into = old_indexing.index_to_key(old_into_index);
-
-                // Skip edges where either endpoint was removed
-                let Some(&new_from) = automap_map.get(&old_from) else {
-                    continue;
-                };
-                let Some(&new_into) = automap_map.get(&old_into) else {
-                    continue;
-                };
-
-                for (index, _) in container.iter() {
-                    let old_edge_id = self
-                        .edge_id(old_from, old_into, index.clone())
-                        .with_compaction_count(old_compaction_count);
-                    let new_edge_id = self
-                        .edge_id(new_from, new_into, index)
-                        .with_compaction_count(new_compaction_count);
-                    edge_id_callback(&old_edge_id, &new_edge_id);
-                }
-
-                self.adjacency.insert(
-                    new_indexing.key_to_index(new_from),
-                    new_indexing.key_to_index(new_into),
-                    container,
-                );
-            }
-        }
-
-        self.compaction_count = new_compaction_count;
     }
 
     fn shrink_to_fit(&mut self) {

@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use crate::{
     EdgeMultiplicityTrait, MultipleEdges, SingleEdge,
-    automap::{Automap, AutomapTrait},
+    bag::{Bag, BagKey},
 };
 
 pub trait EdgeContainer<T>: Sized {
@@ -76,20 +76,13 @@ impl<T> EdgeContainer<T> for SingleItem<T> {
     }
 }
 /// A multi-item edge container
-#[derive(Debug, Clone, PartialEq)]
-pub struct MultipleItems<T, A>
-where
-    A: AutomapTrait<T>,
-{
-    inner: A,
-    phantom: PhantomData<T>,
+#[derive(Debug, Clone)]
+pub struct MultipleItems<T> {
+    inner: Bag<T>,
 }
 
-impl<T, A> EdgeContainer<T> for MultipleItems<T, A>
-where
-    A: AutomapTrait<T> + Default,
-{
-    type Index = A::Key;
+impl<T> EdgeContainer<T> for MultipleItems<T> {
+    type Index = BagKey;
 
     fn len(&self) -> usize {
         self.inner.len()
@@ -98,14 +91,7 @@ where
     fn append(container: Option<Self>, item: T) -> (Self, Self::Index, Option<T>) {
         let mut inner = container.map(|c| c.inner).unwrap_or_default();
         let key = inner.insert(item);
-        (
-            MultipleItems {
-                inner,
-                phantom: PhantomData,
-            },
-            key,
-            None,
-        )
+        (MultipleItems { inner }, key, None)
     }
 
     fn insert_or_replace(&mut self, data: T) -> (Self::Index, Option<T>) {
@@ -146,7 +132,7 @@ impl EdgeContainerSelector for SingleEdge {
 }
 
 impl EdgeContainerSelector for MultipleEdges {
-    type Container<T> = MultipleItems<T, Automap<T>>;
+    type Container<T> = MultipleItems<T>;
 }
 
 #[cfg(test)]
@@ -213,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_multiple_items_append_with_none() {
-        let (container, key, replaced): (MultipleItems<i32, Automap<i32>>, _, _) =
+        let (container, key, replaced): (MultipleItems<i32>, _, _) =
             MultipleItems::append(None, 42);
         assert_eq!(container.get(key), Some(&42));
         assert_eq!(replaced, None);
@@ -221,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_multiple_items_append_with_some() {
-        let original: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 10).0;
+        let original: MultipleItems<i32> = MultipleItems::append(None, 10).0;
 
         let (container, _key, replaced) = MultipleItems::append(Some(original), 42);
         // When appending to an existing MultipleItems, the new item is added
@@ -232,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_multiple_items_insert_multiple() {
-        let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
+        let mut container: MultipleItems<i32> = MultipleItems::append(None, 1).0;
         let (k2, replaced) = container.insert_or_replace(2);
         assert!(replaced.is_none());
         let (k3, replaced) = container.insert_or_replace(3);
@@ -244,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_multiple_items_get() {
-        let container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 42).0;
+        let container: MultipleItems<i32> = MultipleItems::append(None, 42).0;
         let k = container
             .iter()
             .next()
@@ -255,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_multiple_items_get_mut() {
-        let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 42).0;
+        let mut container: MultipleItems<i32> = MultipleItems::append(None, 42).0;
         let k = container
             .iter()
             .next()
@@ -270,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_multiple_items_without_not_empty() {
-        let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
+        let mut container: MultipleItems<i32> = MultipleItems::append(None, 1).0;
         let k1 = container
             .iter()
             .next()
@@ -288,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_multiple_items_without_empty() {
-        let container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 42).0;
+        let container: MultipleItems<i32> = MultipleItems::append(None, 42).0;
         let k = container
             .iter()
             .next()
@@ -302,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_multiple_items_iter() {
-        let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
+        let mut container: MultipleItems<i32> = MultipleItems::append(None, 1).0;
         container.insert_or_replace(2);
         container.insert_or_replace(3);
 
@@ -315,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_multiple_items_get_after_removal() {
-        let mut container: MultipleItems<i32, Automap<i32>> = MultipleItems::append(None, 1).0;
+        let mut container: MultipleItems<i32> = MultipleItems::append(None, 1).0;
         let k1 = container
             .iter()
             .next()

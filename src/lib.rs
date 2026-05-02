@@ -49,7 +49,7 @@ pub mod graph_tests;
 #[doc(hidden)]
 pub mod tracing_support;
 
-mod automap;
+mod bag;
 mod graph_test_support;
 mod test_util;
 #[cfg(feature = "bitvec")]
