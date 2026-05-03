@@ -7,7 +7,7 @@ use std::{
 
 use derivative::Derivative;
 
-use crate::{EdgeIdTrait, directedness::DirectednessTrait, graph_id::GraphIdClone};
+use crate::{EdgeIdTrait, Graph, directedness::DirectednessTrait, graph_id::GraphIdClone};
 
 use super::{Edge, NodeId};
 
@@ -15,11 +15,11 @@ use super::{Edge, NodeId};
 ///
 /// Contains a weak pointer to the edge data and a graph ID for safety checks.
 #[derive(Derivative)]
-#[derivative(Clone(bound = "D: Clone"))]
-pub struct EdgeId<N, E, D: DirectednessTrait> {
-    pub(super) ptr: Weak<Edge<N, E, D>>,
+#[derivative(Clone(bound = "G::Directedness: Clone"))]
+pub struct EdgeId<G: Graph> {
+    pub(super) ptr: Weak<Edge<G>>,
     pub(super) graph_id: GraphIdClone,
-    pub(super) directedness: D,
+    pub(super) directedness: G::Directedness,
 }
 
 // SAFETY: EdgeId is Send and Sync because it only contains a Weak pointer and
@@ -27,50 +27,50 @@ pub struct EdgeId<N, E, D: DirectednessTrait> {
 // can only be used to access the edge data through Graph methods that ensure
 // the graph is still valid, so it cannot be used after the graph has been
 // dropped.
-unsafe impl<N, E, D: DirectednessTrait> Send for EdgeId<N, E, D> {}
-unsafe impl<N, E, D: DirectednessTrait> Sync for EdgeId<N, E, D> {}
+unsafe impl<G: Graph> Send for EdgeId<G> {}
+unsafe impl<G: Graph> Sync for EdgeId<G> {}
 
-impl<N, E, D: DirectednessTrait> Debug for EdgeId<N, E, D> {
+impl<G: Graph> Debug for EdgeId<G> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "EdgeId({:?}, {:?})", self.ptr, self.graph_id)
     }
 }
 
-impl<N, E, D: DirectednessTrait> PartialEq for EdgeId<N, E, D> {
+impl<G: Graph> PartialEq for EdgeId<G> {
     fn eq(&self, other: &Self) -> bool {
         self.ptr.as_ptr() == other.ptr.as_ptr()
     }
 }
 
-impl<N, E, D: DirectednessTrait> Eq for EdgeId<N, E, D> {}
+impl<G: Graph> Eq for EdgeId<G> {}
 
-impl<N, E, D: DirectednessTrait> Hash for EdgeId<N, E, D> {
+impl<G: Graph> Hash for EdgeId<G> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         (self.ptr.as_ptr() as usize).hash(state);
     }
 }
 
-impl<N, E, D: DirectednessTrait> PartialOrd for EdgeId<N, E, D> {
+impl<G: Graph> PartialOrd for EdgeId<G> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<N, E, D: DirectednessTrait> Ord for EdgeId<N, E, D> {
+impl<G: Graph> Ord for EdgeId<G> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.ptr.as_ptr().cmp(&other.ptr.as_ptr())
     }
 }
 
-impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
-    type NodeId = NodeId<N, E, D>;
-    type Directedness = D;
+impl<G: Graph> EdgeIdTrait for EdgeId<G> {
+    type NodeId = NodeId<G>;
+    type Directedness = G::Directedness;
 
     fn directedness(&self) -> Self::Directedness {
         self.directedness
     }
 
-    fn left(&self) -> NodeId<N, E, D> {
+    fn left(&self) -> NodeId<G> {
         self.ptr
             .upgrade()
             .map(|edge| NodeId {
@@ -83,12 +83,11 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
                         .expect("Source node dangling"),
                 ),
                 graph_id: self.graph_id,
-                directedness: PhantomData,
             })
             .expect("EdgeId is dangling")
     }
 
-    fn right(&self) -> NodeId<N, E, D> {
+    fn right(&self) -> NodeId<G> {
         self.ptr
             .upgrade()
             .map(|edge| NodeId {
@@ -101,7 +100,6 @@ impl<N, E, D: DirectednessTrait> EdgeIdTrait for EdgeId<N, E, D> {
                         .expect("Target node dangling"),
                 ),
                 graph_id: self.graph_id,
-                directedness: PhantomData,
             })
             .expect("EdgeId is dangling")
     }

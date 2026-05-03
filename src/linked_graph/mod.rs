@@ -13,27 +13,29 @@ use derivative::Derivative;
 pub use edge_id::EdgeId;
 pub use node_id::NodeId;
 
-struct Node<N, E, D: DirectednessTrait> {
-    data: N,
-    edges_out: Vec<Arc<Edge<N, E, D>>>,
+struct Node<G: Graph> {
+    data: G::NodeData,
+    edges_out: Vec<Arc<Edge<G>>>,
     // Only maintained for directed graphs, since for undirected graphs
     // edges_out is sufficient to find all edges.
-    edges_in: Vec<EdgeId<N, E, D>>,
-    directedness: PhantomData<D>,
+    edges_in: Vec<EdgeId<G>>,
 }
 
-struct Edge<N, E, D: DirectednessTrait> {
-    data: UnsafeCell<E>,
-    ends: CoordinatePair<NodeId<N, E, D>, D>,
-    directedness: PhantomData<D>,
+struct Edge<G: Graph> {
+    data: UnsafeCell<G::EdgeData>,
+    ends: CoordinatePair<NodeId<G>, G::Directedness>,
 }
 
-impl<N, E, D: DirectednessTrait> Edge<N, E, D> {
-    fn new(data: E, from: NodeId<N, E, D>, into: NodeId<N, E, D>, directedness: D) -> Self {
+impl<G: Graph> Edge<G> {
+    fn new(
+        data: G::EdgeData,
+        from: NodeId<G>,
+        into: NodeId<G>,
+        directedness: G::Directedness,
+    ) -> Self {
         Self {
             data: UnsafeCell::new(data),
             ends: CoordinatePair::new(from, into, directedness),
-            directedness: PhantomData,
         }
     }
 }
@@ -53,7 +55,7 @@ where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
 {
-    nodes: Vec<Arc<Node<N, E, D>>>,
+    nodes: Vec<Arc<Node<Self>>>,
     id: GraphId,
     directedness: D,
     edge_multiplicity: M,
@@ -64,15 +66,14 @@ where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
 {
-    fn node_id(&self, ptr: &Arc<Node<N, E, D>>) -> NodeId<N, E, D> {
+    fn node_id(&self, ptr: &Arc<Node<Self>>) -> NodeId<Self> {
         NodeId {
             ptr: Arc::downgrade(ptr),
             graph_id: self.id.clone(),
-            directedness: PhantomData,
         }
     }
 
-    fn edge_id(&self, ptr: &Arc<Edge<N, E, D>>) -> EdgeId<N, E, D> {
+    fn edge_id(&self, ptr: &Arc<Edge<Self>>) -> EdgeId<Self> {
         EdgeId {
             ptr: Arc::downgrade(ptr),
             graph_id: self.id.clone(),
@@ -80,7 +81,7 @@ where
         }
     }
 
-    fn node(&self, id: &NodeId<N, E, D>) -> &Node<N, E, D> {
+    fn node(&self, id: &NodeId<Self>) -> &Node<Self> {
         self.assert_valid_node_id(id);
         let id = id.ptr.upgrade().expect("NodeId is dangling");
         // SAFETY: We have checked that the NodeId is valid.  This method is only used internally
@@ -92,7 +93,7 @@ where
     ///
     /// SAFETY: Caller must ensure that no other references to the node exist,
     /// and the graph outlives the returned reference.
-    fn node_mut<'a>(&mut self, id: &NodeId<N, E, D>) -> &'a mut Node<N, E, D> {
+    fn node_mut<'a>(&mut self, id: &NodeId<Self>) -> &'a mut Node<Self> {
         self.assert_valid_node_id(id);
         let id = id.ptr.upgrade().expect("NodeId is dangling");
 
@@ -101,7 +102,7 @@ where
         unsafe { &mut *(Arc::as_ptr(&id) as *mut _) }
     }
 
-    fn edge(&self, id: &EdgeId<N, E, D>) -> &Edge<N, E, D> {
+    fn edge(&self, id: &EdgeId<Self>) -> &Edge<Self> {
         self.assert_valid_edge_id(id);
         let id = id.ptr.upgrade().expect("EdgeId is dangling");
         // SAFETY: We have checked that the EdgeId is valid.  This method is only used internally
@@ -109,7 +110,7 @@ where
         unsafe { &*Arc::as_ptr(&id) }
     }
 
-    fn edge_mut(&mut self, id: &EdgeId<N, E, D>) -> &mut Edge<N, E, D> {
+    fn edge_mut(&mut self, id: &EdgeId<Self>) -> &mut Edge<Self> {
         self.assert_valid_edge_id(id);
         let id = id.ptr.upgrade().expect("EdgeId is dangling");
         // SAFETY: We have checked that the EdgeId is valid.  This method is only used internally
@@ -123,9 +124,9 @@ where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
 {
-    type NodeId = NodeId<N, E, D>;
+    type NodeId = NodeId<Self>;
     type NodeData = N;
-    type EdgeId = EdgeId<N, E, D>;
+    type EdgeId = EdgeId<Self>;
     type EdgeData = E;
     type Directedness = D;
     type EdgeMultiplicity = M;
@@ -326,7 +327,6 @@ where
             data,
             edges_out: Vec::new(),
             edges_in: Vec::new(),
-            directedness: PhantomData,
         });
         let nid = self.node_id(&node);
         self.nodes.push(node);
