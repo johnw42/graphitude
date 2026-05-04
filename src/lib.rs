@@ -26,6 +26,7 @@
 // Modules for using existing graph implementations and utilities.
 pub mod adjacency_graph;
 pub mod adjacency_matrix;
+pub mod bag_graph;
 pub mod coordinate_pair;
 pub mod copier;
 pub mod debug_graph_view;
@@ -61,10 +62,10 @@ pub use adjacency_graph::AdjacencyGraph;
 #[cfg(feature = "bitvec")]
 pub use adjacency_matrix::BitvecStorage;
 pub use adjacency_matrix::{HashStorage, Storage};
+pub use bag_graph::BagGraph;
 pub use copier::GraphCopier;
 pub use directedness::{Directed, Directedness, DirectednessTrait, Undirected};
 pub use edge_multiplicity::{EdgeMultiplicity, EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
 pub use graph_traits::{
     AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphUndirected, NodeIdTrait,
 };
-pub use linked_graph::LinkedGraph;

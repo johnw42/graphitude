@@ -283,7 +283,7 @@ mod tests {
     use super::*;
     use crate::{
         GraphMut, directedness::Directedness, edge_multiplicity::EdgeMultiplicity,
-        linked_graph::LinkedGraph,
+        bag_graph::BagGraph,
     };
 
     #[test]
@@ -330,7 +330,7 @@ mod tests {
     }
 
     impl TestGenerator {
-        fn for_graph(graph_name: &str, graph: &LinkedGraph<String, ()>) -> Self {
+        fn for_graph(graph_name: &str, graph: &BagGraph<String, ()>) -> Self {
             Self {
                 graph_name: graph_name.to_string(),
                 directedness: graph.directedness(),
@@ -357,8 +357,8 @@ mod tests {
 
     #[test]
     fn test_generate_empty_directed_graph() {
-        let graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let graph: BagGraph<String, ()> =
+            BagGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
         let generator = TestGenerator::for_graph("Empty", &graph);
         let mut output = Vec::new();
 
@@ -372,8 +372,8 @@ mod tests {
 
     #[test]
     fn test_generate_empty_undirected_graph() {
-        let graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Undirected, EdgeMultiplicity::MultipleEdges);
+        let graph: BagGraph<String, ()> =
+            BagGraph::new(Directedness::Undirected, EdgeMultiplicity::MultipleEdges);
         let generator = TestGenerator::for_graph("Empty", &graph);
         let mut output = Vec::new();
 
@@ -387,8 +387,8 @@ mod tests {
 
     #[test]
     fn test_generate_simple_directed_graph() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, ()> =
+            BagGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_edge(&a, &b, ());
@@ -408,8 +408,8 @@ mod tests {
 
     #[test]
     fn test_generate_simple_undirected_graph() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Undirected, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, ()> =
+            BagGraph::new(Directedness::Undirected, EdgeMultiplicity::MultipleEdges);
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_edge(&a, &b, ());
@@ -439,8 +439,8 @@ mod tests {
 
     #[test]
     fn test_generate_invalid_graph_name() {
-        let graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let graph: BagGraph<String, ()> =
+            BagGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
         let generator = InvalidNameGenerator;
         let mut output = Vec::new();
 
@@ -460,8 +460,8 @@ mod tests {
 
     #[test]
     fn test_generate_invalid_node_name() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, ()> =
+            BagGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
         graph.add_node("a".to_string());
 
         let generator = InvalidNodeNameGenerator;
@@ -494,8 +494,8 @@ mod tests {
 
     #[test]
     fn test_generate_with_attributes() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, ()> =
+            BagGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_edge(&a, &b, ());
@@ -514,8 +514,8 @@ mod tests {
     #[test]
     fn test_format_dot_value_quoting() {
         // Test that values are quoted when necessary
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, ()> =
+            BagGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
         let a = graph.add_node("hello world".to_string());
         let b = graph.add_node("foo-bar".to_string());
         graph.add_edge(&a, &b, ());
@@ -533,8 +533,8 @@ mod tests {
 
     #[test]
     fn test_generate_self_loop() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, ()> =
+            BagGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
         let a = graph.add_node("a".to_string());
         graph.add_edge(&a, &a, ());
 
@@ -549,8 +549,8 @@ mod tests {
 
     #[test]
     fn test_generate_multiple_edges() {
-        let mut graph: LinkedGraph<String, ()> =
-            LinkedGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, ()> =
+            BagGraph::new(Directedness::Directed, EdgeMultiplicity::MultipleEdges);
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         let c = graph.add_node("c".to_string());

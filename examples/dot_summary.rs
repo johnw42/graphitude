@@ -15,8 +15,8 @@ mod inner {
     use graphitude::directedness::Directedness;
     use graphitude::edge_multiplicity::EdgeMultiplicity;
     use graphitude::{
+        bag_graph::BagGraph,
         dot::{attr::Attr, parser::GraphBuilder},
-        linked_graph::LinkedGraph,
         prelude::*,
     };
 
@@ -65,11 +65,11 @@ mod inner {
         }
     }
 
-    fn parse_or_exit<B>(data: &str, builder: &mut B) -> LinkedGraph<NodeInfo, EdgeInfo>
+    fn parse_or_exit<B>(data: &str, builder: &mut B) -> BagGraph<NodeInfo, EdgeInfo>
     where
-        B: GraphBuilder<Graph = LinkedGraph<NodeInfo, EdgeInfo>>,
+        B: GraphBuilder<Graph = BagGraph<NodeInfo, EdgeInfo>>,
     {
-        match LinkedGraph::from_dot_string(data, builder) {
+        match BagGraph::from_dot_string(data, builder) {
             Ok(graph) => graph,
             Err(err) => {
                 eprintln!("Invalid DOT input: {err}");
@@ -173,7 +173,7 @@ mod inner {
     struct AttributeBuilder;
 
     impl GraphBuilder for AttributeBuilder {
-        type Graph = LinkedGraph<NodeInfo, EdgeInfo>;
+        type Graph = BagGraph<NodeInfo, EdgeInfo>;
         type Error = std::convert::Infallible;
 
         fn make_empty_graph(
@@ -182,7 +182,7 @@ mod inner {
             directedness: Directedness,
             edge_multiplicity: EdgeMultiplicity,
         ) -> Result<Self::Graph, Self::Error> {
-            Ok(LinkedGraph::new(directedness, edge_multiplicity))
+            Ok(BagGraph::new(directedness, edge_multiplicity))
         }
 
         fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<NodeInfo, Self::Error> {

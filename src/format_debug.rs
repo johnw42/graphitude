@@ -135,14 +135,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{linked_graph::LinkedGraph, prelude::*};
+    use crate::{bag_graph::BagGraph, prelude::*};
 
     #[cfg(feature = "bitvec")]
     use crate::adjacency_graph::AdjacencyGraph;
 
     #[test]
     fn test_format_debug() {
-        let mut graph = LinkedGraph::<&str, i32, Directed, MultipleEdges>::default();
+        let mut graph = BagGraph::<&str, i32, Directed, MultipleEdges>::default();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
         graph.add_new_edge(&n1, &n2, 10);

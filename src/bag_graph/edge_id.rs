@@ -7,9 +7,11 @@ use std::{
 
 use derivative::Derivative;
 
-use crate::{EdgeIdTrait, Graph, directedness::DirectednessTrait, graph_id::GraphIdClone};
+use crate::{
+    EdgeIdTrait, Graph, bag::BagKey, coordinate_pair::CoordinatePair, graph_id::GraphIdClone,
+};
 
-use super::{Edge, NodeId};
+use super::NodeId;
 
 /// Edge identifier for [`LinkedGraph`](super::LinkedGraph).
 ///
@@ -17,7 +19,8 @@ use super::{Edge, NodeId};
 #[derive(Derivative)]
 #[derivative(Clone(bound = "G::Directedness: Clone"))]
 pub struct EdgeId<G: Graph> {
-    pub(super) ptr: Weak<Edge<G>>,
+    pub(super) edge_key: BagKey,
+    pub(super) node_keys: CoordinatePair<BagKey, G::Directedness>,
     pub(super) graph_id: GraphIdClone,
     pub(super) directedness: G::Directedness,
 }
@@ -32,13 +35,13 @@ unsafe impl<G: Graph> Sync for EdgeId<G> {}
 
 impl<G: Graph> Debug for EdgeId<G> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EdgeId({:?}, {:?})", self.ptr, self.graph_id)
+        write!(f, "EdgeId({:?}, {:?})", self.edge_key, self.graph_id)
     }
 }
 
 impl<G: Graph> PartialEq for EdgeId<G> {
     fn eq(&self, other: &Self) -> bool {
-        self.ptr.as_ptr() == other.ptr.as_ptr()
+        self.edge_key == other.edge_key
     }
 }
 
@@ -46,7 +49,7 @@ impl<G: Graph> Eq for EdgeId<G> {}
 
 impl<G: Graph> Hash for EdgeId<G> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (self.ptr.as_ptr() as usize).hash(state);
+        self.edge_key.hash(state);
     }
 }
 
@@ -58,7 +61,7 @@ impl<G: Graph> PartialOrd for EdgeId<G> {
 
 impl<G: Graph> Ord for EdgeId<G> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.ptr.as_ptr().cmp(&other.ptr.as_ptr())
+        self.edge_key.cmp(&other.edge_key)
     }
 }
 
@@ -71,36 +74,18 @@ impl<G: Graph> EdgeIdTrait for EdgeId<G> {
     }
 
     fn left(&self) -> NodeId<G> {
-        self.ptr
-            .upgrade()
-            .map(|edge| NodeId {
-                ptr: Arc::downgrade(
-                    &edge
-                        .ends
-                        .first()
-                        .ptr
-                        .upgrade()
-                        .expect("Source node dangling"),
-                ),
-                graph_id: self.graph_id,
-            })
-            .expect("EdgeId is dangling")
+        NodeId {
+            key: self.node_keys.first().clone(),
+            graph_id: self.graph_id.clone(),
+            graph: PhantomData,
+        }
     }
 
     fn right(&self) -> NodeId<G> {
-        self.ptr
-            .upgrade()
-            .map(|edge| NodeId {
-                ptr: Arc::downgrade(
-                    &edge
-                        .ends
-                        .second()
-                        .ptr
-                        .upgrade()
-                        .expect("Target node dangling"),
-                ),
-                graph_id: self.graph_id,
-            })
-            .expect("EdgeId is dangling")
+        NodeId {
+            key: self.node_keys.first().clone(),
+            graph_id: self.graph_id.clone(),
+            graph: PhantomData,
+        }
     }
 }

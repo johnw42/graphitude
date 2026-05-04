@@ -55,15 +55,6 @@ pub struct Bag<T> {
     index: Vec<Option<BagKey>>,
 }
 
-impl<T> Default for Bag<T> {
-    fn default() -> Self {
-        Self {
-            data: Vec::new(),
-            index: Vec::new(),
-        }
-    }
-}
-
 impl<T> Bag<T> {
     #[cfg(test)]
     fn verify_index(&self) {
@@ -89,16 +80,32 @@ impl<T> Bag<T> {
         }
     }
 
+    /// Creates a new, empty bag.
+    pub fn new() -> Self {
+        Self {
+            data: Vec::new(),
+            index: Vec::new(),
+        }
+    }
+
     /// Inserts a value into the bag and returns a stable key that can be used
     /// to access it.  The key remains valid until the value is removed, even if
     /// other values are inserted or removed.  The key can be used to get a
     /// reference to the value, mutate it, or remove it from the bag.
     pub fn insert(&mut self, value: T) -> BagKey {
+        self.insert_mut(value).0
+    }
+
+    /// Inserts a value into the bag and returns a mutable reference to it along with its stable key.
+    pub fn insert_mut(&mut self, value: T) -> (BagKey, &mut T) {
         let id = BagKey::from_index(self.index.len());
         let data_key = BagKey::from_index(self.data.len());
         self.data.push((value, id));
         self.index.push(Some(data_key));
-        id
+        (
+            id,
+            &mut self.data.last_mut().expect("just inserted, should exist").0,
+        )
     }
 
     /// Returns a reference to the value associated with the given key, or
@@ -290,6 +297,12 @@ impl<T> Bag<T> {
         self.data
             .iter_mut()
             .map(|(value, logical_id)| (*logical_id, value))
+    }
+}
+
+impl<T> Default for Bag<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

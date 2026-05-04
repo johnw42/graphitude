@@ -1,15 +1,13 @@
-use std::{fmt::Debug, hash::Hash, sync::Weak};
-
-use crate::{Graph, graph_id::GraphIdClone};
-
-use super::Node;
+use crate::{Graph, bag::BagKey, graph_id::GraphIdClone};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 /// Node identifier for [`LinkedGraph`](super::LinkedGraph).
 ///
 /// Contains a weak pointer to the node data and a graph ID for safety checks.
 pub struct NodeId<G: Graph> {
-    pub(super) ptr: Weak<Node<G>>,
+    pub(super) key: BagKey,
     pub(super) graph_id: GraphIdClone,
+    pub(super) graph: PhantomData<G>,
 }
 
 // SAFETY: See comment on EdgeId.
@@ -18,22 +16,23 @@ unsafe impl<G: Graph> Sync for NodeId<G> {}
 
 impl<G: Graph> Debug for NodeId<G> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NodeId({:?})", self.ptr.as_ptr())
+        write!(f, "NodeId({:?})", self.key)
     }
 }
 
 impl<G: Graph> Clone for NodeId<G> {
     fn clone(&self) -> Self {
         NodeId {
-            ptr: Weak::clone(&self.ptr),
+            key: self.key,
             graph_id: self.graph_id,
+            graph: PhantomData,
         }
     }
 }
 
 impl<G: Graph> PartialEq for NodeId<G> {
     fn eq(&self, other: &Self) -> bool {
-        self.ptr.as_ptr() == other.ptr.as_ptr() && self.graph_id == other.graph_id
+        self.key == other.key && self.graph_id == other.graph_id
     }
 }
 
@@ -41,7 +40,7 @@ impl<G: Graph> Eq for NodeId<G> {}
 
 impl<G: Graph> Hash for NodeId<G> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.ptr.as_ptr().hash(state);
+        self.key.hash(state);
         self.graph_id.hash(state);
     }
 }
@@ -54,7 +53,7 @@ impl<G: Graph> PartialOrd for NodeId<G> {
 
 impl<G: Graph> Ord for NodeId<G> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.ptr.as_ptr().cmp(&other.ptr.as_ptr())
+        self.key.cmp(&other.key)
     }
 }
 

@@ -1,5 +1,5 @@
 mod linked {
-    pub use graphitude::{LinkedGraph, prelude::*};
+    pub use graphitude::{BagGraph, prelude::*};
     use graphitude::{
         directedness::Directedness,
         edge_multiplicity::EdgeMultiplicity,
@@ -26,10 +26,10 @@ mod linked {
         D: DirectednessTrait,
         M: EdgeMultiplicityTrait,
     {
-        type Graph = LinkedGraph<i32, String, D, M>;
+        type Graph = BagGraph<i32, String, D, M>;
 
         fn new_graph(&self) -> <Self as TestDataBuilder>::Graph {
-            LinkedGraph::new(self.directedness, self.edge_multiplicity)
+            BagGraph::new(self.directedness, self.edge_multiplicity)
         }
 
         fn new_edge_data(&self, i: usize) -> String {

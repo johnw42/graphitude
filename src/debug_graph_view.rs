@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{LinkedGraph, copier::GraphCopier, format_debug::format_debug, prelude::*};
+use crate::{BagGraph, copier::GraphCopier, format_debug::format_debug, prelude::*};
 
 /// A view of a graph with transformed node and edge data, suitable for debugging.
 ///
@@ -8,7 +8,7 @@ use crate::{LinkedGraph, copier::GraphCopier, format_debug::format_debug, prelud
 /// used for debug formatting. The transformation is applied once during construction,
 /// and the result is stored in an internal `LinkedGraph`.
 pub struct DebugGraphView<N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> {
-    inner: LinkedGraph<N, E, D, M>,
+    inner: BagGraph<N, E, D, M>,
 }
 
 impl<N, E, D, M> DebugGraphView<N, E, D, M>
@@ -43,9 +43,9 @@ where
     type Directedness = D;
     type EdgeMultiplicity = M;
     type NodeData = N;
-    type NodeId = <LinkedGraph<N, E, D, M> as Graph>::NodeId;
+    type NodeId = <BagGraph<N, E, D, M> as Graph>::NodeId;
     type EdgeData = E;
-    type EdgeId = <LinkedGraph<N, E, D, M> as Graph>::EdgeId;
+    type EdgeId = <BagGraph<N, E, D, M> as Graph>::EdgeId;
 
     fn directedness(&self) -> Self::Directedness {
         self.inner.directedness()
@@ -95,11 +95,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{LinkedGraph, Undirected};
+    use crate::{BagGraph, Undirected};
 
     #[test]
     fn test_new_empty_graph() {
-        let graph: LinkedGraph<i32, (), Directed, MultipleEdges> = LinkedGraph::default();
+        let graph: BagGraph<i32, (), Directed, MultipleEdges> = BagGraph::default();
         let view = DebugGraphView::new(&graph, |&n| n, |_| ());
 
         assert_eq!(view.node_ids().count(), 0);
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn test_new_with_nodes() {
-        let mut graph: LinkedGraph<i32, (), Directed, MultipleEdges> = LinkedGraph::default();
+        let mut graph: BagGraph<i32, (), Directed, MultipleEdges> = BagGraph::default();
         let _n1 = graph.add_node(10);
         let _n2 = graph.add_node(20);
         let _n3 = graph.add_node(30);
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_new_with_edges() {
-        let mut graph: LinkedGraph<&str, i32, Directed, MultipleEdges> = LinkedGraph::default();
+        let mut graph: BagGraph<&str, i32, Directed, MultipleEdges> = BagGraph::default();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
         let n3 = graph.add_node("C");
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_node_transformation() {
-        let mut graph: LinkedGraph<i32, (), Directed, MultipleEdges> = LinkedGraph::default();
+        let mut graph: BagGraph<i32, (), Directed, MultipleEdges> = BagGraph::default();
         graph.add_node(1);
         graph.add_node(2);
         graph.add_node(3);
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_edge_transformation() {
-        let mut graph: LinkedGraph<(), i32, Directed, MultipleEdges> = LinkedGraph::default();
+        let mut graph: BagGraph<(), i32, Directed, MultipleEdges> = BagGraph::default();
         let n1 = graph.add_node(());
         let n2 = graph.add_node(());
 
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_type_transformation() {
-        let mut graph: LinkedGraph<i32, f64, Directed, MultipleEdges> = LinkedGraph::default();
+        let mut graph: BagGraph<i32, f64, Directed, MultipleEdges> = BagGraph::default();
         let n1 = graph.add_node(42);
         let n2 = graph.add_node(100);
 
@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_edges_between() {
-        let mut graph: LinkedGraph<&str, i32, Directed, MultipleEdges> = LinkedGraph::default();
+        let mut graph: BagGraph<&str, i32, Directed, MultipleEdges> = BagGraph::default();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
 
@@ -214,7 +214,7 @@ mod tests {
 
     #[test]
     fn test_debug_format_directed() {
-        let mut graph: LinkedGraph<i32, &str, Directed, MultipleEdges> = LinkedGraph::default();
+        let mut graph: BagGraph<i32, &str, Directed, MultipleEdges> = BagGraph::default();
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_debug_format_undirected() {
-        let mut graph: LinkedGraph<i32, &str, Undirected, MultipleEdges> = LinkedGraph::default();
+        let mut graph: BagGraph<i32, &str, Undirected, MultipleEdges> = BagGraph::default();
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_debug_format_alternate() {
-        let mut graph: LinkedGraph<i32, &str, Directed, MultipleEdges> = LinkedGraph::default();
+        let mut graph: BagGraph<i32, &str, Directed, MultipleEdges> = BagGraph::default();
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 

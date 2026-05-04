@@ -17,7 +17,7 @@ mod inner {
     use graphitude::directedness::Directedness;
     use graphitude::edge_multiplicity::EdgeMultiplicity;
     use graphitude::generate_large_graph::generate_large_graph;
-    use graphitude::{dot::renderer::DotGenerator, linked_graph::LinkedGraph, prelude::*};
+    use graphitude::{bag_graph::BagGraph, dot::renderer::DotGenerator, prelude::*};
 
     /// Data type selector for CLI
     #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -174,7 +174,7 @@ mod inner {
         edge_prefix: &str,
         graph_kind: GraphKind,
         strict: bool,
-    ) -> LinkedGraph<Data, Data, Directedness, EdgeMultiplicity> {
+    ) -> BagGraph<Data, Data, Directedness, EdgeMultiplicity> {
         let directedness = match graph_kind {
             GraphKind::Directed => Directedness::Directed,
             GraphKind::Undirected => Directedness::Undirected,
@@ -184,7 +184,7 @@ mod inner {
         } else {
             EdgeMultiplicity::MultipleEdges
         };
-        let mut graph = LinkedGraph::new(directedness, edge_multiplicity);
+        let mut graph = BagGraph::new(directedness, edge_multiplicity);
         generate_large_graph(
             &mut graph,
             |i| node_data_for(i, node_type),
