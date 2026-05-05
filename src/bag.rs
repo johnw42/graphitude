@@ -4,6 +4,13 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+use crate::map_collector::MapCollector;
+
+/// A stable key type for entries in the `Bag`.  Internally, it is just an
+/// integer index.
+///
+/// The implementation uses `NonZero` to ensure that an `Option<BagKey>` can be
+/// represented as a single word.
 #[derive(Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct BagKey(NonZero<usize>);
 
@@ -23,17 +30,23 @@ impl Debug for BagKey {
     }
 }
 
-/// A bag implementation that maintains a mapping from stable keys to
-/// values using a dense index mapping. This allows for O(1) insertions and
+/// A bag implementation that maintains a mapping from stable keys to values
+/// using a dense index mapping. This allows for O(1) insertions, lookups, and
 /// removals by swapping removed elements with the last element in the data
 /// vector, while keeping track of the logical position of each element through
-/// a separate index vector.  The `data` vector stores the values along with
-/// their logical IDs, while the `index` vector maps logical IDs to their
-/// positions in the `data` vector. When an element is removed, its logical ID
-/// is marked as `None` in the `index` vector, and the last element in the
-/// `data` vector is moved to fill the gap, with its logical ID updated
-/// accordingly. This approach allows for efficient memory usage and fast
-/// operations while maintaining stable keys for accessing values.
+/// a separate index vector.
+///
+/// Keys are assigned sequentially starting from 0, so the maximum key for any
+/// value in the bag should be N-1, where N is the largest number of values that
+/// have been stored in the bag at once since the last call to `compact()`.
+///
+/// The `data` vector stores the values along with their logical IDs, while the
+/// `index` vector maps logical IDs to their positions in the `data` vector.
+/// When an element is removed, its logical ID is marked as `None` in the
+/// `index` vector, and the last element in the `data` vector is moved to fill
+/// the gap, with its logical ID updated accordingly. This approach allows for
+/// efficient memory usage and fast operations while maintaining stable keys for
+/// accessing values.
 pub struct Bag<T> {
     /// The data with reverse indices, stored in arbitrary order.
     /// Each element is (value, reverse_index) where reverse_index maps back to the logical position.
@@ -76,6 +89,10 @@ impl<T> Bag<T> {
         }
     }
 
+    /// Inserts a value into the bag and returns a stable key that can be used
+    /// to access it.  The key remains valid until the value is removed, even if
+    /// other values are inserted or removed.  The key can be used to get a
+    /// reference to the value, mutate it, or remove it from the bag.
     pub fn insert(&mut self, value: T) -> BagKey {
         let id = BagKey::from_index(self.index.len());
         let data_key = BagKey::from_index(self.data.len());
@@ -84,11 +101,15 @@ impl<T> Bag<T> {
         id
     }
 
+    /// Returns a reference to the value associated with the given key, or
+    /// `None` if the key is invalid or has been removed.
     pub fn get(&self, key: BagKey) -> Option<&T> {
         let data_key = (*self.index.get(key.to_index())?)?;
         Some(&self.data[data_key.to_index()].0)
     }
 
+    /// Returns a mutable reference to the value associated with the given key, or
+    /// `None` if the key is invalid or has been removed.
     pub fn get_mut(&mut self, key: BagKey) -> Option<&mut T> {
         if key.to_index() >= self.index.len() {
             return None;
@@ -99,6 +120,12 @@ impl<T> Bag<T> {
         }
     }
 
+    /// Removes the value associated with the given key and returns it, or
+    /// `None` if the key is invalid or has already been removed.
+    ///
+    /// This operation maintains the stability of other keys by swapping the
+    /// removed element with the last element in the data vector and updating
+    /// the index mapping accordingly.
     pub fn remove(&mut self, key: BagKey) -> Option<T> {
         if key.to_index() >= self.index.len() {
             return None;
@@ -117,45 +144,111 @@ impl<T> Bag<T> {
         Some(removed_value)
     }
 
+    /// Returns the number of values currently in the bag.
     pub fn len(&self) -> usize {
         self.data.len()
     }
 
+    /// Returns `true` if the bag is empty, i.e., contains no values.
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
+    /// Removes all values from the bag, leaving it empty.  This does not change
+    /// the capacity of the underlying storage, so it can be used to quickly
+    /// clear the bag without deallocating memory.
     pub fn clear(&mut self) {
         self.data.clear();
         self.index.clear();
     }
 
+    /// Returns the total capacity of the bag, which is the maximum number of
+    /// values it can hold without reallocating.  This is typically greater than
+    /// or equal to the current length of the bag, depending on how many
+    /// insertions and removals have occurred.
     pub fn capacity(&self) -> usize {
-        self.data.capacity()
+        let extra_data_capacity = self.data.capacity() - self.data.len();
+        let extra_index_capacity = self.index.capacity() - self.index.len();
+        self.len() + extra_data_capacity.min(extra_index_capacity)
     }
 
+    /// Reserves capacity for at least `additional` more values to be inserted
+    /// into the bag without additional allocations.
     pub fn reserve(&mut self, additional: usize) {
         self.data.reserve(additional);
         self.index.reserve(additional);
     }
 
+    /// Reserves the minimum capacity for at at least `additional` more values
+    /// to be inserted into the bag without additional allocations, without
+    /// deliberately overallocating.
     pub fn reserve_exact(&mut self, additional: usize) {
-        self.data.reserve_exact(additional);
-        self.index.reserve_exact(additional);
+        let extra_data_capacity = self.data.capacity() - self.data.len();
+        let extra_index_capacity = self.index.capacity() - self.index.len();
+        if extra_data_capacity >= additional && extra_index_capacity >= additional {
+            return;
+        }
+        self.data.reserve_exact(additional - extra_data_capacity);
+        self.index.reserve_exact(additional - extra_index_capacity);
     }
 
+    /// Shrinks the capacity of the bag to fit its current length, which can
+    /// help reduce memory usage if the bag has had many insertions and
+    /// removals.  This does not change the logical keys of existing values, so
+    /// they remain valid after shrinking.
+    ///
+    /// Consider calling `compact` instead if changing the keys of items in the
+    /// bag is acceptable, as that can also reduce fragmentation in the index
+    /// and improve cache locality.
     pub fn shrink_to_fit(&mut self) {
         self.data.shrink_to_fit();
         self.index.shrink_to_fit();
     }
 
-    pub fn iter_keys(&self) -> impl Iterator<Item = BagKey> {
-        self.index
-            .iter()
-            .enumerate()
-            .filter_map(|(i, opt)| opt.as_ref().map(|_| BagKey::from_index(i)))
+    /// Compacts the bag by reassigning keys to be contiguous from 0 to
+    /// `len() - 1`, and optionally collecting the mapping from old keys to
+    /// new keys using the provided `MapCollector`.  This will reduce the
+    /// memory usage of the bag as much as possible.
+    pub fn compact(&mut self, mut collector: Option<impl MapCollector<BagKey>>) {
+        let mut new_index = Vec::with_capacity(self.data.len());
+
+        for (logical_id, (data, old_key)) in self.data.iter_mut().enumerate() {
+            let new_key = BagKey::from_index(logical_id);
+            new_index.push(Some(new_key));
+            if let Some(collector) = &mut collector {
+                collector.insert(*old_key, new_key);
+            }
+            *old_key = new_key;
+        }
+
+        self.index = new_index;
     }
 
+    /// Returns an iterator over the keys of the values currently in the bag.
+    /// The keys are stable and can be used to access the values, but they are
+    /// not guaranteed to be in any particular order.
+    ///
+    /// In particular, calling `bag.keys().zip(bag.iter())` is unlikey to
+    /// produce pairs of matching keys and values, because the order of the
+    /// iterators is not guaranteed to be the same.  If you need to iterate over
+    /// key-value pairs, use `bag.pairs()` or `bag.pairs_mut()`
+    /// instead.
+    pub fn keys(&self) -> impl Iterator<Item = BagKey> {
+        let keys_from_index = self
+            .index
+            .iter()
+            .enumerate()
+            .filter_map(|(i, opt)| opt.as_ref().map(|_| BagKey::from_index(i)));
+        let keys_from_data = self.data.iter().map(|(_value, logical_id)| *logical_id);
+        let use_keys_from_index = self.index.len() <= 2 * self.data.len();
+        keys_from_index
+            .take_while(move |_| use_keys_from_index)
+            .chain(keys_from_data.take_while(move |_| !use_keys_from_index))
+    }
+
+    /// Returns an iterator over references to the values currently in the bag.
+    /// The order of values is unspecified and may change as values are inserted
+    /// and removed.
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
     where
         T: 'a,
@@ -163,6 +256,9 @@ impl<T> Bag<T> {
         self.data.iter().map(|(value, _)| value)
     }
 
+    /// Returns an iterator over mutable references to the values currently in
+    /// the bag.  The order of values is unspecified and may change as values
+    /// are inserted and removed.
     pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut T>
     where
         T: 'a,
@@ -170,7 +266,11 @@ impl<T> Bag<T> {
         self.data.iter_mut().map(|(value, _)| value)
     }
 
-    pub fn iter_pairs<'a>(&'a self) -> impl Iterator<Item = (BagKey, &'a T)>
+    /// Gets an iterator over key-value pairs in the bag.  The keys are stable
+    /// and can be used to access the values, but they are not guaranteed to be
+    /// in any particular order.  The order of pairs may change as values are
+    /// inserted and removed.
+    pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (BagKey, &'a T)>
     where
         T: 'a,
     {
@@ -179,7 +279,11 @@ impl<T> Bag<T> {
             .map(|(value, logical_id)| (*logical_id, value))
     }
 
-    pub fn iter_pairs_mut<'a>(&'a mut self) -> impl Iterator<Item = (BagKey, &'a mut T)>
+    /// Gets an iterator over key-value pairs in the bag, where the values are
+    /// mutable references.  The keys are stable and can be used to access the
+    /// values, but they are not guaranteed to be in any particular order.  The
+    /// order of pairs may change as values are inserted and removed.
+    pub fn pairs_mut<'a>(&'a mut self) -> impl Iterator<Item = (BagKey, &'a mut T)>
     where
         T: 'a,
     {
@@ -207,7 +311,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut debug = f.debug_map();
-        for (key, value) in self.iter_pairs() {
+        for (key, value) in self.pairs() {
             debug.entry(&key, value);
         }
         debug.finish()
@@ -243,15 +347,17 @@ mod tests {
         Remove(usize),
         Mutate(usize),
         MutateAll(),
+        Compact,
     }
 
     impl Arbitrary for BagOp {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            match u32::arbitrary(g) % 5 {
+            match u32::arbitrary(g) % 6 {
                 0..2 => BagOp::Insert,
                 2 => BagOp::Remove(usize::arbitrary(g)),
                 3 => BagOp::Mutate(usize::arbitrary(g)),
                 4 => BagOp::MutateAll(),
+                5 => BagOp::Compact,
                 choice => unreachable!("Invalid value for BagOp: {}", choice),
             }
         }
@@ -262,11 +368,11 @@ mod tests {
         let mut bag: Bag<i32> = Bag::default();
         assert!(bag.is_empty());
         assert_eq!(bag.len(), 0);
-        assert_eq!(bag.iter_keys().count(), 0);
+        assert_eq!(bag.keys().count(), 0);
         assert_eq!(bag.iter().count(), 0);
-        assert_eq!(bag.iter_pairs().count(), 0);
+        assert_eq!(bag.pairs().count(), 0);
         assert_eq!(bag.iter_mut().count(), 0);
-        assert_eq!(bag.iter_pairs_mut().count(), 0);
+        assert_eq!(bag.pairs_mut().count(), 0);
         bag.verify_index();
     }
 
@@ -279,12 +385,9 @@ mod tests {
         assert_eq!(bag.len(), 2);
         assert_eq!(bag.get(k1), Some(&1));
         assert_eq!(bag.get(k2), Some(&2));
-        assert_eq!(bag.iter_keys().collect::<Vec<_>>(), vec![k1, k2]);
+        assert_eq!(bag.keys().collect::<Vec<_>>(), vec![k1, k2]);
         assert_eq!(bag.iter().collect::<Vec<_>>(), vec![&1, &2]);
-        assert_eq!(
-            bag.iter_pairs().collect::<Vec<_>>(),
-            vec![(k1, &1), (k2, &2)]
-        );
+        assert_eq!(bag.pairs().collect::<Vec<_>>(), vec![(k1, &1), (k2, &2)]);
         bag.verify_index();
     }
 
@@ -297,9 +400,9 @@ mod tests {
         assert_eq!(bag.remove(k1), Some(42));
         assert_eq!(bag.len(), 1);
         assert_eq!(bag.get(k2), Some(&100));
-        assert_eq!(bag.iter_keys().collect::<Vec<_>>(), vec![k2]);
+        assert_eq!(bag.keys().collect::<Vec<_>>(), vec![k2]);
         assert_eq!(bag.iter().collect::<Vec<_>>(), vec![&100]);
-        assert_eq!(bag.iter_pairs().collect::<Vec<_>>(), vec![(k2, &100)]);
+        assert_eq!(bag.pairs().collect::<Vec<_>>(), vec![(k2, &100)]);
         bag.verify_index();
     }
 
@@ -394,16 +497,16 @@ mod tests {
     }
 
     #[test]
-    fn test_iter_keys() {
+    fn test_keys() {
         let mut bag: Bag<i32> = Bag::default();
-        let _k1 = bag.insert(10);
+        let k1 = bag.insert(10);
         let k2 = bag.insert(20);
-        let _k3 = bag.insert(30);
+        let k3 = bag.insert(30);
 
         bag.remove(k2);
 
-        let indices: Vec<_> = bag.iter_keys().collect();
-        assert_eq!(indices.len(), 2);
+        let expected_keys = HashSet::from([k1, k3]);
+        assert_eq!(bag.keys().collect::<HashSet<_>>(), expected_keys);
         bag.verify_index();
     }
 
@@ -414,8 +517,9 @@ mod tests {
         bag.insert(2);
         bag.insert(3);
 
-        let count = bag.iter().count();
-        assert_eq!(count, 3);
+        let expected_values = HashSet::from([1, 2, 3]);
+        let values: HashSet<_> = bag.iter().cloned().collect();
+        assert_eq!(values, expected_values);
         bag.verify_index();
     }
 
@@ -457,14 +561,18 @@ mod tests {
         assert_eq!(bag.get(k2), Some(&2));
         assert_eq!(bag.get(k4), Some(&4));
         assert_eq!(bag.get(k5), Some(&5));
-        assert_eq!(bag.iter_keys().collect::<Vec<_>>(), vec![k2, k4, k5]);
-        assert_eq!(bag.iter().collect::<Vec<_>>(), vec![&2, &4, &5]);
         assert_eq!(
-            bag.iter_pairs().collect::<Vec<_>>(),
-            vec![(k2, &2), (k4, &4), (k5, &5)]
+            bag.keys().collect::<HashSet<_>>(),
+            HashSet::from([k2, k4, k5])
         );
-        dbg!(&bag);
-        panic!();
+        assert_eq!(
+            bag.iter().collect::<HashSet<_>>(),
+            HashSet::from([&2, &4, &5])
+        );
+        assert_eq!(
+            bag.pairs().collect::<HashSet<_>>(),
+            HashSet::from([(k2, &2), (k4, &4), (k5, &5)])
+        );
     }
 
     #[quickcheck]
@@ -504,20 +612,32 @@ mod tests {
                     }
                 }
                 BagOp::MutateAll() => {
-                    for (key, val) in bag.iter_pairs_mut() {
+                    for (key, val) in bag.pairs_mut() {
                         *val *= 2;
                         map.get_mut(&key).map(|v| *v *= 2);
                     }
+                }
+                BagOp::Compact => {
+                    let mut key_map = HashMap::new();
+                    bag.compact(Some(&mut key_map));
+                    let mut new_map = HashMap::new();
+                    for (old_key, new_key) in key_map {
+                        new_map.insert(
+                            new_key,
+                            map.remove(&old_key).expect("old key should exist in map"),
+                        );
+                    }
+                    map = new_map;
                 }
             }
             bag.verify_index();
             for (key, value) in map.iter() {
                 assert_eq!(bag.get(*key), Some(value));
             }
-            for (key, value) in bag.iter_pairs() {
+            for (key, value) in bag.pairs() {
                 assert_eq!(map.get(&key), Some(value));
             }
-            for key in bag.iter_keys() {
+            for key in bag.keys() {
                 assert!(map.contains_key(&key));
                 assert_eq!(bag[key], map[&key]);
             }
@@ -541,31 +661,35 @@ mod tests {
     #[test]
     fn test_iter_pairs() {
         let mut bag: Bag<i32> = Bag::default();
-        let _k1 = bag.insert(10);
+        let k1 = bag.insert(10);
         let k2 = bag.insert(20);
-        let _k3 = bag.insert(30);
+        let k3 = bag.insert(30);
 
         bag.remove(k2);
 
-        let pairs: Vec<_> = bag.iter_pairs().collect();
-        assert_eq!(pairs.len(), 2);
+        assert_eq!(
+            bag.pairs().collect::<HashSet<_>>(),
+            HashSet::from([(k1, &10), (k3, &30)])
+        );
     }
 
     #[test]
     fn test_iter_pairs_mut() {
         let mut bag: Bag<i32> = Bag::default();
-        let _k1 = bag.insert(10);
+        let k1 = bag.insert(10);
         let k2 = bag.insert(20);
-        let _k3 = bag.insert(30);
+        let k3 = bag.insert(30);
 
         bag.remove(k2);
 
-        for (_k, _val) in bag.iter_pairs_mut() {
-            // Just verify iteration works
+        for (k, val) in bag.pairs_mut() {
+            *val = (k.to_index() as i32) * 2;
         }
 
-        let pairs: Vec<_> = bag.iter_pairs().collect();
-        assert_eq!(pairs.len(), 2);
+        assert_eq!(
+            bag.pairs().collect::<HashSet<_>>(),
+            HashSet::from([(k1, &0), (k3, &4)])
+        );
     }
 
     #[test]

@@ -99,7 +99,7 @@ where
     }
 
     fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
-        self.nodes.iter_keys().map(|key| self.node_id(key))
+        self.nodes.keys().map(|key| self.node_id(key))
     }
 
     fn edge_data(&self, eid: &Self::EdgeId) -> &Self::EdgeData {

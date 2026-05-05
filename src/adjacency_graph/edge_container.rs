@@ -119,7 +119,7 @@ impl<T> EdgeContainer<T> for MultipleItems<T> {
     where
         T: 'a,
     {
-        self.inner.iter_pairs()
+        self.inner.pairs()
     }
 }
 

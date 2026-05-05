@@ -36,6 +36,7 @@ pub mod edge_multiplicity;
 pub mod generate_large_graph;
 pub mod graph_traits;
 pub mod linked_graph;
+pub mod map_collector;
 pub mod object_graph;
 pub mod path;
 pub mod prelude;
