@@ -137,45 +137,13 @@ mod adjacency {
         }
     }
 
-    // macro_rules! graph_test_suite_with_compaction {
-    //     ($mod_name:ident, $builder_type:ty) => {
-    //         #[cfg(not(feature = "unchecked"))]
-    //         #[test]
-    //         #[should_panic]
-    //         fn test_check_node_id_panics_after_compaction() {
-    //             type Graph = <$builder as TestDataBuilder>::Graph;
-    //             let mut graph = Graph::default();
-    //             let n1 = graph.add_node(1);
-    //             graph.compact();
-    //             graph.assert_valid_node_id(&n1);
-    //         }
-
-    //         #[cfg(not(feature = "unchecked"))]
-    //         #[test]
-    //         #[should_panic]
-    //         fn test_check_edge_id_panics_after_compaction() {
-    //             type Graph = <$builder as TestDataBuilder>::Graph;
-    //             let mut graph = Graph::default();
-    //             let n1 = graph.add_node(1);
-    //             let n2 = graph.add_node(2);
-    //             if let AddEdgeResult::Added(e1) = graph.add_edge(&n1, &n2, "edge".to_string()) {
-    //                 graph.compact();
-    //                 graph.assert_valid_edge_id(&e1);
-    //             }
-    //         }
-    //     };
-    // }
-
     graph_test_suite!(
         directed_single_bitvec:
         GraphTests<AdjacencyGraphBuilder<Directed, SingleEdge, BitvecStorage>> =
         GraphTests::new(
             AdjacencyGraphBuilder::new(),
             |data| data * 2,
-            |data: &String| format!("{}-copied", data))
-
-        //test_compaction!(AdjacencyGraphBuilder<Directed, SingleEdge, BitvecStorage>);
-    );
+            |data: &String| format!("{}-copied", data)));
 
     graph_test_suite!(
         undirected_single_bitvec:
@@ -183,10 +151,7 @@ mod adjacency {
         GraphTests::new(
             AdjacencyGraphBuilder::new(),
             |data| data * 2,
-            |data: &String| format!("{}-copied", data))
-
-        //test_compaction!(AdjacencyGraphBuilder<Undirected, SingleEdge, BitvecStorage>);
-    );
+            |data: &String| format!("{}-copied", data)));
 
     graph_test_suite!(
         directed_single_hash:
@@ -210,10 +175,7 @@ mod adjacency {
         GraphTests::new(
             AdjacencyGraphBuilder::new(),
             |data| data * 2,
-            |data: &String| format!("{}-copied", data))
-
-        // test_compaction!(AdjacencyGraphBuilder<Directed, MultipleEdges, BitvecStorage>);
-    );
+            |data: &String| format!("{}-copied", data)));
 
     graph_test_suite!(
         undirected_multiple_bitvec:
@@ -221,10 +183,7 @@ mod adjacency {
         GraphTests::new(
             AdjacencyGraphBuilder::new(),
             |data| data * 2,
-            |data: &String| format!("{}-copied", data))
-
-        // test_compaction!(AdjacencyGraphBuilder<Undirected, MultipleEdges, BitvecStorage>);
-    );
+            |data: &String| format!("{}-copied", data)));
 
     graph_test_suite!(
         directed_multiple_hash:
