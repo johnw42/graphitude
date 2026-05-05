@@ -99,6 +99,14 @@ where
     {
         other_value(self.into_values(), value)
     }
+
+    pub fn map<U, F>(&self, mut f: F) -> CoordinatePair<U, D>
+    where
+        F: FnMut(&T) -> U,
+        U: Ord,
+    {
+        CoordinatePair::new(f(self.first()), f(self.second()), self.directedness)
+    }
 }
 
 impl<T: Ord, D: DirectednessTrait + Default> From<(T, T)> for CoordinatePair<T, D> {

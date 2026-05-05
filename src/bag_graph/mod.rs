@@ -1,4 +1,4 @@
-use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
 use crate::{
     bag::{Bag, BagKey},
@@ -9,6 +9,7 @@ use crate::{
     format_debug::format_debug,
     graph_id::GraphId,
     graph_traits::AddEdgeResult,
+    map_collector::MapCollector,
     prelude::*,
     util::OtherValue,
 };
@@ -132,7 +133,7 @@ where
     }
 
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
-        self.nodes.iter_keys().map(|node| self.node_id(node))
+        self.nodes.keys().map(|node| self.node_id(node))
     }
 
     fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
@@ -140,7 +141,7 @@ where
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
-        self.edges.iter_pairs().map(|(edge_key, edge)| EdgeId {
+        self.edges.pairs().map(|(edge_key, edge)| EdgeId {
             edge_key,
             node_keys: edge.ends.clone(),
             graph_id: self.id.clone(),
@@ -354,6 +355,42 @@ where
         }
 
         edge.data
+    }
+
+    fn compact<NC, EC>(&mut self, node_map_collector: Option<NC>, edge_map_collector: Option<EC>)
+    where
+        NC: MapCollector<Self::NodeId>,
+        EC: MapCollector<Self::EdgeId>,
+    {
+        let mut node_map = HashMap::with_capacity(self.nodes.len());
+        let mut edge_map = HashMap::with_capacity(self.edges.len());
+        self.nodes.compact(Some(&mut node_map));
+        self.edges.compact(Some(&mut edge_map));
+        for node in self.nodes.iter_mut() {
+            node.edges_out = node
+                .edges_out
+                .iter()
+                .map(|edge_key| edge_map[edge_key])
+                .collect();
+            node.edges_in = node
+                .edges_in
+                .iter()
+                .map(|edge_key| edge_map[edge_key])
+                .collect();
+        }
+        for edge in self.edges.iter_mut() {
+            edge.ends = edge.ends.map(|node_key| node_map[&node_key]);
+        }
+        if let Some(mut node_map_collector) = node_map_collector {
+            for (old_key, new_key) in node_map {
+                node_map_collector.insert(self.node_id(old_key), self.node_id(new_key));
+            }
+        }
+        if let Some(mut edge_map_collector) = edge_map_collector {
+            for (old_key, new_key) in edge_map {
+                edge_map_collector.insert(self.edge_id(old_key), self.edge_id(new_key));
+            }
+        }
     }
 }
 

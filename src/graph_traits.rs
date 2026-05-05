@@ -11,6 +11,7 @@ use {
 
 use crate::{
     debug_graph_view::DebugGraphView,
+    map_collector::MapCollector,
     path::Path,
     prelude::*,
     search::{BfsIterator, BfsIteratorWithPaths, DfsIterator, DfsIteratorWithPaths},
@@ -698,22 +699,16 @@ pub trait GraphMut: Graph {
 
     /// Compacts internal storage used by the graph to minimize memory usage
     /// without reallocation.  Does nothing by default.  May invalidate existing
-    /// NodeIds and EdgeIds.
-    fn compact(&mut self) {
-        self.compact_with(|_, _| {}, |_, _| {});
-    }
-
-    /// Compacts internal storage used by the graph to minimize memory usage
-    /// without reallocation.  Does nothing by default.  May invalidate existing
-    /// NodeIds and EdgeIds.  Calls a closure for each node ID mapping
-    /// (old_id, new_id) and edge ID mapping (old_id, new_id) as they are created.
-    fn compact_with(
-        &mut self,
-        mut node_id_callback: impl FnMut(&'_ Self::NodeId, &'_ Self::NodeId),
-        mut edge_id_callback: impl FnMut(&'_ Self::EdgeId, &'_ Self::EdgeId),
-    ) {
-        let _ = &mut node_id_callback;
-        let _ = &mut edge_id_callback;
+    /// NodeIds and EdgeIds.  If `node_map_collector` or `edge_map_collector` is
+    /// provided, it will be used to collect mappings from old NodeIds and
+    /// EdgeIds to new ones.
+    fn compact<NC, EC>(&mut self, node_map_collector: Option<NC>, edge_map_collector: Option<EC>)
+    where
+        NC: MapCollector<Self::NodeId>,
+        EC: MapCollector<Self::EdgeId>,
+    {
+        let _ = node_map_collector;
+        let _ = edge_map_collector;
     }
 
     /// Shrinks internal storage used by the graph to fit its current size.

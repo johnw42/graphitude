@@ -149,12 +149,12 @@ mod tests {
 
         // Single-line output.
         let output = format!("{:?}", &graph);
-        let expected = r#"LinkedGraph { nodes: {0: "A", 1: "B"}, edges: {0 -> 1: 10} }"#;
+        let expected = r#"BagGraph { nodes: {0: "A", 1: "B"}, edges: {0 -> 1: 10} }"#;
         assert_eq!(output, expected);
 
         // Multi-line output.
         let output = format!("{:#?}", &graph);
-        let expected = r#"LinkedGraph {
+        let expected = r#"BagGraph {
     nodes: {
         0: "A",
         1: "B",

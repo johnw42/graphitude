@@ -11,6 +11,7 @@ use crate::{
     directedness::DirectednessTrait,
     format_debug::format_debug,
     graph_id::GraphId,
+    map_collector::MapCollector,
     prelude::*,
 };
 
@@ -363,17 +364,6 @@ where
     fn reserve_exact(&mut self, additional_nodes: usize, additional_edges: usize) {
         self.nodes.reserve_exact(additional_nodes);
         self.adjacency.reserve_exact(additional_edges);
-    }
-
-    fn compact(&mut self) {
-        self.compact_with(|_, _| {}, |_, _| {});
-    }
-
-    fn compact_with(
-        &mut self,
-        mut node_id_callback: impl FnMut(&Self::NodeId, &Self::NodeId),
-        mut edge_id_callback: impl FnMut(&Self::EdgeId, &Self::EdgeId),
-    ) {
     }
 
     fn shrink_to_fit(&mut self) {

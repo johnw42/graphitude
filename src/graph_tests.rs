@@ -40,6 +40,8 @@ where
 }
 
 type TestGraph<B> = <B as TestDataBuilder>::Graph;
+type TestNodeId<B> = <TestGraph<B> as Graph>::NodeId;
+type TestEdgeId<B> = <TestGraph<B> as Graph>::EdgeId;
 type TestNodeData<B> = <TestGraph<B> as Graph>::NodeData;
 type TestEdgeData<B> = <TestGraph<B> as Graph>::EdgeData;
 
@@ -540,7 +542,7 @@ where
 
         // We use a hash set instead of a vec so the nodes are removed in
         // random order.
-        let mut node_ids = graph.node_ids().collect::<std::collections::HashSet<_>>();
+        let mut node_ids = graph.node_ids().collect::<HashSet<_>>();
 
         // We deliberately fix the number of iterations because we know it
         // in advance; each iteraction removes one node.
@@ -567,14 +569,14 @@ where
 
                 {
                     let _span = info_span!("compact").entered();
-                    graph.compact_with(
-                        |old_id, new_id| {
-                            let removed = node_ids.remove(old_id);
+                    graph.compact(
+                        Some(|old_id: TestNodeId<B>, new_id: TestNodeId<B>| {
+                            let removed = node_ids.remove(&old_id);
                             assert!(removed);
                             let inserted = node_ids.insert(new_id.clone());
                             assert!(inserted);
-                        },
-                        |_, _new_e| {},
+                        }),
+                        Option::<fn(_, _)>::None,
                     );
                 }
                 assert_eq!(graph.num_nodes(), num_nodes);
@@ -621,7 +623,7 @@ where
 
         // We use a hash set instead of a vec so the edges are removed in
         // random order.
-        let mut edge_ids = graph.edge_ids().collect::<std::collections::HashSet<_>>();
+        let mut edge_ids = graph.edge_ids().collect::<HashSet<_>>();
 
         let _remove_loop_span = info_span!("remove_edges_loop").entered();
         for i in 0..edge_ids.len() {
@@ -632,14 +634,14 @@ where
 
                 {
                     let _span = info_span!("compact").entered();
-                    graph.compact_with(
-                        |_, _| {},
-                        |old_id, new_id| {
-                            let removed = edge_ids.remove(old_id);
+                    graph.compact(
+                        Option::<fn(_, _)>::None,
+                        Some(|old_id: TestEdgeId<B>, new_id: TestEdgeId<B>| {
+                            let removed = edge_ids.remove(&old_id);
                             assert!(removed);
                             let inserted = edge_ids.insert(new_id.clone());
                             assert!(inserted);
-                        },
+                        }),
                     );
                 }
                 assert_eq!(graph.num_nodes(), num_nodes);
@@ -1341,16 +1343,9 @@ where
         assert_eq!(graph.node_ids().count(), 2);
         assert_eq!(graph.edge_ids().count(), 2);
 
-        let mut nid_map = std::collections::HashMap::new();
-        let mut eid_map = std::collections::HashMap::new();
-        graph.compact_with(
-            |old_nid, new_nid| {
-                nid_map.insert(old_nid.clone(), new_nid.clone());
-            },
-            |old_eid, new_eid| {
-                eid_map.insert(old_eid.clone(), new_eid.clone());
-            },
-        );
+        let mut nid_map = HashMap::new();
+        let mut eid_map = HashMap::new();
+        graph.compact(Some(&mut nid_map), Some(&mut eid_map));
         assert_eq!(graph.node_ids().count(), 2);
         assert_eq!(graph.edge_ids().count(), 2);
 
