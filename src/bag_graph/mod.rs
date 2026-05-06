@@ -301,34 +301,34 @@ where
         let node = self.nodes.remove(node_key).expect("NodeId is invalid");
         let is_directed = self.is_directed();
 
-        // Remove outgoing edges from other nodes
-        for edge_key in &node.edges_out {
-            // For undirected graphs, the "other" node could be either edge.from or edge.into
-            let edge = &self.edges[*edge_key];
-            match edge.ends.other_value(&node_key) {
-                OtherValue::First(other_node_key) | OtherValue::Second(other_node_key) => {
-                    let other_node = &mut self.nodes[*other_node_key];
-                    if is_directed {
-                        // For directed graphs, remove from edges_in
-                        other_node.edges_in.retain(|key| *key != *edge_key);
-                    } else {
-                        // For undirected graphs, remove from edges_out
-                        other_node.edges_out.retain(|key| *key != *edge_key);
-                    }
-                }
-                OtherValue::Both(_) => {}
-            };
-        }
-
         if is_directed {
-            // For directed graphs, also remove incoming edges from source nodes' edges_out
+            for edge_key in &node.edges_out {
+                let edge = &self.edges[*edge_key];
+                let &other_node_key = edge.ends.other_value(&node_key).into_inner();
+                if other_node_key != node_key {
+                    let other_node = &mut self.nodes[other_node_key];
+                    other_node.edges_out.retain(|key| *key != *edge_key);
+                    self.edges.remove(*edge_key);
+                }
+            }
             for edge_key in &node.edges_in {
                 let edge = &self.edges[*edge_key];
-                let from_key = edge.ends.first();
-                if *from_key != node_key {
-                    let from_node = &mut self.nodes[*from_key];
-                    from_node.edges_out.retain(|key| *key != *edge_key);
+                let &other_node_key = edge.ends.other_value(&node_key).into_inner();
+                if other_node_key != node_key {
+                    let other_node = &mut self.nodes[other_node_key];
+                    other_node.edges_out.retain(|key| *key != *edge_key);
                 }
+                self.edges.remove(*edge_key);
+            }
+        } else {
+            for edge_key in &node.edges_out {
+                let edge = &self.edges[*edge_key];
+                let &other_node_key = edge.ends.other_value(&node_key).into_inner();
+                if other_node_key != node_key {
+                    let other_node = &mut self.nodes[other_node_key];
+                    other_node.edges_out.retain(|key| *key != *edge_key);
+                }
+                self.edges.remove(*edge_key);
             }
         }
 
