@@ -9,15 +9,15 @@ use crate::prelude::*;
 use crate::tracing_support::{TimingScope, init_tracing, set_timing_scope};
 
 #[derive(Debug)]
-pub struct ArbGraph<G: Graph> {
+pub struct ArbGraph<G: Graph<NodeData = String, EdgeData = String>> {
     /// The graph to test.
     pub graph: G,
     /// The node data used to construct the graph, for verification purposes.
-    pub node_data: Vec<G::NodeData>,
+    pub node_data: Vec<String>,
     /// The edge data used to construct the graph, for verification purposes.
     /// Contains a pair of indices into the `node_data` vector for the source
     /// and target of each edge, along with the edge data.
-    pub edge_data: Vec<((usize, usize), G::EdgeData)>,
+    pub edge_data: Vec<((usize, usize), String)>,
     /// The node IDs corresponding to the `node_data` vector, for verification purposes.
     pub node_ids: Vec<G::NodeId>,
     /// The edge IDs corresponding to the `edge_data` vector, for verification purposes.
@@ -26,15 +26,13 @@ pub struct ArbGraph<G: Graph> {
 
 impl<G> ArbGraph<G>
 where
-    G: GraphMut + 'static,
-    G::NodeData: Arbitrary + Clone + Hash + Eq + 'static,
-    G::EdgeData: Arbitrary + Clone + Hash + Eq + 'static,
+    G: GraphMut<NodeData = String, EdgeData = String> + 'static,
 {
     pub fn new(
         directedness: G::Directedness,
         edge_multiplicity: G::EdgeMultiplicity,
-        node_data: Vec<G::NodeData>,
-        edge_data: Vec<((usize, usize), G::EdgeData)>,
+        node_data: Vec<String>,
+        edge_data: Vec<((usize, usize), String)>,
     ) -> Self {
         let mut graph = G::new(directedness, edge_multiplicity);
         let mut node_ids = Vec::new();
@@ -59,9 +57,7 @@ where
 
 impl<G> Clone for ArbGraph<G>
 where
-    G: GraphMut + 'static,
-    G::NodeData: Arbitrary + Clone + Hash + Eq + 'static,
-    G::EdgeData: Arbitrary + Clone + Hash + Eq + 'static,
+    G: GraphMut<NodeData = String, EdgeData = String> + 'static,
 {
     fn clone(&self) -> Self {
         Self::new(
@@ -75,9 +71,7 @@ where
 
 impl<G> Arbitrary for ArbGraph<G>
 where
-    G: GraphMut + 'static,
-    G::NodeData: Arbitrary + Clone + Hash + Eq + 'static,
-    G::EdgeData: Arbitrary + Clone + Hash + Eq + 'static,
+    G: GraphMut<NodeData = String, EdgeData = String> + 'static,
 {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         let num_nodes = usize::arbitrary(g) % (g.size() + 1);
@@ -85,7 +79,7 @@ where
         let num_extra_parallel_edges = usize::arbitrary(g) % (num_edges + 1);
         let num_extra_self_loops = usize::arbitrary(g) % (num_nodes + 1);
 
-        let node_data: Vec<_> = (0..num_nodes).map(|_| G::NodeData::arbitrary(g)).collect();
+        let node_data: Vec<_> = (0..num_nodes).map(|i| format!("n{}", i)).collect();
 
         let mut edge_data = Vec::new();
         for i in 0..num_edges {
@@ -94,12 +88,12 @@ where
             }
             let source = usize::arbitrary(g) % node_data.len();
             let target = usize::arbitrary(g) % node_data.len();
-            edge_data.push(((source, target), G::EdgeData::arbitrary(g)));
+            edge_data.push(((source, target), format!("e{}", i)));
             if i < num_extra_parallel_edges {
-                edge_data.push(((source, target), G::EdgeData::arbitrary(g)));
+                edge_data.push(((source, target), format!("e{}-extra", i)));
             }
             if i < num_extra_self_loops {
-                edge_data.push(((source, source), G::EdgeData::arbitrary(g)));
+                edge_data.push(((source, source), format!("e{}-self", i)));
             }
         }
 

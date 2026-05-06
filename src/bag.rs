@@ -256,6 +256,7 @@ impl<T> Bag<T> {
     /// Returns an iterator over references to the values currently in the bag.
     /// The order of values is unspecified and may change as values are inserted
     /// and removed.
+    #[allow(unused)]
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
     where
         T: 'a,
@@ -290,6 +291,7 @@ impl<T> Bag<T> {
     /// mutable references.  The keys are stable and can be used to access the
     /// values, but they are not guaranteed to be in any particular order.  The
     /// order of pairs may change as values are inserted and removed.
+    #[allow(unused)]
     pub fn pairs_mut<'a>(&'a mut self) -> impl Iterator<Item = (BagKey, &'a mut T)>
     where
         T: 'a,

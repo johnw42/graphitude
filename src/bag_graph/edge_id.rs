@@ -83,7 +83,7 @@ impl<G: Graph> EdgeIdTrait for EdgeId<G> {
 
     fn right(&self) -> NodeId<G> {
         NodeId {
-            key: self.node_keys.first().clone(),
+            key: self.node_keys.second().clone(),
             graph_id: self.graph_id.clone(),
             graph: PhantomData,
         }

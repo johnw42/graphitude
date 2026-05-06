@@ -69,3 +69,4 @@ pub use edge_multiplicity::{EdgeMultiplicity, EdgeMultiplicityTrait, MultipleEdg
 pub use graph_traits::{
     AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphUndirected, NodeIdTrait,
 };
+pub use linked_graph::LinkedGraph;

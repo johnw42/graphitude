@@ -145,7 +145,9 @@ mod tests {
         let mut graph = BagGraph::<&str, i32, Directed, MultipleEdges>::default();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
-        graph.add_new_edge(&n1, &n2, 10);
+        let e1 = graph.add_new_edge(&n1, &n2, 10);
+
+        assert_eq!(e1.ends(), (n1.clone(), n2.clone()));
 
         // Single-line output.
         let output = format!("{:?}", &graph);
