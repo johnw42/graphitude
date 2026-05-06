@@ -570,13 +570,13 @@ where
                 {
                     let _span = info_span!("compact").entered();
                     graph.compact(
-                        Some(|old_id: TestNodeId<B>, new_id: TestNodeId<B>| {
+                        Some(&mut |old_id, new_id| {
                             let removed = node_ids.remove(&old_id);
                             assert!(removed);
-                            let inserted = node_ids.insert(new_id.clone());
+                            let inserted = node_ids.insert(new_id);
                             assert!(inserted);
                         }),
-                        Option::<fn(_, _)>::None,
+                        None,
                     );
                 }
                 assert_eq!(graph.num_nodes(), num_nodes);
@@ -635,11 +635,11 @@ where
                 {
                     let _span = info_span!("compact").entered();
                     graph.compact(
-                        Option::<fn(_, _)>::None,
-                        Some(|old_id: TestEdgeId<B>, new_id: TestEdgeId<B>| {
+                        None,
+                        Some(&mut |old_id, new_id| {
                             let removed = edge_ids.remove(&old_id);
                             assert!(removed);
-                            let inserted = edge_ids.insert(new_id.clone());
+                            let inserted = edge_ids.insert(new_id);
                             assert!(inserted);
                         }),
                     );

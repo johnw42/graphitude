@@ -357,11 +357,11 @@ where
         edge.data
     }
 
-    fn compact<NC, EC>(&mut self, node_map_collector: Option<NC>, edge_map_collector: Option<EC>)
-    where
-        NC: MapCollector<Self::NodeId>,
-        EC: MapCollector<Self::EdgeId>,
-    {
+    fn compact(
+        &mut self,
+        node_map_collector: Option<&mut dyn MapCollector<Self::NodeId>>,
+        edge_map_collector: Option<&mut dyn MapCollector<Self::EdgeId>>,
+    ) {
         let mut node_map = HashMap::with_capacity(self.nodes.len());
         let mut edge_map = HashMap::with_capacity(self.edges.len());
         self.nodes.compact(Some(&mut node_map));
@@ -381,12 +381,12 @@ where
         for edge in self.edges.iter_mut() {
             edge.ends = edge.ends.map(|node_key| node_map[&node_key]);
         }
-        if let Some(mut node_map_collector) = node_map_collector {
+        if let Some(node_map_collector) = node_map_collector {
             for (old_key, new_key) in node_map {
                 node_map_collector.insert(self.node_id(old_key), self.node_id(new_key));
             }
         }
-        if let Some(mut edge_map_collector) = edge_map_collector {
+        if let Some(edge_map_collector) = edge_map_collector {
             for (old_key, new_key) in edge_map {
                 edge_map_collector.insert(self.edge_id(old_key), self.edge_id(new_key));
             }

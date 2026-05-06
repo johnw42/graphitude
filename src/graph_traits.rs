@@ -702,11 +702,11 @@ pub trait GraphMut: Graph {
     /// NodeIds and EdgeIds.  If `node_map_collector` or `edge_map_collector` is
     /// provided, it will be used to collect mappings from old NodeIds and
     /// EdgeIds to new ones.
-    fn compact<NC, EC>(&mut self, node_map_collector: Option<NC>, edge_map_collector: Option<EC>)
-    where
-        NC: MapCollector<Self::NodeId>,
-        EC: MapCollector<Self::EdgeId>,
-    {
+    fn compact(
+        &mut self,
+        node_map_collector: Option<&mut dyn MapCollector<Self::NodeId>>,
+        edge_map_collector: Option<&mut dyn MapCollector<Self::EdgeId>>,
+    ) {
         let _ = node_map_collector;
         let _ = edge_map_collector;
     }

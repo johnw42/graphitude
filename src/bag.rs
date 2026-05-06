@@ -216,13 +216,13 @@ impl<T> Bag<T> {
     /// `len() - 1`, and optionally collecting the mapping from old keys to
     /// new keys using the provided `MapCollector`.  This will reduce the
     /// memory usage of the bag as much as possible.
-    pub fn compact(&mut self, mut collector: Option<impl MapCollector<BagKey>>) {
+    pub fn compact(&mut self, mut collector: Option<&mut dyn MapCollector<BagKey>>) {
         let mut new_index = Vec::with_capacity(self.data.len());
 
-        for (logical_id, (data, old_key)) in self.data.iter_mut().enumerate() {
+        for (logical_id, (_, old_key)) in self.data.iter_mut().enumerate() {
             let new_key = BagKey::from_index(logical_id);
             new_index.push(Some(new_key));
-            if let Some(collector) = &mut collector {
+            if let Some(ref mut collector) = collector {
                 collector.insert(*old_key, new_key);
             }
             *old_key = new_key;
