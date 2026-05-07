@@ -129,28 +129,6 @@ impl<I, D> AddEdgeResult<I, D> {
 /// A trait representing a directed or undirected graph data structure.  Methods
 /// that return iterators over nodes or edges return them in an unspecified
 /// order unless otherwise noted.
-///
-/// For the sake of catching errors more reliably, it is recommended that
-/// implementations of this trait implement the following methods that have
-/// default implementions:
-///
-/// - [`Self::maybe_check_valid_node_id`]
-/// - [`Self::maybe_check_valid_edge_id`]
-///
-/// For the sake of performance, it is recommended that implementations of this
-/// trait implement the following methods that have default implementions with a
-/// more efficient implementation that calls [`Self::maybe_check_valid_node_id`] or
-/// [`Self::maybe_check_valid_edge_id`], either directly or indirectly at the start of the
-/// method:
-///
-/// - [`Self::check_valid_node_id`]
-/// - [`Self::check_valid_edge_id`]
-/// - [`Self::edges_from`]
-/// - [`Self::edges_into`]
-/// - [`Self::num_edges_from`]
-/// - [`Self::num_edges_into`]
-/// - [`Self::has_edge_from`]
-/// - [`Self::has_edge_into`]
 pub trait Graph {
     type Directedness: DirectednessTrait;
     type EdgeMultiplicity: EdgeMultiplicityTrait;
@@ -247,46 +225,6 @@ pub trait Graph {
         self.node_ids().count()
     }
 
-    /// Checks if a NodeId is valid in the graph, returning a reason if it is
-    /// not. This operation is potentially costly.
-    fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
-        if self.node_ids().any(|nid| &nid == id) {
-            Ok(())
-        } else {
-            Err("NodeId not found in graph")
-        }
-    }
-
-    /// Checks if a NodeId is valid in the graph to the extent that can be
-    /// determined without iterating over all nodes, returning a reason if it is
-    /// not.  This may return false positives for some graph implementations.
-    ///
-    /// By default, this method always returns Ok(()).
-    fn maybe_check_valid_node_id(&self, _id: &Self::NodeId) -> Result<(), &'static str> {
-        Ok(())
-    }
-
-    /// Panics if the given NodeId is not valid in the graph, according to
-    /// [`Self::maybe_check_valid_node_id`].
-    ///
-    /// It is recommended to call this method from implementations of other methods
-    /// that take NodeIds as parameters, to ensure that invalid NodeIds are
-    /// caught early.
-    fn assert_valid_node_id(&self, id: &Self::NodeId) {
-        if let Err(reason) = self.maybe_check_valid_node_id(id) {
-            panic!("Invalid NodeId: {:?}: {}", id, reason);
-        }
-    }
-
-    /// Panics if the given NodeId is not valid in the graph, according to
-    /// [`Self::maybe_check_valid_node_id`], but only in debug builds.
-    fn debug_assert_valid_node_id(&self, id: &Self::NodeId) {
-        #[cfg(debug_assertions)]
-        if let Err(reason) = self.maybe_check_valid_node_id(id) {
-            panic!("Invalid NodeId: {:?}: {}", id, reason);
-        }
-    }
-
     /// Gets an iterator over the predecessors nodes of a given node, i.e.
     /// those nodes reachable by incoming edges.
     fn predecessors<'a, 'b: 'a>(
@@ -330,47 +268,6 @@ pub trait Graph {
 
     /// Gets a vector of all edges in the graph.
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
-
-    /// Checks if a EdgeId is valid in the graph to the extent that can be
-    /// determined without iterating over all edges, returning a reason if it is
-    /// not.  This may return false positives for some graph implementations.
-    fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
-        if self.edge_ids().any(|eid| &eid == id) {
-            Ok(())
-        } else {
-            Err("EdgeId not found in graph")
-        }
-    }
-
-    /// Checks if a EdgeId is valid in the graph to the extent that can be
-    /// determined without iterating over all edges, returning a reason if it is
-    /// not.  May return false positives for some graph implementations.
-    ///
-    /// By default, this method always returns Ok(()).
-    fn maybe_check_valid_edge_id(&self, _id: &Self::EdgeId) -> Result<(), &'static str> {
-        Ok(())
-    }
-
-    /// Panics if the given EdgeId is not valid in the graph, according to
-    /// [`Self::maybe_check_valid_edge_id`].
-    ///
-    /// It is recommended to call this method from implementations of other methods
-    /// that take EdgeIds as parameters, to ensure that invalid EdgeIds are
-    /// caught early.
-    fn assert_valid_edge_id(&self, id: &Self::EdgeId) {
-        if let Err(reason) = self.maybe_check_valid_edge_id(id) {
-            panic!("Invalid EdgeId: {:?}: {}", id, reason);
-        }
-    }
-
-    /// Panics if the given EdgeId is not valid in the graph, according to
-    /// [`Self::maybe_check_valid_edge_id`], but only in debug builds.
-    fn debug_assert_valid_edge_id(&self, id: &Self::EdgeId) {
-        #[cfg(debug_assertions)]
-        if let Err(reason) = self.maybe_check_valid_edge_id(id) {
-            panic!("Invalid EdgeId: {:?}: {}", id, reason);
-        }
-    }
 
     /// Gets an iterator over the outgoing edges from a given node.
     fn edges_from<'a, 'b: 'a>(

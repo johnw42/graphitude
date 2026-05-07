@@ -1,9 +1,13 @@
-use std::{cell::UnsafeCell, fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{
+    cell::{Cell, UnsafeCell},
+    fmt::Debug,
+    sync::{Arc, atomic::AtomicUsize},
+};
 
 use crate::{
     coordinate_pair::CoordinatePair, copier::GraphCopier, directedness::Directedness,
-    edge_multiplicity::EdgeMultiplicity, format_debug::format_debug, graph_id::GraphId,
-    graph_traits::AddEdgeResult, prelude::*, util::OtherValue,
+    edge_multiplicity::EdgeMultiplicity, format_debug::format_debug, graph_traits::AddEdgeResult,
+    prelude::*, util::OtherValue,
 };
 
 mod edge_id;
@@ -12,6 +16,10 @@ mod node_id;
 use derivative::Derivative;
 pub use edge_id::EdgeId;
 pub use node_id::NodeId;
+
+#[derive(Default, Debug)]
+struct ArbitraryMutableType(Cell<usize>);
+type GraphId = *const ArbitraryMutableType;
 
 struct Node<G: Graph> {
     data: G::NodeData,
@@ -56,7 +64,15 @@ where
     M: EdgeMultiplicityTrait,
 {
     nodes: Vec<Arc<Node<Self>>>,
-    id: GraphId,
+
+    /// A boxed value whose pointer value serves as a unique identifier for this
+    /// graph instance.  This is needed to ensure safety, to ensure that the
+    /// invariants of of `node`, `node_mut`, `edge`, and `edge_mut` are upheld,
+    /// since the safety of those methods relies on the fact that all NodeIds
+    /// and EdgeIds were created by this graph instance.  We use a Box here to
+    /// ensure that the pointer value is stable even if the graph is moved in
+    /// memory, which can happen since LinkedGraph is not pinned.
+    id: Box<ArbitraryMutableType>,
     directedness: D,
     edge_multiplicity: M,
 }
@@ -69,20 +85,25 @@ where
     fn node_id(&self, ptr: &Arc<Node<Self>>) -> NodeId<Self> {
         NodeId {
             ptr: Arc::downgrade(ptr),
-            graph_id: self.id.clone(),
+            graph_id: self.id.as_ref(),
         }
     }
 
     fn edge_id(&self, ptr: &Arc<Edge<Self>>) -> EdgeId<Self> {
         EdgeId {
             ptr: Arc::downgrade(ptr),
-            graph_id: self.id.clone(),
+            graph_id: self.id.as_ref(),
             directedness: self.directedness,
         }
     }
 
     fn node(&self, id: &NodeId<Self>) -> &Node<Self> {
-        self.assert_valid_node_id(id);
+        assert_eq!(
+            id.graph_id,
+            self.id.as_ref(),
+            "NodeId does not belong to this graph"
+        );
+
         let id = id.ptr.upgrade().expect("NodeId is dangling");
         // SAFETY: We have checked that the NodeId is valid.  This method is only used internally
         // where we have &self, so the graph outlives the returned reference.
@@ -94,7 +115,12 @@ where
     /// SAFETY: Caller must ensure that no other references to the node exist,
     /// and the graph outlives the returned reference.
     fn node_mut<'a>(&mut self, id: &NodeId<Self>) -> &'a mut Node<Self> {
-        self.assert_valid_node_id(id);
+        assert_eq!(
+            id.graph_id,
+            self.id.as_ref(),
+            "NodeId does not belong to this graph"
+        );
+
         let id = id.ptr.upgrade().expect("NodeId is dangling");
 
         // SAFETY: We have checked that the NodeId is valid.  This method is only used internally
@@ -103,7 +129,12 @@ where
     }
 
     fn edge(&self, id: &EdgeId<Self>) -> &Edge<Self> {
-        self.assert_valid_edge_id(id);
+        assert_eq!(
+            id.graph_id,
+            self.id.as_ref(),
+            "EdgeId does not belong to this graph"
+        );
+
         let id = id.ptr.upgrade().expect("EdgeId is dangling");
         // SAFETY: We have checked that the EdgeId is valid.  This method is only used internally
         // where we have &self, so the graph outlives the returned reference.
@@ -111,7 +142,12 @@ where
     }
 
     fn edge_mut(&mut self, id: &EdgeId<Self>) -> &mut Edge<Self> {
-        self.assert_valid_edge_id(id);
+        assert_eq!(
+            id.graph_id,
+            self.id.as_ref(),
+            "EdgeId does not belong to this graph"
+        );
+
         let id = id.ptr.upgrade().expect("EdgeId is dangling");
         // SAFETY: We have checked that the EdgeId is valid.  This method is only used internally
         // where we have &mut self, so no other references to the edges can exist.
@@ -248,49 +284,6 @@ where
     fn num_edges_from(&self, from: &Self::NodeId) -> usize {
         self.node(from).edges_out.len()
     }
-
-    fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
-        if self.id != id.graph_id {
-            return Err("NodeId graph_id does not match graph");
-        }
-        if id.ptr.upgrade().is_none() {
-            return Err("NodeId is dangling");
-        }
-        Ok(())
-    }
-
-    fn maybe_check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
-        #[cfg(not(feature = "unchecked"))]
-        {
-            self.check_valid_node_id(id)
-        }
-        #[cfg(feature = "unchecked")]
-        {
-            let _ = id;
-            Ok(())
-        }
-    }
-
-    fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
-        if self.id != id.graph_id {
-            return Err("EdgeId graph_id does not match graph");
-        }
-        if id.ptr.upgrade().is_none() {
-            return Err("EdgeId is dangling");
-        }
-        Ok(())
-    }
-
-    fn maybe_check_valid_edge_id(&self, _id: &Self::EdgeId) -> Result<(), &'static str> {
-        #[cfg(not(feature = "unchecked"))]
-        {
-            self.check_valid_edge_id(_id)
-        }
-        #[cfg(feature = "unchecked")]
-        {
-            Ok(())
-        }
-    }
 }
 
 impl<N, E, D, M> GraphMut for LinkedGraph<N, E, D, M>
@@ -301,7 +294,7 @@ where
     fn new(directedness: D, edge_multiplicity: M) -> Self {
         Self {
             nodes: Vec::new(),
-            id: GraphId::default(),
+            id: Default::default(),
             directedness,
             edge_multiplicity,
         }
@@ -435,7 +428,11 @@ where
     }
 
     fn remove_edge(&mut self, eid: &Self::EdgeId) -> Self::EdgeData {
-        self.assert_valid_edge_id(eid);
+        assert_eq!(
+            eid.graph_id,
+            self.id.as_ref(),
+            "EdgeId does not belong to this graph"
+        );
         let edge = eid.ptr.upgrade().expect("EdgeId is dangling");
         let (from_nid, into_nid) = edge.ends.values();
 

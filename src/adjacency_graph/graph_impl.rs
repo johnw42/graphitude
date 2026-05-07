@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::fmt::Debug;
 
 /// Node and edge ID types for adjacency graphs.
 use crate::{
@@ -6,12 +6,10 @@ use crate::{
         EdgeId, NodeId,
         edge_container::{EdgeContainer, EdgeContainerSelector},
     },
-    adjacency_matrix::{AdjacencyMatrix, CompactionCount as _, HashStorage, Storage},
+    adjacency_matrix::{AdjacencyMatrix, HashStorage, Storage},
     copier::GraphCopier,
     directedness::DirectednessTrait,
     format_debug::format_debug,
-    graph_id::GraphId,
-    map_collector::MapCollector,
     prelude::*,
 };
 
@@ -42,7 +40,6 @@ where
     num_edges: usize,
     directedness: D,
     edge_multiplicity: M,
-    id: GraphId,
     compaction_count: S::CompactionCount,
 }
 
@@ -54,7 +51,7 @@ where
 {
     /// Creates a `NodeId` for the given `BagKey`.
     fn node_id(&self, key: BagKey) -> NodeId<S> {
-        NodeId::new(key, self.id.clone(), self.compaction_count)
+        NodeId::new(key, self.compaction_count)
     }
 
     /// Creates an `EdgeId` for the given `BagKey` pair.
@@ -67,7 +64,6 @@ where
         EdgeId::new(
             self.directedness.coordinate_pair((from, into)),
             index,
-            self.id.clone(),
             self.compaction_count,
         )
     }
@@ -95,7 +91,6 @@ where
     }
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
-        self.assert_valid_node_id(id);
         self.nodes.get(id.key()).expect("no such node")
     }
 
@@ -104,7 +99,6 @@ where
     }
 
     fn edge_data(&self, eid: &Self::EdgeId) -> &Self::EdgeData {
-        self.assert_valid_edge_id(eid);
         let (from, to) = eid.keys().into_values();
         self.adjacency
             .get(from.to_index(), to.to_index())
@@ -134,8 +128,6 @@ where
         from: &'b Self::NodeId,
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.assert_valid_node_id(from);
-        self.assert_valid_node_id(into);
         self.adjacency
             .entry_at(from.key().to_index(), into.key().to_index())
             .into_iter()
@@ -150,7 +142,6 @@ where
         &'a self,
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.assert_valid_node_id(into);
         let into_key = into.key();
         self.adjacency
             .entries_in_col(into.key().to_index())
@@ -166,7 +157,6 @@ where
         &'a self,
         from: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.assert_valid_node_id(from);
         let from_key = from.key();
         self.adjacency
             .entries_in_row(from.key().to_index())
@@ -176,60 +166,6 @@ where
                     .iter()
                     .map(move |(index, _)| self.edge_id(from_key, into_key, index))
             })
-    }
-
-    fn check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
-        if self.id != id.graph_id {
-            return Err("NodeId graph ID does not match");
-        }
-        if self.compaction_count != id.compaction_count {
-            return Err("NodeId compaction counter does not match");
-        }
-        if self.nodes.get(id.key()).is_none() {
-            return Err("NodeId index not found in nodes");
-        }
-        Ok(())
-    }
-
-    fn maybe_check_valid_node_id(&self, id: &Self::NodeId) -> Result<(), &'static str> {
-        #[cfg(not(feature = "unchecked"))]
-        {
-            self.check_valid_node_id(id)
-        }
-        #[cfg(feature = "unchecked")]
-        {
-            let _ = id;
-            Ok(())
-        }
-    }
-
-    fn check_valid_edge_id(&self, id: &Self::EdgeId) -> Result<(), &'static str> {
-        if self.id != id.graph_id() {
-            return Err("EdgeId graph ID does not match");
-        }
-        if self.compaction_count != id.compaction_count() {
-            return Err("EdgeId compaction counter does not match");
-        }
-        let (source, target) = id.keys().into_values();
-        if self
-            .adjacency
-            .get(source.to_index(), target.to_index())
-            .is_none()
-        {
-            return Err("EdgeId not found in adjacency matrix");
-        }
-        Ok(())
-    }
-
-    fn maybe_check_valid_edge_id(&self, _id: &Self::EdgeId) -> Result<(), &'static str> {
-        #[cfg(not(feature = "unchecked"))]
-        {
-            self.check_valid_edge_id(_id)
-        }
-        #[cfg(feature = "unchecked")]
-        {
-            Ok(())
-        }
     }
 }
 
@@ -271,17 +207,14 @@ where
             directedness,
             edge_multiplicity,
             compaction_count: S::CompactionCount::default(),
-            id: GraphId::default(),
         }
     }
 
     fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData {
-        self.assert_valid_node_id(id);
         self.nodes.get_mut(id.key()).expect("no such node")
     }
 
     fn edge_data_mut(&mut self, id: &Self::EdgeId) -> &mut Self::EdgeData {
-        self.assert_valid_edge_id(id);
         let (from, to) = id.keys().into_values();
         self.adjacency
             .get_mut(from.to_index(), to.to_index())
@@ -301,9 +234,6 @@ where
         into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
-        self.assert_valid_node_id(from);
-        self.assert_valid_node_id(into);
-
         let from_index = from.key().to_index();
         let into_index = into.key().to_index();
         let old_data = self.adjacency.remove(from_index, into_index);

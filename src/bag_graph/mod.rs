@@ -7,11 +7,9 @@ use crate::{
     directedness::Directedness,
     edge_multiplicity::EdgeMultiplicity,
     format_debug::format_debug,
-    graph_id::GraphId,
     graph_traits::AddEdgeResult,
     map_collector::MapCollector,
     prelude::*,
-    util::OtherValue,
 };
 
 mod edge_id;
@@ -60,7 +58,6 @@ where
 {
     nodes: Bag<Node<Self>>,
     edges: Bag<Edge<Self>>,
-    id: GraphId,
     directedness: D,
     edge_multiplicity: M,
 }
@@ -73,7 +70,6 @@ where
     fn node_id(&self, key: BagKey) -> NodeId<Self> {
         NodeId {
             key,
-            graph_id: self.id.clone(),
             graph: PhantomData,
         }
     }
@@ -82,7 +78,6 @@ where
         EdgeId {
             edge_key,
             node_keys: self.edges[edge_key].ends.clone(),
-            graph_id: self.id.clone(),
             directedness: self.directedness,
         }
     }
@@ -144,7 +139,6 @@ where
         self.edges.pairs().map(|(edge_key, edge)| EdgeId {
             edge_key,
             node_keys: edge.ends.clone(),
-            graph_id: self.id.clone(),
             directedness: self.directedness,
         })
     }
@@ -212,7 +206,6 @@ where
         Self {
             nodes: Bag::new(),
             edges: Bag::new(),
-            id: GraphId::default(),
             directedness,
             edge_multiplicity,
         }
@@ -261,7 +254,6 @@ where
                     EdgeId {
                         edge_key: *edge_key,
                         node_keys: ends,
-                        graph_id: self.id.clone(),
                         directedness: self.directedness,
                     },
                     old_data,

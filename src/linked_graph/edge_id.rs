@@ -1,13 +1,12 @@
 use std::{
     fmt::Debug,
     hash::Hash,
-    marker::PhantomData,
     sync::{Arc, Weak},
 };
 
 use derivative::Derivative;
 
-use crate::{EdgeIdTrait, Graph, directedness::DirectednessTrait, graph_id::GraphIdClone};
+use crate::{EdgeIdTrait, Graph, linked_graph::GraphId};
 
 use super::{Edge, NodeId};
 
@@ -18,7 +17,7 @@ use super::{Edge, NodeId};
 #[derivative(Clone(bound = "G::Directedness: Clone"))]
 pub struct EdgeId<G: Graph> {
     pub(super) ptr: Weak<Edge<G>>,
-    pub(super) graph_id: GraphIdClone,
+    pub(super) graph_id: GraphId,
     pub(super) directedness: G::Directedness,
 }
 

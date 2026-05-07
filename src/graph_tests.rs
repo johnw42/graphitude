@@ -1,11 +1,7 @@
 use std::collections::{HashMap, HashSet};
-use std::fmt::Debug;
-use std::hash::Hash;
 
-use dot_parser::canonical::Node;
 use generate_test_macro::generate_test_macro;
 use quickcheck::TestResult;
-use tracing_subscriber::fmt::format;
 
 use crate::generate_large_graph::generate_large_graph;
 use crate::graph_test_support::{ArbGraph, check_graph_consistency, has_duplicates};
@@ -139,20 +135,6 @@ where
                 expected_edge_data, actual_edge_data
             ))
         }
-    }
-
-    #[quickcheck]
-    pub fn prop_node_ids_are_valid(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
-        graph
-            .node_ids()
-            .all(|node_id| graph.check_valid_node_id(&node_id).is_ok())
-    }
-
-    #[quickcheck]
-    pub fn prop_edge_ids_are_valid(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
-        graph
-            .edge_ids()
-            .all(|edge_id| graph.check_valid_edge_id(&edge_id).is_ok())
     }
 
     #[quickcheck]
@@ -410,16 +392,6 @@ where
             expected_edges
         );
 
-        // Verify all nodes are valid
-        for node_id in graph.node_ids() {
-            assert_eq!(graph.check_valid_node_id(&node_id), Ok(()));
-        }
-
-        // Verify all edges are valid
-        for edge_id in graph.edge_ids() {
-            assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
-        }
-
         // Count edges to verify consistency
         let edge_count_via_iteration = graph.edge_ids().count();
         assert_eq!(
@@ -487,15 +459,6 @@ where
                 assert_eq!(graph.num_nodes(), num_nodes);
                 assert_eq!(graph.num_edges(), num_edges);
                 {
-                    let _span = info_span!("check_valid_ids").entered();
-                    for node_id in graph.node_ids() {
-                        assert_eq!(graph.check_valid_node_id(&node_id), Ok(()));
-                    }
-                    for edge_id in graph.edge_ids() {
-                        assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
-                    }
-                }
-                {
                     let _span = info_span!("check_graph_consistency").entered();
                     check_graph_consistency(&graph);
                 }
@@ -551,15 +514,6 @@ where
                 }
                 assert_eq!(graph.num_nodes(), num_nodes);
                 assert_eq!(graph.num_edges(), num_edges);
-                {
-                    let _span = info_span!("check_valid_ids").entered();
-                    for node_id in graph.node_ids() {
-                        assert_eq!(graph.check_valid_node_id(&node_id), Ok(()));
-                    }
-                    for edge_id in graph.edge_ids() {
-                        assert_eq!(graph.check_valid_edge_id(&edge_id), Ok(()));
-                    }
-                }
                 {
                     let _span = info_span!("check_graph_consistency").entered();
                     check_graph_consistency(&graph);

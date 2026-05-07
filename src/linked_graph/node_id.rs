@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash, sync::Weak};
 
-use crate::{Graph, graph_id::GraphIdClone};
+use crate::{Graph, linked_graph::GraphId};
 
 use super::Node;
 
@@ -9,7 +9,7 @@ use super::Node;
 /// Contains a weak pointer to the node data and a graph ID for safety checks.
 pub struct NodeId<G: Graph> {
     pub(super) ptr: Weak<Node<G>>,
-    pub(super) graph_id: GraphIdClone,
+    pub(super) graph_id: GraphId,
 }
 
 // SAFETY: See comment on EdgeId.

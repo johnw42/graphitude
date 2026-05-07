@@ -7,7 +7,6 @@ use crate::{
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
     bag::BagKey,
     coordinate_pair::CoordinatePair,
-    graph_id::GraphIdClone,
 };
 
 #[derive(Derivative)]
@@ -26,15 +25,13 @@ use crate::{
 pub struct NodeIdOrEdgeId<S: Storage, T: Clone> {
     payload: T,
     pub compaction_count: S::CompactionCount,
-    pub graph_id: GraphIdClone,
 }
 
 impl<S: Storage, T: Clone> NodeIdOrEdgeId<S, T> {
-    pub fn new(payload: T, graph_id: GraphIdClone, compaction_count: S::CompactionCount) -> Self {
+    pub fn new(payload: T, compaction_count: S::CompactionCount) -> Self {
         Self {
             payload,
             compaction_count,
-            graph_id,
         }
     }
 
@@ -76,11 +73,10 @@ where
     pub fn new(
         payload: CoordinatePair<BagKey, D>,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
-        graph_id: GraphIdClone,
         compaction_count: S::CompactionCount,
     ) -> Self {
         Self {
-            inner: NodeIdOrEdgeId::new(payload, graph_id, compaction_count),
+            inner: NodeIdOrEdgeId::new(payload, compaction_count),
             index,
             directedness: D::default(),
             edge_multiplicity: M::default(),
@@ -98,10 +94,6 @@ where
 
     pub fn compaction_count(&self) -> S::CompactionCount {
         self.inner.compaction_count
-    }
-
-    pub fn graph_id(&self) -> GraphIdClone {
-        self.inner.graph_id
     }
 
     pub fn index(&self) -> <M::Container<E> as EdgeContainer<E>>::Index {
@@ -137,19 +129,11 @@ where
     }
 
     fn left(&self) -> NodeId<S> {
-        NodeId::new(
-            *self.inner.payload.first(),
-            self.inner.graph_id,
-            self.inner.compaction_count,
-        )
+        NodeId::new(*self.inner.payload.first(), self.inner.compaction_count)
     }
 
     fn right(&self) -> NodeId<S> {
-        NodeId::new(
-            *self.inner.payload.second(),
-            self.inner.graph_id,
-            self.inner.compaction_count,
-        )
+        NodeId::new(*self.inner.payload.second(), self.inner.compaction_count)
     }
 }
 
@@ -161,10 +145,6 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (from, into) = self.keys().into_values();
-        write!(
-            f,
-            "EdgeId({:?}, {:?}, {:?})",
-            from, into, self.inner.graph_id
-        )
+        write!(f, "EdgeId({:?}, {:?})", from, into)
     }
 }

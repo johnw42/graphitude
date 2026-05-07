@@ -1,4 +1,4 @@
-use crate::{Graph, bag::BagKey, graph_id::GraphIdClone};
+use crate::{Graph, bag::BagKey};
 use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 /// Node identifier for [`LinkedGraph`](super::LinkedGraph).
@@ -6,7 +6,6 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 /// Contains a weak pointer to the node data and a graph ID for safety checks.
 pub struct NodeId<G: Graph> {
     pub(super) key: BagKey,
-    pub(super) graph_id: GraphIdClone,
     pub(super) graph: PhantomData<G>,
 }
 
@@ -24,7 +23,6 @@ impl<G: Graph> Clone for NodeId<G> {
     fn clone(&self) -> Self {
         NodeId {
             key: self.key,
-            graph_id: self.graph_id,
             graph: PhantomData,
         }
     }
@@ -32,7 +30,7 @@ impl<G: Graph> Clone for NodeId<G> {
 
 impl<G: Graph> PartialEq for NodeId<G> {
     fn eq(&self, other: &Self) -> bool {
-        self.key == other.key && self.graph_id == other.graph_id
+        self.key == other.key
     }
 }
 
@@ -41,7 +39,6 @@ impl<G: Graph> Eq for NodeId<G> {}
 impl<G: Graph> Hash for NodeId<G> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.key.hash(state);
-        self.graph_id.hash(state);
     }
 }
 

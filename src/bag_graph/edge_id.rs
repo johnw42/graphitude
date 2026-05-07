@@ -7,9 +7,7 @@ use std::{
 
 use derivative::Derivative;
 
-use crate::{
-    EdgeIdTrait, Graph, bag::BagKey, coordinate_pair::CoordinatePair, graph_id::GraphIdClone,
-};
+use crate::{EdgeIdTrait, Graph, bag::BagKey, coordinate_pair::CoordinatePair};
 
 use super::NodeId;
 
@@ -21,7 +19,6 @@ use super::NodeId;
 pub struct EdgeId<G: Graph> {
     pub(super) edge_key: BagKey,
     pub(super) node_keys: CoordinatePair<BagKey, G::Directedness>,
-    pub(super) graph_id: GraphIdClone,
     pub(super) directedness: G::Directedness,
 }
 
@@ -35,7 +32,7 @@ unsafe impl<G: Graph> Sync for EdgeId<G> {}
 
 impl<G: Graph> Debug for EdgeId<G> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EdgeId({:?}, {:?})", self.edge_key, self.graph_id)
+        write!(f, "EdgeId({:?})", self.edge_key)
     }
 }
 
@@ -76,7 +73,6 @@ impl<G: Graph> EdgeIdTrait for EdgeId<G> {
     fn left(&self) -> NodeId<G> {
         NodeId {
             key: self.node_keys.first().clone(),
-            graph_id: self.graph_id.clone(),
             graph: PhantomData,
         }
     }
@@ -84,7 +80,6 @@ impl<G: Graph> EdgeIdTrait for EdgeId<G> {
     fn right(&self) -> NodeId<G> {
         NodeId {
             key: self.node_keys.second().clone(),
-            graph_id: self.graph_id.clone(),
             graph: PhantomData,
         }
     }
