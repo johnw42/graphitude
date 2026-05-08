@@ -68,38 +68,4 @@ impl<G: Graph> EdgeIdTrait for EdgeId<G> {
     fn directedness(&self) -> Self::Directedness {
         self.directedness
     }
-
-    fn left(&self) -> NodeId<G> {
-        self.ptr
-            .upgrade()
-            .map(|edge| NodeId {
-                ptr: Arc::downgrade(
-                    &edge
-                        .ends
-                        .first()
-                        .ptr
-                        .upgrade()
-                        .expect("Source node dangling"),
-                ),
-                graph_id: self.graph_id,
-            })
-            .expect("EdgeId is dangling")
-    }
-
-    fn right(&self) -> NodeId<G> {
-        self.ptr
-            .upgrade()
-            .map(|edge| NodeId {
-                ptr: Arc::downgrade(
-                    &edge
-                        .ends
-                        .second()
-                        .ptr
-                        .upgrade()
-                        .expect("Target node dangling"),
-                ),
-                graph_id: self.graph_id,
-            })
-            .expect("EdgeId is dangling")
-    }
 }

@@ -18,6 +18,7 @@ pub use edge_id::EdgeId;
 pub use node_id::NodeId;
 
 #[derive(Default, Debug)]
+#[allow(unused)]
 struct ArbitraryMutableType(Cell<usize>);
 type GraphId = *const ArbitraryMutableType;
 
@@ -210,6 +211,17 @@ where
                 .collect::<Vec<_>>()
                 .into_iter()
         }
+    }
+
+    fn edge_ends(&self, id: &Self::EdgeId) -> CoordinatePair<Self::NodeId, Self::Directedness> {
+        assert_eq!(
+            id.graph_id,
+            self.id.as_ref(),
+            "EdgeId does not belong to this graph"
+        );
+        let edge = self.edge(id);
+        let (left, right) = edge.ends.values();
+        CoordinatePair::new(left.clone(), right.clone(), self.directedness())
     }
 
     fn edges_from<'a, 'b: 'a>(

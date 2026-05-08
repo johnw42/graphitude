@@ -232,8 +232,8 @@ where
 
     // Write edges
     for edge_id in graph.edge_ids() {
-        let source_id = edge_id.left();
-        let target_id = edge_id.right();
+        let ends = graph.edge_ends(&edge_id);
+        let (source_id, target_id) = ends.into_values();
         let source_info = wrapper
             .node_info
             .get(&source_id)
@@ -282,8 +282,8 @@ where
 mod tests {
     use super::*;
     use crate::{
-        GraphMut, directedness::Directedness, edge_multiplicity::EdgeMultiplicity,
-        bag_graph::BagGraph,
+        GraphMut, bag_graph::BagGraph, directedness::Directedness,
+        edge_multiplicity::EdgeMultiplicity,
     };
 
     #[test]

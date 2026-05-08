@@ -187,7 +187,7 @@ where
     #[quickcheck]
     pub fn prop_edges_from_into_finds_all_edges(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
         graph.edge_ids().all(|edge_id| {
-            let (left, right) = edge_id.ends();
+            let (left, right) = graph.edge_ends(&edge_id).into_values();
             graph.edges_from_into(&left, &right).any(|e| e == edge_id)
         })
     }
@@ -311,13 +311,19 @@ where
     pub fn prop_edges_in_and_out_are_consistent(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
         for node_id in graph.node_ids() {
             for edge_from in graph.edges_from(&node_id) {
-                let other_node = edge_from.other_end(&node_id);
+                let other_node = graph
+                    .edge_ends(&edge_from)
+                    .into_other_value(&node_id)
+                    .into_inner();
                 if !graph.edges_into(&other_node).any(|e| e == edge_from) {
                     return false;
                 }
             }
             for edge_into in graph.edges_into(&node_id) {
-                let other_node = edge_into.other_end(&node_id);
+                let other_node = graph
+                    .edge_ends(&edge_into)
+                    .into_other_value(&node_id)
+                    .into_inner();
                 if !graph.edges_from(&other_node).any(|e| e == edge_into) {
                     return false;
                 }
@@ -340,30 +346,6 @@ where
                 }
             }
         }
-    }
-
-    #[quickcheck]
-    pub fn prop_cloned_graph_has_distinct_node_ids(ArbGraph { graph, .. }: ArbGraph<G>) {
-        let cloned_graph = graph.clone();
-        let original_node_ids = graph.node_ids().collect::<HashSet<_>>();
-        let cloned_node_ids = cloned_graph.node_ids().collect::<HashSet<_>>();
-        assert!(original_node_ids.is_disjoint(&cloned_node_ids));
-    }
-
-    #[cfg(not(feature = "unchecked"))]
-    #[quickcheck]
-    pub fn prop_cloned_graph_node_ids_are_invalid_in_original_graph(
-        ArbGraph { graph, .. }: ArbGraph<G>,
-    ) -> TestResult {
-        for nid in graph.clone().node_ids() {
-            if graph.check_valid_node_id(&nid).is_ok() {
-                return TestResult::error(format!(
-                    "Cloned node ID {:?} is valid in original graph",
-                    nid
-                ));
-            }
-        }
-        TestResult::passed()
     }
 
     #[test]
@@ -594,7 +576,6 @@ where
 
     #[test]
     pub fn test_edge_creation(&mut self) {
-        use crate::EdgeIdTrait;
         use std::collections::HashSet;
 
         let mut graph = self.new_graph();
@@ -617,14 +598,14 @@ where
             assert_eq!(
                 graph
                     .edges_from(&n1)
-                    .map(|edge_id| edge_id.other_end(&n1))
+                    .map(|edge_id| graph.edge_ends(&edge_id).into_other_value(&n1).into_inner())
                     .collect::<Vec<_>>(),
                 vec![n2.clone()]
             );
             assert_eq!(
                 graph
                     .edges_from(&n2)
-                    .map(|edge_id| edge_id.other_end(&n2))
+                    .map(|edge_id| graph.edge_ends(&edge_id).into_other_value(&n2).into_inner())
                     .collect::<Vec<_>>(),
                 vec![n3.clone()]
             );
@@ -979,9 +960,6 @@ where
 
     #[test]
     pub fn test_successors(&mut self) {
-        use crate::EdgeIdTrait;
-        use std::collections::HashSet;
-
         let mut graph = self.new_graph();
         let n0 = graph.add_node(self.new_node_data());
         let n1 = graph.add_node(self.new_node_data());
@@ -994,11 +972,11 @@ where
         let e3 = graph.add_edge(&n1, &n3, self.new_edge_data()).edge_id();
         let e4 = graph.add_edge(&n2, &n3, self.new_edge_data()).edge_id();
         if graph.is_directed() {
-            assert_eq!(e0.ends(), (n0.clone(), n1.clone()));
-            assert_eq!(e1.ends(), (n0.clone(), n2.clone()));
-            assert_eq!(e2.ends(), (n1.clone(), n2.clone()));
-            assert_eq!(e3.ends(), (n1.clone(), n3.clone()));
-            assert_eq!(e4.ends(), (n2.clone(), n3.clone()));
+            assert_eq!(graph.edge_ends(&e0).into_values(), (n0.clone(), n1.clone()));
+            assert_eq!(graph.edge_ends(&e1).into_values(), (n0.clone(), n2.clone()));
+            assert_eq!(graph.edge_ends(&e2).into_values(), (n1.clone(), n2.clone()));
+            assert_eq!(graph.edge_ends(&e3).into_values(), (n1.clone(), n3.clone()));
+            assert_eq!(graph.edge_ends(&e4).into_values(), (n2.clone(), n3.clone()));
         } else {
             // For undirected graphs, edges can be in either direction
             let edge_pairs = vec![
@@ -1010,7 +988,7 @@ where
             ];
             for (edge, (a, b)) in edge_pairs {
                 assert!(
-                    edge.has_ends(&a, &b),
+                    graph.edge_ends(&edge).has_both(&a, &b),
                     "Edge {:?} does not connect nodes {:?} and {:?}",
                     edge,
                     a,

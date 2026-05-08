@@ -7,6 +7,7 @@ use crate::{
         edge_container::{EdgeContainer, EdgeContainerSelector},
     },
     adjacency_matrix::{AdjacencyMatrix, HashStorage, Storage},
+    coordinate_pair::CoordinatePair,
     copier::GraphCopier,
     directedness::DirectednessTrait,
     format_debug::format_debug,
@@ -121,6 +122,12 @@ where
 
     fn num_edges(&self) -> usize {
         self.num_edges
+    }
+
+    fn edge_ends(&self, id: &Self::EdgeId) -> CoordinatePair<Self::NodeId, Self::Directedness> {
+        let (from, to) = id.keys().into_values();
+        self.directedness
+            .coordinate_pair((self.node_id(from), self.node_id(to)))
     }
 
     fn edges_from_into<'a, 'b: 'a>(

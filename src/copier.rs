@@ -303,8 +303,9 @@ where
         // Copy all the edges, using the node map to find the new source and target IDs.
         for edge_id in self.source.edge_ids() {
             let edge_data = (self.edge_transformer)(self.source.edge_data(&edge_id));
-            let source_node_id = &node_map[&edge_id.left()];
-            let target_node_id = &node_map[&edge_id.right()];
+            let ends = self.source.edge_ends(&edge_id);
+            let source_node_id = &node_map[ends.first()];
+            let target_node_id = &node_map[ends.second()];
             let add_edge_result = target.add_edge(source_node_id, target_node_id, edge_data);
 
             // Maintain the edge map if the user provided one.

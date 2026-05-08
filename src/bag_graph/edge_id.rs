@@ -69,18 +69,4 @@ impl<G: Graph> EdgeIdTrait for EdgeId<G> {
     fn directedness(&self) -> Self::Directedness {
         self.directedness
     }
-
-    fn left(&self) -> NodeId<G> {
-        NodeId {
-            key: self.node_keys.first().clone(),
-            graph: PhantomData,
-        }
-    }
-
-    fn right(&self) -> NodeId<G> {
-        NodeId {
-            key: self.node_keys.second().clone(),
-            graph: PhantomData,
-        }
-    }
 }

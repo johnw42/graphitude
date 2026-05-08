@@ -117,7 +117,7 @@ mod inner {
         if edge_count > 0 {
             println!("\nSample edges (up to {sample_nodes}):");
             for edge_id in graph.edge_ids().take(edge_count) {
-                let (left, right) = edge_id.ends();
+                let (left, right) = graph.edge_ends(&edge_id).into_values();
                 let left_data = &graph.node_data(&left).id;
                 let right_data = &graph.node_data(&right).id;
                 let edge_data = graph.edge_data(&edge_id).clone();

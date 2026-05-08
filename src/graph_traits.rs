@@ -10,6 +10,7 @@ use {
 };
 
 use crate::{
+    coordinate_pair::CoordinatePair,
     debug_graph_view::DebugGraphView,
     map_collector::MapCollector,
     path::Path,
@@ -37,75 +38,7 @@ pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
     /// Gets the directedness of the edge, which will match the directedness of
     /// the graph it belongs to.
     fn directedness(&self) -> Self::Directedness;
-
-    /// Gets one end of the edge.  For directed edges, this is the source node.
-    /// For undirected edges, this is one of the two nodes, but it is not
-    /// specified which one.
-    fn left(&self) -> Self::NodeId {
-        self.ends().0
-    }
-
-    /// Gets the other end of the edge.  For directed edges, this is the target
-    /// node.  For undirected edges, this is the other of the two nodes, but it
-    /// is not specified which one is which.
-    fn right(&self) -> Self::NodeId {
-        self.ends().1
-    }
-
-    /// Gets both ends of the edge.  Returns `(self.left(), self.right())`.
-    /// Implementors must implement either this method or `left` and `right`.
-    fn ends(&self) -> (Self::NodeId, Self::NodeId) {
-        (self.left(), self.right())
-    }
-
-    /// Gets the other end of the edge given one end.  If the edge is directed,
-    /// the direction is ignored and the other end is returned.  If the edge is
-    /// undirected, the other end is returned regardless of which end is passed
-    /// in.  If the edge is a self-loop and the given end is the same as both
-    /// ends of the edge, then the same node ID is returned.  Panics if the given
-    /// node ID is not one of the ends of the edge.
-    fn other_end(&self, node: &Self::NodeId) -> Self::NodeId {
-        let (n1, n2) = self.ends();
-        if *node == n1 {
-            n2
-        } else if *node == n2 {
-            n1
-        } else {
-            panic!(
-                "Node {:?} is not an end of edge with ends {:?} and {:?}",
-                node, n1, n2
-            );
-        }
-    }
-
-    /// Tests if the edge has the given node as one of its ends.
-    fn has_end(&self, node: &Self::NodeId) -> bool {
-        let (n1, n2) = self.ends();
-        *node == n1 || *node == n2
-    }
-
-    /// Tests if the edge has the given nodes as its ends, regardless of order.
-    fn has_ends(&self, node1: &Self::NodeId, node2: &Self::NodeId) -> bool {
-        let (n1, n2) = self.ends();
-        (*node1 == n1 && *node2 == n2) || (*node1 == n2 && *node2 == n1)
-    }
 }
-
-/// A trait which is automatically implemented for directed edges, providing
-/// methods specific to directed edges.
-pub trait EdgeIdDirected: EdgeIdTrait<Directedness = Directed> {
-    /// Gets the source node of the edge.
-    fn source(&self) -> Self::NodeId {
-        self.left()
-    }
-
-    /// Gets the target node of the edge.
-    fn target(&self) -> Self::NodeId {
-        self.right()
-    }
-}
-
-impl<E> EdgeIdDirected for E where E: EdgeIdTrait<Directedness = Directed> {}
 
 /// Return type of [`Graph::add_edge`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -208,8 +141,8 @@ pub trait Graph {
     /// Creates a new path starting from the given starting node.  This is a
     /// convenience method to avoid having to import the `Path` type separately
     /// and specify its type argument explicity.
-    fn new_path(&self, start: &Self::NodeId) -> Path<Self::EdgeId> {
-        Path::new(start.clone())
+    fn new_path(&self, start: &Self::NodeId) -> Path<'_, Self> {
+        Path::new(self, start.clone())
     }
 
     // Nodes
@@ -233,11 +166,11 @@ pub trait Graph {
     ) -> impl Iterator<Item = Self::NodeId> + 'a {
         let mut visited = HashSet::new();
         self.edges_into(node).filter_map(move |eid| {
+            let ends = self.edge_ends(&eid);
             let nid = if self.directedness().is_directed() {
-                eid.left()
+                ends.into_first()
             } else {
-                let (source, target) = eid.ends();
-                if source == *node { target } else { source }
+                ends.into_other_value(node).into_inner()
             };
             visited.insert(nid.clone()).then_some(nid)
         })
@@ -251,11 +184,11 @@ pub trait Graph {
     ) -> impl Iterator<Item = Self::NodeId> + 'a {
         let mut visited = HashSet::new();
         self.edges_from(node).filter_map(move |eid| {
+            let ends = self.edge_ends(&eid);
             let nid = if self.directedness().is_directed() {
-                eid.right()
+                ends.into_second()
             } else {
-                let (source, target) = eid.ends();
-                if source == *node { target } else { source }
+                ends.into_other_value(node).into_inner()
             };
             visited.insert(nid.clone()).then_some(nid)
         })
@@ -269,13 +202,18 @@ pub trait Graph {
     /// Gets a vector of all edges in the graph.
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
 
+    /// Gets the ends of an edge as a pair of node IDs.  For directed edges, the
+    /// first node ID is the source and the second is the target.  For
+    /// undirected edges, the IDs are in sorted order but otherwise arbitrary.
+    fn edge_ends(&self, id: &Self::EdgeId) -> CoordinatePair<Self::NodeId, Self::Directedness>;
+
     /// Gets an iterator over the outgoing edges from a given node.
     fn edges_from<'a, 'b: 'a>(
         &'a self,
         from: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(|eid| {
-            let (source, target) = eid.ends();
+            let (source, target) = self.edge_ends(eid).into_values();
             source == *from || !self.directedness().is_directed() && target == *from
         })
     }
@@ -286,7 +224,7 @@ pub trait Graph {
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(|eid| {
-            let (source, target) = eid.ends();
+            let (source, target) = self.edge_ends(eid).into_values();
             target == *into || !self.directedness().is_directed() && source == *into
         })
     }
@@ -298,7 +236,7 @@ pub trait Graph {
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(move |eid| {
-            let (edge_source, edge_target) = eid.ends();
+            let (edge_source, edge_target) = self.edge_ends(eid).into_values();
             (edge_source == *from && edge_target == *into)
                 || (!self.directedness().is_directed()
                     && edge_source == *into
@@ -393,7 +331,7 @@ pub trait Graph {
         &self,
         start: &Self::NodeId,
         distance_fn: impl Fn(&Self::EdgeId) -> C,
-    ) -> HashMap<Self::NodeId, (Path<Self::EdgeId>, C)> {
+    ) -> HashMap<Self::NodeId, (Path<'_, Self>, C)> {
         // Find shortest paths using Dijkstra's algorithm.
 
         let mut distances: HashMap<Self::NodeId, C> = HashMap::new();
@@ -418,7 +356,8 @@ pub trait Graph {
 
             // Update distances to neighbors
             for edge_id in self.edges_from(&current_node) {
-                let neighbor = edge_id.other_end(&current_node);
+                let ends = self.edge_ends(&edge_id);
+                let neighbor = ends.other_value(&current_node).into_inner();
                 if unvisited.contains(&neighbor) {
                     let edge_distance = distance_fn(&edge_id);
                     let new_dist = current_dist + edge_distance;
@@ -436,10 +375,13 @@ pub trait Graph {
         }
 
         // Build paths from predecessors
-        let mut result: HashMap<<Self as Graph>::NodeId, (Path<Self::EdgeId>, C)> = HashMap::new();
+        let mut result: HashMap<<Self as Graph>::NodeId, (Path<Self>, C)> = HashMap::new();
         for (node, &dist) in &distances {
             if node == start {
-                result.insert(start.clone(), (Path::new(start.clone()), C::default()));
+                result.insert(
+                    start.clone(),
+                    (Path::new(self, start.clone()), C::default()),
+                );
             } else {
                 let mut current = node.clone();
 
@@ -449,7 +391,7 @@ pub trait Graph {
                     current = pred.1.clone();
                 }
 
-                let mut path = Path::new(start.clone());
+                let mut path = Path::new(self, start.clone());
                 for edge_id in path_edges.iter().rev() {
                     path.add_edge(edge_id.clone());
                 }

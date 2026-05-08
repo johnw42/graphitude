@@ -71,7 +71,7 @@ where
     let edge_tags: HashMap<_, _> = graph
         .edge_ids()
         .map(|eid: <G as Graph>::EdgeId| {
-            let (n1, n2) = eid.ends();
+            let (n1, n2) = graph.edge_ends(&eid).into_values();
             (eid.clone(), (&node_tags[&n1], &node_tags[&n2]))
         })
         .collect();
@@ -106,7 +106,7 @@ where
             "edges",
             &FormatDebugWith(|f: &mut Formatter<'_>| {
                 let make_edge_tag = |eid: &G::EdgeId| {
-                    let (n1, n2) = eid.ends();
+                    let (n1, n2) = graph.edge_ends(&eid).into_values();
                     let tag = if graph.is_directed() {
                         format!("{} -> {}", &node_tags[&n1], &node_tags[&n2])
                     } else {
@@ -147,7 +147,7 @@ mod tests {
         let n2 = graph.add_node("B");
         let e1 = graph.add_new_edge(&n1, &n2, 10);
 
-        assert_eq!(e1.ends(), (n1.clone(), n2.clone()));
+        assert_eq!(graph.edge_ends(&e1).into_values(), (n1.clone(), n2.clone()));
 
         // Single-line output.
         let output = format!("{:?}", &graph);

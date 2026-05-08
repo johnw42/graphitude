@@ -216,71 +216,64 @@ pub fn check_graph_consistency<G: Graph>(graph: &G) {
 
     // Verify all edges are valid
     for edge_id in graph.edge_ids() {
+        let (left, right) = graph.edge_ends(&edge_id).into_values();
         assert_eq!(
+            graph.edges_from_into(&left, &right).count(),
             graph
-                .edges_from_into(&edge_id.left(), &edge_id.right())
-                .count(),
-            graph
-                .edges_from_into(&edge_id.left(), &edge_id.right())
+                .edges_from_into(&left, &right)
                 .collect::<HashSet<_>>()
                 .len()
         );
 
         if !graph.is_directed() {
-            assert!(graph.has_edge_from_into(&edge_id.right(), &edge_id.left()))
+            assert!(graph.has_edge_from_into(&right, &left))
         }
         if !graph.allows_parallel_edges() {
-            dbg!(&edge_id.left(), &edge_id.right());
-            assert_eq!(
-                graph.num_edges_from_into(&edge_id.left(), &edge_id.right()),
-                1
-            );
+            assert_eq!(graph.num_edges_from_into(&left, &right), 1);
         }
 
         {
             let _span = info_span!("has_edge").entered();
-            let has_edge = graph.has_edge_from_into(&edge_id.left(), &edge_id.right());
+            let has_edge = graph.has_edge_from_into(&left, &right);
             assert!(has_edge);
         }
 
         {
             let _span = info_span!("edges_between.any").entered();
-            let between_has = graph
-                .edges_from_into(&edge_id.left(), &edge_id.right())
-                .any(|e| e == edge_id);
+            let between_has = graph.edges_from_into(&left, &right).any(|e| e == edge_id);
             assert!(between_has);
         }
 
         {
             let _span = info_span!("edges_from.any").entered();
-            let from_has = graph.edges_from(&edge_id.left()).any(|e| e == edge_id);
+            let from_has = graph.edges_from(&left).any(|e| e == edge_id);
             assert!(from_has);
         }
 
         {
             let _span = info_span!("edges_into.any").entered();
-            let into_has = graph.edges_into(&edge_id.right()).any(|e| e == edge_id);
+            let into_has = graph.edges_into(&right).any(|e| e == edge_id);
             assert!(into_has);
         }
 
         let num_from = {
             let _span = info_span!("num_edges_from").entered();
-            graph.num_edges_from(&edge_id.left())
+            graph.num_edges_from(&left)
         };
 
         let edges_from_count = {
             let _span = info_span!("edges_from.count").entered();
-            graph.edges_from(&edge_id.left()).count()
+            graph.edges_from(&left).count()
         };
 
         let num_into = {
             let _span = info_span!("num_edges_into").entered();
-            graph.num_edges_into(&edge_id.right())
+            graph.num_edges_into(&right)
         };
 
         let edges_into_count = {
             let _span = info_span!("edges_into.count").entered();
-            graph.edges_into(&edge_id.right()).count()
+            graph.edges_into(&right).count()
         };
 
         assert_eq!(num_from, edges_from_count);

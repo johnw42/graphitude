@@ -145,7 +145,7 @@ where
     let edges: HashSet<(String, String)> = graph
         .edge_ids()
         .map(|eid| {
-            let (left, right) = eid.ends();
+            let (left, right) = graph.edge_ends(&eid).into_values();
             let mut left_id = graph.node_data(&left).id.clone();
             let mut right_id = graph.node_data(&right).id.clone();
             // Normalize undirected edges by sorting node IDs
@@ -168,7 +168,7 @@ where
     let edge_attrs: HashMap<(String, String), HashSet<(String, String)>> = graph
         .edge_ids()
         .map(|eid| {
-            let (left, right) = eid.ends();
+            let (left, right) = graph.edge_ends(&eid).into_values();
             let mut left_id = graph.node_data(&left).id.clone();
             let mut right_id = graph.node_data(&right).id.clone();
             // Normalize undirected edges by sorting node IDs

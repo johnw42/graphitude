@@ -143,6 +143,16 @@ where
         })
     }
 
+    fn edge_ends(&self, id: &Self::EdgeId) -> CoordinatePair<Self::NodeId, Self::Directedness> {
+        let edge = self.edge(id);
+        let (from_key, into_key) = edge.ends.values();
+        CoordinatePair::new(
+            self.node_id(*from_key),
+            self.node_id(*into_key),
+            self.directedness,
+        )
+    }
+
     fn edges_from<'a, 'b: 'a>(
         &'a self,
         from: &'b Self::NodeId,

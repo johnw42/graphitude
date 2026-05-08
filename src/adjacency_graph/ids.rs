@@ -127,14 +127,6 @@ where
     fn directedness(&self) -> Self::Directedness {
         self.directedness
     }
-
-    fn left(&self) -> NodeId<S> {
-        NodeId::new(*self.inner.payload.first(), self.inner.compaction_count)
-    }
-
-    fn right(&self) -> NodeId<S> {
-        NodeId::new(*self.inner.payload.second(), self.inner.compaction_count)
-    }
 }
 
 impl<E, S, D, M> Debug for EdgeId<E, S, D, M>

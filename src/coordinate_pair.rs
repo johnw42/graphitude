@@ -78,6 +78,13 @@ where
         self.data
     }
 
+    pub fn has(&self, value: &T) -> bool
+    where
+        T: Eq,
+    {
+        self.first() == value || self.second() == value
+    }
+
     pub fn has_both(&self, a: &T, b: &T) -> bool
     where
         T: Eq,
