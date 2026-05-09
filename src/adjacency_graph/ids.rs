@@ -6,7 +6,7 @@ use crate::{
     DirectednessTrait, EdgeIdTrait, NodeIdTrait, Storage,
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
     bag::BagKey,
-    coordinate_pair::CoordinatePair,
+    end_pair::EndPair,
 };
 
 #[derive(Derivative)]
@@ -58,7 +58,7 @@ where
     D: DirectednessTrait + Default,
     M: EdgeContainerSelector,
 {
-    inner: NodeIdOrEdgeId<S, CoordinatePair<BagKey, D>>,
+    inner: NodeIdOrEdgeId<S, D::EndPair<BagKey>>,
     index: <M::Container<E> as EdgeContainer<E>>::Index,
     directedness: D,
     edge_multiplicity: M,
@@ -71,7 +71,7 @@ where
     M: EdgeContainerSelector,
 {
     pub fn new(
-        payload: CoordinatePair<BagKey, D>,
+        payload: D::EndPair<BagKey>,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
         compaction_count: S::CompactionCount,
     ) -> Self {
@@ -83,7 +83,7 @@ where
         }
     }
 
-    pub fn keys(&self) -> CoordinatePair<BagKey, D> {
+    pub fn keys(&self) -> D::EndPair<BagKey> {
         self.inner.payload.clone()
     }
 
@@ -121,12 +121,6 @@ where
     D: DirectednessTrait + Default,
     M: EdgeContainerSelector,
 {
-    type NodeId = NodeId<S>;
-    type Directedness = D;
-
-    fn directedness(&self) -> Self::Directedness {
-        self.directedness
-    }
 }
 
 impl<E, S, D, M> Debug for EdgeId<E, S, D, M>

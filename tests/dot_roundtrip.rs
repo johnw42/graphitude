@@ -9,6 +9,7 @@ use graphitude::{
         parser::GraphBuilder,
         renderer::{DotGenerator, generate_dot_file},
     },
+    end_pair::EndPair as _,
     prelude::*,
 };
 
@@ -24,7 +25,7 @@ struct EdgeData {
 }
 
 #[derive(Debug)]
-struct TestBuilder;
+struct TestBuilder<D: DirectednessTrait>(D);
 
 #[derive(Debug)]
 struct TestError(String);
@@ -37,17 +38,16 @@ impl std::fmt::Display for TestError {
 
 impl std::error::Error for TestError {}
 
-impl GraphBuilder for TestBuilder {
-    type Graph = BagGraph<NodeData, EdgeData>;
+impl<D: DirectednessTrait> GraphBuilder for TestBuilder<D> {
+    type Graph = BagGraph<NodeData, EdgeData, D>;
     type Error = TestError;
 
     fn make_empty_graph(
         &mut self,
         _name: Option<&str>,
-        directedness: <Self::Graph as Graph>::Directedness,
         edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
     ) -> Result<Self::Graph, Self::Error> {
-        Ok(BagGraph::new(directedness, edge_multiplicity))
+        Ok(BagGraph::new(D::default(), edge_multiplicity))
     }
 
     fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<NodeData, Self::Error> {
@@ -199,8 +199,8 @@ fn test_directed_graph_roundtrip() {
     "#;
 
     // Parse DOT into graph
-    let mut builder = TestBuilder;
-    let graph1: BagGraph<NodeData, EdgeData> =
+    let mut builder = TestBuilder(Directed);
+    let graph1: BagGraph<NodeData, EdgeData, Directed> =
         BagGraph::from_dot_string(input_dot, &mut builder).expect("Failed to parse DOT");
 
     // Generate DOT from graph
@@ -210,8 +210,8 @@ fn test_directed_graph_roundtrip() {
     let generated_dot = String::from_utf8(output).expect("Invalid UTF-8");
 
     // Parse generated DOT back into graph
-    let mut builder2 = TestBuilder;
-    let graph2: BagGraph<NodeData, EdgeData> =
+    let mut builder2 = TestBuilder(Directed);
+    let graph2: BagGraph<NodeData, EdgeData, Directed> =
         BagGraph::from_dot_string(&generated_dot, &mut builder2)
             .expect("Failed to parse generated DOT");
 
@@ -238,8 +238,8 @@ fn test_undirected_graph_roundtrip() {
     "#;
 
     // Parse DOT into graph
-    let mut builder = TestBuilder;
-    let graph1: BagGraph<NodeData, EdgeData> =
+    let mut builder = TestBuilder(Undirected);
+    let graph1: BagGraph<NodeData, EdgeData, Undirected> =
         BagGraph::from_dot_string(input_dot, &mut builder).expect("Failed to parse DOT");
 
     // Generate DOT from graph
@@ -249,8 +249,8 @@ fn test_undirected_graph_roundtrip() {
     let generated_dot = String::from_utf8(output).expect("Invalid UTF-8");
 
     // Parse generated DOT back into graph
-    let mut builder2 = TestBuilder;
-    let graph2: BagGraph<NodeData, EdgeData> =
+    let mut builder2 = TestBuilder(Undirected);
+    let graph2: BagGraph<NodeData, EdgeData, Undirected> =
         BagGraph::from_dot_string(&generated_dot, &mut builder2)
             .expect("Failed to parse generated DOT");
 
@@ -268,8 +268,8 @@ fn test_undirected_graph_roundtrip() {
 fn test_empty_graph_roundtrip() {
     let input_dot = r#"digraph Empty {}"#;
 
-    let mut builder = TestBuilder;
-    let graph1: BagGraph<NodeData, EdgeData> =
+    let mut builder = TestBuilder(Directed);
+    let graph1: BagGraph<NodeData, EdgeData, Directed> =
         BagGraph::from_dot_string(input_dot, &mut builder).expect("Failed to parse DOT");
 
     let generator = TestDotGenerator { graph: &graph1 };
@@ -277,8 +277,8 @@ fn test_empty_graph_roundtrip() {
     generate_dot_file(&graph1, &generator, &mut output).expect("Failed to generate DOT");
     let generated_dot = String::from_utf8(output).expect("Invalid UTF-8");
 
-    let mut builder2 = TestBuilder;
-    let graph2: BagGraph<NodeData, EdgeData> =
+    let mut builder2 = TestBuilder(Directed);
+    let graph2: BagGraph<NodeData, EdgeData, Directed> =
         BagGraph::from_dot_string(&generated_dot, &mut builder2)
             .expect("Failed to parse generated DOT");
 

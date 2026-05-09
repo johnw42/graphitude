@@ -1,6 +1,6 @@
-use crate::{DirectednessTrait, Storage, coordinate_pair::CoordinatePair};
+use crate::{DirectednessTrait, Storage};
 
-type Pair<M> = CoordinatePair<usize, <M as AdjacencyMatrix>::Directedness>;
+type Pair<M> = <<M as AdjacencyMatrix>::Directedness as DirectednessTrait>::EndPair<usize>;
 
 /// Trait for adjacency matrix data structures.
 ///
@@ -73,7 +73,7 @@ where
     /// `(i1, i2)` such that for symmetric matrices, `i1 <= i2`.
     #[doc(hidden)]
     fn entry_indices(i1: usize, i2: usize) -> Pair<Self> {
-        Self::Directedness::default().coordinate_pair((i1, i2))
+        (i1, i2).into()
     }
 
     /// Gets the entry at the given row and col.

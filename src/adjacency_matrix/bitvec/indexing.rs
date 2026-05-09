@@ -98,7 +98,7 @@ where
 
     /// Returns the storage size required for the symmetric matrix.
     pub fn data_storage_size(&self) -> usize {
-        if self.directedness.is_directed() {
+        if D::IS_DIRECTED {
             self.size * self.size
         } else {
             triangular(self.size)
@@ -117,7 +117,7 @@ where
 
     /// Returns the linear index row `i` and column `j` without bounds checking.
     pub fn unchecked_data_index(&self, i: usize, j: usize) -> DataIndex {
-        if self.directedness.is_directed() {
+        if D::IS_DIRECTED {
             DataIndex(i * self.size + j)
         } else {
             let (k1, k2) = sort_pair((i, j));
@@ -137,7 +137,7 @@ where
     /// index, where `column <= row`.
     #[allow(unused)]
     pub fn data_coordinates(&self, index: DataIndex) -> (usize, usize) {
-        if self.directedness.is_directed() {
+        if D::IS_DIRECTED {
             self.liveness_coordinates(LivenessIndex(index.0))
         } else {
             let row = triangular_inv_floor(index.0);
@@ -154,7 +154,7 @@ where
     }
 
     pub fn liveness_index_to_data_index(&self, liveness_index: LivenessIndex) -> DataIndex {
-        if self.directedness.is_directed() {
+        if D::IS_DIRECTED {
             DataIndex(liveness_index.0)
         } else {
             let (row, col) = self.liveness_coordinates(liveness_index);

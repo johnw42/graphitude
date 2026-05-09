@@ -1,13 +1,12 @@
 use std::{
     cell::{Cell, UnsafeCell},
     fmt::Debug,
-    sync::{Arc, atomic::AtomicUsize},
+    sync::Arc,
 };
 
 use crate::{
-    coordinate_pair::CoordinatePair, copier::GraphCopier, directedness::Directedness,
-    edge_multiplicity::EdgeMultiplicity, format_debug::format_debug, graph_traits::AddEdgeResult,
-    prelude::*, util::OtherValue,
+    copier::GraphCopier, edge_multiplicity::EdgeMultiplicity, end_pair::EndPair,
+    format_debug::format_debug, graph_traits::AddEdgeResult, prelude::*, util::OtherValue,
 };
 
 mod edge_id;
@@ -32,19 +31,14 @@ struct Node<G: Graph> {
 
 struct Edge<G: Graph> {
     data: UnsafeCell<G::EdgeData>,
-    ends: CoordinatePair<NodeId<G>, G::Directedness>,
+    ends: <G::Directedness as DirectednessTrait>::EndPair<NodeId<G>>,
 }
 
 impl<G: Graph> Edge<G> {
-    fn new(
-        data: G::EdgeData,
-        from: NodeId<G>,
-        into: NodeId<G>,
-        directedness: G::Directedness,
-    ) -> Self {
+    fn new(data: G::EdgeData, from: NodeId<G>, into: NodeId<G>) -> Self {
         Self {
             data: UnsafeCell::new(data),
-            ends: CoordinatePair::new(from, into, directedness),
+            ends: (from, into).into(),
         }
     }
 }
@@ -59,7 +53,7 @@ impl<G: Graph> Edge<G> {
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
 #[derive(Derivative)]
 #[derivative(Default(bound = "D: Default, M: Default"))]
-pub struct LinkedGraph<N, E, D = Directedness, M = EdgeMultiplicity>
+pub struct LinkedGraph<N, E, D, M = EdgeMultiplicity>
 where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
@@ -94,7 +88,6 @@ where
         EdgeId {
             ptr: Arc::downgrade(ptr),
             graph_id: self.id.as_ref(),
-            directedness: self.directedness,
         }
     }
 
@@ -213,15 +206,11 @@ where
         }
     }
 
-    fn edge_ends(&self, id: &Self::EdgeId) -> CoordinatePair<Self::NodeId, Self::Directedness> {
-        assert_eq!(
-            id.graph_id,
-            self.id.as_ref(),
-            "EdgeId does not belong to this graph"
-        );
-        let edge = self.edge(id);
-        let (left, right) = edge.ends.values();
-        CoordinatePair::new(left.clone(), right.clone(), self.directedness())
+    fn edge_ends(
+        &self,
+        id: &Self::EdgeId,
+    ) -> <Self::Directedness as DirectednessTrait>::EndPair<Self::NodeId> {
+        self.edge(id).ends.clone()
     }
 
     fn edges_from<'a, 'b: 'a>(
@@ -344,9 +333,7 @@ where
         into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
-        let ends = self
-            .directedness
-            .coordinate_pair((from.clone(), into.clone()));
+        let ends = ((from.clone(), into.clone())).into();
 
         if !self.allows_parallel_edges() {
             debug_assert!(self.num_edges_from_into(from, into) <= 1);
@@ -368,12 +355,7 @@ where
 
         let (from, into) = ends.values();
 
-        let edge = Arc::new(Edge::new(
-            data,
-            from.clone(),
-            into.clone(),
-            self.directedness(),
-        ));
+        let edge = Arc::new(Edge::new(data, from.clone(), into.clone()));
 
         let eid = self.edge_id(&edge);
 
@@ -424,7 +406,7 @@ where
             // For directed graphs, also remove incoming edges from source nodes' edges_out
             for eid in &node.edges_in {
                 let edge = self.edge(eid);
-                let from_nid = edge.ends.first();
+                let from_nid = edge.ends.left();
                 if from_nid != nid {
                     let from_node = self.node_mut(&from_nid.clone());
                     from_node

@@ -7,9 +7,7 @@ use dot_parser::ast::{
     EdgeStmt, Graph as DotGraph, ID, NodeID, NodeStmt, Stmt, StmtList, Subgraph, either::Either,
 };
 
-use crate::{
-    directedness::Directedness, dot::attr::Attr, edge_multiplicity::EdgeMultiplicity, prelude::*,
-};
+use crate::{dot::attr::Attr, edge_multiplicity::EdgeMultiplicity, prelude::*};
 
 /// Recursively extract all node IDs from a node/subgraph specification.
 /// Returns a vector of node ID strings.
@@ -61,8 +59,8 @@ pub enum ParseError<B: GraphBuilder> {
     #[error("Duplicate edge found between nodes: {0} and {1}")]
     DuplicateEdge(String, String),
     /// The DOT data specifies a directedness that is not supported by the graph builder.
-    #[error("Unsupported directedness: {0:?}")]
-    UnsupportedDirectedness(Directedness),
+    #[error("Unsupported directedness")]
+    UnsupportedDirectedness,
     /// The DOT data specifies an edge multiplicity that is not supported by the graph builder.
     #[error("Unsupported edge multiplicity: {0:?}")]
     UnsupportedEdgeMultiplicity(EdgeMultiplicity),
@@ -83,7 +81,6 @@ pub trait GraphBuilder {
     fn make_empty_graph(
         &mut self,
         name: Option<&str>,
-        directedness: <Self::Graph as Graph>::Directedness,
         edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
     ) -> Result<Self::Graph, Self::Error>;
 
@@ -171,11 +168,9 @@ where
     let dot_ast: DotGraph<_> = DotGraph::try_from(data)
         .map_err(|e| ParseError::ParseError(format!("Failed to parse DOT data: {:?}", e)))?;
 
-    let directedness = if dot_ast.is_digraph {
-        Directedness::Directed
-    } else {
-        Directedness::Undirected
-    };
+    if dot_ast.is_digraph != G::Directedness::IS_DIRECTED {
+        return Err(ParseError::UnsupportedDirectedness);
+    }
     let edge_multiplicity = if dot_ast.strict {
         EdgeMultiplicity::SingleEdge
     } else {
@@ -184,9 +179,6 @@ where
     let mut graph = builder
         .make_empty_graph(
             dot_ast.name.as_deref(),
-            directedness
-                .try_into()
-                .map_err(|_| ParseError::UnsupportedDirectedness(directedness))?,
             edge_multiplicity
                 .try_into()
                 .map_err(|_| ParseError::UnsupportedEdgeMultiplicity(edge_multiplicity))?,
@@ -380,19 +372,18 @@ mod tests {
 
     // Simple builder that creates string node data from node IDs and empty edge data
     #[derive(Debug)]
-    struct SimpleBuilder;
+    struct SimpleBuilder<D: DirectednessTrait>(D);
 
-    impl GraphBuilder for SimpleBuilder {
-        type Graph = BagGraph<String, ()>;
+    impl<D: DirectednessTrait> GraphBuilder for SimpleBuilder<D> {
+        type Graph = BagGraph<String, (), D>;
         type Error = std::convert::Infallible;
 
         fn make_empty_graph(
             &mut self,
             _name: Option<&str>,
-            directedness: <Self::Graph as Graph>::Directedness,
             edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
         ) -> Result<Self::Graph, Self::Error> {
-            Ok(BagGraph::new(directedness, edge_multiplicity))
+            Ok(BagGraph::new(self.0, edge_multiplicity))
         }
 
         fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<String, Self::Error> {
@@ -427,8 +418,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
@@ -452,8 +444,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Undirected);
+        let graph: BagGraph<String, (), Undirected> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
@@ -470,8 +463,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 1);
@@ -494,8 +488,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 2);
@@ -511,8 +506,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 3);
@@ -529,8 +525,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
@@ -558,8 +555,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 0);
         assert_eq!(graph.num_edges(), 0);
@@ -569,8 +567,9 @@ mod tests {
     fn test_parse_error_invalid_dot() {
         let dot = "this is not valid DOT format";
 
-        let mut builder = SimpleBuilder;
-        let result: Result<BagGraph<String, ()>, _> = parse_dot_into_graph(dot, &mut builder);
+        let mut builder = SimpleBuilder(Directed);
+        let result: Result<BagGraph<String, (), Directed>, _> =
+            parse_dot_into_graph(dot, &mut builder);
 
         assert!(matches!(result, Err(ParseError::ParseError(_))));
     }
@@ -583,8 +582,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 1);
         assert_eq!(graph.num_edges(), 1);
@@ -605,8 +605,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 4);
         assert_eq!(graph.num_edges(), 5);
@@ -625,8 +626,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Undirected);
+        let graph: BagGraph<String, (), Undirected> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 3);
@@ -634,19 +636,18 @@ mod tests {
 
     // Builder with numeric edge data
     #[derive(Debug)]
-    struct EdgeWeightBuilder;
+    struct EdgeWeightBuilder<D: DirectednessTrait>(D);
 
-    impl GraphBuilder for EdgeWeightBuilder {
-        type Graph = BagGraph<String, i32>;
+    impl<D: DirectednessTrait> GraphBuilder for EdgeWeightBuilder<D> {
+        type Graph = BagGraph<String, i32, D>;
         type Error = std::convert::Infallible;
 
         fn make_empty_graph(
             &mut self,
             _name: Option<&str>,
-            directedness: <Self::Graph as Graph>::Directedness,
             edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
         ) -> Result<Self::Graph, Self::Error> {
-            Ok(BagGraph::new(directedness, edge_multiplicity))
+            Ok(BagGraph::new(self.0, edge_multiplicity))
         }
 
         fn make_node_data(&mut self, id: &str, _attrs: &[Attr]) -> Result<String, Self::Error> {
@@ -673,8 +674,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = EdgeWeightBuilder;
-        let graph: BagGraph<String, i32> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = EdgeWeightBuilder(Directed);
+        let graph: BagGraph<String, i32, Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 2);
@@ -698,8 +700,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 2);
@@ -722,8 +725,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 2);
@@ -738,8 +742,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 4);
         assert_eq!(graph.num_edges(), 4);
@@ -767,8 +772,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 1);
@@ -786,8 +792,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 4);
         // a -> b, a -> c, a -> d
@@ -806,8 +813,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 4);
         // The subgraph extracts nodes from edges: a, b (appears twice), c
@@ -843,8 +851,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 5); // start, end, a, b, c
 
@@ -866,8 +875,8 @@ mod tests {
         ];
 
         for dot in invalid_inputs {
-            let mut builder = SimpleBuilder;
-            let result: Result<BagGraph<String, ()>, _> =
+            let mut builder = SimpleBuilder(Directed);
+            let result: Result<BagGraph<String, (), Directed>, _> =
                 parse_dot_into_graph(dot, &mut builder);
             assert!(result.is_err(), "Expected error for input: {}", dot);
         }
@@ -883,8 +892,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
         parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
@@ -912,8 +922,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         // LinkedGraph allows parallel edges
@@ -930,8 +941,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
@@ -964,8 +976,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 2);
         assert_eq!(graph.num_edges(), 1);
@@ -979,8 +992,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         assert_eq!(graph.num_nodes(), 6);
         assert_eq!(graph.num_edges(), 5); // a->b, b->c, c->d, d->e, e->f
@@ -998,8 +1012,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let graph: BagGraph<String, ()> = parse_dot_into_graph(dot, &mut builder).unwrap();
+        let mut builder = SimpleBuilder(Directed);
+        let graph: BagGraph<String, (), Directed> =
+            parse_dot_into_graph(dot, &mut builder).unwrap();
 
         // a, b are explicit; c, d, e are implicit
         assert_eq!(graph.num_nodes(), 5);
@@ -1031,8 +1046,9 @@ mod tests {
             }
         "#;
 
-        let mut builder = SimpleBuilder;
-        let result: Result<BagGraph<String, ()>, _> = parse_dot_into_graph(dot, &mut builder);
+        let mut builder = SimpleBuilder(Directed);
+        let result: Result<BagGraph<String, (), Directed>, _> =
+            parse_dot_into_graph(dot, &mut builder);
 
         // Depending on the implementation, this might allow parallel edges or return an error
         // If it allows parallel edges, it should have 2 edges; if not, it should return an error

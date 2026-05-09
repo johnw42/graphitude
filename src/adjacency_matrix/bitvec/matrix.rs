@@ -64,7 +64,7 @@ where
     }
 
     fn reflected_liveness_range(&self) -> Range<usize> {
-        if D::default().is_directed() {
+        if D::IS_DIRECTED {
             self.indexing.liveness_storage_size()..self.liveness.len()
         } else {
             self.liveness_range()
@@ -118,7 +118,7 @@ where
         for index in self.liveness[0..size].iter_ones().map(LivenessIndex) {
             let (row, col) = self.indexing.liveness_coordinates(index);
             let data_index = self.indexing.unchecked_data_index(row, col);
-            if D::default().is_directed() || row <= col {
+            if D::IS_DIRECTED || row <= col {
                 unsafe {
                     self.data[data_index].assume_init_drop();
                 }
@@ -138,7 +138,7 @@ where
     fn with_size(size: usize) -> Self {
         let indexing = MatrixIndexing::new(size, D::default());
         let liveness_storage_size = indexing.liveness_storage_size();
-        let bitvec_size = if D::default().is_directed() {
+        let bitvec_size = if D::IS_DIRECTED {
             2 * liveness_storage_size
         } else {
             liveness_storage_size
@@ -220,7 +220,7 @@ where
             .map(LivenessIndex)
             .filter_map(|index| {
                 let (row, col) = self.indexing.liveness_coordinates(index);
-                if D::default().is_directed() || row <= col {
+                if D::IS_DIRECTED || row <= col {
                     Some((
                         row,
                         col,
@@ -240,7 +240,7 @@ where
         // Collect all live entries
         for index in self.liveness_bits().iter_ones().map(LivenessIndex) {
             let (row, col) = self.indexing.liveness_coordinates(index);
-            if D::default().is_directed() || row <= col {
+            if D::IS_DIRECTED || row <= col {
                 // SAFETY: index is live (from iter_ones)
                 let value =
                     self.unchecked_get_data_read(self.indexing.liveness_index_to_data_index(index));
@@ -289,7 +289,7 @@ where
             .map(LivenessIndex)
         {
             let (row, col) = self.indexing.liveness_coordinates(index);
-            if D::default().is_directed() || row <= col {
+            if D::IS_DIRECTED || row <= col {
                 unsafe {
                     self.data[self.indexing.unchecked_data_index(row, col)].assume_init_drop();
                 }
@@ -364,7 +364,7 @@ where
         let new_capacity = current_capacity + additional_capacity;
         let mut new_self = Self::with_size(new_capacity);
 
-        if D::default().is_directed() {
+        if D::IS_DIRECTED {
             for row in 0..current_capacity {
                 let old_start = self.indexing.unchecked_liveness_index(row, 0);
                 let old_end = self.indexing.unchecked_liveness_index(row + 1, 0);
@@ -438,7 +438,7 @@ where
         new_self.liveness.clone_from(&self.liveness);
         for index in self.liveness_bits().iter_ones().map(LivenessIndex) {
             let (row, col) = self.indexing.liveness_coordinates(index);
-            if D::default().is_directed() || row <= col {
+            if D::IS_DIRECTED || row <= col {
                 let data_index = self.indexing.liveness_index_to_data_index(index);
                 new_self.data[data_index] =
                     MaybeUninit::new(self.unchecked_get_data_ref(data_index).clone());

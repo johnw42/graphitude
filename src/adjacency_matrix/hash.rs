@@ -53,7 +53,7 @@ where
     fn insert(&mut self, row: usize, col: usize, data: V) -> Option<V> {
         self.size_bound = self.size_bound.max(row.max(col) + 1);
 
-        let (i1, i2) = self.directedness.sort_pair((row, col));
+        let (i1, i2) = D::sort_pair((row, col));
 
         self.reverse_entries.entry(i2).or_default().insert(i1);
 
@@ -61,17 +61,17 @@ where
     }
 
     fn get(&self, row: usize, col: usize) -> Option<&V> {
-        let (i1, i2) = self.directedness.sort_pair((row, col));
+        let (i1, i2) = D::sort_pair((row, col));
         self.entries.get(&i1).and_then(|m| m.get(&i2))
     }
 
     fn get_mut(&mut self, row: usize, col: usize) -> Option<&mut V> {
-        let (i1, i2) = self.directedness.sort_pair((row, col));
+        let (i1, i2) = D::sort_pair((row, col));
         self.entries.get_mut(&i1).and_then(|m| m.get_mut(&i2))
     }
 
     fn remove(&mut self, row: usize, col: usize) -> Option<V> {
-        let (i1, i2) = self.directedness.sort_pair((row, col));
+        let (i1, i2) = D::sort_pair((row, col));
         let targets = self.entries.get_mut(&i1)?;
         let value = targets.remove(&i2);
         if targets.is_empty() {
@@ -108,7 +108,7 @@ where
             .into_iter()
             .flat_map(|targets| targets.iter().map(|(i2, v)| (*i2, v)));
 
-        let backward_entries = if self.directedness.is_directed() {
+        let backward_entries = if D::IS_DIRECTED {
             None
         } else {
             Some(
@@ -133,7 +133,7 @@ where
     }
 
     fn entries_in_col(&self, col: usize) -> impl Iterator<Item = (usize, &'_ V)> + '_ {
-        let (directed, undirected) = if self.directedness.is_directed() {
+        let (directed, undirected) = if D::IS_DIRECTED {
             let sources = self.reverse_entries.get(&col).cloned().unwrap_or_default();
             (
                 Some(sources.into_iter().filter_map(move |row| {
@@ -154,7 +154,7 @@ where
     }
 
     fn clear_row_and_column(&mut self, row: usize, col: usize) {
-        if self.directedness.is_directed() {
+        if D::IS_DIRECTED {
             if self.entries.remove(&row).is_some()
                 && let Some(reverse_entries) = self.reverse_entries.get_mut(&col)
             {

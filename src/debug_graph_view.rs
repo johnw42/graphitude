@@ -1,8 +1,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    BagGraph, coordinate_pair::CoordinatePair, copier::GraphCopier, format_debug::format_debug,
-    prelude::*,
+    BagGraph, copier::GraphCopier, end_pair::EndPair, format_debug::format_debug, prelude::*,
 };
 
 /// A view of a graph with transformed node and edge data, suitable for debugging.
@@ -74,7 +73,10 @@ where
         self.inner.edge_data(id)
     }
 
-    fn edge_ends(&self, id: &Self::EdgeId) -> CoordinatePair<Self::NodeId, Self::Directedness> {
+    fn edge_ends(
+        &self,
+        id: &Self::EdgeId,
+    ) -> <Self::Directedness as DirectednessTrait>::EndPair<Self::NodeId> {
         self.inner.edge_ends(id)
     }
 

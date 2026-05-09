@@ -4,6 +4,7 @@ use std::{
 };
 
 use crate::{
+    end_pair::EndPair as _,
     prelude::*,
     util::{FormatDebugAs, FormatDebugWith},
 };
@@ -135,7 +136,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{bag_graph::BagGraph, prelude::*};
+    use crate::{bag_graph::BagGraph, end_pair::EndPair as _, prelude::*};
 
     #[cfg(feature = "bitvec")]
     use crate::adjacency_graph::AdjacencyGraph;

@@ -7,9 +7,9 @@ use crate::{
         edge_container::{EdgeContainer, EdgeContainerSelector},
     },
     adjacency_matrix::{AdjacencyMatrix, HashStorage, Storage},
-    coordinate_pair::CoordinatePair,
     copier::GraphCopier,
     directedness::DirectednessTrait,
+    end_pair::EndPair,
     format_debug::format_debug,
     prelude::*,
 };
@@ -63,7 +63,7 @@ where
         index: <M::Container<E> as EdgeContainer<E>>::Index,
     ) -> EdgeId<E, S, D, M> {
         EdgeId::new(
-            self.directedness.coordinate_pair((from, into)),
+            self.directedness.make_pair(from, into),
             index,
             self.compaction_count,
         )
@@ -124,10 +124,12 @@ where
         self.num_edges
     }
 
-    fn edge_ends(&self, id: &Self::EdgeId) -> CoordinatePair<Self::NodeId, Self::Directedness> {
+    fn edge_ends(
+        &self,
+        id: &Self::EdgeId,
+    ) -> <Self::Directedness as DirectednessTrait>::EndPair<Self::NodeId> {
         let (from, to) = id.keys().into_values();
-        self.directedness
-            .coordinate_pair((self.node_id(from), self.node_id(to)))
+        (self.node_id(from), self.node_id(to)).into()
     }
 
     fn edges_from_into<'a, 'b: 'a>(
@@ -261,7 +263,7 @@ where
         for (_col, container) in self.adjacency.entries_in_row(row_col) {
             self.num_edges -= container.len();
         }
-        if self.directedness.is_directed() {
+        if Self::Directedness::IS_DIRECTED {
             for (row, container) in self.adjacency.entries_in_col(row_col) {
                 if row != row_col {
                     self.num_edges -= container.len();

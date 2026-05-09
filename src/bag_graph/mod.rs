@@ -2,10 +2,9 @@ use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
 use crate::{
     bag::{Bag, BagKey},
-    coordinate_pair::CoordinatePair,
     copier::GraphCopier,
-    directedness::Directedness,
     edge_multiplicity::EdgeMultiplicity,
+    end_pair::EndPair,
     format_debug::format_debug,
     graph_traits::AddEdgeResult,
     map_collector::MapCollector,
@@ -29,14 +28,14 @@ struct Node<G: Graph> {
 
 struct Edge<G: Graph> {
     data: G::EdgeData,
-    ends: CoordinatePair<BagKey, G::Directedness>,
+    ends: <G::Directedness as DirectednessTrait>::EndPair<BagKey>,
 }
 
 impl<G: Graph> Edge<G> {
     fn new(data: G::EdgeData, from: BagKey, into: BagKey, directedness: G::Directedness) -> Self {
         Self {
             data,
-            ends: CoordinatePair::new(from, into, directedness),
+            ends: directedness.make_pair(from, into),
         }
     }
 }
@@ -51,7 +50,7 @@ impl<G: Graph> Edge<G> {
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
 #[derive(Derivative)]
 #[derivative(Default(bound = "D: Default, M: Default"))]
-pub struct BagGraph<N, E, D = Directedness, M = EdgeMultiplicity>
+pub struct BagGraph<N, E, D, M = EdgeMultiplicity>
 where
     D: DirectednessTrait,
     M: EdgeMultiplicityTrait,
@@ -77,8 +76,7 @@ where
     fn edge_id(&self, edge_key: BagKey) -> EdgeId<Self> {
         EdgeId {
             edge_key,
-            node_keys: self.edges[edge_key].ends.clone(),
-            directedness: self.directedness,
+            phantom: PhantomData,
         }
     }
 
@@ -136,21 +134,20 @@ where
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
-        self.edges.pairs().map(|(edge_key, edge)| EdgeId {
+        self.edges.pairs().map(|(edge_key, _edge)| EdgeId {
             edge_key,
-            node_keys: edge.ends.clone(),
-            directedness: self.directedness,
+            phantom: PhantomData,
         })
     }
 
-    fn edge_ends(&self, id: &Self::EdgeId) -> CoordinatePair<Self::NodeId, Self::Directedness> {
+    fn edge_ends(
+        &self,
+        id: &Self::EdgeId,
+    ) -> <Self::Directedness as DirectednessTrait>::EndPair<Self::NodeId> {
         let edge = self.edge(id);
         let (from_key, into_key) = edge.ends.values();
-        CoordinatePair::new(
-            self.node_id(*from_key),
-            self.node_id(*into_key),
-            self.directedness,
-        )
+        self.directedness
+            .make_pair(self.node_id(*from_key), self.node_id(*into_key))
     }
 
     fn edges_from<'a, 'b: 'a>(
@@ -179,7 +176,7 @@ where
         from: &'b Self::NodeId,
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        let expected_ends = CoordinatePair::new(from.key, into.key, self.directedness());
+        let expected_ends = self.directedness.make_pair(from.key, into.key);
         self.node(from)
             .edges_out
             .iter()
@@ -249,7 +246,7 @@ where
         into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
-        let ends = self.directedness.coordinate_pair((from.key, into.key));
+        let ends = self.directedness.make_pair(from.key, into.key);
 
         if !self.allows_parallel_edges() {
             debug_assert!(self.num_edges_from_into(from, into) <= 1);
@@ -263,8 +260,7 @@ where
                 return AddEdgeResult::Updated(
                     EdgeId {
                         edge_key: *edge_key,
-                        node_keys: ends,
-                        directedness: self.directedness,
+                        phantom: PhantomData,
                     },
                     old_data,
                 );
@@ -381,7 +377,7 @@ where
                 .collect();
         }
         for edge in self.edges.iter_mut() {
-            edge.ends = edge.ends.map(|node_key| node_map[&node_key]);
+            edge.ends = edge.ends.clone().map(|node_key| node_map[&node_key]);
         }
         if let Some(node_map_collector) = node_map_collector {
             for (old_key, new_key) in node_map {

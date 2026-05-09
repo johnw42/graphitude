@@ -27,13 +27,13 @@
 pub mod adjacency_graph;
 pub mod adjacency_matrix;
 pub mod bag_graph;
-pub mod coordinate_pair;
 pub mod copier;
 pub mod debug_graph_view;
 pub mod directedness;
 #[cfg(feature = "dot")]
 pub mod dot;
 pub mod edge_multiplicity;
+pub mod end_pair;
 pub mod generate_large_graph;
 pub mod graph_traits;
 pub mod linked_graph;
@@ -62,7 +62,7 @@ pub use adjacency_matrix::BitvecStorage;
 pub use adjacency_matrix::{HashStorage, Storage};
 pub use bag_graph::BagGraph;
 pub use copier::GraphCopier;
-pub use directedness::{Directed, Directedness, DirectednessTrait, Undirected};
+pub use directedness::{Directed, DirectednessTrait, Undirected};
 pub use edge_multiplicity::{EdgeMultiplicity, EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
 pub use graph_traits::{
     AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphUndirected, NodeIdTrait,

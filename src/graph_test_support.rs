@@ -5,6 +5,7 @@ use std::hash::Hash;
 use quickcheck::Arbitrary;
 use tracing::info_span;
 
+use crate::end_pair::EndPair as _;
 use crate::prelude::*;
 use crate::tracing_support::{TimingScope, init_tracing, set_timing_scope};
 
@@ -29,12 +30,11 @@ where
     G: GraphMut<NodeData = String, EdgeData = String> + 'static,
 {
     pub fn new(
-        directedness: G::Directedness,
         edge_multiplicity: G::EdgeMultiplicity,
         node_data: Vec<String>,
         edge_data: Vec<((usize, usize), String)>,
     ) -> Self {
-        let mut graph = G::new(directedness, edge_multiplicity);
+        let mut graph = G::new(G::Directedness::default(), edge_multiplicity);
         let mut node_ids = Vec::new();
         for data in node_data.iter() {
             node_ids.push(graph.add_node(data.clone()));
@@ -61,7 +61,6 @@ where
 {
     fn clone(&self) -> Self {
         Self::new(
-            self.graph.directedness(),
             self.graph.edge_multiplicity(),
             self.node_data.clone(),
             self.edge_data.clone(),
@@ -97,12 +96,7 @@ where
             }
         }
 
-        ArbGraph::new(
-            G::Directedness::arbitrary(g),
-            G::EdgeMultiplicity::arbitrary(g),
-            node_data,
-            edge_data,
-        )
+        ArbGraph::new(G::EdgeMultiplicity::arbitrary(g), node_data, edge_data)
     }
 
     fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
@@ -135,22 +129,12 @@ where
                         })
                         .collect();
                     new_node_data.remove(i);
-                    ArbGraph::new(
-                        directedness,
-                        edge_multiplicity,
-                        new_node_data,
-                        new_edge_data,
-                    )
+                    ArbGraph::new(edge_multiplicity, new_node_data, new_edge_data)
                 })
                 .chain((0..edge_data_clone2.len()).map(move |i| {
                     let mut new_edge_data = edge_data_clone2.clone();
                     new_edge_data.remove(i);
-                    ArbGraph::new(
-                        directedness,
-                        edge_multiplicity,
-                        node_data_clone2.clone(),
-                        new_edge_data,
-                    )
+                    ArbGraph::new(edge_multiplicity, node_data_clone2.clone(), new_edge_data)
                 })),
         )
     }

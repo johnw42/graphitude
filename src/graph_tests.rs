@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use generate_test_macro::generate_test_macro;
 use quickcheck::TestResult;
 
+use crate::end_pair::EndPair as _;
 use crate::generate_large_graph::generate_large_graph;
 use crate::graph_test_support::{ArbGraph, check_graph_consistency, has_duplicates};
 use crate::{GraphCopier, prelude::*};

@@ -1,8 +1,8 @@
-use std::{cmp::Ordering, iter::once};
+use std::iter::once;
 
 use derivative::Derivative;
 
-use crate::{DirectednessTrait, EdgeIdTrait, Graph};
+use crate::{DirectednessTrait, Graph, end_pair::EndPair as _};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
@@ -108,7 +108,7 @@ impl<'g, G: Graph + ?Sized> Path<'g, G> {
     pub fn add_edge_and_node(&mut self, edge_id: G::EdgeId, node_id: G::NodeId) {
         let last = self.last_node();
 
-        if edge_id.directedness().is_directed() {
+        if self.graph.is_directed() {
             assert!(
                 self.graph.edge_ends(&edge_id).values() == (&last, &node_id),
                 "Edge does not connect last node to provided node"

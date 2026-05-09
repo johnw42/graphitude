@@ -1,34 +1,21 @@
-use std::{
-    fmt::Debug,
-    hash::Hash,
-    marker::PhantomData,
-    sync::{Arc, Weak},
-};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 use derivative::Derivative;
 
-use crate::{EdgeIdTrait, Graph, bag::BagKey, coordinate_pair::CoordinatePair};
-
-use super::NodeId;
+use crate::{EdgeIdTrait, Graph, bag::BagKey};
 
 /// Edge identifier for [`LinkedGraph`](super::LinkedGraph).
 ///
 /// Contains a weak pointer to the edge data and a graph ID for safety checks.
 #[derive(Derivative)]
-#[derivative(Clone(bound = "G::Directedness: Clone"))]
+#[derivative(Clone(bound = ""))]
 pub struct EdgeId<G: Graph> {
     pub(super) edge_key: BagKey,
-    pub(super) node_keys: CoordinatePair<BagKey, G::Directedness>,
-    pub(super) directedness: G::Directedness,
+    pub(super) phantom: PhantomData<G>,
 }
 
-// SAFETY: EdgeId is Send and Sync because it only contains a Weak pointer and
-// PhantomData, and does not allow mutation of the underlying data. The EdgeId
-// can only be used to access the edge data through Graph methods that ensure
-// the graph is still valid, so it cannot be used after the graph has been
-// dropped.
-unsafe impl<G: Graph> Send for EdgeId<G> {}
-unsafe impl<G: Graph> Sync for EdgeId<G> {}
+unsafe impl<G> Send for EdgeId<G> where G: Graph {}
+unsafe impl<G> Sync for EdgeId<G> where G: Graph {}
 
 impl<G: Graph> Debug for EdgeId<G> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -62,11 +49,4 @@ impl<G: Graph> Ord for EdgeId<G> {
     }
 }
 
-impl<G: Graph> EdgeIdTrait for EdgeId<G> {
-    type NodeId = NodeId<G>;
-    type Directedness = G::Directedness;
-
-    fn directedness(&self) -> Self::Directedness {
-        self.directedness
-    }
-}
+impl<G: Graph> EdgeIdTrait for EdgeId<G> {}

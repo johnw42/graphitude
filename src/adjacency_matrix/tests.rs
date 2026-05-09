@@ -78,7 +78,7 @@ where
         assert_eq!(matrix.get(1, 0), Some(&"b"));
         assert_eq!(matrix.get(2, 0), Some(&"c"));
         assert_eq!(matrix.get(6, 7), Some(&"d"));
-        if matrix.directedness().is_directed() {
+        if M::Directedness::IS_DIRECTED {
             assert_eq!(matrix.get(0, 1), None);
             assert_eq!(matrix.get(0, 2), None);
             assert_eq!(matrix.get(7, 6), None);
@@ -110,7 +110,7 @@ where
         let mut matrix = M::default();
         matrix.insert(0, 1, "");
         let removed = matrix.remove(1, 0);
-        if matrix.directedness().is_directed() {
+        if M::Directedness::IS_DIRECTED {
             assert_eq!(removed, None);
             assert_eq!(matrix.get(0, 1), Some(&""));
         } else {
@@ -133,7 +133,7 @@ where
         matrix.insert(1, 0, "b");
         matrix.insert(2, 3, "b");
         let entries: Vec<_> = matrix.iter().collect();
-        if matrix.directedness().is_directed() {
+        if M::Directedness::IS_DIRECTED {
             assert_eq!(entries.len(), 3);
         } else {
             assert_eq!(entries.len(), 2);
@@ -151,7 +151,7 @@ where
         let entries0: Vec<_> = matrix.entries_in_row(0).collect();
         let entries1: Vec<_> = matrix.entries_in_row(1).collect();
         let entries2: Vec<_> = matrix.entries_in_row(2).collect();
-        if matrix.directedness().is_directed() {
+        if M::Directedness::IS_DIRECTED {
             assert_eq!(entries0.len(), 2);
             assert_eq!(entries1.len(), 1);
             assert_eq!(entries2.len(), 0);
@@ -177,7 +177,7 @@ where
         let entries0: Vec<_> = matrix.entries_in_col(0).collect();
         let entries1: Vec<_> = matrix.entries_in_col(1).collect();
         let entries2: Vec<_> = matrix.entries_in_col(2).collect();
-        if matrix.directedness().is_directed() {
+        if M::Directedness::IS_DIRECTED {
             assert_eq!(entries0.len(), 0);
             assert_eq!(entries1.len(), 1);
             assert_eq!(entries2.len(), 2);
@@ -199,7 +199,7 @@ where
         let mut matrix = M::default();
         matrix.insert(100, 200, "");
         assert_eq!(matrix.get(100, 200), Some(&""));
-        if !matrix.directedness().is_directed() {
+        if !M::Directedness::IS_DIRECTED {
             assert_eq!(matrix.get(200, 100), Some(&""));
         }
     }
@@ -218,7 +218,7 @@ where
         matrix.insert(2, 3, "B");
         matrix.insert(1, 0, "C");
         let entries: Vec<_> = matrix.iter().collect();
-        if matrix.directedness().is_directed() {
+        if M::Directedness::IS_DIRECTED {
             assert_eq!(entries.len(), 3);
             assert!(
                 entries
@@ -256,9 +256,8 @@ where
         matrix.insert(0, 1, "A");
         matrix.insert(2, 3, "B");
         matrix.insert(1, 0, "C");
-        let directedness = matrix.directedness();
         let entries: Vec<_> = matrix.into_iter().collect();
-        if directedness.is_directed() {
+        if M::Directedness::IS_DIRECTED {
             assert_eq!(entries.len(), 3);
             assert!(
                 entries
@@ -301,20 +300,12 @@ where
         matrix.insert(1, 0, "edge");
         assert_eq!(
             matrix.len(),
-            if matrix.directedness().is_directed() {
-                2
-            } else {
-                1
-            }
+            if M::Directedness::IS_DIRECTED { 2 } else { 1 }
         );
         matrix.remove(0, 1);
         assert_eq!(
             matrix.len(),
-            if matrix.directedness().is_directed() {
-                1
-            } else {
-                0
-            }
+            if M::Directedness::IS_DIRECTED { 1 } else { 0 }
         );
         matrix.clear();
         assert_eq!(matrix.len(), 0);
@@ -350,7 +341,7 @@ where
         // Verify other edges remain
         assert_eq!(matrix.get(0, 1), Some(&"edge_0_1"));
         assert_eq!(matrix.get(3, 4), Some(&"edge_3_4"));
-        if !matrix.directedness().is_directed() {
+        if !M::Directedness::IS_DIRECTED {
             assert_eq!(matrix.get(1, 0), Some(&"edge_0_1"));
             assert_eq!(matrix.get(4, 3), Some(&"edge_3_4"));
         }
@@ -371,7 +362,7 @@ where
 
         matrix.clear_row_and_column(1, 2);
 
-        if matrix.directedness().is_directed() {
+        if M::Directedness::IS_DIRECTED {
             assert_eq!(matrix.len(), 3);
             assert_eq!(matrix.get(0, 1), Some(&"a"));
             assert_eq!(matrix.get(2, 3), Some(&"e"));
@@ -427,7 +418,7 @@ where
         matrix.insert(0, 0, counter.new_value());
         matrix.insert(2, 2, counter.new_value());
 
-        if matrix.directedness().is_directed() {
+        if M::Directedness::IS_DIRECTED {
             assert_eq!(counter.drop_count(), 0);
             assert_eq!(matrix.len(), 7);
         } else {
@@ -600,11 +591,11 @@ where
     fn prop_get_consistent(ArbMatrix { matrix, insertions }: ArbMatrix<M>) -> bool {
         let expected_values = insertions
             .into_iter()
-            .map(|(row, col, data)| (matrix.directedness().sort_pair((row, col)), data))
+            .map(|(row, col, data)| (M::Directedness::sort_pair((row, col)), data))
             .collect::<HashMap<_, _>>();
         for i in 0..matrix.size_bound() {
             for j in 0..matrix.size_bound() {
-                let expected = expected_values.get(&matrix.directedness().sort_pair((i, j)));
+                let expected = expected_values.get(&M::Directedness::sort_pair((i, j)));
                 if matrix.get(i, j) != expected {
                     return false;
                 }
@@ -645,7 +636,7 @@ where
             let entries_in_row: Vec<_> = matrix
                 .entries_in_row(row)
                 .flat_map(|(j, _)| {
-                    if matrix.directedness().is_directed() {
+                    if M::Directedness::IS_DIRECTED {
                         Some(j)
                     } else {
                         (j >= row).then_some(j)
@@ -675,7 +666,7 @@ where
             let entries_in_col: Vec<_> = matrix
                 .entries_in_col(col)
                 .flat_map(|(i, _)| {
-                    if matrix.directedness().is_directed() {
+                    if M::Directedness::IS_DIRECTED {
                         Some(i)
                     } else {
                         (i <= col).then_some(i)

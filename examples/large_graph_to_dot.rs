@@ -14,7 +14,6 @@ mod inner {
     use std::io::{self, Write};
 
     use clap::{Parser, ValueEnum};
-    use graphitude::directedness::Directedness;
     use graphitude::edge_multiplicity::EdgeMultiplicity;
     use graphitude::generate_large_graph::generate_large_graph;
     use graphitude::{bag_graph::BagGraph, dot::renderer::DotGenerator, prelude::*};

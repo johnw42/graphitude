@@ -1,6 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 
-use crate::path::Path;
+use crate::{end_pair::EndPair as _, path::Path};
 
 use super::prelude::*;
 

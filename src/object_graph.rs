@@ -2,10 +2,7 @@ use std::{fmt::Debug, marker::PhantomData, mem::transmute, ptr::NonNull};
 
 use derivative::Derivative;
 
-use crate::{
-    EdgeIdTrait, MultipleEdges, NodeIdTrait, coordinate_pair::CoordinatePair,
-    directedness::Directed,
-};
+use crate::{EdgeIdTrait, MultipleEdges, NodeIdTrait, directedness::Directed, end_pair::EndPair};
 
 use super::Graph;
 
@@ -96,14 +93,7 @@ where
     }
 }
 
-impl<'a, N: Debug> EdgeIdTrait for (NodeId<'a, N>, NodeId<'a, N>) {
-    type NodeId = NodeId<'a, N>;
-    type Directedness = Directed;
-
-    fn directedness(&self) -> Self::Directedness {
-        Directed
-    }
-}
+impl<'a, N: Debug> EdgeIdTrait for (NodeId<'a, N>, NodeId<'a, N>) {}
 
 impl<'d, N: Debug, F> Graph for ObjectGraph<'d, N, F>
 where
@@ -155,9 +145,9 @@ where
             .flat_map(|from| self.edges_from(&from).collect::<Vec<_>>())
     }
 
-    fn edge_ends(&self, id: &Self::EdgeId) -> CoordinatePair<Self::NodeId, Self::Directedness> {
+    fn edge_ends(&self, id: &Self::EdgeId) -> (Self::NodeId, Self::NodeId) {
         let (from, to) = id;
-        CoordinatePair::new(*from, *to, self.directedness())
+        (*from, *to)
     }
 }
 

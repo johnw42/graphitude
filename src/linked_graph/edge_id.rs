@@ -8,17 +8,16 @@ use derivative::Derivative;
 
 use crate::{EdgeIdTrait, Graph, linked_graph::GraphId};
 
-use super::{Edge, NodeId};
+use super::Edge;
 
 /// Edge identifier for [`LinkedGraph`](super::LinkedGraph).
 ///
 /// Contains a weak pointer to the edge data and a graph ID for safety checks.
 #[derive(Derivative)]
-#[derivative(Clone(bound = "G::Directedness: Clone"))]
+#[derivative(Clone(bound = ""))]
 pub struct EdgeId<G: Graph> {
     pub(super) ptr: Weak<Edge<G>>,
     pub(super) graph_id: GraphId,
-    pub(super) directedness: G::Directedness,
 }
 
 // SAFETY: EdgeId is Send and Sync because it only contains a Weak pointer and
@@ -45,7 +44,7 @@ impl<G: Graph> Eq for EdgeId<G> {}
 
 impl<G: Graph> Hash for EdgeId<G> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        (self.ptr.as_ptr() as usize).hash(state);
+        (self.ptr.as_ptr()).hash(state);
     }
 }
 
@@ -61,11 +60,4 @@ impl<G: Graph> Ord for EdgeId<G> {
     }
 }
 
-impl<G: Graph> EdgeIdTrait for EdgeId<G> {
-    type NodeId = NodeId<G>;
-    type Directedness = G::Directedness;
-
-    fn directedness(&self) -> Self::Directedness {
-        self.directedness
-    }
-}
+impl<G: Graph> EdgeIdTrait for EdgeId<G> {}

@@ -10,8 +10,8 @@ use {
 };
 
 use crate::{
-    coordinate_pair::CoordinatePair,
     debug_graph_view::DebugGraphView,
+    end_pair::EndPair,
     map_collector::MapCollector,
     path::Path,
     prelude::*,
@@ -31,14 +31,7 @@ pub trait NodeIdTrait: Eq + Hash + Clone + Debug + Ord + Send + Sync {}
 /// A trait representing an edge identifier in a graph.
 ///
 /// Implementors mu implement either `left` and `right`, or `ends`.
-pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {
-    type NodeId: NodeIdTrait;
-    type Directedness: DirectednessTrait;
-
-    /// Gets the directedness of the edge, which will match the directedness of
-    /// the graph it belongs to.
-    fn directedness(&self) -> Self::Directedness;
-}
+pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {}
 
 /// Return type of [`Graph::add_edge`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,9 +59,9 @@ pub trait Graph {
     type Directedness: DirectednessTrait;
     type EdgeMultiplicity: EdgeMultiplicityTrait;
     type NodeData;
-    type NodeId: NodeIdTrait;
     type EdgeData;
-    type EdgeId: EdgeIdTrait<NodeId = Self::NodeId, Directedness = Self::Directedness>;
+    type NodeId: NodeIdTrait;
+    type EdgeId: EdgeIdTrait;
 
     fn directedness(&self) -> Self::Directedness;
 
@@ -76,7 +69,7 @@ pub trait Graph {
 
     /// Returns true if the graph is directed.
     fn is_directed(&self) -> bool {
-        self.directedness().is_directed()
+        Self::Directedness::IS_DIRECTED
     }
 
     /// Returns true if the graph allows parallel edges between the same pair of nodes.
@@ -167,7 +160,7 @@ pub trait Graph {
         let mut visited = HashSet::new();
         self.edges_into(node).filter_map(move |eid| {
             let ends = self.edge_ends(&eid);
-            let nid = if self.directedness().is_directed() {
+            let nid = if Self::Directedness::IS_DIRECTED {
                 ends.into_first()
             } else {
                 ends.into_other_value(node).into_inner()
@@ -185,7 +178,7 @@ pub trait Graph {
         let mut visited = HashSet::new();
         self.edges_from(node).filter_map(move |eid| {
             let ends = self.edge_ends(&eid);
-            let nid = if self.directedness().is_directed() {
+            let nid = if Self::Directedness::IS_DIRECTED {
                 ends.into_second()
             } else {
                 ends.into_other_value(node).into_inner()
@@ -205,7 +198,10 @@ pub trait Graph {
     /// Gets the ends of an edge as a pair of node IDs.  For directed edges, the
     /// first node ID is the source and the second is the target.  For
     /// undirected edges, the IDs are in sorted order but otherwise arbitrary.
-    fn edge_ends(&self, id: &Self::EdgeId) -> CoordinatePair<Self::NodeId, Self::Directedness>;
+    fn edge_ends(
+        &self,
+        id: &Self::EdgeId,
+    ) -> <Self::Directedness as DirectednessTrait>::EndPair<Self::NodeId>;
 
     /// Gets an iterator over the outgoing edges from a given node.
     fn edges_from<'a, 'b: 'a>(
@@ -214,7 +210,7 @@ pub trait Graph {
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(|eid| {
             let (source, target) = self.edge_ends(eid).into_values();
-            source == *from || !self.directedness().is_directed() && target == *from
+            source == *from || !Self::Directedness::IS_DIRECTED && target == *from
         })
     }
 
@@ -225,7 +221,7 @@ pub trait Graph {
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edge_ids().filter(|eid| {
             let (source, target) = self.edge_ends(eid).into_values();
-            target == *into || !self.directedness().is_directed() && source == *into
+            target == *into || !Self::Directedness::IS_DIRECTED && source == *into
         })
     }
 
@@ -238,7 +234,7 @@ pub trait Graph {
         self.edge_ids().filter(move |eid| {
             let (edge_source, edge_target) = self.edge_ends(eid).into_values();
             (edge_source == *from && edge_target == *into)
-                || (!self.directedness().is_directed()
+                || (!Self::Directedness::IS_DIRECTED
                     && edge_source == *into
                     && edge_target == *from)
         })
