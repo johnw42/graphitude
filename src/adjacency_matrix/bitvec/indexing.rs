@@ -1,4 +1,7 @@
-use std::ops::{Add, Index, IndexMut, Range, Sub};
+use std::{
+    marker::PhantomData,
+    ops::{Add, Index, IndexMut, Range, Sub},
+};
 
 use bitvec::slice::BitSlice;
 
@@ -78,7 +81,7 @@ impl Sub for LivenessIndex {
 pub(crate) struct MatrixIndexing<D> {
     /// The size of one dimension of the symmetric matrix.
     size: usize,
-    directedness: D,
+    directedness: PhantomData<D>,
 }
 
 impl<D> MatrixIndexing<D>
@@ -86,8 +89,11 @@ where
     D: DirectednessTrait,
 {
     /// Creates a new `MatrixIndexing` for a symmetric matrix of the given size.
-    pub fn new(size: usize, directedness: D) -> Self {
-        Self { size, directedness }
+    pub fn new(size: usize, _directedness: D) -> Self {
+        Self {
+            size,
+            directedness: PhantomData,
+        }
     }
 
     /// Returns the size of one dimension of the symmetric matrix.

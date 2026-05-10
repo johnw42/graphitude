@@ -2,7 +2,7 @@ use std::{fmt::Debug, marker::PhantomData, mem::transmute, ptr::NonNull};
 
 use derivative::Derivative;
 
-use crate::{EdgeIdTrait, MultipleEdges, NodeIdTrait, directedness::Directed, end_pair::EndPair};
+use crate::{EdgeIdTrait, MultipleEdges, NodeIdTrait, directedness::Directed};
 
 use super::Graph;
 

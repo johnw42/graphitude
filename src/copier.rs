@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    AddEdgeResult, DirectednessTrait, EdgeIdTrait, EdgeMultiplicityTrait, Graph, GraphMut,
+    AddEdgeResult, DirectednessTrait, EdgeMultiplicityTrait, Graph, GraphMut,
     end_pair::EndPair as _,
 };
 

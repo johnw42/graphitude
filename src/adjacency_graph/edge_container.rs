@@ -1,4 +1,4 @@
-use std::{fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash};
 
 use crate::{
     EdgeMultiplicityTrait, MultipleEdges, SingleEdge,

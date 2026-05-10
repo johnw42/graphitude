@@ -173,6 +173,7 @@ impl<T> Bag<T> {
     /// values it can hold without reallocating.  This is typically greater than
     /// or equal to the current length of the bag, depending on how many
     /// insertions and removals have occurred.
+    #[allow(unused)]
     pub fn capacity(&self) -> usize {
         let extra_data_capacity = self.data.capacity() - self.data.len();
         let extra_index_capacity = self.index.capacity() - self.index.len();

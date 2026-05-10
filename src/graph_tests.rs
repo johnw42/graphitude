@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::marker::PhantomData;
 
 use generate_test_macro::generate_test_macro;
 use quickcheck::TestResult;
@@ -13,7 +14,7 @@ use crate::{GraphCopier, prelude::*};
 pub struct GraphTests<G> {
     next_node_index: usize,
     next_edge_index: usize,
-    phantom: G,
+    phantom: PhantomData<G>,
 }
 
 #[generate_test_macro(graph_test_suite)]
@@ -25,7 +26,7 @@ where
         Self {
             next_node_index: 0,
             next_edge_index: 0,
-            phantom: G::default(),
+            phantom: PhantomData,
         }
     }
 

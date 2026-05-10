@@ -277,6 +277,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
     use super::*;
     use crate::{GraphMut, bag_graph::BagGraph, edge_multiplicity::EdgeMultiplicity};
 
@@ -319,7 +321,7 @@ mod tests {
 
     struct TestGenerator<D: DirectednessTrait> {
         graph_name: String,
-        directedness: D,
+        directedness: PhantomData<D>,
         edge_multiplicity: EdgeMultiplicity,
     }
 
@@ -327,7 +329,7 @@ mod tests {
         fn for_graph(graph_name: &str, graph: &BagGraph<String, (), D>) -> Self {
             Self {
                 graph_name: graph_name.to_string(),
-                directedness: graph.directedness(),
+                directedness: PhantomData,
                 edge_multiplicity: graph.edge_multiplicity(),
             }
         }

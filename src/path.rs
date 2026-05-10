@@ -2,7 +2,7 @@ use std::iter::once;
 
 use derivative::Derivative;
 
-use crate::{DirectednessTrait, Graph, end_pair::EndPair as _};
+use crate::{Graph, end_pair::EndPair as _};
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.

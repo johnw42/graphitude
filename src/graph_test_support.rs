@@ -104,7 +104,6 @@ where
         let node_data_clone2 = self.node_data.clone();
         let edge_data_clone1 = self.edge_data.clone();
         let edge_data_clone2 = self.edge_data.clone();
-        let directedness = self.graph.directedness();
         let edge_multiplicity = self.graph.edge_multiplicity();
 
         Box::new(

@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
+    marker::PhantomData,
 };
 
 use derivative::Derivative;
@@ -26,7 +27,7 @@ pub struct HashAdjacencyMatrix<V, D> {
     /// of all rows that have an entry for a given column.
     reverse_entries: HashMap<usize, HashSet<usize>>,
     size_bound: usize,
-    directedness: D,
+    directedness: PhantomData<D>,
 }
 
 impl<V, D> AdjacencyMatrix for HashAdjacencyMatrix<V, D>
@@ -42,7 +43,7 @@ where
             entries: HashMap::with_capacity(size),
             reverse_entries: HashMap::with_capacity(size),
             size_bound: 0,
-            directedness: D::default(),
+            directedness: PhantomData,
         }
     }
 

@@ -1,8 +1,4 @@
-use std::{
-    fmt::Debug,
-    hash::Hash,
-    sync::{Arc, Weak},
-};
+use std::{fmt::Debug, hash::Hash, sync::Weak};
 
 use derivative::Derivative;
 

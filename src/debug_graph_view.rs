@@ -1,8 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{
-    BagGraph, copier::GraphCopier, end_pair::EndPair, format_debug::format_debug, prelude::*,
-};
+use crate::{BagGraph, copier::GraphCopier, format_debug::format_debug, prelude::*};
 
 /// A view of a graph with transformed node and edge data, suitable for debugging.
 ///
