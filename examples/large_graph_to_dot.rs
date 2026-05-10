@@ -167,23 +167,21 @@ mod inner {
         }
     }
 
-    fn build_linked_graph(
+    fn build_linked_graph<D>(
         node_type: DataType,
         edge_type: DataType,
         edge_prefix: &str,
-        graph_kind: GraphKind,
         strict: bool,
-    ) -> BagGraph<Data, Data, Directedness, EdgeMultiplicity> {
-        let directedness = match graph_kind {
-            GraphKind::Directed => Directedness::Directed,
-            GraphKind::Undirected => Directedness::Undirected,
-        };
+    ) -> BagGraph<Data, Data, D, EdgeMultiplicity>
+    where
+        D: DirectednessTrait,
+    {
         let edge_multiplicity = if strict {
             EdgeMultiplicity::SingleEdge
         } else {
             EdgeMultiplicity::MultipleEdges
         };
-        let mut graph = BagGraph::new(directedness, edge_multiplicity);
+        let mut graph = BagGraph::new(D::default(), edge_multiplicity);
         generate_large_graph(
             &mut graph,
             |i| node_data_for(i, node_type),
@@ -229,14 +227,26 @@ mod inner {
 
         eprintln!("Generating large graph...");
 
-        let graph = build_linked_graph(
-            args.node_type,
-            args.edge_type,
-            &args.edge_prefix,
-            args.graph_kind,
-            args.strict,
-        );
-        write_graph_output(&graph, &args)?;
+        match args.graph_kind {
+            GraphKind::Directed => {
+                let graph = build_linked_graph::<Directed>(
+                    args.node_type,
+                    args.edge_type,
+                    &args.edge_prefix,
+                    args.strict,
+                );
+                write_graph_output(&graph, &args)?;
+            }
+            GraphKind::Undirected => {
+                let graph = build_linked_graph::<Undirected>(
+                    args.node_type,
+                    args.edge_type,
+                    &args.edge_prefix,
+                    args.strict,
+                );
+                write_graph_output(&graph, &args)?;
+            }
+        }
 
         Ok(())
     }

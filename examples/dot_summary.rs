@@ -12,8 +12,9 @@ mod inner {
     use std::process;
 
     use clap::Parser;
-    use graphitude::directedness::Directedness;
+    use graphitude::dot::parser::ParseError;
     use graphitude::edge_multiplicity::EdgeMultiplicity;
+    use graphitude::end_pair::EndPair as _;
     use graphitude::{
         bag_graph::BagGraph,
         dot::{attr::Attr, parser::GraphBuilder},
@@ -40,10 +41,15 @@ mod inner {
             Some(path) => read_file_or_exit(path),
         };
 
-        let mut builder = AttributeBuilder;
-
-        let graph = parse_or_exit(&input, &mut builder);
-        print_summary_with_attrs(&graph, args.sample_nodes);
+        if let Some(graph) = parse_or_exit(&input, &mut AttributeBuilder(Directed)) {
+            print_summary_with_attrs(&graph, args.sample_nodes);
+        } else if let Some(graph) = parse_or_exit(&input, &mut AttributeBuilder(Undirected)) {
+            print_summary_with_attrs(&graph, args.sample_nodes);
+        } else {
+            unreachable!(
+                "Error determining directedness: DOT input is not valid directed or undirected graph"
+            );
+        }
     }
 
     fn read_stdin_or_exit() -> String {
@@ -65,12 +71,15 @@ mod inner {
         }
     }
 
-    fn parse_or_exit<B>(data: &str, builder: &mut B) -> BagGraph<NodeInfo, EdgeInfo>
+    /// Parse DOT input into a graph, exiting on errors.  Returns None if the DOT's directedness is unsupported.
+    fn parse_or_exit<B, D>(data: &str, builder: &mut B) -> Option<BagGraph<NodeInfo, EdgeInfo, D>>
     where
-        B: GraphBuilder<Graph = BagGraph<NodeInfo, EdgeInfo>>,
+        B: GraphBuilder<Graph = BagGraph<NodeInfo, EdgeInfo, D>>,
+        D: DirectednessTrait,
     {
         match BagGraph::from_dot_string(data, builder) {
-            Ok(graph) => graph,
+            Ok(graph) => return Some(graph),
+            Err(ParseError::UnsupportedDirectedness) => None,
             Err(err) => {
                 eprintln!("Invalid DOT input: {err}");
                 process::exit(1);
@@ -170,19 +179,18 @@ mod inner {
     }
 
     #[derive(Debug, Default)]
-    struct AttributeBuilder;
+    struct AttributeBuilder<D: DirectednessTrait>(D);
 
-    impl GraphBuilder for AttributeBuilder {
-        type Graph = BagGraph<NodeInfo, EdgeInfo>;
+    impl<D: DirectednessTrait> GraphBuilder for AttributeBuilder<D> {
+        type Graph = BagGraph<NodeInfo, EdgeInfo, D>;
         type Error = std::convert::Infallible;
 
         fn make_empty_graph(
             &mut self,
             _name: Option<&str>,
-            directedness: Directedness,
             edge_multiplicity: EdgeMultiplicity,
         ) -> Result<Self::Graph, Self::Error> {
-            Ok(BagGraph::new(directedness, edge_multiplicity))
+            Ok(BagGraph::new(self.0, edge_multiplicity))
         }
 
         fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<NodeInfo, Self::Error> {
