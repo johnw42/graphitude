@@ -41,7 +41,7 @@ pub enum DotError<E> {
 
 /// Trait for generating DOT representations of graphs.  Users can implement
 /// this trait to customize node names and attributes in the generated DOT file.
-pub trait DotGenerator<G: Graph> {
+pub trait DotRenderer<G: Graph> {
     type Error: Error + 'static;
 
     /// Returns the name of the graph to be used in the DOT output.
@@ -89,7 +89,7 @@ pub fn generate_dot_file<G, D>(
 ) -> Result<(), DotError<D::Error>>
 where
     G: Graph,
-    D: DotGenerator<G>,
+    D: DotRenderer<G>,
 {
     struct NodeInfo {
         name: String,
@@ -108,10 +108,7 @@ where
     }
 
     impl<'a, G: Graph> GraphWrapper<'a, G> {
-        fn new<D: DotGenerator<G>>(
-            graph: &'a G,
-            generator: &D,
-        ) -> Result<Self, DotError<D::Error>> {
+        fn new<D: DotRenderer<G>>(graph: &'a G, generator: &D) -> Result<Self, DotError<D::Error>> {
             // Validate graph name
             let graph_name = generator.graph_name().map_err(DotError::Generator)?;
             if !is_valid_dot_id(&graph_name) {
@@ -319,13 +316,13 @@ mod tests {
         assert!(!is_valid_dot_id("abc!"));
     }
 
-    struct TestGenerator<D: Directedness, M: EdgeMultiplicity> {
+    struct TestRenderer<D: Directedness, M: EdgeMultiplicity> {
         graph_name: String,
         directedness: PhantomData<D>,
         edge_multiplicity: PhantomData<M>,
     }
 
-    impl<D: Directedness, M: EdgeMultiplicity> TestGenerator<D, M> {
+    impl<D: Directedness, M: EdgeMultiplicity> TestRenderer<D, M> {
         fn for_graph(graph_name: &str, _graph: &BagGraph<String, (), D>) -> Self {
             Self {
                 graph_name: graph_name.to_string(),
@@ -335,7 +332,7 @@ mod tests {
         }
     }
 
-    impl<G: Graph> DotGenerator<G> for TestGenerator<G::Directedness, G::EdgeMultiplicity> {
+    impl<G: Graph> DotRenderer<G> for TestRenderer<G::Directedness, G::EdgeMultiplicity> {
         type Error = std::convert::Infallible;
 
         fn graph_name(&self) -> Result<String, Self::Error> {
@@ -350,7 +347,7 @@ mod tests {
     #[test]
     fn test_generate_empty_directed_graph() {
         let graph: BagGraph<String, (), Directed> = BagGraph::default();
-        let generator = TestGenerator::for_graph("Empty", &graph);
+        let generator = TestRenderer::for_graph("Empty", &graph);
         let mut output = Vec::new();
 
         generate_dot_file(&graph, &generator, &mut output).unwrap();
@@ -364,7 +361,7 @@ mod tests {
     #[test]
     fn test_generate_empty_undirected_graph() {
         let graph: BagGraph<String, (), Undirected> = BagGraph::default();
-        let generator = TestGenerator::for_graph("Empty", &graph);
+        let generator = TestRenderer::for_graph("Empty", &graph);
         let mut output = Vec::new();
 
         generate_dot_file(&graph, &generator, &mut output).unwrap();
@@ -382,7 +379,7 @@ mod tests {
         let b = graph.add_node("b".to_string());
         graph.add_edge(&a, &b, ());
 
-        let generator = TestGenerator::for_graph("G", &graph);
+        let generator = TestRenderer::for_graph("G", &graph);
         let mut output = Vec::new();
 
         generate_dot_file(&graph, &generator, &mut output).unwrap();
@@ -402,7 +399,7 @@ mod tests {
         let b = graph.add_node("b".to_string());
         graph.add_edge(&a, &b, ());
 
-        let generator = TestGenerator::for_graph("G", &graph);
+        let generator = TestRenderer::for_graph("G", &graph);
         let mut output = Vec::new();
 
         generate_dot_file(&graph, &generator, &mut output).unwrap();
@@ -417,7 +414,7 @@ mod tests {
 
     struct InvalidNameGenerator;
 
-    impl<G: Graph> DotGenerator<G> for InvalidNameGenerator {
+    impl<G: Graph> DotRenderer<G> for InvalidNameGenerator {
         type Error = std::convert::Infallible;
 
         fn graph_name(&self) -> Result<String, Self::Error> {
@@ -437,7 +434,7 @@ mod tests {
 
     struct InvalidNodeNameGenerator;
 
-    impl<G: Graph> DotGenerator<G> for InvalidNodeNameGenerator {
+    impl<G: Graph> DotRenderer<G> for InvalidNodeNameGenerator {
         type Error = std::convert::Infallible;
 
         fn node_name(&self, _node_id: &G::NodeId, _index: usize) -> Result<String, Self::Error> {
@@ -459,7 +456,7 @@ mod tests {
 
     struct AttributeGenerator;
 
-    impl<G: Graph> DotGenerator<G> for AttributeGenerator {
+    impl<G: Graph> DotRenderer<G> for AttributeGenerator {
         type Error = std::convert::Infallible;
 
         fn node_attrs(
@@ -504,7 +501,7 @@ mod tests {
         let b = graph.add_node("foo-bar".to_string());
         graph.add_edge(&a, &b, ());
 
-        let generator = TestGenerator::for_graph("G", &graph);
+        let generator = TestRenderer::for_graph("G", &graph);
         let mut output = Vec::new();
 
         generate_dot_file(&graph, &generator, &mut output).unwrap();
@@ -521,7 +518,7 @@ mod tests {
         let a = graph.add_node("a".to_string());
         graph.add_edge(&a, &a, ());
 
-        let generator = TestGenerator::for_graph("G", &graph);
+        let generator = TestRenderer::for_graph("G", &graph);
         let mut output = Vec::new();
 
         generate_dot_file(&graph, &generator, &mut output).unwrap();
@@ -540,7 +537,7 @@ mod tests {
         graph.add_edge(&b, &c, ());
         graph.add_edge(&c, &a, ());
 
-        let generator = TestGenerator::for_graph("Triangle", &graph);
+        let generator = TestRenderer::for_graph("Triangle", &graph);
         let mut output = Vec::new();
 
         generate_dot_file(&graph, &generator, &mut output).unwrap();

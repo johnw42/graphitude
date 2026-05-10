@@ -7,7 +7,7 @@ use dot_parser::ast::{
     EdgeStmt, Graph as DotGraph, ID, NodeID, NodeStmt, Stmt, StmtList, Subgraph, either::Either,
 };
 
-use crate::{dot::attr::Attr, edge_multiplicity::EdgeMultiplicity, prelude::*};
+use crate::{dot::attr::Attr, prelude::*};
 
 /// Recursively extract all node IDs from a node/subgraph specification.
 /// Returns a vector of node ID strings.

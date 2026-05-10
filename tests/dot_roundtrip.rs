@@ -7,7 +7,7 @@ use graphitude::{
     dot::{
         attr::Attr,
         parser::GraphBuilder,
-        renderer::{DotGenerator, generate_dot_file},
+        renderer::{DotRenderer, generate_dot_file},
     },
     end_pair::EndPair as _,
     prelude::*,
@@ -75,7 +75,7 @@ struct TestDotGenerator<'a, G: Graph> {
     graph: &'a G,
 }
 
-impl<'a, G> DotGenerator<G> for TestDotGenerator<'a, G>
+impl<'a, G> DotRenderer<G> for TestDotGenerator<'a, G>
 where
     G: Graph<NodeData = NodeData, EdgeData = EdgeData>,
 {

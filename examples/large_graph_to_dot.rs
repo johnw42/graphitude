@@ -15,7 +15,7 @@ mod inner {
 
     use clap::{Parser, ValueEnum};
     use graphitude::generate_large_graph::generate_large_graph;
-    use graphitude::{bag_graph::BagGraph, dot::renderer::DotGenerator, prelude::*};
+    use graphitude::{bag_graph::BagGraph, dot::renderer::DotRenderer, prelude::*};
 
     /// Data type selector for CLI
     #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -103,7 +103,7 @@ mod inner {
         is_strict: bool,
     }
 
-    impl<'a, G> DotGenerator<G> for ConfigurableGenerator<'a, G>
+    impl<'a, G> DotRenderer<G> for ConfigurableGenerator<'a, G>
     where
         G: Graph,
         G::EdgeData: std::fmt::Display,

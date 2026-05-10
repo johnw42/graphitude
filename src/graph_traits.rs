@@ -85,7 +85,7 @@ pub trait Graph {
         output: &mut impl io::Write,
     ) -> Result<(), renderer::DotError<D::Error>>
     where
-        D: renderer::DotGenerator<Self>,
+        D: renderer::DotRenderer<Self>,
         Self: Sized,
     {
         renderer::generate_dot_file(self, generator, output)
@@ -95,7 +95,7 @@ pub trait Graph {
     #[cfg(feature = "dot")]
     fn to_dot_string<D>(&self, generator: &D) -> Result<String, renderer::DotError<D::Error>>
     where
-        D: renderer::DotGenerator<Self>,
+        D: renderer::DotRenderer<Self>,
         Self: Sized,
     {
         let mut output = Vec::new();
