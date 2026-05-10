@@ -1,0 +1,83 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug unit tests in library 'graphitude'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["test"]
+      }
+    },
+    {
+      "name": "Debug example 'dot_attrs_example'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["run", "--example=dot_attrs_example"]
+      },
+      "args": []
+    },
+    {
+      "name": "Debug unit tests in example 'dot_attrs_example'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["test", "--example=dot_attrs_example"]
+      }
+    },
+    {
+      "name": "Debug example 'dot_summary'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["run", "--example=dot_summary"]
+      },
+      "args": []
+    },
+    {
+      "name": "Debug unit tests in example 'dot_summary'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["test", "--example=dot_summary"]
+      }
+    },
+    {
+      "name": "Debug example 'large_graph_to_dot'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["run", "--example=large_graph_to_dot"]
+      },
+      "args": []
+    },
+    {
+      "name": "Debug unit tests in example 'large_graph_to_dot'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["test", "--example=large_graph_to_dot"]
+      }
+    },
+    {
+      "name": "Debug integration test 'dot_roundtrip'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["test", "--test=dot_roundtrip"]
+      }
+    },
+    {
+      "name": "Debug integration test 'graph_impls'",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["test", "--test=graph_impls"]
+      }
+    }
+  ]
+}

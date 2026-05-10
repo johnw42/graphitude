@@ -94,13 +94,14 @@ pub fn generate_large_graph<G, FN, FE>(
     // Add hub nodes (20 nodes with many connections)
     let hubs_start = all_nodes.len();
     for _ in 0..20 {
+        let hub = all_nodes.len();
         add_node(graph, &mut all_nodes);
 
         // Connect each hub to random existing nodes
         #[allow(clippy::needless_range_loop)]
         for i in 0..all_nodes.len() - 1 {
             if (hubs_start * 29 + i * 31) % 7 < 4 {
-                add_edge(graph, hubs_start + i, i, &all_nodes);
+                add_edge(graph, hub, i, &all_nodes);
             }
         }
     }
