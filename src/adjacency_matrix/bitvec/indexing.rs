@@ -6,7 +6,7 @@ use std::{
 use bitvec::slice::BitSlice;
 
 use crate::{
-    DirectednessTrait,
+    Directedness,
     triangular::{triangular, triangular_inv_floor},
     util::sort_pair,
 };
@@ -86,7 +86,7 @@ pub(crate) struct MatrixIndexing<D> {
 
 impl<D> MatrixIndexing<D>
 where
-    D: DirectednessTrait,
+    D: Directedness,
 {
     /// Creates a new `MatrixIndexing` for a symmetric matrix of the given size.
     pub fn new(size: usize, _directedness: D) -> Self {

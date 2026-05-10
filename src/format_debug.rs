@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn test_format_debug() {
-        let mut graph = BagGraph::<&str, i32, Directed, MultipleEdges>::default();
+        let mut graph = BagGraph::<&str, i32, Directed>::default();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
         let e1 = graph.add_new_edge(&n1, &n2, 10);

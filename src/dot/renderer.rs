@@ -75,8 +75,8 @@ pub trait DotGenerator<G: Graph> {
     }
 
     /// Returns whether the graph is strict (no parallel edges allowed).
-    fn is_strict(&self, graph: &G) -> bool {
-        !graph.edge_multiplicity().allows_parallel_edges()
+    fn is_strict(&self, _graph: &G) -> bool {
+        !G::EdgeMultiplicity::ALLOWS_PARALLEL_EDGES
     }
 }
 
@@ -319,23 +319,23 @@ mod tests {
         assert!(!is_valid_dot_id("abc!"));
     }
 
-    struct TestGenerator<D: DirectednessTrait> {
+    struct TestGenerator<D: Directedness, M: EdgeMultiplicity> {
         graph_name: String,
         directedness: PhantomData<D>,
-        edge_multiplicity: EdgeMultiplicity,
+        edge_multiplicity: PhantomData<M>,
     }
 
-    impl<D: DirectednessTrait> TestGenerator<D> {
-        fn for_graph(graph_name: &str, graph: &BagGraph<String, (), D>) -> Self {
+    impl<D: Directedness, M: EdgeMultiplicity> TestGenerator<D, M> {
+        fn for_graph(graph_name: &str, _graph: &BagGraph<String, (), D>) -> Self {
             Self {
                 graph_name: graph_name.to_string(),
                 directedness: PhantomData,
-                edge_multiplicity: graph.edge_multiplicity(),
+                edge_multiplicity: PhantomData,
             }
         }
     }
 
-    impl<G: Graph> DotGenerator<G> for TestGenerator<G::Directedness> {
+    impl<G: Graph> DotGenerator<G> for TestGenerator<G::Directedness, G::EdgeMultiplicity> {
         type Error = std::convert::Infallible;
 
         fn graph_name(&self) -> Result<String, Self::Error> {
@@ -343,14 +343,13 @@ mod tests {
         }
 
         fn is_strict(&self, _graph: &G) -> bool {
-            matches!(self.edge_multiplicity, EdgeMultiplicity::SingleEdge)
+            !G::EdgeMultiplicity::ALLOWS_PARALLEL_EDGES
         }
     }
 
     #[test]
     fn test_generate_empty_directed_graph() {
-        let graph: BagGraph<String, (), Directed> =
-            BagGraph::new(Directed, EdgeMultiplicity::MultipleEdges);
+        let graph: BagGraph<String, (), Directed> = BagGraph::default();
         let generator = TestGenerator::for_graph("Empty", &graph);
         let mut output = Vec::new();
 
@@ -364,8 +363,7 @@ mod tests {
 
     #[test]
     fn test_generate_empty_undirected_graph() {
-        let graph: BagGraph<String, (), Undirected> =
-            BagGraph::new(Undirected, EdgeMultiplicity::MultipleEdges);
+        let graph: BagGraph<String, (), Undirected> = BagGraph::default();
         let generator = TestGenerator::for_graph("Empty", &graph);
         let mut output = Vec::new();
 
@@ -379,8 +377,7 @@ mod tests {
 
     #[test]
     fn test_generate_simple_directed_graph() {
-        let mut graph: BagGraph<String, (), Directed> =
-            BagGraph::new(Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, (), Directed> = BagGraph::default();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_edge(&a, &b, ());
@@ -400,8 +397,7 @@ mod tests {
 
     #[test]
     fn test_generate_simple_undirected_graph() {
-        let mut graph: BagGraph<String, (), Undirected> =
-            BagGraph::new(Undirected, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, (), Undirected> = BagGraph::default();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_edge(&a, &b, ());
@@ -431,8 +427,7 @@ mod tests {
 
     #[test]
     fn test_generate_invalid_graph_name() {
-        let graph: BagGraph<String, (), Directed> =
-            BagGraph::new(Directed, EdgeMultiplicity::MultipleEdges);
+        let graph: BagGraph<String, (), Directed> = BagGraph::default();
         let generator = InvalidNameGenerator;
         let mut output = Vec::new();
 
@@ -452,8 +447,7 @@ mod tests {
 
     #[test]
     fn test_generate_invalid_node_name() {
-        let mut graph: BagGraph<String, (), Directed> =
-            BagGraph::new(Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, (), Directed> = BagGraph::default();
         graph.add_node("a".to_string());
 
         let generator = InvalidNodeNameGenerator;
@@ -486,8 +480,7 @@ mod tests {
 
     #[test]
     fn test_generate_with_attributes() {
-        let mut graph: BagGraph<String, (), Directed> =
-            BagGraph::new(Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, (), Directed> = BagGraph::default();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         graph.add_edge(&a, &b, ());
@@ -506,8 +499,7 @@ mod tests {
     #[test]
     fn test_format_dot_value_quoting() {
         // Test that values are quoted when necessary
-        let mut graph: BagGraph<String, (), Directed> =
-            BagGraph::new(Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, (), Directed> = BagGraph::default();
         let a = graph.add_node("hello world".to_string());
         let b = graph.add_node("foo-bar".to_string());
         graph.add_edge(&a, &b, ());
@@ -525,8 +517,7 @@ mod tests {
 
     #[test]
     fn test_generate_self_loop() {
-        let mut graph: BagGraph<String, (), Directed> =
-            BagGraph::new(Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, (), Directed> = BagGraph::default();
         let a = graph.add_node("a".to_string());
         graph.add_edge(&a, &a, ());
 
@@ -541,8 +532,7 @@ mod tests {
 
     #[test]
     fn test_generate_multiple_edges() {
-        let mut graph: BagGraph<String, (), Directed> =
-            BagGraph::new(Directed, EdgeMultiplicity::MultipleEdges);
+        let mut graph: BagGraph<String, (), Directed> = BagGraph::default();
         let a = graph.add_node("a".to_string());
         let b = graph.add_node("b".to_string());
         let c = graph.add_node("c".to_string());

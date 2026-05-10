@@ -62,8 +62,8 @@ pub use adjacency_matrix::BitvecStorage;
 pub use adjacency_matrix::{HashStorage, Storage};
 pub use bag_graph::BagGraph;
 pub use copier::GraphCopier;
-pub use directedness::{Directed, DirectednessTrait, Undirected};
-pub use edge_multiplicity::{EdgeMultiplicity, EdgeMultiplicityTrait, MultipleEdges, SingleEdge};
+pub use directedness::{Directed, Directedness, Undirected};
+pub use edge_multiplicity::{EdgeMultiplicity, MultipleEdges, SingleEdge};
 pub use graph_traits::{
     AddEdgeResult, EdgeIdTrait, Graph, GraphDirected, GraphMut, GraphUndirected, NodeIdTrait,
 };

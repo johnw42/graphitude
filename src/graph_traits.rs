@@ -56,16 +56,12 @@ impl<I, D> AddEdgeResult<I, D> {
 /// that return iterators over nodes or edges return them in an unspecified
 /// order unless otherwise noted.
 pub trait Graph {
-    type Directedness: DirectednessTrait;
-    type EdgeMultiplicity: EdgeMultiplicityTrait;
+    type Directedness: Directedness;
+    type EdgeMultiplicity: EdgeMultiplicity;
     type NodeData;
     type EdgeData;
     type NodeId: NodeIdTrait;
     type EdgeId: EdgeIdTrait;
-
-    fn directedness(&self) -> Self::Directedness;
-
-    fn edge_multiplicity(&self) -> Self::EdgeMultiplicity;
 
     /// Returns true if the graph is directed.
     fn is_directed(&self) -> bool {
@@ -74,7 +70,7 @@ pub trait Graph {
 
     /// Returns true if the graph allows parallel edges between the same pair of nodes.
     fn allows_parallel_edges(&self) -> bool {
-        self.edge_multiplicity().allows_parallel_edges()
+        Self::EdgeMultiplicity::ALLOWS_PARALLEL_EDGES
     }
 
     /// Checks if the graph is empty (has no nodes or edges).
@@ -201,7 +197,7 @@ pub trait Graph {
     fn edge_ends(
         &self,
         id: &Self::EdgeId,
-    ) -> <Self::Directedness as DirectednessTrait>::EndPair<Self::NodeId>;
+    ) -> <Self::Directedness as Directedness>::EndPair<Self::NodeId>;
 
     /// Gets an iterator over the outgoing edges from a given node.
     fn edges_from<'a, 'b: 'a>(
@@ -458,11 +454,6 @@ impl<G> GraphUndirected for G where G: Graph<Directedness = Undirected> {}
 /// This trait extends [`Graph`] with methods for adding and removing nodes and edges.
 /// All graph implementations that support modification should implement this trait.
 pub trait GraphMut: Graph {
-    /// Creates a new empty graph.
-    fn new(directedness: Self::Directedness, edge_multiplicity: Self::EdgeMultiplicity) -> Self
-    where
-        Self: Sized;
-
     /// Gets a mutable reference to the data associated with a node.
     fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData;
 

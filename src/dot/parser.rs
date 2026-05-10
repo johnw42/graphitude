@@ -62,8 +62,8 @@ pub enum ParseError<B: GraphBuilder> {
     #[error("Unsupported directedness")]
     UnsupportedDirectedness,
     /// The DOT data specifies an edge multiplicity that is not supported by the graph builder.
-    #[error("Unsupported edge multiplicity: {0:?}")]
-    UnsupportedEdgeMultiplicity(EdgeMultiplicity),
+    #[error("Unsupported edge multiplicity")]
+    UnsupportedEdgeMultiplicity,
     /// An error occurred in the graph builder.
     #[error("Builder error: {0}")]
     Builder(#[source] B::Error),
@@ -74,15 +74,14 @@ pub enum ParseError<B: GraphBuilder> {
 /// Implementors of this trait provide the logic for converting DOT format
 /// node and edge statements into the graph's node and edge data types.
 pub trait GraphBuilder {
-    type Graph: GraphMut;
+    type Graph: GraphMut + Default;
     type Error: Error;
 
     /// Create an empty graph with the given name, directedness, and edge multiplicity.
-    fn make_empty_graph(
-        &mut self,
-        name: Option<&str>,
-        edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
-    ) -> Result<Self::Graph, Self::Error>;
+    fn make_empty_graph(&mut self, name: Option<&str>) -> Result<Self::Graph, Self::Error> {
+        let _ = name;
+        Ok(Self::Graph::default())
+    }
 
     /// Create node data from a node with its attributes.
     fn make_node_data(
@@ -171,18 +170,8 @@ where
     if dot_ast.is_digraph != G::Directedness::IS_DIRECTED {
         return Err(ParseError::UnsupportedDirectedness);
     }
-    let edge_multiplicity = if dot_ast.strict {
-        EdgeMultiplicity::SingleEdge
-    } else {
-        EdgeMultiplicity::MultipleEdges
-    };
     let mut graph = builder
-        .make_empty_graph(
-            dot_ast.name.as_deref(),
-            edge_multiplicity
-                .try_into()
-                .map_err(|_| ParseError::UnsupportedEdgeMultiplicity(edge_multiplicity))?,
-        )
+        .make_empty_graph(dot_ast.name.as_deref())
         .map_err(ParseError::Builder)?;
     let mut node_map: HashMap<String, G::NodeId> = HashMap::new();
 
@@ -372,18 +361,14 @@ mod tests {
 
     // Simple builder that creates string node data from node IDs and empty edge data
     #[derive(Debug)]
-    struct SimpleBuilder<D: DirectednessTrait>(D);
+    struct SimpleBuilder<D: Directedness>(D);
 
-    impl<D: DirectednessTrait> GraphBuilder for SimpleBuilder<D> {
+    impl<D: Directedness> GraphBuilder for SimpleBuilder<D> {
         type Graph = BagGraph<String, (), D>;
         type Error = std::convert::Infallible;
 
-        fn make_empty_graph(
-            &mut self,
-            _name: Option<&str>,
-            edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
-        ) -> Result<Self::Graph, Self::Error> {
-            Ok(BagGraph::new(self.0, edge_multiplicity))
+        fn make_empty_graph(&mut self, _name: Option<&str>) -> Result<Self::Graph, Self::Error> {
+            Ok(BagGraph::default())
         }
 
         fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<String, Self::Error> {
@@ -636,19 +621,11 @@ mod tests {
 
     // Builder with numeric edge data
     #[derive(Debug)]
-    struct EdgeWeightBuilder<D: DirectednessTrait>(D);
+    struct EdgeWeightBuilder<D: Directedness>(D);
 
-    impl<D: DirectednessTrait> GraphBuilder for EdgeWeightBuilder<D> {
+    impl<D: Directedness> GraphBuilder for EdgeWeightBuilder<D> {
         type Graph = BagGraph<String, i32, D>;
         type Error = std::convert::Infallible;
-
-        fn make_empty_graph(
-            &mut self,
-            _name: Option<&str>,
-            edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
-        ) -> Result<Self::Graph, Self::Error> {
-            Ok(BagGraph::new(self.0, edge_multiplicity))
-        }
 
         fn make_node_data(&mut self, id: &str, _attrs: &[Attr]) -> Result<String, Self::Error> {
             Ok(id.to_string())

@@ -106,14 +106,6 @@ where
     type Directedness = Directed;
     type EdgeMultiplicity = MultipleEdges;
 
-    fn directedness(&self) -> Self::Directedness {
-        Directed
-    }
-
-    fn edge_multiplicity(&self) -> Self::EdgeMultiplicity {
-        MultipleEdges
-    }
-
     fn node_data(&self, id: &NodeId<N>) -> &<Self as Graph>::NodeData {
         unsafe { transmute::<&NonNull<N>, &&'d N>(&id.0) }
     }

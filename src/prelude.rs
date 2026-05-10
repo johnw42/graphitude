@@ -1,5 +1,4 @@
 pub use crate::{
-    AddEdgeResult, Directed, DirectednessTrait, EdgeIdTrait, EdgeMultiplicity,
-    EdgeMultiplicityTrait, Graph, GraphDirected, GraphMut, GraphUndirected, MultipleEdges,
-    NodeIdTrait, SingleEdge, Undirected,
+    AddEdgeResult, Directed, Directedness, EdgeIdTrait, EdgeMultiplicity, Graph, GraphDirected,
+    GraphMut, GraphUndirected, MultipleEdges, NodeIdTrait, SingleEdge, Undirected,
 };

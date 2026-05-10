@@ -3,7 +3,6 @@ use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 use crate::{
     bag::{Bag, BagKey},
     copier::GraphCopier,
-    edge_multiplicity::EdgeMultiplicity,
     end_pair::EndPair,
     format_debug::format_debug,
     graph_traits::AddEdgeResult,
@@ -28,14 +27,14 @@ struct Node<G: Graph> {
 
 struct Edge<G: Graph> {
     data: G::EdgeData,
-    ends: <G::Directedness as DirectednessTrait>::EndPair<BagKey>,
+    ends: <G::Directedness as Directedness>::EndPair<BagKey>,
 }
 
 impl<G: Graph> Edge<G> {
-    fn new(data: G::EdgeData, from: BagKey, into: BagKey, directedness: G::Directedness) -> Self {
+    fn new(data: G::EdgeData, from: BagKey, into: BagKey) -> Self {
         Self {
             data,
-            ends: directedness.make_pair(from, into),
+            ends: G::Directedness::make_pair(from, into),
         }
     }
 }
@@ -49,22 +48,19 @@ impl<G: Graph> Edge<G> {
 /// * `E` - The type of data stored in edges
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
 #[derive(Derivative)]
-#[derivative(Default(bound = "D: Default, M: Default"))]
-pub struct BagGraph<N, E, D, M = EdgeMultiplicity>
+#[derivative(Default(bound = "D: Default"))]
+pub struct BagGraph<N, E, D>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
 {
     nodes: Bag<Node<Self>>,
     edges: Bag<Edge<Self>>,
-    directedness: D,
-    edge_multiplicity: M,
+    directedness: PhantomData<D>,
 }
 
-impl<N, E, D, M> BagGraph<N, E, D, M>
+impl<N, E, D> BagGraph<N, E, D>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
 {
     fn node_id(&self, key: BagKey) -> NodeId<Self> {
         NodeId {
@@ -101,25 +97,16 @@ where
     }
 }
 
-impl<N, E, D, M> Graph for BagGraph<N, E, D, M>
+impl<N, E, D> Graph for BagGraph<N, E, D>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
 {
     type NodeId = NodeId<Self>;
     type NodeData = N;
     type EdgeId = EdgeId<Self>;
     type EdgeData = E;
     type Directedness = D;
-    type EdgeMultiplicity = M;
-
-    fn directedness(&self) -> Self::Directedness {
-        self.directedness
-    }
-
-    fn edge_multiplicity(&self) -> Self::EdgeMultiplicity {
-        self.edge_multiplicity
-    }
+    type EdgeMultiplicity = MultipleEdges;
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         &self.node(id).data
@@ -143,11 +130,10 @@ where
     fn edge_ends(
         &self,
         id: &Self::EdgeId,
-    ) -> <Self::Directedness as DirectednessTrait>::EndPair<Self::NodeId> {
+    ) -> <Self::Directedness as Directedness>::EndPair<Self::NodeId> {
         let edge = self.edge(id);
         let (from_key, into_key) = edge.ends.values();
-        self.directedness
-            .make_pair(self.node_id(*from_key), self.node_id(*into_key))
+        D::make_pair(self.node_id(*from_key), self.node_id(*into_key))
     }
 
     fn edges_from<'a, 'b: 'a>(
@@ -176,7 +162,7 @@ where
         from: &'b Self::NodeId,
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        let expected_ends = self.directedness.make_pair(from.key, into.key);
+        let expected_ends = D::make_pair(from.key, into.key);
         self.node(from)
             .edges_out
             .iter()
@@ -204,20 +190,10 @@ where
     }
 }
 
-impl<N, E, D, M> GraphMut for BagGraph<N, E, D, M>
+impl<N, E, D> GraphMut for BagGraph<N, E, D>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
 {
-    fn new(directedness: D, edge_multiplicity: M) -> Self {
-        Self {
-            nodes: Bag::new(),
-            edges: Bag::new(),
-            directedness,
-            edge_multiplicity,
-        }
-    }
-
     fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData {
         &mut self.node_mut(id).data
     }
@@ -246,7 +222,7 @@ where
         into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
-        let ends = self.directedness.make_pair(from.key, into.key);
+        let ends = D::make_pair(from.key, into.key);
 
         if !self.allows_parallel_edges() {
             debug_assert!(self.num_edges_from_into(from, into) <= 1);
@@ -270,12 +246,9 @@ where
 
         let (from, into) = ends.values();
 
-        let edge_key = self.edges.insert(Edge::new(
-            data,
-            from.clone(),
-            into.clone(),
-            self.directedness(),
-        ));
+        let edge_key = self
+            .edges
+            .insert(Edge::new(data, from.clone(), into.clone()));
 
         let eid = self.edge_id(edge_key);
 
@@ -392,24 +365,22 @@ where
     }
 }
 
-impl<N, E, D, M> Clone for BagGraph<N, E, D, M>
+impl<N, E, D> Clone for BagGraph<N, E, D>
 where
     N: Clone,
     E: Clone,
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
 {
     fn clone(&self) -> Self {
         GraphCopier::new(self).clone_nodes().clone_edges().copy()
     }
 }
 
-impl<N, E, D, M> Debug for BagGraph<N, E, D, M>
+impl<N, E, D> Debug for BagGraph<N, E, D>
 where
     N: Debug,
     E: Debug,
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "BagGraph")

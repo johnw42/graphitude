@@ -1,10 +1,9 @@
 #![allow(clippy::type_complexity)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
 use crate::{
-    AddEdgeResult, DirectednessTrait, EdgeMultiplicityTrait, Graph, GraphMut,
-    end_pair::EndPair as _,
+    AddEdgeResult, Directedness, EdgeMultiplicity, Graph, GraphMut, end_pair::EndPair as _,
 };
 
 /// Utility for copying graphs with flexible transformations and mapping of node
@@ -56,11 +55,11 @@ where
     /// The directedness to use for the target graph when creating a new graph with
     /// [`Self::copy`].  This is ignored when copying into an existing graph with
     /// [`Self::copy_into`], which will use the target graph's directedness instead.
-    directedness: D,
+    directedness: PhantomData<D>,
     /// The edge multiplicity to use for the target graph when creating a new graph with
     /// [`Self::copy`].  This is ignored when copying into an existing graph with
     /// [`Self::copy_into`], which will use the target graph's edge multiplicity instead.
-    edge_multiplicity: M,
+    edge_multiplicity: PhantomData<M>,
     /// The node data transformation function to apply to each node's data
     /// during copying.  This is a function that takes a reference to the source
     /// graph's node data and produces the target graph's node data.
@@ -99,10 +98,10 @@ where
     pub fn new(source: &'g G) -> Self {
         Self {
             source,
-            directedness: source.directedness(),
-            edge_multiplicity: source.edge_multiplicity(),
             node_transformer: |_| (),
             edge_transformer: |_| (),
+            directedness: PhantomData,
+            edge_multiplicity: PhantomData,
             node_map: (),
             edge_map: (),
         }
@@ -112,22 +111,22 @@ where
 impl<'g, G, D, M, NT, ET, NM, EM> GraphCopier<'g, G, D, M, NT, ET, NM, EM>
 where
     G: Graph + ?Sized,
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
     /// Sets the directedness for the target graph, returning a new
     /// `GraphCopier`.  When using [`Self::copy_into`], this setting is ignored and
     /// the target graph's directedness will be used instead.
     pub fn with_directedness<D2>(
         self,
-        directedness: D2,
+        _directedness: D2,
     ) -> GraphCopier<'g, G, D2, M, NT, ET, NM, EM>
     where
-        D2: DirectednessTrait,
+        D2: Directedness,
     {
         GraphCopier {
             source: self.source,
-            directedness,
+            directedness: PhantomData,
             edge_multiplicity: self.edge_multiplicity,
             node_transformer: self.node_transformer,
             edge_transformer: self.edge_transformer,
@@ -141,15 +140,15 @@ where
     /// the target graph's edge multiplicity will be used instead.
     pub fn with_edge_multiplicity<M2>(
         self,
-        multiplicity: M2,
+        _multiplicity: M2,
     ) -> GraphCopier<'g, G, D, M2, NT, ET, NM, EM>
     where
-        M2: EdgeMultiplicityTrait,
+        M2: EdgeMultiplicity,
     {
         GraphCopier {
             source: self.source,
             directedness: self.directedness,
-            edge_multiplicity: multiplicity,
+            edge_multiplicity: PhantomData,
             node_transformer: self.node_transformer,
             edge_transformer: self.edge_transformer,
             node_map: self.node_map,
@@ -256,17 +255,15 @@ where
     /// instead.
     pub fn copy<T>(self) -> T
     where
-        T: GraphMut,
+        T: GraphMut + Default,
         T::NodeId: 'g,
         T::EdgeId: 'g,
-        T::Directedness: From<D>,
-        T::EdgeMultiplicity: From<M>,
         NT: FnMut(&G::NodeData) -> T::NodeData,
         ET: FnMut(&G::EdgeData) -> T::EdgeData,
         NM: IntoHashMapRef<'g, G::NodeId, T::NodeId>,
         EM: IntoHashMapRef<'g, G::EdgeId, T::EdgeId>,
     {
-        let mut target = T::new(self.directedness.into(), self.edge_multiplicity.into());
+        let mut target = T::default();
         self.copy_into(&mut target);
         target
     }

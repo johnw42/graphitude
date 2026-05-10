@@ -1,7 +1,7 @@
 use std::{fmt::Debug, hash::Hash};
 
 use crate::{
-    DirectednessTrait,
+    Directedness,
     adjacency_matrix::{AdjacencyMatrix, hash::HashAdjacencyMatrix},
 };
 
@@ -39,7 +39,7 @@ pub trait Storage {
 
     type Matrix<V, D>: AdjacencyMatrix<Value = V> + Default
     where
-        D: DirectednessTrait + Default;
+        D: Directedness + Default;
 }
 
 /// Marker type for bitvec-based adjacency matrix storage.
@@ -55,7 +55,7 @@ impl Storage for BitvecStorage {
     type Matrix<V, D>
         = BitvecAdjacencyMatrix<V, D>
     where
-        D: DirectednessTrait + Default;
+        D: Directedness + Default;
 }
 
 /// Marker type for hash-based adjacency matrix storage.
@@ -66,5 +66,5 @@ impl Storage for HashStorage {
     type Matrix<V, D>
         = HashAdjacencyMatrix<V, D>
     where
-        D: DirectednessTrait + Default;
+        D: Directedness + Default;
 }

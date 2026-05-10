@@ -1,6 +1,7 @@
 use std::{
     cell::{Cell, UnsafeCell},
     fmt::Debug,
+    marker::PhantomData,
     sync::Arc,
 };
 
@@ -31,7 +32,7 @@ struct Node<G: Graph> {
 
 struct Edge<G: Graph> {
     data: UnsafeCell<G::EdgeData>,
-    ends: <G::Directedness as DirectednessTrait>::EndPair<NodeId<G>>,
+    ends: <G::Directedness as Directedness>::EndPair<NodeId<G>>,
 }
 
 impl<G: Graph> Edge<G> {
@@ -52,11 +53,11 @@ impl<G: Graph> Edge<G> {
 /// * `E` - The type of data stored in edges
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
 #[derive(Derivative)]
-#[derivative(Default(bound = "D: Default, M: Default"))]
-pub struct LinkedGraph<N, E, D, M = EdgeMultiplicity>
+#[derivative(Default(bound = ""))]
+pub struct LinkedGraph<N, E, D, M = MultipleEdges>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
     nodes: Vec<Arc<Node<Self>>>,
 
@@ -68,14 +69,14 @@ where
     /// ensure that the pointer value is stable even if the graph is moved in
     /// memory, which can happen since LinkedGraph is not pinned.
     id: Box<ArbitraryMutableType>,
-    directedness: D,
-    edge_multiplicity: M,
+    directedness: PhantomData<D>,
+    edge_multiplicity: PhantomData<M>,
 }
 
 impl<N, E, D, M> LinkedGraph<N, E, D, M>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
     fn node_id(&self, ptr: &Arc<Node<Self>>) -> NodeId<Self> {
         NodeId {
@@ -151,8 +152,8 @@ where
 
 impl<N, E, D, M> Graph for LinkedGraph<N, E, D, M>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
     type NodeId = NodeId<Self>;
     type NodeData = N;
@@ -160,14 +161,6 @@ where
     type EdgeData = E;
     type Directedness = D;
     type EdgeMultiplicity = M;
-
-    fn directedness(&self) -> Self::Directedness {
-        self.directedness
-    }
-
-    fn edge_multiplicity(&self) -> Self::EdgeMultiplicity {
-        self.edge_multiplicity
-    }
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         &self.node(id).data
@@ -209,7 +202,7 @@ where
     fn edge_ends(
         &self,
         id: &Self::EdgeId,
-    ) -> <Self::Directedness as DirectednessTrait>::EndPair<Self::NodeId> {
+    ) -> <Self::Directedness as Directedness>::EndPair<Self::NodeId> {
         self.edge(id).ends.clone()
     }
 
@@ -289,18 +282,9 @@ where
 
 impl<N, E, D, M> GraphMut for LinkedGraph<N, E, D, M>
 where
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
-    fn new(directedness: D, edge_multiplicity: M) -> Self {
-        Self {
-            nodes: Vec::new(),
-            id: Default::default(),
-            directedness,
-            edge_multiplicity,
-        }
-    }
-
     fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData {
         &mut self.node_mut(id).data
     }
@@ -457,8 +441,8 @@ impl<N, E, D, M> Clone for LinkedGraph<N, E, D, M>
 where
     N: Clone,
     E: Clone,
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
     fn clone(&self) -> Self {
         GraphCopier::new(self).clone_nodes().clone_edges().copy()
@@ -469,8 +453,8 @@ impl<N, E, D, M> Debug for LinkedGraph<N, E, D, M>
 where
     N: Debug,
     E: Debug,
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
+    M: EdgeMultiplicity,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(self, f, "LinkedGraph")

@@ -10,7 +10,7 @@ use crate::{
 /// This trait is implemented by [`Directed`] and [`Undirected`] marker types to
 /// provide compile-time specialization of graph behavior, as well as by the
 /// [`Directedness`] enum for dynamic directedness.
-pub trait DirectednessTrait:
+pub trait Directedness:
     Clone + Copy + Debug + Default + PartialEq + Eq + Hash + PartialOrd + Ord + Send + Sync
 {
     type EndPair<T>: EndPair<T>
@@ -23,7 +23,7 @@ pub trait DirectednessTrait:
         sort_pair_if(!Self::IS_DIRECTED, pair)
     }
 
-    fn make_pair<T>(&self, left: T, right: T) -> Self::EndPair<T>
+    fn make_pair<T>(left: T, right: T) -> Self::EndPair<T>
     where
         T: Clone + Eq + Hash + Ord + Send + Sync,
     {
@@ -34,7 +34,7 @@ pub trait DirectednessTrait:
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Directed;
 
-impl DirectednessTrait for Directed {
+impl Directedness for Directed {
     type EndPair<T>
         = (T, T)
     where
@@ -46,7 +46,7 @@ impl DirectednessTrait for Directed {
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Undirected;
 
-impl DirectednessTrait for Undirected {
+impl Directedness for Undirected {
     type EndPair<T>
         = SortedPair<T>
     where

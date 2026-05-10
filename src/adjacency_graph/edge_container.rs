@@ -1,7 +1,7 @@
 use std::{fmt::Debug, hash::Hash};
 
 use crate::{
-    EdgeMultiplicityTrait, MultipleEdges, SingleEdge,
+    EdgeMultiplicity, MultipleEdges, SingleEdge,
     bag::{Bag, BagKey},
 };
 
@@ -123,7 +123,7 @@ impl<T> EdgeContainer<T> for MultipleItems<T> {
     }
 }
 
-pub trait EdgeContainerSelector: EdgeMultiplicityTrait + Default {
+pub trait EdgeContainerSelector: EdgeMultiplicity + Default {
     type Container<T>: EdgeContainer<T>;
 }
 

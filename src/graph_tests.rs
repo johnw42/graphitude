@@ -52,7 +52,12 @@ where
     /// the TestDataBuilder trait to provide node and edge data.
     fn generate_large_graph(&self) -> G {
         let mut graph = self.new_graph();
-        generate_large_graph(&mut graph, |i| format!("n{}", i), |i| format!("e{}", i));
+        generate_large_graph(
+            &mut graph,
+            |i| format!("n{}", i),
+            |i| format!("e{}", i),
+            true,
+        );
         graph
     }
 
@@ -365,9 +370,8 @@ where
         // The exact edge counts were verified via large_graph_to_dot + dot_summary.
         let num_edges = graph.num_edges();
         let expected_edges = match (graph.is_directed(), graph.allows_parallel_edges()) {
-            (true, true) => 6454,
+            (_, true) => 6454,
             (true, false) => 6439,
-            (false, true) => 6454,
             (false, false) => 6383,
         };
         assert_eq!(

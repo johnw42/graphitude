@@ -75,7 +75,7 @@ mod inner {
     fn parse_or_exit<B, D>(data: &str, builder: &mut B) -> Option<BagGraph<NodeInfo, EdgeInfo, D>>
     where
         B: GraphBuilder<Graph = BagGraph<NodeInfo, EdgeInfo, D>>,
-        D: DirectednessTrait,
+        D: Directedness,
     {
         match BagGraph::from_dot_string(data, builder) {
             Ok(graph) => return Some(graph),
@@ -179,19 +179,11 @@ mod inner {
     }
 
     #[derive(Debug, Default)]
-    struct AttributeBuilder<D: DirectednessTrait>(D);
+    struct AttributeBuilder<D: Directedness>(D);
 
-    impl<D: DirectednessTrait> GraphBuilder for AttributeBuilder<D> {
+    impl<D: Directedness> GraphBuilder for AttributeBuilder<D> {
         type Graph = BagGraph<NodeInfo, EdgeInfo, D>;
         type Error = std::convert::Infallible;
-
-        fn make_empty_graph(
-            &mut self,
-            _name: Option<&str>,
-            edge_multiplicity: EdgeMultiplicity,
-        ) -> Result<Self::Graph, Self::Error> {
-            Ok(BagGraph::new(self.0, edge_multiplicity))
-        }
 
         fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<NodeInfo, Self::Error> {
             let node_attrs: Vec<(String, String)> = attrs

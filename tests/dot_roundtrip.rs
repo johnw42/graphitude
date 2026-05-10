@@ -25,7 +25,7 @@ struct EdgeData {
 }
 
 #[derive(Debug)]
-struct TestBuilder<D: DirectednessTrait>(D);
+struct TestBuilder<D: Directedness>(D);
 
 #[derive(Debug)]
 struct TestError(String);
@@ -38,17 +38,9 @@ impl std::fmt::Display for TestError {
 
 impl std::error::Error for TestError {}
 
-impl<D: DirectednessTrait> GraphBuilder for TestBuilder<D> {
+impl<D: Directedness> GraphBuilder for TestBuilder<D> {
     type Graph = BagGraph<NodeData, EdgeData, D>;
     type Error = TestError;
-
-    fn make_empty_graph(
-        &mut self,
-        _name: Option<&str>,
-        edge_multiplicity: <Self::Graph as Graph>::EdgeMultiplicity,
-    ) -> Result<Self::Graph, Self::Error> {
-        Ok(BagGraph::new(D::default(), edge_multiplicity))
-    }
 
     fn make_node_data(&mut self, id: &str, attrs: &[Attr]) -> Result<NodeData, Self::Error> {
         let attr_vec = attrs

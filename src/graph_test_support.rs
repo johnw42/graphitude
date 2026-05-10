@@ -27,14 +27,10 @@ pub struct ArbGraph<G: Graph<NodeData = String, EdgeData = String>> {
 
 impl<G> ArbGraph<G>
 where
-    G: GraphMut<NodeData = String, EdgeData = String> + 'static,
+    G: GraphMut<NodeData = String, EdgeData = String> + Default + 'static,
 {
-    pub fn new(
-        edge_multiplicity: G::EdgeMultiplicity,
-        node_data: Vec<String>,
-        edge_data: Vec<((usize, usize), String)>,
-    ) -> Self {
-        let mut graph = G::new(G::Directedness::default(), edge_multiplicity);
+    pub fn new(node_data: Vec<String>, edge_data: Vec<((usize, usize), String)>) -> Self {
+        let mut graph = G::default();
         let mut node_ids = Vec::new();
         for data in node_data.iter() {
             node_ids.push(graph.add_node(data.clone()));
@@ -57,20 +53,16 @@ where
 
 impl<G> Clone for ArbGraph<G>
 where
-    G: GraphMut<NodeData = String, EdgeData = String> + 'static,
+    G: GraphMut<NodeData = String, EdgeData = String> + Default + 'static,
 {
     fn clone(&self) -> Self {
-        Self::new(
-            self.graph.edge_multiplicity(),
-            self.node_data.clone(),
-            self.edge_data.clone(),
-        )
+        Self::new(self.node_data.clone(), self.edge_data.clone())
     }
 }
 
 impl<G> Arbitrary for ArbGraph<G>
 where
-    G: GraphMut<NodeData = String, EdgeData = String> + 'static,
+    G: GraphMut<NodeData = String, EdgeData = String> + Default + 'static,
 {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         let num_nodes = usize::arbitrary(g) % (g.size() + 1);
@@ -96,7 +88,7 @@ where
             }
         }
 
-        ArbGraph::new(G::EdgeMultiplicity::arbitrary(g), node_data, edge_data)
+        ArbGraph::new(node_data, edge_data)
     }
 
     fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
@@ -104,7 +96,6 @@ where
         let node_data_clone2 = self.node_data.clone();
         let edge_data_clone1 = self.edge_data.clone();
         let edge_data_clone2 = self.edge_data.clone();
-        let edge_multiplicity = self.graph.edge_multiplicity();
 
         Box::new(
             (0..node_data_clone1.len())
@@ -128,12 +119,12 @@ where
                         })
                         .collect();
                     new_node_data.remove(i);
-                    ArbGraph::new(edge_multiplicity, new_node_data, new_edge_data)
+                    ArbGraph::new(new_node_data, new_edge_data)
                 })
                 .chain((0..edge_data_clone2.len()).map(move |i| {
                     let mut new_edge_data = edge_data_clone2.clone();
                     new_edge_data.remove(i);
-                    ArbGraph::new(edge_multiplicity, node_data_clone2.clone(), new_edge_data)
+                    ArbGraph::new(node_data_clone2.clone(), new_edge_data)
                 })),
         )
     }

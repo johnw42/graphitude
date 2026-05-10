@@ -7,21 +7,20 @@ use crate::{BagGraph, copier::GraphCopier, format_debug::format_debug, prelude::
 /// This type creates a snapshot of a graph with transformed data that can be
 /// used for debug formatting. The transformation is applied once during construction,
 /// and the result is stored in an internal `LinkedGraph`.
-pub struct DebugGraphView<N, E, D: DirectednessTrait, M: EdgeMultiplicityTrait> {
-    inner: BagGraph<N, E, D, M>,
+pub struct DebugGraphView<N, E, D: Directedness> {
+    inner: BagGraph<N, E, D>,
 }
 
-impl<N, E, D, M> DebugGraphView<N, E, D, M>
+impl<N, E, D> DebugGraphView<N, E, D>
 where
     N: Debug,
     E: Debug,
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
 {
     /// Creates a new `DebugGraphView` by transforming the data from the source graph.
     pub fn new<G, NF, EF>(graph: &G, node_fn: NF, edge_fn: EF) -> Self
     where
-        G: Graph<Directedness = D, EdgeMultiplicity = M> + ?Sized,
+        G: Graph<Directedness = D> + ?Sized,
         NF: FnMut(&G::NodeData) -> N,
         EF: FnMut(&G::EdgeData) -> E,
     {
@@ -33,27 +32,18 @@ where
     }
 }
 
-impl<N, E, D, M> Graph for DebugGraphView<N, E, D, M>
+impl<N, E, D> Graph for DebugGraphView<N, E, D>
 where
     N: Debug,
     E: Debug,
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
 {
     type Directedness = D;
-    type EdgeMultiplicity = M;
+    type EdgeMultiplicity = MultipleEdges;
     type NodeData = N;
-    type NodeId = <BagGraph<N, E, D, M> as Graph>::NodeId;
+    type NodeId = <BagGraph<N, E, D> as Graph>::NodeId;
     type EdgeData = E;
-    type EdgeId = <BagGraph<N, E, D, M> as Graph>::EdgeId;
-
-    fn directedness(&self) -> Self::Directedness {
-        self.inner.directedness()
-    }
-
-    fn edge_multiplicity(&self) -> Self::EdgeMultiplicity {
-        self.inner.edge_multiplicity()
-    }
+    type EdgeId = <BagGraph<N, E, D> as Graph>::EdgeId;
 
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
         self.inner.node_ids()
@@ -74,7 +64,7 @@ where
     fn edge_ends(
         &self,
         id: &Self::EdgeId,
-    ) -> <Self::Directedness as DirectednessTrait>::EndPair<Self::NodeId> {
+    ) -> <Self::Directedness as Directedness>::EndPair<Self::NodeId> {
         self.inner.edge_ends(id)
     }
 
@@ -87,12 +77,11 @@ where
     }
 }
 
-impl<N, E, D, M> Debug for DebugGraphView<N, E, D, M>
+impl<N, E, D> Debug for DebugGraphView<N, E, D>
 where
     N: Debug,
     E: Debug,
-    D: DirectednessTrait,
-    M: EdgeMultiplicityTrait,
+    D: Directedness,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_debug(&self.inner, f, "DebugGraphView")
@@ -106,7 +95,7 @@ mod tests {
 
     #[test]
     fn test_new_empty_graph() {
-        let graph: BagGraph<i32, (), Directed, MultipleEdges> = BagGraph::default();
+        let graph: BagGraph<i32, (), Directed> = BagGraph::default();
         let view = DebugGraphView::new(&graph, |&n| n, |_| ());
 
         assert_eq!(view.node_ids().count(), 0);
@@ -115,7 +104,7 @@ mod tests {
 
     #[test]
     fn test_new_with_nodes() {
-        let mut graph: BagGraph<i32, (), Directed, MultipleEdges> = BagGraph::default();
+        let mut graph: BagGraph<i32, (), Directed> = BagGraph::default();
         let _n1 = graph.add_node(10);
         let _n2 = graph.add_node(20);
         let _n3 = graph.add_node(30);
@@ -131,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_new_with_edges() {
-        let mut graph: BagGraph<&str, i32, Directed, MultipleEdges> = BagGraph::default();
+        let mut graph: BagGraph<&str, i32, Directed> = BagGraph::default();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
         let n3 = graph.add_node("C");
@@ -149,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_node_transformation() {
-        let mut graph: BagGraph<i32, (), Directed, MultipleEdges> = BagGraph::default();
+        let mut graph: BagGraph<i32, (), Directed> = BagGraph::default();
         graph.add_node(1);
         graph.add_node(2);
         graph.add_node(3);
@@ -165,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_edge_transformation() {
-        let mut graph: BagGraph<(), i32, Directed, MultipleEdges> = BagGraph::default();
+        let mut graph: BagGraph<(), i32, Directed> = BagGraph::default();
         let n1 = graph.add_node(());
         let n2 = graph.add_node(());
 
@@ -180,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_type_transformation() {
-        let mut graph: BagGraph<i32, f64, Directed, MultipleEdges> = BagGraph::default();
+        let mut graph: BagGraph<i32, f64, Directed> = BagGraph::default();
         let n1 = graph.add_node(42);
         let n2 = graph.add_node(100);
 
@@ -203,7 +192,7 @@ mod tests {
 
     #[test]
     fn test_edges_between() {
-        let mut graph: BagGraph<&str, i32, Directed, MultipleEdges> = BagGraph::default();
+        let mut graph: BagGraph<&str, i32, Directed> = BagGraph::default();
         let n1 = graph.add_node("A");
         let n2 = graph.add_node("B");
 
@@ -221,7 +210,7 @@ mod tests {
 
     #[test]
     fn test_debug_format_directed() {
-        let mut graph: BagGraph<i32, &str, Directed, MultipleEdges> = BagGraph::default();
+        let mut graph: BagGraph<i32, &str, Directed> = BagGraph::default();
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
@@ -237,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_debug_format_undirected() {
-        let mut graph: BagGraph<i32, &str, Undirected, MultipleEdges> = BagGraph::default();
+        let mut graph: BagGraph<i32, &str, Undirected> = BagGraph::default();
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 
@@ -253,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_debug_format_alternate() {
-        let mut graph: BagGraph<i32, &str, Directed, MultipleEdges> = BagGraph::default();
+        let mut graph: BagGraph<i32, &str, Directed> = BagGraph::default();
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
 

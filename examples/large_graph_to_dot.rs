@@ -14,7 +14,6 @@ mod inner {
     use std::io::{self, Write};
 
     use clap::{Parser, ValueEnum};
-    use graphitude::edge_multiplicity::EdgeMultiplicity;
     use graphitude::generate_large_graph::generate_large_graph;
     use graphitude::{bag_graph::BagGraph, dot::renderer::DotGenerator, prelude::*};
 
@@ -101,6 +100,7 @@ mod inner {
     struct ConfigurableGenerator<'a, G> {
         graph_name: String,
         graph: &'a G,
+        is_strict: bool,
     }
 
     impl<'a, G> DotGenerator<G> for ConfigurableGenerator<'a, G>
@@ -129,12 +129,17 @@ mod inner {
                 Ok(vec![])
             }
         }
+
+        fn is_strict(&self, _graph: &G) -> bool {
+            self.is_strict
+        }
     }
 
     fn write_graph_dot<G>(
         graph: &G,
         graph_name: &str,
         writer: &mut dyn Write,
+        is_strict: bool,
     ) -> Result<(), Box<dyn std::error::Error>>
     where
         G: Graph,
@@ -143,6 +148,7 @@ mod inner {
         let generator = ConfigurableGenerator {
             graph_name: graph_name.to_string(),
             graph,
+            is_strict,
         };
         let mut buffer = Vec::new();
         Graph::write_dot(graph, &generator, &mut buffer)
@@ -167,25 +173,16 @@ mod inner {
         }
     }
 
-    fn build_linked_graph<D>(
-        node_type: DataType,
-        edge_type: DataType,
-        edge_prefix: &str,
-        strict: bool,
-    ) -> BagGraph<Data, Data, D, EdgeMultiplicity>
+    fn build_graph<D>(args: &Args) -> BagGraph<Data, Data, D>
     where
-        D: DirectednessTrait,
+        D: Directedness,
     {
-        let edge_multiplicity = if strict {
-            EdgeMultiplicity::SingleEdge
-        } else {
-            EdgeMultiplicity::MultipleEdges
-        };
-        let mut graph = BagGraph::new(D::default(), edge_multiplicity);
+        let mut graph = BagGraph::default();
         generate_large_graph(
             &mut graph,
-            |i| node_data_for(i, node_type),
-            |i| edge_data_for(i, edge_type, edge_prefix),
+            |i| node_data_for(i, args.node_type),
+            |i| edge_data_for(i, args.edge_type, &args.edge_prefix),
+            !args.strict,
         );
         graph
     }
@@ -203,14 +200,14 @@ mod inner {
             Some(ref path) => {
                 eprintln!("\nWriting to {}...", path);
                 let mut file = File::create(path)?;
-                write_graph_dot(graph, &args.graph_name, &mut file)?;
+                write_graph_dot(graph, &args.graph_name, &mut file, args.strict)?;
                 eprintln!("DOT file written successfully!");
             }
             None => {
                 eprintln!("\nWriting to stdout...");
                 let stdout = io::stdout();
                 let mut handle = stdout.lock();
-                write_graph_dot(graph, &args.graph_name, &mut handle)?;
+                write_graph_dot(graph, &args.graph_name, &mut handle, args.strict)?;
                 handle.flush()?;
                 eprintln!("\nDOT output written to stdout");
             }
@@ -229,21 +226,11 @@ mod inner {
 
         match args.graph_kind {
             GraphKind::Directed => {
-                let graph = build_linked_graph::<Directed>(
-                    args.node_type,
-                    args.edge_type,
-                    &args.edge_prefix,
-                    args.strict,
-                );
+                let graph = build_graph::<Directed>(&args);
                 write_graph_output(&graph, &args)?;
             }
             GraphKind::Undirected => {
-                let graph = build_linked_graph::<Undirected>(
-                    args.node_type,
-                    args.edge_type,
-                    &args.edge_prefix,
-                    args.strict,
-                );
+                let graph = build_graph::<Undirected>(&args);
                 write_graph_output(&graph, &args)?;
             }
         }

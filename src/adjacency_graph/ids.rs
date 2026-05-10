@@ -3,7 +3,7 @@ use std::{fmt::Debug, hash::Hash};
 use derivative::Derivative;
 
 use crate::{
-    DirectednessTrait, EdgeIdTrait, NodeIdTrait, Storage,
+    Directedness, EdgeIdTrait, NodeIdTrait, Storage,
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
     bag::BagKey,
     end_pair::EndPair,
@@ -55,7 +55,7 @@ pub type NodeId<S> = NodeIdOrEdgeId<S, BagKey>;
 pub struct EdgeId<E, S, D, M>
 where
     S: Storage,
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
 {
     inner: NodeIdOrEdgeId<S, D::EndPair<BagKey>>,
@@ -67,7 +67,7 @@ where
 impl<E, S, D, M> EdgeId<E, S, D, M>
 where
     S: Storage,
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
 {
     pub fn new(
@@ -118,7 +118,7 @@ impl<S: Storage> Debug for NodeId<S> {
 impl<E, S, D, M> EdgeIdTrait for EdgeId<E, S, D, M>
 where
     S: Storage,
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
 {
 }
@@ -126,7 +126,7 @@ where
 impl<E, S, D, M> Debug for EdgeId<E, S, D, M>
 where
     S: Storage,
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

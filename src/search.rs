@@ -208,11 +208,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{BagGraph, Directed, GraphMut, MultipleEdges};
+    use crate::{BagGraph, Directed, GraphMut};
 
     use super::*;
 
-    type TestGraph = BagGraph<usize, (), Directed, MultipleEdges>;
+    type TestGraph = BagGraph<usize, (), Directed>;
 
     fn create_simple_graph() -> (
         TestGraph,

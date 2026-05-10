@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use derivative::Derivative;
+
 /// Node and edge ID types for adjacency graphs.
 use crate::{
     adjacency_graph::{
@@ -8,7 +10,7 @@ use crate::{
     },
     adjacency_matrix::{AdjacencyMatrix, HashStorage, Storage},
     copier::GraphCopier,
-    directedness::DirectednessTrait,
+    directedness::Directedness,
     end_pair::EndPair,
     format_debug::format_debug,
     prelude::*,
@@ -30,23 +32,23 @@ use crate::bag::{Bag, BagKey};
 /// * `E` - The type of data stored in edges
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
 /// * `S` - The storage type ([`HashStorage`] or [`BitvecStorage`](crate::adjacency_matrix::BitvecStorage))
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct AdjacencyGraph<N, E, D = Directed, M = SingleEdge, S = HashStorage>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
     S: Storage,
 {
     nodes: Bag<N>,
     adjacency: S::Matrix<M::Container<E>, D>,
     num_edges: usize,
-    directedness: D,
-    edge_multiplicity: M,
     compaction_count: S::CompactionCount,
 }
 
 impl<N, E, D, M, S> AdjacencyGraph<N, E, D, M, S>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
     S: Storage,
 {
@@ -62,17 +64,13 @@ where
         into: BagKey,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
     ) -> EdgeId<E, S, D, M> {
-        EdgeId::new(
-            self.directedness.make_pair(from, into),
-            index,
-            self.compaction_count,
-        )
+        EdgeId::new(D::make_pair(from, into), index, self.compaction_count)
     }
 }
 
 impl<N, E, D, M, S> Graph for AdjacencyGraph<N, E, D, M, S>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
     S: Storage,
 {
@@ -82,14 +80,6 @@ where
     type NodeId = NodeId<S>;
     type Directedness = D;
     type EdgeMultiplicity = M;
-
-    fn directedness(&self) -> Self::Directedness {
-        self.directedness
-    }
-
-    fn edge_multiplicity(&self) -> Self::EdgeMultiplicity {
-        self.edge_multiplicity
-    }
 
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData {
         self.nodes.get(id.key()).expect("no such node")
@@ -127,7 +117,7 @@ where
     fn edge_ends(
         &self,
         id: &Self::EdgeId,
-    ) -> <Self::Directedness as DirectednessTrait>::EndPair<Self::NodeId> {
+    ) -> <Self::Directedness as Directedness>::EndPair<Self::NodeId> {
         let (from, to) = id.keys().into_values();
         (self.node_id(from), self.node_id(to)).into()
     }
@@ -178,22 +168,11 @@ where
     }
 }
 
-impl<N, E, D, M, S> Default for AdjacencyGraph<N, E, D, M, S>
-where
-    D: DirectednessTrait + Default,
-    M: EdgeContainerSelector,
-    S: Storage,
-{
-    fn default() -> Self {
-        Self::new(D::default(), M::default())
-    }
-}
-
 impl<N, E, D, M, S> Clone for AdjacencyGraph<N, E, D, M, S>
 where
     N: Clone,
     E: Clone,
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
     S: Storage,
 {
@@ -204,21 +183,10 @@ where
 
 impl<N, E, D, M, S> GraphMut for AdjacencyGraph<N, E, D, M, S>
 where
-    D: DirectednessTrait + Default,
+    D: Directedness,
     M: EdgeContainerSelector,
     S: Storage,
 {
-    fn new(directedness: D, edge_multiplicity: M) -> Self {
-        Self {
-            nodes: Bag::default(),
-            adjacency: S::Matrix::default(),
-            num_edges: 0,
-            directedness,
-            edge_multiplicity,
-            compaction_count: S::CompactionCount::default(),
-        }
-    }
-
     fn node_data_mut(&mut self, id: &Self::NodeId) -> &mut Self::NodeData {
         self.nodes.get_mut(id.key()).expect("no such node")
     }
@@ -315,7 +283,7 @@ impl<N, E, D, M, S> Debug for AdjacencyGraph<N, E, D, M, S>
 where
     N: Debug,
     E: Debug,
-    D: DirectednessTrait + Default,
+    D: Directedness + Default,
     M: EdgeContainerSelector,
     S: Storage,
 {
