@@ -5,7 +5,7 @@ use derivative::Derivative;
 /// Node and edge ID types for adjacency graphs.
 use crate::{
     adjacency_graph::{
-        EdgeId, NodeId,
+        AdjacencyGraphEdgeId, AdjacencyGraphNodeId,
         edge_container::{EdgeContainer, EdgeContainerSelector},
     },
     adjacency_matrix::{AdjacencyMatrix, HashStorage, Storage},
@@ -53,8 +53,8 @@ where
     S: Storage,
 {
     /// Creates a `NodeId` for the given `BagKey`.
-    fn node_id(&self, key: BagKey) -> NodeId<S> {
-        NodeId::new(key, self.compaction_count)
+    fn node_id(&self, key: BagKey) -> AdjacencyGraphNodeId<S> {
+        AdjacencyGraphNodeId::new(key, self.compaction_count)
     }
 
     /// Creates an `EdgeId` for the given `BagKey` pair.
@@ -63,8 +63,8 @@ where
         from: BagKey,
         into: BagKey,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
-    ) -> EdgeId<E, S, D, M> {
-        EdgeId::new(D::make_pair(from, into), index, self.compaction_count)
+    ) -> AdjacencyGraphEdgeId<E, S, D, M> {
+        AdjacencyGraphEdgeId::new(D::make_pair(from, into), index, self.compaction_count)
     }
 }
 
@@ -75,9 +75,9 @@ where
     S: Storage,
 {
     type EdgeData = E;
-    type EdgeId = EdgeId<E, S, D, M>;
+    type EdgeId = AdjacencyGraphEdgeId<E, S, D, M>;
     type NodeData = N;
-    type NodeId = NodeId<S>;
+    type NodeId = AdjacencyGraphNodeId<S>;
     type Directedness = D;
     type EdgeMultiplicity = M;
 
@@ -90,7 +90,7 @@ where
     }
 
     fn edge_data(&self, eid: &Self::EdgeId) -> &Self::EdgeData {
-        let (from, to) = eid.keys().into_values();
+        let (from, to) = eid.ends().into_values();
         self.adjacency
             .get(from.to_index(), to.to_index())
             .expect("no such edge")
@@ -118,7 +118,7 @@ where
         &self,
         id: &Self::EdgeId,
     ) -> <Self::Directedness as Directedness>::EndPair<Self::NodeId> {
-        let (from, to) = id.keys().into_values();
+        let (from, to) = id.ends().into_values();
         (self.node_id(from), self.node_id(to)).into()
     }
 
@@ -192,7 +192,7 @@ where
     }
 
     fn edge_data_mut(&mut self, id: &Self::EdgeId) -> &mut Self::EdgeData {
-        let (from, to) = id.keys().into_values();
+        let (from, to) = id.ends().into_values();
         self.adjacency
             .get_mut(from.to_index(), to.to_index())
             .expect("no such edge")
@@ -243,7 +243,7 @@ where
     }
 
     fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData {
-        let (source, target) = id.keys().into_values();
+        let (source, target) = id.ends().into_values();
         let container = self
             .adjacency
             .remove(source.to_index(), target.to_index())

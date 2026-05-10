@@ -1,8 +1,12 @@
-use std::{fmt::Debug, hash::Hash, sync::Weak};
+use std::{
+    fmt::Debug,
+    hash::Hash,
+    sync::{Arc, Weak},
+};
 
 use derivative::Derivative;
 
-use crate::{GraphElementId, Graph, linked_graph::GraphId};
+use crate::{Graph, GraphElementId, linked_graph::GraphId};
 
 use super::Edge;
 
@@ -12,8 +16,30 @@ use super::Edge;
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct LinkedGraphEdgeId<G: Graph> {
-    pub(super) ptr: Weak<Edge<G>>,
-    pub(super) graph_id: GraphId,
+    ptr: Weak<Edge<G>>,
+    graph_id: GraphId,
+}
+
+impl<G: Graph> LinkedGraphEdgeId<G> {
+    pub(super) fn new(ptr: &Arc<Edge<G>>, graph_id: GraphId) -> Self {
+        Self {
+            ptr: Arc::downgrade(ptr),
+            graph_id,
+        }
+    }
+
+    pub(super) fn as_ptr(&self) -> *const Edge<G> {
+        self.ptr.as_ptr()
+    }
+
+    pub(super) fn upgrade(&self, graph_id: GraphId) -> Arc<Edge<G>> {
+        assert_eq!(
+            self.graph_id, graph_id,
+            "EdgeId does not belong to this graph"
+        );
+
+        self.ptr.upgrade().expect("EdgeId is dangling")
+    }
 }
 
 // SAFETY: EdgeId is Send and Sync because it only contains a Weak pointer and

@@ -78,31 +78,12 @@ where
     D: Directedness,
     M: EdgeMultiplicity,
 {
-    fn node_id(&self, ptr: &Arc<Node<Self>>) -> LinkedGraphNodeId<Self> {
-        LinkedGraphNodeId {
-            ptr: Arc::downgrade(ptr),
-            graph_id: self.id.as_ref(),
-        }
-    }
-
-    fn edge_id(&self, ptr: &Arc<Edge<Self>>) -> LinkedGraphEdgeId<Self> {
-        LinkedGraphEdgeId {
-            ptr: Arc::downgrade(ptr),
-            graph_id: self.id.as_ref(),
-        }
-    }
-
     fn node(&self, id: &LinkedGraphNodeId<Self>) -> &Node<Self> {
-        assert_eq!(
-            id.graph_id,
-            self.id.as_ref(),
-            "NodeId does not belong to this graph"
-        );
+        let arc = id.upgrade(self.id.as_ref());
 
-        let id = id.ptr.upgrade().expect("NodeId is dangling");
         // SAFETY: We have checked that the NodeId is valid.  This method is only used internally
         // where we have &self, so the graph outlives the returned reference.
-        unsafe { &*Arc::as_ptr(&id) }
+        unsafe { &*Arc::as_ptr(&arc) }
     }
 
     /// Gets a mutable reference to the node with the given identifier.
@@ -110,43 +91,27 @@ where
     /// SAFETY: Caller must ensure that no other references to the node exist,
     /// and the graph outlives the returned reference.
     fn node_mut<'a>(&mut self, id: &LinkedGraphNodeId<Self>) -> &'a mut Node<Self> {
-        assert_eq!(
-            id.graph_id,
-            self.id.as_ref(),
-            "NodeId does not belong to this graph"
-        );
-
-        let id = id.ptr.upgrade().expect("NodeId is dangling");
+        let arc = id.upgrade(self.id.as_ref());
 
         // SAFETY: We have checked that the NodeId is valid.  This method is only used internally
         // where we have &mut self, so no other references to the nodes can exist.
-        unsafe { &mut *(Arc::as_ptr(&id) as *mut _) }
+        unsafe { &mut *(Arc::as_ptr(&arc) as *mut _) }
     }
 
     fn edge(&self, id: &LinkedGraphEdgeId<Self>) -> &Edge<Self> {
-        assert_eq!(
-            id.graph_id,
-            self.id.as_ref(),
-            "EdgeId does not belong to this graph"
-        );
+        let arc = id.upgrade(self.id.as_ref());
 
-        let id = id.ptr.upgrade().expect("EdgeId is dangling");
         // SAFETY: We have checked that the EdgeId is valid.  This method is only used internally
         // where we have &self, so the graph outlives the returned reference.
-        unsafe { &*Arc::as_ptr(&id) }
+        unsafe { &*Arc::as_ptr(&arc) }
     }
 
     fn edge_mut(&mut self, id: &LinkedGraphEdgeId<Self>) -> &mut Edge<Self> {
-        assert_eq!(
-            id.graph_id,
-            self.id.as_ref(),
-            "EdgeId does not belong to this graph"
-        );
+        let arc = id.upgrade(self.id.as_ref());
 
-        let id = id.ptr.upgrade().expect("EdgeId is dangling");
         // SAFETY: We have checked that the EdgeId is valid.  This method is only used internally
         // where we have &mut self, so no other references to the edges can exist.
-        unsafe { &mut *(Arc::as_ptr(&id) as *mut _) }
+        unsafe { &mut *(Arc::as_ptr(&arc) as *mut _) }
     }
 }
 
@@ -167,7 +132,9 @@ where
     }
 
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
-        self.nodes.iter().map(|node| self.node_id(node))
+        self.nodes
+            .iter()
+            .map(|node| LinkedGraphNodeId::new(node, self.id.as_ref()))
     }
 
     fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
@@ -182,7 +149,11 @@ where
             // For directed graphs, just iterate normally
             self.nodes
                 .iter()
-                .flat_map(|node| node.edges_out.iter().map(|edge| self.edge_id(edge)))
+                .flat_map(|node| {
+                    node.edges_out
+                        .iter()
+                        .map(|edge| LinkedGraphEdgeId::new(edge, self.id.as_ref()))
+                })
                 .collect::<Vec<_>>()
                 .into_iter()
         } else {
@@ -193,7 +164,7 @@ where
                 .iter()
                 .flat_map(|node| node.edges_out.iter())
                 .filter(move |edge| seen.insert(Arc::as_ptr(edge)))
-                .map(|edge| self.edge_id(edge))
+                .map(|edge| LinkedGraphEdgeId::new(edge, self.id.as_ref()))
                 .collect::<Vec<_>>()
                 .into_iter()
         }
@@ -213,7 +184,7 @@ where
         self.node(from)
             .edges_out
             .iter()
-            .map(|edge| self.edge_id(edge))
+            .map(|edge| LinkedGraphEdgeId::new(edge, self.id.as_ref()))
     }
 
     fn edges_into<'a, 'b: 'a>(
@@ -232,7 +203,7 @@ where
             self.node(into)
                 .edges_out
                 .iter()
-                .map(|edge| self.edge_id(edge))
+                .map(|edge| LinkedGraphEdgeId::new(edge, self.id.as_ref()))
                 .collect::<Vec<_>>()
                 .into_iter()
         }
@@ -251,7 +222,7 @@ where
                 (edge_source == from && edge_target == into)
                     || (edge_source == into && edge_target == from)
             };
-            matches.then(|| self.edge_id(edge))
+            matches.then(|| LinkedGraphEdgeId::new(edge, self.id.as_ref()))
         })
     }
 
@@ -306,7 +277,7 @@ where
             edges_out: Vec::new(),
             edges_in: Vec::new(),
         });
-        let nid = self.node_id(&node);
+        let nid = LinkedGraphNodeId::new(&node, self.id.as_ref());
         self.nodes.push(node);
         nid
     }
@@ -332,7 +303,7 @@ where
                 // owns all its data, and we have &mut self, so no other references
                 // to the graph or edge data can exist.
                 std::mem::swap(unsafe { &mut *edge.data.get() }, &mut old_data);
-                let edge_id = self.edge_id(edge);
+                let edge_id = LinkedGraphEdgeId::new(edge, self.id.as_ref());
                 return (edge_id.clone(), Some((edge_id, old_data)));
             }
             debug_assert_eq!(self.num_edges_from_into(from, into), 0);
@@ -342,7 +313,7 @@ where
 
         let edge = Arc::new(Edge::new(data, from.clone(), into.clone()));
 
-        let eid = self.edge_id(&edge);
+        let eid = LinkedGraphEdgeId::new(&edge, self.id.as_ref());
 
         self.node_mut(from).edges_out.push(edge.clone());
 
@@ -363,7 +334,7 @@ where
         let index = self
             .nodes
             .iter()
-            .position(|node| self.node_id(node) == *nid)
+            .position(|node| Arc::as_ptr(node) == nid.as_ptr())
             .expect("Node does not exist");
         let node = self.nodes.remove(index);
 
@@ -375,12 +346,14 @@ where
                     let other_node = self.node_mut(other_nid);
                     if self.is_directed() {
                         // For directed graphs, remove from edges_in
-                        other_node.edges_in.retain(|eid| *eid != self.edge_id(edge));
+                        other_node
+                            .edges_in
+                            .retain(|eid| eid.as_ptr() != Arc::as_ptr(edge));
                     } else {
                         // For undirected graphs, remove from edges_out
                         other_node
                             .edges_out
-                            .retain(|e| self.edge_id(e) != self.edge_id(edge));
+                            .retain(|e| Arc::as_ptr(e) != Arc::as_ptr(edge));
                     }
                 }
                 OtherValue::Both(_) => {}
@@ -396,7 +369,7 @@ where
                     let from_node = self.node_mut(&from_nid.clone());
                     from_node
                         .edges_out
-                        .retain(|edge| self.edge_id(edge) != *eid);
+                        .retain(|edge| Arc::as_ptr(edge) != eid.as_ptr());
                 }
             }
         }
@@ -407,19 +380,14 @@ where
     }
 
     fn remove_edge(&mut self, eid: &Self::EdgeId) -> Self::EdgeData {
-        assert_eq!(
-            eid.graph_id,
-            self.id.as_ref(),
-            "EdgeId does not belong to this graph"
-        );
-        let edge = eid.ptr.upgrade().expect("EdgeId is dangling");
+        let edge = eid.upgrade(self.id.as_ref());
         let (from_nid, into_nid) = edge.ends.values();
 
         // Remove from source node's edges_out
         let from_node = self.node_mut(from_nid);
         from_node
             .edges_out
-            .retain(|edge| *eid != self.edge_id(edge));
+            .retain(|edge| eid.as_ptr() != Arc::as_ptr(edge));
 
         if self.is_directed() {
             // For directed graphs, remove from target node's edges_in
@@ -428,7 +396,9 @@ where
         } else if from_nid != into_nid {
             // For undirected graphs (non-self-loop), remove from target node's edges_out
             let to_node = self.node_mut(into_nid);
-            to_node.edges_out.retain(|edge| *eid != self.edge_id(edge));
+            to_node
+                .edges_out
+                .retain(|edge| eid.as_ptr() != Arc::as_ptr(&edge));
         }
 
         Arc::into_inner(edge)

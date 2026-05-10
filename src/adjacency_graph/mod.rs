@@ -5,5 +5,5 @@ mod ids;
 
 pub use self::{
     graph_impl::AdjacencyGraph,
-    ids::{EdgeId, NodeId},
+    ids::{AdjacencyGraphEdgeId, AdjacencyGraphNodeId},
 };

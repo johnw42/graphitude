@@ -1,4 +1,8 @@
-use std::{fmt::Debug, hash::Hash, sync::Weak};
+use std::{
+    fmt::Debug,
+    hash::Hash,
+    sync::{Arc, Weak},
+};
 
 use crate::{Graph, linked_graph::GraphId};
 
@@ -8,8 +12,30 @@ use super::Node;
 ///
 /// Contains a weak pointer to the node data and a graph ID for safety checks.
 pub struct LinkedGraphNodeId<G: Graph> {
-    pub(super) ptr: Weak<Node<G>>,
-    pub(super) graph_id: GraphId,
+    ptr: Weak<Node<G>>,
+    graph_id: GraphId,
+}
+
+impl<G: Graph> LinkedGraphNodeId<G> {
+    pub(super) fn new(ptr: &Arc<Node<G>>, graph_id: GraphId) -> Self {
+        Self {
+            ptr: Arc::downgrade(ptr),
+            graph_id,
+        }
+    }
+
+    pub(super) fn as_ptr(&self) -> *const Node<G> {
+        self.ptr.as_ptr()
+    }
+
+    pub(super) fn upgrade(&self, graph_id: GraphId) -> Arc<Node<G>> {
+        assert_eq!(
+            self.graph_id, graph_id,
+            "NodeId does not belong to this graph"
+        );
+
+        self.ptr.upgrade().expect("NodeId is dangling")
+    }
 }
 
 // SAFETY: See comment on EdgeId.

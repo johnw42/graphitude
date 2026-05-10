@@ -1,5 +1,3 @@
-use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
-
 use crate::{
     bag::{Bag, BagKey},
     copier::GraphCopier,
@@ -8,13 +6,12 @@ use crate::{
     map_collector::MapCollector,
     prelude::*,
 };
-
-mod edge_id;
-mod node_id;
-
 use derivative::Derivative;
-pub use edge_id::BagGraphEdgeId;
-pub use node_id::BagGraphNodeId;
+use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
+
+mod ids;
+
+pub use ids::{BagGraphEdgeId, BagGraphNodeId};
 
 struct Node<G: Graph> {
     data: G::NodeData,
@@ -61,45 +58,20 @@ impl<N, E, D> BagGraph<N, E, D>
 where
     D: Directedness,
 {
-    fn node_id(&self, key: BagKey) -> BagGraphNodeId<Self> {
-        BagGraphNodeId {
-            key,
-            graph: PhantomData,
-        }
-    }
-
-    fn edge_id(&self, edge_key: BagKey) -> BagGraphEdgeId<Self> {
-        BagGraphEdgeId {
-            edge_key,
-            phantom: PhantomData,
-        }
-    }
-
-    fn edge_id_mut(&mut self, edge_key: BagKey) -> BagGraphEdgeId<Self> {
-        BagGraphEdgeId {
-            edge_key,
-            phantom: PhantomData,
-        }
-    }
-
     fn node(&self, id: &BagGraphNodeId<Self>) -> &Node<Self> {
-        &self.nodes[id.key]
+        &self.nodes[id.key()]
     }
 
-    /// Gets a mutable reference to the node with the given identifier.
-    ///
-    /// SAFETY: Caller must ensure that no other references to the node exist,
-    /// and the graph outlives the returned reference.
     fn node_mut(&mut self, id: &BagGraphNodeId<Self>) -> &mut Node<Self> {
-        &mut self.nodes[id.key]
+        &mut self.nodes[id.key()]
     }
 
     fn edge(&self, id: &BagGraphEdgeId<Self>) -> &Edge<Self> {
-        &self.edges[id.edge_key]
+        &self.edges[id.key()]
     }
 
     fn edge_mut(&mut self, id: &BagGraphEdgeId<Self>) -> &mut Edge<Self> {
-        &mut self.edges[id.edge_key]
+        &mut self.edges[id.key()]
     }
 }
 
@@ -119,7 +91,7 @@ where
     }
 
     fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
-        self.nodes.keys().map(|node| self.node_id(node))
+        self.nodes.keys().map(BagGraphNodeId::new)
     }
 
     fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData {
@@ -127,10 +99,7 @@ where
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
-        self.edges.pairs().map(|(edge_key, _edge)| BagGraphEdgeId {
-            edge_key,
-            phantom: PhantomData,
-        })
+        self.edges.keys().map(BagGraphEdgeId::new)
     }
 
     fn edge_ends(
@@ -139,7 +108,10 @@ where
     ) -> <Self::Directedness as Directedness>::EndPair<Self::NodeId> {
         let edge = self.edge(id);
         let (from_key, into_key) = edge.ends.values();
-        D::make_pair(self.node_id(*from_key), self.node_id(*into_key))
+        D::make_pair(
+            BagGraphNodeId::new(*from_key),
+            BagGraphNodeId::new(*into_key),
+        )
     }
 
     fn edges_from<'a, 'b: 'a>(
@@ -149,7 +121,8 @@ where
         self.node(from)
             .edges_out
             .iter()
-            .map(|edge_key| self.edge_id(*edge_key))
+            .copied()
+            .map(BagGraphEdgeId::new)
     }
 
     fn edges_into<'a, 'b: 'a>(
@@ -159,7 +132,8 @@ where
         self.node(into)
             .edges_in
             .iter()
-            .map(|edge_key| self.edge_id(*edge_key))
+            .copied()
+            .map(BagGraphEdgeId::new)
             .chain(self.edges_from(into).take_while(|_| !self.is_directed()))
     }
 
@@ -168,14 +142,14 @@ where
         from: &'b Self::NodeId,
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        let expected_ends = D::make_pair(from.key, into.key);
+        let expected_ends = D::make_pair(from.key(), into.key());
         self.node(from)
             .edges_out
             .iter()
             .filter_map(move |edge_key| {
-                let edge = self.edge(&self.edge_id(*edge_key));
+                let edge = &self.edges[*edge_key];
                 let matches = edge.ends == expected_ends;
-                matches.then(|| self.edge_id(*edge_key))
+                matches.then(|| BagGraphEdgeId::new(*edge_key))
             })
     }
 
@@ -219,7 +193,7 @@ where
             edges_out: Vec::new(),
             edges_in: Vec::new(),
         });
-        self.node_id(node_key)
+        BagGraphNodeId::new(node_key)
     }
 
     fn add_edge(
@@ -228,11 +202,11 @@ where
         into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<(Self::EdgeId, Self::EdgeData)>) {
-        let ends = D::make_pair(from.key, into.key);
+        let ends = D::make_pair(from.key(), into.key());
 
         if !self.allows_parallel_edges() {
             debug_assert!(self.num_edges_from_into(from, into) <= 1);
-            if let Some(edge_key) = self.nodes[from.key]
+            if let Some(edge_key) = self.nodes[from.key()]
                 .edges_out
                 .iter_mut()
                 .find(|edge_key| self.edges[**edge_key].ends == ends)
@@ -240,7 +214,7 @@ where
                 let mut old_data = data;
                 std::mem::swap(&mut self.edges[*edge_key].data, &mut old_data);
                 let edge_id = BagGraphEdgeId {
-                    edge_key: *edge_key,
+                    key: *edge_key,
                     phantom: PhantomData,
                 };
                 return (edge_id.clone(), Some((edge_id, old_data)));
@@ -254,7 +228,7 @@ where
             .edges
             .insert(Edge::new(data, from.clone(), into.clone()));
 
-        let eid = self.edge_id(edge_key);
+        let eid = BagGraphEdgeId::new(edge_key);
 
         self.nodes[*from].edges_out.push(edge_key);
 
@@ -272,7 +246,7 @@ where
     }
 
     fn remove_node(&mut self, nid: &Self::NodeId) -> N {
-        let node_key = nid.key;
+        let node_key = nid.key();
         let node = self.nodes.remove(node_key).expect("NodeId is invalid");
         let is_directed = self.is_directed();
 
@@ -311,7 +285,7 @@ where
     }
 
     fn remove_edge(&mut self, eid: &Self::EdgeId) -> Self::EdgeData {
-        let edge_key = eid.edge_key;
+        let edge_key = eid.key();
         let edge = self.edges.remove(edge_key).expect("EdgeId is invalid");
         let (from_key, into_key) = edge.ends.values();
 
@@ -358,12 +332,14 @@ where
         }
         if let Some(node_map_collector) = node_map_collector {
             for (old_key, new_key) in node_map {
-                node_map_collector.insert(self.node_id(old_key), self.node_id(new_key));
+                node_map_collector
+                    .insert(BagGraphNodeId::new(old_key), BagGraphNodeId::new(new_key));
             }
         }
         if let Some(edge_map_collector) = edge_map_collector {
             for (old_key, new_key) in edge_map {
-                edge_map_collector.insert(self.edge_id(old_key), self.edge_id(new_key));
+                edge_map_collector
+                    .insert(BagGraphEdgeId::new(old_key), BagGraphEdgeId::new(new_key));
             }
         }
     }

@@ -1,4 +1,4 @@
-use std::{fmt::Debug, hash::Hash};
+use std::fmt::Debug;
 
 use derivative::Derivative;
 
@@ -12,23 +12,19 @@ use crate::{
 #[derive(Derivative)]
 #[derivative(
     Clone(bound = ""),
-    Hash(bound = "T: Hash"),
-    // Comparing the graph_id and compaction_count is unfortunate, because
-    // it changes the semantics of equality based on whether error checking
-    // is enabled.  Ideally, we'd like to just assert they're equal,
-    // but that would break the way hash data structures work.
-    PartialEq(bound = "T: PartialEq"),
-    Eq(bound = "T: Eq"),
-    PartialOrd(bound = "T: Ord"),
-    Ord(bound = "T: Ord")
+    Hash(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = ""),
+    PartialOrd(bound = ""),
+    Ord(bound = "")
 )]
-pub struct NodeIdOrEdgeId<S: Storage, T: Clone> {
-    payload: T,
-    pub compaction_count: S::CompactionCount,
+pub struct AdjacencyGraphNodeId<S: Storage> {
+    payload: BagKey,
+    compaction_count: S::CompactionCount,
 }
 
-impl<S: Storage, T: Clone> NodeIdOrEdgeId<S, T> {
-    pub fn new(payload: T, compaction_count: S::CompactionCount) -> Self {
+impl<S: Storage> AdjacencyGraphNodeId<S> {
+    pub fn new(payload: BagKey, compaction_count: S::CompactionCount) -> Self {
         Self {
             payload,
             compaction_count,
@@ -39,9 +35,13 @@ impl<S: Storage, T: Clone> NodeIdOrEdgeId<S, T> {
         self.compaction_count = compaction_count;
         self
     }
+
+    pub fn compaction_count(&self) -> S::CompactionCount {
+        self.compaction_count
+    }
 }
 
-pub type NodeId<S> = NodeIdOrEdgeId<S, BagKey>;
+impl<S: Storage> GraphElementId for AdjacencyGraphNodeId<S> {}
 
 #[derive(Derivative)]
 #[derivative(
@@ -52,48 +52,46 @@ pub type NodeId<S> = NodeIdOrEdgeId<S, BagKey>;
     PartialOrd(bound = ""),
     Ord(bound = "")
 )]
-pub struct EdgeId<E, S, D, M>
+pub struct AdjacencyGraphEdgeId<E, S, D, M>
 where
     S: Storage,
-    D: Directedness + Default,
+    D: Directedness,
     M: EdgeContainerSelector,
 {
-    inner: NodeIdOrEdgeId<S, D::EndPair<BagKey>>,
+    ends: D::EndPair<BagKey>,
     index: <M::Container<E> as EdgeContainer<E>>::Index,
-    directedness: D,
-    edge_multiplicity: M,
+    compaction_count: S::CompactionCount,
 }
 
-impl<E, S, D, M> EdgeId<E, S, D, M>
+impl<E, S, D, M> AdjacencyGraphEdgeId<E, S, D, M>
 where
     S: Storage,
     D: Directedness + Default,
     M: EdgeContainerSelector,
 {
     pub fn new(
-        payload: D::EndPair<BagKey>,
+        ends: D::EndPair<BagKey>,
         index: <M::Container<E> as EdgeContainer<E>>::Index,
         compaction_count: S::CompactionCount,
     ) -> Self {
         Self {
-            inner: NodeIdOrEdgeId::new(payload, compaction_count),
+            ends,
             index,
-            directedness: D::default(),
-            edge_multiplicity: M::default(),
+            compaction_count,
         }
     }
 
-    pub fn keys(&self) -> D::EndPair<BagKey> {
-        self.inner.payload.clone()
+    pub fn ends(&self) -> D::EndPair<BagKey> {
+        self.ends.clone()
     }
 
     pub fn with_compaction_count(mut self, compaction_count: S::CompactionCount) -> Self {
-        self.inner = self.inner.with_compaction_count(compaction_count);
+        self.compaction_count = compaction_count;
         self
     }
 
     pub fn compaction_count(&self) -> S::CompactionCount {
-        self.inner.compaction_count
+        self.compaction_count
     }
 
     pub fn index(&self) -> <M::Container<E> as EdgeContainer<E>>::Index {
@@ -101,21 +99,19 @@ where
     }
 }
 
-impl<S: Storage> GraphElementId for NodeId<S> {}
-
-impl<S: Storage> NodeId<S> {
+impl<S: Storage> AdjacencyGraphNodeId<S> {
     pub fn key(&self) -> BagKey {
         self.payload
     }
 }
 
-impl<S: Storage> Debug for NodeId<S> {
+impl<S: Storage> Debug for AdjacencyGraphNodeId<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "NodeId({:?})", self.payload)
     }
 }
 
-impl<E, S, D, M> GraphElementId for EdgeId<E, S, D, M>
+impl<E, S, D, M> GraphElementId for AdjacencyGraphEdgeId<E, S, D, M>
 where
     S: Storage,
     D: Directedness + Default,
@@ -123,14 +119,14 @@ where
 {
 }
 
-impl<E, S, D, M> Debug for EdgeId<E, S, D, M>
+impl<E, S, D, M> Debug for AdjacencyGraphEdgeId<E, S, D, M>
 where
     S: Storage,
     D: Directedness + Default,
     M: EdgeContainerSelector,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (from, into) = self.keys().into_values();
+        let (from, into) = self.ends().into_values();
         write!(f, "EdgeId({:?}, {:?})", from, into)
     }
 }
