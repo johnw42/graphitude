@@ -562,7 +562,7 @@ where
         let ed1 = self.new_edge_data();
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).0;
         assert_eq!(*graph.edge_data(&e1), ed1);
     }
 
@@ -575,7 +575,7 @@ where
         let ed2 = self.new_edge_data();
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).0;
         *graph.edge_data_mut(&e1) = ed2.clone();
         assert_eq!(*graph.edge_data(&e1), ed2);
     }
@@ -593,8 +593,8 @@ where
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
         let n3 = graph.add_node(nd3);
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
-        let e2 = graph.add_edge(&n2, &n3, ed2.clone()).edge_id();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).0;
+        let e2 = graph.add_edge(&n2, &n3, ed2.clone()).0;
 
         // Check edges_from and num_edges_from for each node
         if graph.is_directed() {
@@ -677,8 +677,8 @@ where
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
         let n3 = graph.add_node(nd3);
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
-        let e2 = graph.add_edge(&n1, &n3, ed2.clone()).edge_id();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).0;
+        let e2 = graph.add_edge(&n1, &n3, ed2.clone()).0;
 
         let edge_ids: Vec<_> = graph.edge_ids().collect();
         assert_eq!(edge_ids.len(), 2);
@@ -698,10 +698,10 @@ where
         let n2 = graph.add_node(nd2.clone());
 
         // Normal edge.
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).0;
         assert_eq!(graph.num_edges(), 1);
         // Self edge.
-        let e2 = graph.add_edge(&n1, &n1, ed2.clone()).edge_id();
+        let e2 = graph.add_edge(&n1, &n1, ed2.clone()).0;
         assert_eq!(graph.num_edges(), 2);
         // Duplicate edge.
         let add_3 = graph.add_edge(&n1, &n2, ed1.clone());
@@ -715,10 +715,10 @@ where
         assert!(edges_from_n1.contains(&e1));
         assert!(edges_from_n1.contains(&e2));
         if graph.allows_parallel_edges() {
-            assert!(edges_from_n1.contains(&add_3.clone().edge_id()));
+            assert!(edges_from_n1.contains(&add_3.clone().0));
             assert_eq!(edges_from_n1.len(), 3);
         } else {
-            assert!(matches!(&add_3, AddEdgeResult::Updated(_, data) if *data == ed1));
+            assert!(matches!(&add_3, (_, Some((_, data))) if *data == ed1));
             dbg!(&edges_from_n1);
             assert_eq!(edges_from_n1.len(), 2);
         }
@@ -730,10 +730,10 @@ where
         } else {
             assert!(edges_into_n1.contains(&e1));
             if graph.allows_parallel_edges() {
-                assert!(edges_into_n1.contains(&add_3.edge_id()));
+                assert!(edges_into_n1.contains(&add_3.0));
                 assert_eq!(edges_into_n1.len(), 3);
             } else {
-                assert!(matches!(&add_3, AddEdgeResult::Updated(_, data) if *data == ed1));
+                assert!(matches!(&add_3, (_, Some((_, data))) if *data == ed1));
                 assert_eq!(edges_into_n1.len(), 2);
             }
         }
@@ -805,11 +805,11 @@ where
         let n2 = graph.add_node(self.new_node_data());
         let n3 = graph.add_node(self.new_node_data());
 
-        let e0 = graph.add_edge(&n0, &n1, self.new_edge_data()).edge_id();
-        let e1 = graph.add_edge(&n0, &n2, self.new_edge_data()).edge_id();
-        let e2 = graph.add_edge(&n1, &n2, self.new_edge_data()).edge_id();
-        let e3 = graph.add_edge(&n1, &n3, self.new_edge_data()).edge_id();
-        let e4 = graph.add_edge(&n2, &n3, self.new_edge_data()).edge_id();
+        let e0 = graph.add_edge(&n0, &n1, self.new_edge_data()).0;
+        let e1 = graph.add_edge(&n0, &n2, self.new_edge_data()).0;
+        let e2 = graph.add_edge(&n1, &n2, self.new_edge_data()).0;
+        let e3 = graph.add_edge(&n1, &n3, self.new_edge_data()).0;
+        let e4 = graph.add_edge(&n2, &n3, self.new_edge_data()).0;
         // Check edges_from for all nodes
         assert_eq!(
             graph.edges_from(&n0).collect::<HashSet<_>>(),
@@ -870,7 +870,7 @@ where
 
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
-        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).edge_id();
+        let e1 = graph.add_edge(&n1, &n2, ed1.clone()).0;
 
         // Check edges_into and num_edges_into
         assert_eq!(graph.edges_into(&n2).collect::<Vec<_>>(), vec![e1.clone()]);
@@ -901,7 +901,7 @@ where
 
         let n1 = graph.add_node(nd1);
         let n2 = graph.add_node(nd2);
-        let e1 = graph.add_edge(&n1, &n2, ed1).edge_id();
+        let e1 = graph.add_edge(&n1, &n2, ed1).0;
 
         assert_eq!(graph.num_edges_from_into(&n1, &n2), 1);
         assert_eq!(
@@ -924,8 +924,8 @@ where
         let n1 = source.add_node(self.new_node_data());
         let n2 = source.add_node(self.new_node_data());
         let n3 = source.add_node(self.new_node_data());
-        let e1 = source.add_edge(&n1, &n2, self.new_edge_data()).edge_id();
-        let e2 = source.add_edge(&n2, &n3, self.new_edge_data()).edge_id();
+        let e1 = source.add_edge(&n1, &n2, self.new_edge_data()).0;
+        let e2 = source.add_edge(&n2, &n3, self.new_edge_data()).0;
 
         let mut node_map = HashMap::new();
         let mut edge_map = HashMap::new();
@@ -972,11 +972,11 @@ where
         let n2 = graph.add_node(self.new_node_data());
         let n3 = graph.add_node(self.new_node_data());
 
-        let e0 = graph.add_edge(&n0, &n1, self.new_edge_data()).edge_id();
-        let e1 = graph.add_edge(&n0, &n2, self.new_edge_data()).edge_id();
-        let e2 = graph.add_edge(&n1, &n2, self.new_edge_data()).edge_id();
-        let e3 = graph.add_edge(&n1, &n3, self.new_edge_data()).edge_id();
-        let e4 = graph.add_edge(&n2, &n3, self.new_edge_data()).edge_id();
+        let e0 = graph.add_edge(&n0, &n1, self.new_edge_data()).0;
+        let e1 = graph.add_edge(&n0, &n2, self.new_edge_data()).0;
+        let e2 = graph.add_edge(&n1, &n2, self.new_edge_data()).0;
+        let e3 = graph.add_edge(&n1, &n3, self.new_edge_data()).0;
+        let e4 = graph.add_edge(&n2, &n3, self.new_edge_data()).0;
         if graph.is_directed() {
             assert_eq!(graph.edge_ends(&e0).into_values(), (n0.clone(), n1.clone()));
             assert_eq!(graph.edge_ends(&e1).into_values(), (n0.clone(), n2.clone()));
@@ -1178,9 +1178,9 @@ where
         let n1 = graph.add_node(nd1.clone());
         let n2 = graph.add_node(nd2.clone());
         let n3 = graph.add_node(self.new_node_data());
-        let e1 = graph.add_edge(&n1, &n1, ed1.clone()).edge_id();
-        let e2 = graph.add_edge(&n1, &n2, ed2.clone()).edge_id();
-        let _e3 = graph.add_edge(&n2, &n3, ed3.clone()).edge_id();
+        let e1 = graph.add_edge(&n1, &n1, ed1.clone()).0;
+        let e2 = graph.add_edge(&n1, &n2, ed2.clone()).0;
+        let _e3 = graph.add_edge(&n2, &n3, ed3.clone()).0;
         graph.remove_node(&n3);
         assert_eq!(graph.node_ids().count(), 2);
         assert_eq!(graph.edge_ids().count(), 2);
@@ -1205,8 +1205,8 @@ where
         let n1 = source.add_node(self.new_node_data());
         let n2 = source.add_node(self.new_node_data());
         let n3 = source.add_node(self.new_node_data());
-        let e0 = source.add_edge(&n1, &n2, self.new_edge_data()).edge_id();
-        let e1 = source.add_edge(&n2, &n3, self.new_edge_data()).edge_id();
+        let e0 = source.add_edge(&n1, &n2, self.new_edge_data()).0;
+        let e1 = source.add_edge(&n2, &n3, self.new_edge_data()).0;
 
         let mut transform_node = |x: &String| format!("ND[{x}]");
         let mut transform_edge = |x: &String| format!("ED[{x}]");
@@ -1250,12 +1250,9 @@ where
         let n1 = graph.add_node(self.new_node_data());
         let n2 = graph.add_node(self.new_node_data());
         let result = graph.add_edge(&n1, &n2, self.new_edge_data());
-        assert!(matches!(result, AddEdgeResult::Added(_)));
+        assert!(matches!(result, (_, None)));
         let result = graph.add_edge(&n1, &n2, self.new_edge_data());
-        assert_eq!(
-            graph.allows_parallel_edges(),
-            matches!(result, AddEdgeResult::Added(_))
-        );
+        assert_eq!(graph.allows_parallel_edges(), matches!(result, (_, None)));
 
         if graph.allows_parallel_edges() {
             assert_eq!(graph.num_edges(), 2);

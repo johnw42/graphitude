@@ -39,7 +39,7 @@ where
         for ((from, into), data) in edge_data.iter() {
             let from_id = &node_ids[*from];
             let into_id = &node_ids[*into];
-            edge_ids.push(graph.add_edge(from_id, into_id, data.clone()).edge_id());
+            edge_ids.push(graph.add_edge(from_id, into_id, data.clone()).0);
         }
         Self {
             graph,

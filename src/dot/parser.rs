@@ -319,11 +319,11 @@ where
                                 let edge_data = builder
                                     .make_edge_data(&attrs)
                                     .map_err(ParseError::Builder)?;
-                                if let AddEdgeResult::Updated(_, _) =
+                                if let (_, Some(_)) =
                                     graph.add_edge(&current_from, to_id, edge_data)
                                 {
                                     return Err(ParseError::DuplicateEdge(
-                                        from_id_string.clone(),
+                                        from_id_string,
                                         to_id_string.clone(),
                                     ));
                                 }

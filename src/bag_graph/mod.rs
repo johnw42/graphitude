@@ -5,7 +5,6 @@ use crate::{
     copier::GraphCopier,
     end_pair::EndPair,
     format_debug::format_debug,
-    graph_traits::AddEdgeResult,
     map_collector::MapCollector,
     prelude::*,
 };
@@ -14,8 +13,8 @@ mod edge_id;
 mod node_id;
 
 use derivative::Derivative;
-pub use edge_id::EdgeId;
-pub use node_id::NodeId;
+pub use edge_id::BagGraphEdgeId;
+pub use node_id::BagGraphNodeId;
 
 struct Node<G: Graph> {
     data: G::NodeData,
@@ -62,21 +61,28 @@ impl<N, E, D> BagGraph<N, E, D>
 where
     D: Directedness,
 {
-    fn node_id(&self, key: BagKey) -> NodeId<Self> {
-        NodeId {
+    fn node_id(&self, key: BagKey) -> BagGraphNodeId<Self> {
+        BagGraphNodeId {
             key,
             graph: PhantomData,
         }
     }
 
-    fn edge_id(&self, edge_key: BagKey) -> EdgeId<Self> {
-        EdgeId {
+    fn edge_id(&self, edge_key: BagKey) -> BagGraphEdgeId<Self> {
+        BagGraphEdgeId {
             edge_key,
             phantom: PhantomData,
         }
     }
 
-    fn node(&self, id: &NodeId<Self>) -> &Node<Self> {
+    fn edge_id_mut(&mut self, edge_key: BagKey) -> BagGraphEdgeId<Self> {
+        BagGraphEdgeId {
+            edge_key,
+            phantom: PhantomData,
+        }
+    }
+
+    fn node(&self, id: &BagGraphNodeId<Self>) -> &Node<Self> {
         &self.nodes[id.key]
     }
 
@@ -84,15 +90,15 @@ where
     ///
     /// SAFETY: Caller must ensure that no other references to the node exist,
     /// and the graph outlives the returned reference.
-    fn node_mut(&mut self, id: &NodeId<Self>) -> &mut Node<Self> {
+    fn node_mut(&mut self, id: &BagGraphNodeId<Self>) -> &mut Node<Self> {
         &mut self.nodes[id.key]
     }
 
-    fn edge(&self, id: &EdgeId<Self>) -> &Edge<Self> {
+    fn edge(&self, id: &BagGraphEdgeId<Self>) -> &Edge<Self> {
         &self.edges[id.edge_key]
     }
 
-    fn edge_mut(&mut self, id: &EdgeId<Self>) -> &mut Edge<Self> {
+    fn edge_mut(&mut self, id: &BagGraphEdgeId<Self>) -> &mut Edge<Self> {
         &mut self.edges[id.edge_key]
     }
 }
@@ -101,9 +107,9 @@ impl<N, E, D> Graph for BagGraph<N, E, D>
 where
     D: Directedness,
 {
-    type NodeId = NodeId<Self>;
+    type NodeId = BagGraphNodeId<Self>;
     type NodeData = N;
-    type EdgeId = EdgeId<Self>;
+    type EdgeId = BagGraphEdgeId<Self>;
     type EdgeData = E;
     type Directedness = D;
     type EdgeMultiplicity = MultipleEdges;
@@ -121,7 +127,7 @@ where
     }
 
     fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
-        self.edges.pairs().map(|(edge_key, _edge)| EdgeId {
+        self.edges.pairs().map(|(edge_key, _edge)| BagGraphEdgeId {
             edge_key,
             phantom: PhantomData,
         })
@@ -221,7 +227,7 @@ where
         from: &Self::NodeId,
         into: &Self::NodeId,
         data: Self::EdgeData,
-    ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
+    ) -> (Self::EdgeId, Option<(Self::EdgeId, Self::EdgeData)>) {
         let ends = D::make_pair(from.key, into.key);
 
         if !self.allows_parallel_edges() {
@@ -233,13 +239,11 @@ where
             {
                 let mut old_data = data;
                 std::mem::swap(&mut self.edges[*edge_key].data, &mut old_data);
-                return AddEdgeResult::Updated(
-                    EdgeId {
-                        edge_key: *edge_key,
-                        phantom: PhantomData,
-                    },
-                    old_data,
-                );
+                let edge_id = BagGraphEdgeId {
+                    edge_key: *edge_key,
+                    phantom: PhantomData,
+                };
+                return (edge_id.clone(), Some((edge_id, old_data)));
             }
             debug_assert_eq!(self.num_edges_from_into(from, into), 0);
         }
@@ -264,7 +268,7 @@ where
             self.nodes[*into].edges_out.push(edge_key);
         }
 
-        AddEdgeResult::Added(eid)
+        (eid, None)
     }
 
     fn remove_node(&mut self, nid: &Self::NodeId) -> N {

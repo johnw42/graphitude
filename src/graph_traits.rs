@@ -18,39 +18,15 @@ use crate::{
     search::{BfsIterator, BfsIteratorWithPaths, DfsIterator, DfsIteratorWithPaths},
 };
 
-/// A trait representing a node identifier in a graph.
+/// A trait representing a node or edge identifier in a graph.
 ///
 /// This trait has no methods but serves as a marker for types that can be used
-/// as node identifiers.  This has the unfortunatel side-effect of preventing
-/// the use of primitive types (e.g., `usize`, `u32`, etc.) as node identifiers,
-/// since they do not implement this trait.  To work around this, you can define
-/// a newtype wrapper around the primitive type and implement `NodeIdTrait` for the
+/// as identifiers.  This has the unfortunate side-effect of preventing the use
+/// of primitive types (e.g., `usize`, `u32`, etc.) as identifiers, since they
+/// do not implement this trait.  To work around this, you can define a newtype
+/// wrapper around the primitive type and implement `GraphElementId` for the
 /// newtype.
-pub trait NodeIdTrait: Eq + Hash + Clone + Debug + Ord + Send + Sync {}
-
-/// A trait representing an edge identifier in a graph.
-///
-/// Implementors mu implement either `left` and `right`, or `ends`.
-pub trait EdgeIdTrait: Eq + Hash + Clone + Debug + Send + Sync {}
-
-/// Return type of [`Graph::add_edge`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AddEdgeResult<I, D> {
-    /// A new edge was added with the given ID.
-    Added(I),
-    /// An existing edge was updated with new data. The edge ID and the old data are returned.
-    Updated(I, D),
-}
-
-impl<I, D> AddEdgeResult<I, D> {
-    /// Returns the new edge ID if the result was `Added`, or the old edge ID if the result was `Updated`.
-    pub fn edge_id(self) -> I {
-        match self {
-            AddEdgeResult::Added(id) => id,
-            AddEdgeResult::Updated(id, _) => id,
-        }
-    }
-}
+pub trait GraphElementId: Eq + Hash + Clone + Debug + Ord + Send + Sync {}
 
 /// A trait representing a directed or undirected graph data structure.  Methods
 /// that return iterators over nodes or edges return them in an unspecified
@@ -60,8 +36,8 @@ pub trait Graph {
     type EdgeMultiplicity: EdgeMultiplicity;
     type NodeData;
     type EdgeData;
-    type NodeId: NodeIdTrait;
-    type EdgeId: EdgeIdTrait;
+    type NodeId: GraphElementId;
+    type EdgeId: GraphElementId;
 
     /// Returns true if the graph is directed.
     fn is_directed(&self) -> bool {
@@ -487,27 +463,34 @@ pub trait GraphMut: Graph {
         Self: Graph<EdgeMultiplicity = MultipleEdges>,
     {
         match self.add_edge(from, into, data) {
-            AddEdgeResult::Added(eid) => eid,
-            AddEdgeResult::Updated(_, _) => {
+            (eid, None) => eid,
+            (_, Some(_)) => {
                 unreachable!("Edge already exists between {:?} and {:?}", from, into)
             }
         }
     }
 
-    /// Add an edge if possible, or replaces the data of an existing edge.  If
-    /// no edge exists, or the graph supports parallel edges, the new edge is
-    /// added and and its edge ID is returned.  Otherwise, the data of the
-    /// existing edge is replaced with the new data, and the old data is
-    /// returned.
+    /// Adds an edge if possible, or replaces the data of an existing edge.  If
+    /// a new edge is added, returns its `EdgeId` and `None`.  If an edge
+    /// already exists, returns `(new_id, Some((old_id, old_data)))`.  The
+    /// `new_id` may be the same as the `old_id` if the graph implementation
+    /// reuses edge IDs when replacing edges.
     fn add_edge(
         &mut self,
         from: &Self::NodeId,
         into: &Self::NodeId,
         data: Self::EdgeData,
-    ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData>;
+    ) -> (Self::EdgeId, Option<(Self::EdgeId, Self::EdgeData)>);
 
     /// Remove an edge between two nodes, returning its data.
     fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData;
+
+    /// Removes all edges from one node into another.
+    fn remove_edges_from_into(&mut self, from: &Self::NodeId, into: &Self::NodeId) {
+        for eid in self.edges_from_into(from, into).collect::<Vec<_>>() {
+            self.remove_edge(&eid);
+        }
+    }
 
     /// Reserves capacity for at least the given number of additional nodes
     /// and edges.  Does nothing by default.

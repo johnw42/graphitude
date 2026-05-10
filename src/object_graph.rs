@@ -2,7 +2,7 @@ use std::{fmt::Debug, marker::PhantomData, mem::transmute, ptr::NonNull};
 
 use derivative::Derivative;
 
-use crate::{EdgeIdTrait, MultipleEdges, NodeIdTrait, directedness::Directed};
+use crate::{GraphElementId, MultipleEdges, directedness::Directed};
 
 use super::Graph;
 
@@ -29,7 +29,7 @@ pub struct NodeId<'g, N>(NonNull<N>, PhantomData<&'g N>);
 unsafe impl<N> Send for NodeId<'_, N> {}
 unsafe impl<N> Sync for NodeId<'_, N> {}
 
-impl<'a, N> NodeIdTrait for NodeId<'a, N> {}
+impl<'a, N> GraphElementId for NodeId<'a, N> {}
 
 impl<'a, N> From<&'a N> for NodeId<'a, N> {
     fn from(v: &'a N) -> Self {
@@ -93,7 +93,7 @@ where
     }
 }
 
-impl<'a, N: Debug> EdgeIdTrait for (NodeId<'a, N>, NodeId<'a, N>) {}
+impl<'a, N: Debug> GraphElementId for (NodeId<'a, N>, NodeId<'a, N>) {}
 
 impl<'d, N: Debug, F> Graph for ObjectGraph<'d, N, F>
 where

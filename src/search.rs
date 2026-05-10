@@ -225,9 +225,9 @@ mod tests {
         let n2 = graph.add_node(2);
         let n3 = graph.add_node(3);
         let edges = vec![
-            graph.add_edge(&n0, &n1, ()).edge_id(),
-            graph.add_edge(&n0, &n2, ()).edge_id(),
-            graph.add_edge(&n1, &n3, ()).edge_id(),
+            graph.add_edge(&n0, &n1, ()).0,
+            graph.add_edge(&n0, &n2, ()).0,
+            graph.add_edge(&n1, &n3, ()).0,
         ];
         (graph, vec![n0, n1, n2, n3], edges)
     }
@@ -242,9 +242,9 @@ mod tests {
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
         let edges = vec![
-            graph.add_edge(&n0, &n1, ()).edge_id(),
-            graph.add_edge(&n1, &n2, ()).edge_id(),
-            graph.add_edge(&n2, &n0, ()).edge_id(),
+            graph.add_edge(&n0, &n1, ()).0,
+            graph.add_edge(&n1, &n2, ()).0,
+            graph.add_edge(&n2, &n0, ()).0,
         ];
         (graph, vec![n0, n1, n2], edges)
     }

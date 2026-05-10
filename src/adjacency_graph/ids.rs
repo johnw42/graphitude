@@ -3,7 +3,7 @@ use std::{fmt::Debug, hash::Hash};
 use derivative::Derivative;
 
 use crate::{
-    Directedness, EdgeIdTrait, NodeIdTrait, Storage,
+    Directedness, GraphElementId, Storage,
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
     bag::BagKey,
     end_pair::EndPair,
@@ -101,7 +101,7 @@ where
     }
 }
 
-impl<S: Storage> NodeIdTrait for NodeId<S> {}
+impl<S: Storage> GraphElementId for NodeId<S> {}
 
 impl<S: Storage> NodeId<S> {
     pub fn key(&self) -> BagKey {
@@ -115,7 +115,7 @@ impl<S: Storage> Debug for NodeId<S> {
     }
 }
 
-impl<E, S, D, M> EdgeIdTrait for EdgeId<E, S, D, M>
+impl<E, S, D, M> GraphElementId for EdgeId<E, S, D, M>
 where
     S: Storage,
     D: Directedness + Default,

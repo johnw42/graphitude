@@ -7,15 +7,15 @@ use std::{
 
 use crate::{
     copier::GraphCopier, edge_multiplicity::EdgeMultiplicity, end_pair::EndPair,
-    format_debug::format_debug, graph_traits::AddEdgeResult, prelude::*, util::OtherValue,
+    format_debug::format_debug, prelude::*, util::OtherValue,
 };
 
 mod edge_id;
 mod node_id;
 
 use derivative::Derivative;
-pub use edge_id::EdgeId;
-pub use node_id::NodeId;
+pub use edge_id::LinkedGraphEdgeId;
+pub use node_id::LinkedGraphNodeId;
 
 #[derive(Default, Debug)]
 #[allow(unused)]
@@ -27,16 +27,16 @@ struct Node<G: Graph> {
     edges_out: Vec<Arc<Edge<G>>>,
     // Only maintained for directed graphs, since for undirected graphs
     // edges_out is sufficient to find all edges.
-    edges_in: Vec<EdgeId<G>>,
+    edges_in: Vec<LinkedGraphEdgeId<G>>,
 }
 
 struct Edge<G: Graph> {
     data: UnsafeCell<G::EdgeData>,
-    ends: <G::Directedness as Directedness>::EndPair<NodeId<G>>,
+    ends: <G::Directedness as Directedness>::EndPair<LinkedGraphNodeId<G>>,
 }
 
 impl<G: Graph> Edge<G> {
-    fn new(data: G::EdgeData, from: NodeId<G>, into: NodeId<G>) -> Self {
+    fn new(data: G::EdgeData, from: LinkedGraphNodeId<G>, into: LinkedGraphNodeId<G>) -> Self {
         Self {
             data: UnsafeCell::new(data),
             ends: (from, into).into(),
@@ -78,21 +78,21 @@ where
     D: Directedness,
     M: EdgeMultiplicity,
 {
-    fn node_id(&self, ptr: &Arc<Node<Self>>) -> NodeId<Self> {
-        NodeId {
+    fn node_id(&self, ptr: &Arc<Node<Self>>) -> LinkedGraphNodeId<Self> {
+        LinkedGraphNodeId {
             ptr: Arc::downgrade(ptr),
             graph_id: self.id.as_ref(),
         }
     }
 
-    fn edge_id(&self, ptr: &Arc<Edge<Self>>) -> EdgeId<Self> {
-        EdgeId {
+    fn edge_id(&self, ptr: &Arc<Edge<Self>>) -> LinkedGraphEdgeId<Self> {
+        LinkedGraphEdgeId {
             ptr: Arc::downgrade(ptr),
             graph_id: self.id.as_ref(),
         }
     }
 
-    fn node(&self, id: &NodeId<Self>) -> &Node<Self> {
+    fn node(&self, id: &LinkedGraphNodeId<Self>) -> &Node<Self> {
         assert_eq!(
             id.graph_id,
             self.id.as_ref(),
@@ -109,7 +109,7 @@ where
     ///
     /// SAFETY: Caller must ensure that no other references to the node exist,
     /// and the graph outlives the returned reference.
-    fn node_mut<'a>(&mut self, id: &NodeId<Self>) -> &'a mut Node<Self> {
+    fn node_mut<'a>(&mut self, id: &LinkedGraphNodeId<Self>) -> &'a mut Node<Self> {
         assert_eq!(
             id.graph_id,
             self.id.as_ref(),
@@ -123,7 +123,7 @@ where
         unsafe { &mut *(Arc::as_ptr(&id) as *mut _) }
     }
 
-    fn edge(&self, id: &EdgeId<Self>) -> &Edge<Self> {
+    fn edge(&self, id: &LinkedGraphEdgeId<Self>) -> &Edge<Self> {
         assert_eq!(
             id.graph_id,
             self.id.as_ref(),
@@ -136,7 +136,7 @@ where
         unsafe { &*Arc::as_ptr(&id) }
     }
 
-    fn edge_mut(&mut self, id: &EdgeId<Self>) -> &mut Edge<Self> {
+    fn edge_mut(&mut self, id: &LinkedGraphEdgeId<Self>) -> &mut Edge<Self> {
         assert_eq!(
             id.graph_id,
             self.id.as_ref(),
@@ -155,9 +155,9 @@ where
     D: Directedness,
     M: EdgeMultiplicity,
 {
-    type NodeId = NodeId<Self>;
+    type NodeId = LinkedGraphNodeId<Self>;
     type NodeData = N;
-    type EdgeId = EdgeId<Self>;
+    type EdgeId = LinkedGraphEdgeId<Self>;
     type EdgeData = E;
     type Directedness = D;
     type EdgeMultiplicity = M;
@@ -316,7 +316,7 @@ where
         from: &Self::NodeId,
         into: &Self::NodeId,
         data: Self::EdgeData,
-    ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
+    ) -> (Self::EdgeId, Option<(Self::EdgeId, Self::EdgeData)>) {
         let ends = ((from.clone(), into.clone())).into();
 
         if !self.allows_parallel_edges() {
@@ -332,7 +332,8 @@ where
                 // owns all its data, and we have &mut self, so no other references
                 // to the graph or edge data can exist.
                 std::mem::swap(unsafe { &mut *edge.data.get() }, &mut old_data);
-                return AddEdgeResult::Updated(self.edge_id(edge), old_data);
+                let edge_id = self.edge_id(edge);
+                return (edge_id.clone(), Some((edge_id, old_data)));
             }
             debug_assert_eq!(self.num_edges_from_into(from, into), 0);
         }
@@ -355,7 +356,7 @@ where
             self.node_mut(into).edges_out.push(edge);
         }
 
-        AddEdgeResult::Added(eid)
+        (eid, None)
     }
 
     fn remove_node(&mut self, nid: &Self::NodeId) -> N {

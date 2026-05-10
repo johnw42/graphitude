@@ -2,9 +2,7 @@
 
 use std::{collections::HashMap, marker::PhantomData};
 
-use crate::{
-    AddEdgeResult, Directedness, EdgeMultiplicity, Graph, GraphMut, end_pair::EndPair as _,
-};
+use crate::{Directedness, EdgeMultiplicity, Graph, GraphMut, end_pair::EndPair as _};
 
 /// Utility for copying graphs with flexible transformations and mapping of node
 /// and edge IDs.  Uses a builder pattern to allow configuring the copying
@@ -304,20 +302,15 @@ where
             let ends = self.source.edge_ends(&edge_id);
             let source_node_id = &node_map[ends.left()];
             let target_node_id = &node_map[ends.right()];
-            let add_edge_result = target.add_edge(source_node_id, target_node_id, edge_data);
+            let (new_edge_id, old_edge) =
+                target.add_edge(source_node_id, target_node_id, edge_data);
 
             // Maintain the edge map if the user provided one.
             if let Some((ref mut edge_map, ref mut reverse_edge_map)) = edge_maps {
-                match add_edge_result {
-                    AddEdgeResult::Added(new_edge_id) => {
-                        edge_map.insert(edge_id.clone(), new_edge_id.clone());
-                        reverse_edge_map.insert(new_edge_id, edge_id);
-                    }
-                    AddEdgeResult::Updated(old_edge_id, _) => {
-                        edge_map.remove(&reverse_edge_map[&old_edge_id]);
-                        edge_map.insert(edge_id.clone(), old_edge_id.clone());
-                        reverse_edge_map.insert(old_edge_id, edge_id);
-                    }
+                edge_map.insert(edge_id.clone(), new_edge_id.clone());
+                reverse_edge_map.insert(new_edge_id, edge_id);
+                if let Some((old_edge_id, _)) = old_edge {
+                    edge_map.remove(&reverse_edge_map[&old_edge_id]);
                 }
             }
         }

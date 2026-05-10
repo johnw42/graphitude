@@ -210,7 +210,7 @@ where
         from: &Self::NodeId,
         into: &Self::NodeId,
         data: Self::EdgeData,
-    ) -> AddEdgeResult<Self::EdgeId, Self::EdgeData> {
+    ) -> (Self::EdgeId, Option<(Self::EdgeId, Self::EdgeData)>) {
         let from_index = from.key().to_index();
         let into_index = into.key().to_index();
         let old_data = self.adjacency.remove(from_index, into_index);
@@ -218,10 +218,10 @@ where
         self.adjacency.insert(from_index, into_index, new_data);
         let edge_id = self.edge_id(from.key(), into.key(), index);
         match replaced {
-            Some(replaced) => AddEdgeResult::Updated(edge_id, replaced),
+            Some(replaced) => (edge_id.clone(), Some((edge_id, replaced))),
             None => {
                 self.num_edges += 1;
-                AddEdgeResult::Added(edge_id)
+                (edge_id, None)
             }
         }
     }
