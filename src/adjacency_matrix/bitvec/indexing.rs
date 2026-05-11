@@ -97,7 +97,6 @@ where
     }
 
     /// Returns the size of one dimension of the symmetric matrix.
-    #[allow(unused)]
     pub fn size(&self) -> usize {
         self.size
     }

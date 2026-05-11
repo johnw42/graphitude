@@ -1,4 +1,4 @@
-use crate::{Directedness, Storage};
+use crate::{Directedness, Storage, map_collector::MapCollector};
 
 type Pair<M> = <<M as AdjacencyMatrix>::Directedness as Directedness>::EndPair<usize>;
 
@@ -11,7 +11,7 @@ where
     Self: Sized,
 {
     type Value;
-    type Directedness: Directedness + Default;
+    type Directedness: Directedness;
     type Storage: Storage;
 
     /// Creates a new, empty adjacency matrix.
@@ -112,6 +112,9 @@ where
         }
         *self = new_self;
     }
+
+    /// Compacts the adjacency matrix by reusing the indices of removed entries.  The default implementation does nothing.
+    fn compact(&mut self, _map_collector: Option<&mut dyn MapCollector<(usize, usize)>>) {}
 }
 
 pub(crate) fn format_debug<M>(

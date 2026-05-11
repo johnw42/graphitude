@@ -8,11 +8,12 @@ use crate::{
         AdjacencyGraphEdgeId, AdjacencyGraphNodeId,
         edge_container::{EdgeContainer, EdgeContainerSelector},
     },
-    adjacency_matrix::{AdjacencyMatrix, HashStorage, Storage},
+    adjacency_matrix::{AdjacencyMatrix, CompactionCount, HashStorage, Storage},
     copier::GraphCopier,
     directedness::Directedness,
     format_debug::format_debug,
     iter::known_size::KnownSizeIterator,
+    map_collector::MapCollector,
     prelude::*,
 };
 
@@ -279,6 +280,15 @@ where
     fn shrink_to_fit(&mut self) {
         self.nodes.shrink_to_fit();
         self.adjacency.shrink_to_fit();
+    }
+
+    fn compact(
+        &mut self,
+        node_map_collector: Option<&mut dyn MapCollector<Self::NodeId>>,
+        edge_map_collector: Option<&mut dyn MapCollector<Self::EdgeId>>,
+    ) {
+        self.compaction_count = self.compaction_count.increment();
+        // TODO: Compact the node bag and update the adjacency matrix accordingly.
     }
 }
 

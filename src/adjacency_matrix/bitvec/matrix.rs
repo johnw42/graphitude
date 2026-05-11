@@ -1,4 +1,9 @@
-use std::{fmt::Debug, mem::MaybeUninit, ops::Range};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    mem::MaybeUninit,
+    ops::Range,
+};
 
 use bitvec::{slice::BitSlice, vec::BitVec};
 
@@ -9,6 +14,7 @@ use crate::{
         bitvec::indexing::{DataIndex, LivenessIndex, MatrixIndexing},
         trait_def::format_debug,
     },
+    map_collector::MapCollector,
 };
 
 /// Bitvec-based adjacency matrix.
@@ -416,6 +422,29 @@ where
 
         new_self.entry_count = self.entry_count;
         *self = new_self;
+    }
+
+    fn compact(&mut self, mut map_collector: Option<&mut dyn MapCollector<(usize, usize)>>) {
+        let mut index_map = HashMap::with_capacity(self.size_bound());
+
+        for (row, col, _) in self.iter() {
+            for index in [row, col] {
+                let new_index = index_map.len();
+                index_map.entry(index).or_insert(new_index);
+            }
+        }
+
+        let mut old_self = Self::with_size(index_map.len());
+        std::mem::swap(self, &mut old_self);
+
+        for (row, col, value) in old_self.into_iter() {
+            let new_row = index_map[&row];
+            let new_col = index_map[&col];
+            self.insert(new_row, new_col, value);
+            if let Some(map_collector) = &mut map_collector {
+                map_collector.insert((row, col), (new_row, new_col));
+            }
+        }
     }
 }
 

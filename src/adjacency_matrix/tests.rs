@@ -708,6 +708,19 @@ where
         (matrix.entries_in_row(row).next().is_none() && matrix.entries_in_col(col).next().is_none())
             .into()
     }
+
+    #[quickcheck]
+    fn prop_compact_consistent(ArbMatrix { matrix, .. }: ArbMatrix<M>) {
+        let mut compacted = matrix.clone();
+        let mut index_map = HashMap::new();
+        compacted.compact(Some(&mut index_map));
+        assert!(compacted.size_bound() <= matrix.size_bound());
+        assert_eq!(compacted.len(), matrix.len());
+        for (row, col, data) in matrix.iter() {
+            let (c_row, c_col) = index_map.get(&(row, col)).cloned().unwrap_or((row, col));
+            assert_eq!(compacted.get(c_row, c_col), Some(data));
+        }
+    }
 }
 
 adjacency_matrix_tests!(directed_hash: AdjacencyMatrixTests<HashAdjacencyMatrix<&'static str, Directed>>);
