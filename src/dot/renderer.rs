@@ -224,10 +224,8 @@ where
 
     // Write edges
     for edge_id in graph.edges() {
-        use crate::end_pair::EndPair as _;
-
         let ends = graph.edge_ends(&edge_id);
-        let (source_id, target_id) = ends.into_values();
+        let (source_id, target_id) = ends.into();
         let source_info = wrapper
             .node_info
             .get(&source_id)

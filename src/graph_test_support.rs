@@ -5,7 +5,6 @@ use std::hash::Hash;
 use quickcheck::Arbitrary;
 use tracing::info_span;
 
-use crate::end_pair::EndPair as _;
 use crate::prelude::*;
 use crate::tracing_support::{TimingScope, init_tracing, set_timing_scope};
 
@@ -190,7 +189,7 @@ pub fn check_graph_consistency<G: Graph>(graph: &G) {
 
     // Verify all edges are valid
     for edge_id in graph.edges() {
-        let (left, right) = graph.edge_ends(&edge_id).into_values();
+        let (left, right) = graph.edge_ends(&edge_id).into();
         assert_eq!(
             graph.edges_from_into(&left, &right).count(),
             graph

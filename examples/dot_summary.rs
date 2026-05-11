@@ -13,8 +13,6 @@ mod inner {
 
     use clap::Parser;
     use graphitude::dot::parser::ParseError;
-    use graphitude::edge_multiplicity::EdgeMultiplicity;
-    use graphitude::end_pair::EndPair as _;
     use graphitude::{
         bag_graph::BagGraph,
         dot::{attr::Attr, parser::GraphBuilder},
@@ -126,7 +124,7 @@ mod inner {
         if edge_count > 0 {
             println!("\nSample edges (up to {sample_nodes}):");
             for edge_id in graph.edges().take(edge_count) {
-                let (left, right) = graph.edge_ends(&edge_id).into_values();
+                let (left, right) = graph.edge_ends(&edge_id).into();
                 let left_data = &graph.node_data(&left).id;
                 let right_data = &graph.node_data(&right).id;
                 let edge_data = graph.edge_data(&edge_id).clone();

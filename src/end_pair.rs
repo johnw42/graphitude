@@ -5,14 +5,17 @@ use derivative::Derivative;
 use crate::util::{OtherValue, other_value, sort_pair};
 
 pub trait EndPair<T>:
-    From<(T, T)> + Clone + Hash + PartialEq + Eq + PartialOrd + Ord + Send + Sync
+    From<(T, T)> + Into<(T, T)> + Clone + Hash + PartialEq + Eq + PartialOrd + Ord + Send + Sync
 {
     fn left(&self) -> &T;
     fn right(&self) -> &T;
     fn values(&self) -> (&T, &T);
     fn into_first(self) -> T;
     fn into_second(self) -> T;
-    fn into_values(self) -> (T, T);
+
+    fn into_values(self) -> (T, T) {
+        self.into()
+    }
 
     fn has(&self, value: &T) -> bool
     where
@@ -39,7 +42,7 @@ pub trait EndPair<T>:
     where
         T: Eq,
     {
-        other_value(self.into_values(), value)
+        other_value(self.into(), value)
     }
 
     fn map<U, F, EP>(self, mut f: F) -> EP
@@ -73,10 +76,6 @@ where
 
     fn into_second(self) -> T {
         self.1
-    }
-
-    fn into_values(self) -> (T, T) {
-        (self.0, self.1)
     }
 }
 
@@ -115,15 +114,17 @@ where
     fn into_second(self) -> T {
         self.1
     }
-
-    fn into_values(self) -> (T, T) {
-        (self.0, self.1)
-    }
 }
 
 impl<T: Ord> From<(T, T)> for SortedPair<T> {
     fn from(pair: (T, T)) -> Self {
         let (left, right) = sort_pair(pair);
         Self(left, right)
+    }
+}
+
+impl<T: Ord> From<SortedPair<T>> for (T, T) {
+    fn from(sorted_pair: SortedPair<T>) -> Self {
+        (sorted_pair.0, sorted_pair.1)
     }
 }

@@ -194,7 +194,7 @@ where
     #[quickcheck]
     pub fn prop_edges_from_into_finds_all_edges(ArbGraph { graph, .. }: ArbGraph<G>) -> bool {
         graph.edges().all(|edge_id| {
-            let (left, right) = graph.edge_ends(&edge_id).into_values();
+            let (left, right) = graph.edge_ends(&edge_id).into();
             graph.edges_from_into(&left, &right).any(|e| e == edge_id)
         })
     }
@@ -978,11 +978,11 @@ where
         let e3 = graph.add_edge(&n1, &n3, self.new_edge_data()).0;
         let e4 = graph.add_edge(&n2, &n3, self.new_edge_data()).0;
         if graph.is_directed() {
-            assert_eq!(graph.edge_ends(&e0).into_values(), (n0.clone(), n1.clone()));
-            assert_eq!(graph.edge_ends(&e1).into_values(), (n0.clone(), n2.clone()));
-            assert_eq!(graph.edge_ends(&e2).into_values(), (n1.clone(), n2.clone()));
-            assert_eq!(graph.edge_ends(&e3).into_values(), (n1.clone(), n3.clone()));
-            assert_eq!(graph.edge_ends(&e4).into_values(), (n2.clone(), n3.clone()));
+            assert_eq!(graph.edge_ends(&e0).into(), (n0.clone(), n1.clone()));
+            assert_eq!(graph.edge_ends(&e1).into(), (n0.clone(), n2.clone()));
+            assert_eq!(graph.edge_ends(&e2).into(), (n1.clone(), n2.clone()));
+            assert_eq!(graph.edge_ends(&e3).into(), (n1.clone(), n3.clone()));
+            assert_eq!(graph.edge_ends(&e4).into(), (n2.clone(), n3.clone()));
         } else {
             // For undirected graphs, edges can be in either direction
             let edge_pairs = vec![

@@ -9,7 +9,6 @@ use graphitude::{
         parser::GraphBuilder,
         renderer::{DotRenderer, generate_dot_file},
     },
-    end_pair::EndPair as _,
     prelude::*,
 };
 
@@ -137,7 +136,7 @@ where
     let edges: HashSet<(String, String)> = graph
         .edges()
         .map(|eid| {
-            let (left, right) = graph.edge_ends(&eid).into_values();
+            let (left, right) = graph.edge_ends(&eid).into();
             let mut left_id = graph.node_data(&left).id.clone();
             let mut right_id = graph.node_data(&right).id.clone();
             // Normalize undirected edges by sorting node IDs
@@ -160,7 +159,7 @@ where
     let edge_attrs: HashMap<(String, String), HashSet<(String, String)>> = graph
         .edges()
         .map(|eid| {
-            let (left, right) = graph.edge_ends(&eid).into_values();
+            let (left, right) = graph.edge_ends(&eid).into();
             let mut left_id = graph.node_data(&left).id.clone();
             let mut right_id = graph.node_data(&right).id.clone();
             // Normalize undirected edges by sorting node IDs

@@ -6,7 +6,6 @@ use crate::{
     Directedness, GraphElementId, Storage,
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
     bag::BagKey,
-    end_pair::EndPair,
 };
 
 #[derive(Derivative)]
@@ -126,7 +125,7 @@ where
     M: EdgeContainerSelector,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (from, into) = self.ends().into_values();
+        let (from, into) = self.ends().into();
         write!(f, "EdgeId({:?}, {:?})", from, into)
     }
 }

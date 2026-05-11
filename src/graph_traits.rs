@@ -182,7 +182,7 @@ pub trait Graph {
         from: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edges().filter(|eid| {
-            let (source, target) = self.edge_ends(eid).into_values();
+            let (source, target) = self.edge_ends(eid).into();
             source == *from || !Self::Directedness::IS_DIRECTED && target == *from
         })
     }
@@ -193,7 +193,7 @@ pub trait Graph {
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edges().filter(|eid| {
-            let (source, target) = self.edge_ends(eid).into_values();
+            let (source, target) = self.edge_ends(eid).into();
             target == *into || !Self::Directedness::IS_DIRECTED && source == *into
         })
     }
@@ -205,7 +205,7 @@ pub trait Graph {
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
         self.edges().filter(move |eid| {
-            let (edge_source, edge_target) = self.edge_ends(eid).into_values();
+            let (edge_source, edge_target) = self.edge_ends(eid).into();
             (edge_source == *from && edge_target == *into)
                 || (!Self::Directedness::IS_DIRECTED
                     && edge_source == *into

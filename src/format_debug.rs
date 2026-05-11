@@ -4,7 +4,6 @@ use std::{
 };
 
 use crate::{
-    end_pair::EndPair as _,
     prelude::*,
     util::{FormatDebugAs, FormatDebugWith},
 };
@@ -72,7 +71,7 @@ where
     let edge_tags: HashMap<_, _> = graph
         .edges()
         .map(|eid: <G as Graph>::EdgeId| {
-            let (n1, n2) = graph.edge_ends(&eid).into_values();
+            let (n1, n2) = graph.edge_ends(&eid).into();
             (eid.clone(), (&node_tags[&n1], &node_tags[&n2]))
         })
         .collect();
@@ -107,7 +106,7 @@ where
             "edges",
             &FormatDebugWith(|f: &mut Formatter<'_>| {
                 let make_edge_tag = |eid: &G::EdgeId| {
-                    let (n1, n2) = graph.edge_ends(&eid).into_values();
+                    let (n1, n2) = graph.edge_ends(&eid).into();
                     let tag = if graph.is_directed() {
                         format!("{} -> {}", &node_tags[&n1], &node_tags[&n2])
                     } else {

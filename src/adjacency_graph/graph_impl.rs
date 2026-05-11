@@ -11,7 +11,6 @@ use crate::{
     adjacency_matrix::{AdjacencyMatrix, HashStorage, Storage},
     copier::GraphCopier,
     directedness::Directedness,
-    end_pair::EndPair,
     format_debug::format_debug,
     iter::known_size::KnownSizeIterator,
     prelude::*,
@@ -91,7 +90,7 @@ where
     }
 
     fn edge_data(&self, eid: &Self::EdgeId) -> &Self::EdgeData {
-        let (from, to) = eid.ends().into_values();
+        let (from, to) = eid.ends().into();
         self.adjacency
             .get(from.to_index(), to.to_index())
             .expect("no such edge")
@@ -122,7 +121,7 @@ where
         &self,
         id: &Self::EdgeId,
     ) -> <Self::Directedness as Directedness>::EndPair<Self::NodeId> {
-        let (from, to) = id.ends().into_values();
+        let (from, to) = id.ends().into();
         (self.node_id(from), self.node_id(to)).into()
     }
 
@@ -196,7 +195,7 @@ where
     }
 
     fn edge_data_mut(&mut self, id: &Self::EdgeId) -> &mut Self::EdgeData {
-        let (from, to) = id.ends().into_values();
+        let (from, to) = id.ends().into();
         self.adjacency
             .get_mut(from.to_index(), to.to_index())
             .expect("no such edge")
@@ -247,7 +246,7 @@ where
     }
 
     fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData {
-        let (source, target) = id.ends().into_values();
+        let (source, target) = id.ends().into();
         let container = self
             .adjacency
             .remove(source.to_index(), target.to_index())
