@@ -12,6 +12,7 @@ use {
 use crate::{
     debug_graph_view::DebugGraphView,
     end_pair::EndPair,
+    lazy_exact_sized::LazyExactSizedIterator,
     map_collector::MapCollector,
     path::Path,
     prelude::*,
@@ -113,14 +114,14 @@ pub trait Graph {
     // Nodes
 
     /// Gets a vector of all NodeIds in the graph.
-    fn nodes(&self) -> impl Iterator<Item = Self::NodeId>;
+    fn nodes(&self) -> impl ExactSizeIterator<Item = Self::NodeId>;
 
     /// Gets the data associated with a node.
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData;
 
     /// Gets the number of nodes in the graph.
     fn num_nodes(&self) -> usize {
-        self.nodes().count()
+        self.nodes().len()
     }
 
     /// Gets an iterator over the predecessors nodes of a given node, i.e.
@@ -128,9 +129,9 @@ pub trait Graph {
     fn predecessors<'a, 'b: 'a>(
         &'a self,
         node: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::NodeId> + 'a {
+    ) -> impl ExactSizeIterator<Item = Self::NodeId> + 'a {
         let mut visited = HashSet::new();
-        self.edges_into(node).filter_map(move |eid| {
+        LazyExactSizedIterator::new(self.edges_into(node).filter_map(move |eid| {
             let ends = self.edge_ends(&eid);
             let nid = if Self::Directedness::IS_DIRECTED {
                 ends.into_first()
@@ -138,7 +139,7 @@ pub trait Graph {
                 ends.into_other_value(node).into_inner()
             };
             visited.insert(nid.clone()).then_some(nid)
-        })
+        }))
     }
 
     /// Gets an iterator over the successor nodes of a given node, i.e.
@@ -146,9 +147,9 @@ pub trait Graph {
     fn successors<'a, 'b: 'a>(
         &'a self,
         node: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::NodeId> + 'a {
+    ) -> impl ExactSizeIterator<Item = Self::NodeId> + 'a {
         let mut visited = HashSet::new();
-        self.edges_from(node).filter_map(move |eid| {
+        LazyExactSizedIterator::new(self.edges_from(node).filter_map(move |eid| {
             let ends = self.edge_ends(&eid);
             let nid = if Self::Directedness::IS_DIRECTED {
                 ends.into_second()
@@ -156,7 +157,7 @@ pub trait Graph {
                 ends.into_other_value(node).into_inner()
             };
             visited.insert(nid.clone()).then_some(nid)
-        })
+        }))
     }
 
     // Edges

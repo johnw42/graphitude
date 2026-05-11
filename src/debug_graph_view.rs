@@ -45,7 +45,7 @@ where
     type EdgeData = E;
     type EdgeId = <BagGraph<N, E, D> as Graph>::EdgeId;
 
-    fn nodes(&self) -> impl Iterator<Item = Self::NodeId> {
+    fn nodes(&self) -> impl ExactSizeIterator<Item = Self::NodeId> {
         self.inner.nodes()
     }
 

@@ -241,24 +241,15 @@ impl<T> Bag<T> {
     /// iterators is not guaranteed to be the same.  If you need to iterate over
     /// key-value pairs, use `bag.pairs()` or `bag.pairs_mut()`
     /// instead.
-    pub fn keys(&self) -> impl Iterator<Item = BagKey> {
-        let keys_from_index = self
-            .index
-            .iter()
-            .enumerate()
-            .filter_map(|(i, opt)| opt.as_ref().map(|_| BagKey::from_index(i)));
-        let keys_from_data = self.data.iter().map(|(_value, logical_id)| *logical_id);
-        let use_keys_from_index = self.index.len() <= 2 * self.data.len();
-        keys_from_index
-            .take_while(move |_| use_keys_from_index)
-            .chain(keys_from_data.take_while(move |_| !use_keys_from_index))
+    pub fn keys(&self) -> impl ExactSizeIterator<Item = BagKey> {
+        self.data.iter().map(|(_value, logical_id)| *logical_id)
     }
 
     /// Returns an iterator over references to the values currently in the bag.
     /// The order of values is unspecified and may change as values are inserted
     /// and removed.
     #[allow(unused)]
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T>
+    pub fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T>
     where
         T: 'a,
     {
@@ -268,7 +259,7 @@ impl<T> Bag<T> {
     /// Returns an iterator over mutable references to the values currently in
     /// the bag.  The order of values is unspecified and may change as values
     /// are inserted and removed.
-    pub fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut T>
+    pub fn iter_mut<'a>(&'a mut self) -> impl ExactSizeIterator<Item = &'a mut T>
     where
         T: 'a,
     {
@@ -279,7 +270,7 @@ impl<T> Bag<T> {
     /// and can be used to access the values, but they are not guaranteed to be
     /// in any particular order.  The order of pairs may change as values are
     /// inserted and removed.
-    pub fn pairs<'a>(&'a self) -> impl Iterator<Item = (BagKey, &'a T)>
+    pub fn pairs<'a>(&'a self) -> impl ExactSizeIterator<Item = (BagKey, &'a T)>
     where
         T: 'a,
     {
@@ -293,7 +284,7 @@ impl<T> Bag<T> {
     /// values, but they are not guaranteed to be in any particular order.  The
     /// order of pairs may change as values are inserted and removed.
     #[allow(unused)]
-    pub fn pairs_mut<'a>(&'a mut self) -> impl Iterator<Item = (BagKey, &'a mut T)>
+    pub fn pairs_mut<'a>(&'a mut self) -> impl ExactSizeIterator<Item = (BagKey, &'a mut T)>
     where
         T: 'a,
     {

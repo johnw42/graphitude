@@ -85,7 +85,7 @@ where
         self.nodes.get(id.key()).expect("no such node")
     }
 
-    fn nodes(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
+    fn nodes(&self) -> impl ExactSizeIterator<Item = <Self as Graph>::NodeId> {
         self.nodes.keys().map(|key| self.node_id(key))
     }
 

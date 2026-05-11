@@ -129,7 +129,7 @@ where
         &self.node(id).data
     }
 
-    fn nodes(&self) -> impl Iterator<Item = Self::NodeId> {
+    fn nodes(&self) -> impl ExactSizeIterator<Item = Self::NodeId> {
         self.nodes
             .iter()
             .map(|node| LinkedGraphNodeId::new(node, self.id.as_ref()))
