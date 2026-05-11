@@ -17,6 +17,8 @@ pub trait Directedness:
     where
         T: Clone + Eq + Hash + Ord + Send + Sync;
 
+    type EdgesInContainer<T>: EdgesInContainer<T>;
+
     const IS_DIRECTED: bool;
 
     fn sort_pair<T: Ord>(pair: (T, T)) -> (T, T) {
@@ -35,6 +37,8 @@ pub trait Directedness:
 pub struct Directed;
 
 impl Directedness for Directed {
+    type EdgesInContainer<T> = Vec<T>;
+
     type EndPair<T>
         = (T, T)
     where
@@ -47,10 +51,59 @@ impl Directedness for Directed {
 pub struct Undirected;
 
 impl Directedness for Undirected {
+    type EdgesInContainer<T> = ();
+
     type EndPair<T>
         = SortedPair<T>
     where
         T: Clone + Eq + Hash + Ord + Send + Sync;
 
     const IS_DIRECTED: bool = false;
+}
+
+/// Trait defining the container type for incoming edges in a graph, which
+/// varies based on the graph's directedness.  This is a `Vec` for directed
+/// graphs and a unit type for undirected graphs, since undirected graphs do not
+/// maintain separate incoming edge lists.
+///
+/// All methods have the same semantics as the corresponding `Vec` methods.
+pub trait EdgesInContainer<T>: Default {
+    fn as_slice(&self) -> &[T];
+    fn len(&self) -> usize;
+    fn push(&mut self, item: T);
+    fn retain(&mut self, f: impl FnMut(&T) -> bool);
+}
+
+impl<T> EdgesInContainer<T> for Vec<T> {
+    fn as_slice(&self) -> &[T] {
+        self.as_slice()
+    }
+
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn push(&mut self, item: T) {
+        self.push(item);
+    }
+
+    fn retain(&mut self, f: impl FnMut(&T) -> bool) {
+        self.retain(f);
+    }
+}
+
+impl<T> EdgesInContainer<T> for () {
+    fn as_slice(&self) -> &[T] {
+        &[]
+    }
+
+    fn len(&self) -> usize {
+        0
+    }
+
+    fn push(&mut self, _item: T) {
+        unreachable!("Cannot push to EdgesInContainer for undirected graphs");
+    }
+
+    fn retain(&mut self, _f: impl FnMut(&T) -> bool) {}
 }

@@ -6,8 +6,8 @@ use std::{
 };
 
 use crate::{
-    copier::GraphCopier, edge_multiplicity::EdgeMultiplicity, end_pair::EndPair,
-    format_debug::format_debug, prelude::*, util::OtherValue,
+    copier::GraphCopier, directedness::EdgesInContainer as _, edge_multiplicity::EdgeMultiplicity,
+    end_pair::EndPair, format_debug::format_debug, prelude::*, util::OtherValue,
 };
 
 mod edge_id;
@@ -25,9 +25,7 @@ type GraphId = *const ArbitraryMutableType;
 struct Node<G: Graph> {
     data: G::NodeData,
     edges_out: Vec<Arc<Edge<G>>>,
-    // Only maintained for directed graphs, since for undirected graphs
-    // edges_out is sufficient to find all edges.
-    edges_in: Vec<LinkedGraphEdgeId<G>>,
+    edges_in: <G::Directedness as Directedness>::EdgesInContainer<LinkedGraphEdgeId<G>>,
 }
 
 struct Edge<G: Graph> {
@@ -196,7 +194,7 @@ where
             // borrowing issues with self.node() below since edges_in contains
             // EdgeIds which borrow self.
             #[allow(clippy::unnecessary_to_owned)]
-            self.node(into).edges_in.to_vec().into_iter()
+            self.node(into).edges_in.as_slice().to_vec().into_iter()
         } else {
             // For undirected graphs, edges_into is the same as edges_from
             // since edges appear in both nodes' edges_out lists
@@ -275,7 +273,7 @@ where
         let node = Arc::new(Node {
             data,
             edges_out: Vec::new(),
-            edges_in: Vec::new(),
+            edges_in: Default::default(),
         });
         let nid = LinkedGraphNodeId::new(&node, self.id.as_ref());
         self.nodes.push(node);
@@ -362,7 +360,7 @@ where
 
         if self.is_directed() {
             // For directed graphs, also remove incoming edges from source nodes' edges_out
-            for eid in &node.edges_in {
+            for eid in node.edges_in.as_slice() {
                 let edge = self.edge(eid);
                 let from_nid = edge.ends.left();
                 if from_nid != nid {
