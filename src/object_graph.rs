@@ -3,7 +3,8 @@ use std::{fmt::Debug, marker::PhantomData, mem::transmute, ptr::NonNull};
 use derivative::Derivative;
 
 use crate::{
-    GraphElementId, MultipleEdges, directedness::Directed, lazy_exact_sized::LazyExactSizedIterator,
+    GraphElementId, MultipleEdges, directedness::Directed,
+    iter::lazy_exact_sized::LazyExactSizedIterator,
 };
 
 use super::Graph;
@@ -134,9 +135,11 @@ where
         LazyExactSizedIterator::new(self.bfs_multi(self.roots().collect()))
     }
 
-    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        self.nodes()
-            .flat_map(|from| self.edges_from(&from).collect::<Vec<_>>())
+    fn edges(&self) -> impl ExactSizeIterator<Item = Self::EdgeId> + '_ {
+        LazyExactSizedIterator::new(
+            self.nodes()
+                .flat_map(|from| self.edges_from(&from).collect::<Vec<_>>()),
+        )
     }
 
     fn edge_ends(&self, id: &Self::EdgeId) -> (Self::NodeId, Self::NodeId) {

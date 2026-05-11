@@ -53,7 +53,7 @@ where
         self.inner.node_data(id)
     }
 
-    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges(&self) -> impl ExactSizeIterator<Item = Self::EdgeId> + '_ {
         self.inner.edges()
     }
 

@@ -98,7 +98,7 @@ where
         &self.edge(id).data
     }
 
-    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> {
+    fn edges(&self) -> impl ExactSizeIterator<Item = Self::EdgeId> {
         self.edges.keys().map(BagGraphEdgeId::new)
     }
 

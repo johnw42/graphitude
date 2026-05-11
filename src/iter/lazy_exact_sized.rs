@@ -1,5 +1,6 @@
 use std::{cell::UnsafeCell, mem::MaybeUninit};
 
+/// An iterator that lazily converts an underlying iterator into an exact-sized one when `len()` or `size_hint()` is called.
 pub struct LazyExactSizedIterator<I, T>(UnsafeCell<MaybeUninit<Inner<I, T>>>);
 
 type EagerIterator<T> = <Vec<T> as IntoIterator>::IntoIter;

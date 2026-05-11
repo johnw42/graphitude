@@ -142,7 +142,7 @@ where
         unsafe { &*edge.data.get() }
     }
 
-    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> {
+    fn edges(&self) -> impl ExactSizeIterator<Item = Self::EdgeId> {
         if self.is_directed() {
             // For directed graphs, just iterate normally
             self.nodes

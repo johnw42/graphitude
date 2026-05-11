@@ -12,7 +12,7 @@ use {
 use crate::{
     debug_graph_view::DebugGraphView,
     end_pair::EndPair,
-    lazy_exact_sized::LazyExactSizedIterator,
+    iter::lazy_exact_sized::LazyExactSizedIterator,
     map_collector::MapCollector,
     path::Path,
     prelude::*,
@@ -166,7 +166,7 @@ pub trait Graph {
     fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData;
 
     /// Gets a vector of all edges in the graph.
-    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
+    fn edges(&self) -> impl ExactSizeIterator<Item = Self::EdgeId> + '_;
 
     /// Gets the ends of an edge as a pair of node IDs.  For directed edges, the
     /// first node ID is the source and the second is the target.  For
@@ -230,7 +230,7 @@ pub trait Graph {
 
     /// Gets the number of edges in the graph.
     fn num_edges(&self) -> usize {
-        self.edges().count()
+        self.edges().len()
     }
 
     /// Gets the number of incoming edges to a given node.

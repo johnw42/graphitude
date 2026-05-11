@@ -13,6 +13,7 @@ use crate::{
     directedness::Directedness,
     end_pair::EndPair,
     format_debug::format_debug,
+    iter::known_size::KnownSizeIterator,
     prelude::*,
 };
 
@@ -98,16 +99,19 @@ where
             .expect("no such edge index")
     }
 
-    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        self.adjacency
-            .iter()
-            .flat_map(move |(from, into, container)| {
-                container.iter().map(move |(index, _)| {
-                    let from_key = BagKey::from_index(from);
-                    let into_key = BagKey::from_index(into);
-                    self.edge_id(from_key, into_key, index)
-                })
-            })
+    fn edges(&self) -> impl ExactSizeIterator<Item = Self::EdgeId> + '_ {
+        KnownSizeIterator::new(
+            self.adjacency
+                .iter()
+                .flat_map(move |(from, into, container)| {
+                    container.iter().map(move |(index, _)| {
+                        let from_key = BagKey::from_index(from);
+                        let into_key = BagKey::from_index(into);
+                        self.edge_id(from_key, into_key, index)
+                    })
+                }),
+            self.num_edges,
+        )
     }
 
     fn num_edges(&self) -> usize {

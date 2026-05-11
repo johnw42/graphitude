@@ -51,7 +51,7 @@ pub mod tracing_support;
 
 mod bag;
 mod graph_test_support;
-mod lazy_exact_sized;
+mod iter;
 mod test_util;
 #[cfg(feature = "bitvec")]
 mod triangular;
