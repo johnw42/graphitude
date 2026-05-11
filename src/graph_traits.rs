@@ -51,8 +51,8 @@ pub trait Graph {
 
     /// Checks if the graph is empty (has no nodes or edges).
     fn is_empty(&self) -> bool {
-        if self.node_ids().next().is_none() {
-            debug_assert!(self.edge_ids().next().is_none());
+        if self.nodes().next().is_none() {
+            debug_assert!(self.edges().next().is_none());
             true
         } else {
             false
@@ -113,14 +113,14 @@ pub trait Graph {
     // Nodes
 
     /// Gets a vector of all NodeIds in the graph.
-    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId>;
+    fn nodes(&self) -> impl Iterator<Item = Self::NodeId>;
 
     /// Gets the data associated with a node.
     fn node_data(&self, id: &Self::NodeId) -> &Self::NodeData;
 
     /// Gets the number of nodes in the graph.
     fn num_nodes(&self) -> usize {
-        self.node_ids().count()
+        self.nodes().count()
     }
 
     /// Gets an iterator over the predecessors nodes of a given node, i.e.
@@ -165,7 +165,7 @@ pub trait Graph {
     fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData;
 
     /// Gets a vector of all edges in the graph.
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
+    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> + '_;
 
     /// Gets the ends of an edge as a pair of node IDs.  For directed edges, the
     /// first node ID is the source and the second is the target.  For
@@ -180,7 +180,7 @@ pub trait Graph {
         &'a self,
         from: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.edge_ids().filter(|eid| {
+        self.edges().filter(|eid| {
             let (source, target) = self.edge_ends(eid).into_values();
             source == *from || !Self::Directedness::IS_DIRECTED && target == *from
         })
@@ -191,7 +191,7 @@ pub trait Graph {
         &'a self,
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.edge_ids().filter(|eid| {
+        self.edges().filter(|eid| {
             let (source, target) = self.edge_ends(eid).into_values();
             target == *into || !Self::Directedness::IS_DIRECTED && source == *into
         })
@@ -203,7 +203,7 @@ pub trait Graph {
         from: &'b Self::NodeId,
         into: &'b Self::NodeId,
     ) -> impl Iterator<Item = Self::EdgeId> + 'a {
-        self.edge_ids().filter(move |eid| {
+        self.edges().filter(move |eid| {
             let (edge_source, edge_target) = self.edge_ends(eid).into_values();
             (edge_source == *from && edge_target == *into)
                 || (!Self::Directedness::IS_DIRECTED
@@ -229,7 +229,7 @@ pub trait Graph {
 
     /// Gets the number of edges in the graph.
     fn num_edges(&self) -> usize {
-        self.edge_ids().count()
+        self.edges().count()
     }
 
     /// Gets the number of incoming edges to a given node.
@@ -304,7 +304,7 @@ pub trait Graph {
 
         let mut distances: HashMap<Self::NodeId, C> = HashMap::new();
         let mut predecessors: HashMap<Self::NodeId, (Self::EdgeId, Self::NodeId)> = HashMap::new();
-        let mut unvisited: HashSet<Self::NodeId> = self.node_ids().collect();
+        let mut unvisited: HashSet<Self::NodeId> = self.nodes().collect();
 
         distances.insert(start.clone(), C::default());
 
@@ -396,7 +396,7 @@ pub trait GraphDirected: Graph {
     #[cfg(feature = "pathfinding")]
     fn strongly_connected_components(&self) -> Vec<Vec<Self::NodeId>> {
         pathfinding::prelude::strongly_connected_components(
-            &self.node_ids().collect::<Vec<_>>(),
+            &self.nodes().collect::<Vec<_>>(),
             |nid| self.successors(nid).collect::<Vec<_>>(),
         )
     }
@@ -417,7 +417,7 @@ impl<G> GraphDirected for G where G: Graph<Directedness = Directed> {}
 pub trait GraphUndirected: Graph {
     #[cfg(feature = "pathfinding")]
     fn connected_components(&self) -> Vec<HashSet<Self::NodeId>> {
-        pathfinding::prelude::connected_components(&self.node_ids().collect::<Vec<_>>(), |nid| {
+        pathfinding::prelude::connected_components(&self.nodes().collect::<Vec<_>>(), |nid| {
             self.successors(nid).collect::<Vec<_>>()
         })
     }
@@ -438,7 +438,7 @@ pub trait GraphMut: Graph {
 
     /// Removes all nodes and edges from the graph.
     fn clear(&mut self) {
-        for nid in self.node_ids().collect::<Vec<_>>() {
+        for nid in self.nodes().collect::<Vec<_>>() {
             self.remove_node(&nid);
         }
     }

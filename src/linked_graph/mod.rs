@@ -131,7 +131,7 @@ where
         &self.node(id).data
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
+    fn nodes(&self) -> impl Iterator<Item = Self::NodeId> {
         self.nodes
             .iter()
             .map(|node| LinkedGraphNodeId::new(node, self.id.as_ref()))
@@ -144,7 +144,7 @@ where
         unsafe { &*edge.data.get() }
     }
 
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
+    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> {
         if self.is_directed() {
             // For directed graphs, just iterate normally
             self.nodes

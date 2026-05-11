@@ -284,7 +284,7 @@ where
         };
 
         // Copy all the nodes, saving them into a map.
-        for node_id in self.source.node_ids() {
+        for node_id in self.source.nodes() {
             let node_data = (self.node_transformer)(self.source.node_data(&node_id));
             let new_node_id = target.add_node(node_data);
             node_map.insert(node_id.clone(), new_node_id);
@@ -297,7 +297,7 @@ where
             .map(|m| (m, HashMap::new()));
 
         // Copy all the edges, using the node map to find the new source and target IDs.
-        for edge_id in self.source.edge_ids() {
+        for edge_id in self.source.edges() {
             let edge_data = (self.edge_transformer)(self.source.edge_data(&edge_id));
             let ends = self.source.edge_ends(&edge_id);
             let source_node_id = &node_map[ends.left()];

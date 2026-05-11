@@ -412,7 +412,7 @@ mod tests {
 
         // Verify nodes exist
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
@@ -456,7 +456,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 1);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
@@ -519,7 +519,7 @@ mod tests {
 
         // Verify that attributes are reflected in node data
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
 
@@ -659,7 +659,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 2);
 
         // Verify edges exist by checking edge IDs
-        let edge_ids: Vec<_> = graph.edge_ids().collect();
+        let edge_ids: Vec<_> = graph.edges().collect();
         assert_eq!(edge_ids.len(), 2);
 
         // All edges should have default weight of 1
@@ -685,7 +685,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 2);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
@@ -727,7 +727,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 4);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
         assert!(nodes.contains(&"a".to_string()));
@@ -878,7 +878,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 1);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
 
@@ -926,7 +926,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 1);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
 
@@ -998,7 +998,7 @@ mod tests {
         assert_eq!(graph.num_edges(), 3);
 
         let nodes: Vec<_> = graph
-            .node_ids()
+            .nodes()
             .map(|id| graph.node_data(&id).clone())
             .collect();
 

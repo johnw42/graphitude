@@ -90,7 +90,7 @@ where
         &self.node(id).data
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = Self::NodeId> {
+    fn nodes(&self) -> impl Iterator<Item = Self::NodeId> {
         self.nodes.keys().map(BagGraphNodeId::new)
     }
 
@@ -98,7 +98,7 @@ where
         &self.edge(id).data
     }
 
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> {
+    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> {
         self.edges.keys().map(BagGraphEdgeId::new)
     }
 

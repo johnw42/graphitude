@@ -128,12 +128,12 @@ where
             .map(move |to| self.make_edge_id(from, &to))
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
+    fn nodes(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
         self.bfs_multi(self.roots().collect())
     }
 
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
-        self.node_ids()
+    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
+        self.nodes()
             .flat_map(|from| self.edges_from(&from).collect::<Vec<_>>())
     }
 

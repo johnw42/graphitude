@@ -23,7 +23,7 @@ where
     G::EdgeData: Debug,
 {
     let node_tags: HashMap<_, _> = graph
-        .node_ids()
+        .nodes()
         .enumerate()
         .map(|(i, nid)| (nid.clone(), i.to_string()))
         .collect();
@@ -63,14 +63,14 @@ where
     E: Debug,
 {
     let node_tags: HashMap<_, _> = graph
-        .node_ids()
+        .nodes()
         .map(|nid: <G as Graph>::NodeId| (nid.clone(), node_tag(&nid)))
         .collect();
     let mut node_order = node_tags.keys().cloned().collect::<Vec<_>>();
     node_order.sort_by_key(|nid| &node_tags[nid]);
 
     let edge_tags: HashMap<_, _> = graph
-        .edge_ids()
+        .edges()
         .map(|eid: <G as Graph>::EdgeId| {
             let (n1, n2) = graph.edge_ends(&eid).into_values();
             (eid.clone(), (&node_tags[&n1], &node_tags[&n2]))

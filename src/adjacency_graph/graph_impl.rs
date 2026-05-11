@@ -85,7 +85,7 @@ where
         self.nodes.get(id.key()).expect("no such node")
     }
 
-    fn node_ids(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
+    fn nodes(&self) -> impl Iterator<Item = <Self as Graph>::NodeId> {
         self.nodes.keys().map(|key| self.node_id(key))
     }
 
@@ -98,7 +98,7 @@ where
             .expect("no such edge index")
     }
 
-    fn edge_ids(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
+    fn edges(&self) -> impl Iterator<Item = Self::EdgeId> + '_ {
         self.adjacency
             .iter()
             .flat_map(move |(from, into, container)| {
