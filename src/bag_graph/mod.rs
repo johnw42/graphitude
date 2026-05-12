@@ -114,10 +114,7 @@ where
         )
     }
 
-    fn edges_from<'a, 'b: 'a>(
-        &'a self,
-        from: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from<'g>(&'g self, from: &'g Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'g {
         self.node(from)
             .edges_out
             .iter()
@@ -125,10 +122,7 @@ where
             .map(BagGraphEdgeId::new)
     }
 
-    fn edges_into<'a, 'b: 'a>(
-        &'a self,
-        into: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_into<'g>(&'g self, into: &'g Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'g {
         self.node(into)
             .edges_in
             .iter()
@@ -137,11 +131,11 @@ where
             .chain(self.edges_from(into).take_while(|_| !self.is_directed()))
     }
 
-    fn edges_from_into<'a, 'b: 'a>(
-        &'a self,
-        from: &'b Self::NodeId,
-        into: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from_into<'g>(
+        &'g self,
+        from: &'g Self::NodeId,
+        into: &'g Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'g {
         let expected_ends = D::make_pair(from.key(), into.key());
         self.node(from)
             .edges_out

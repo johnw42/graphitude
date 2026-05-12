@@ -122,10 +122,7 @@ where
             .expect("Edge does not exist")
     }
 
-    fn edges_from<'a, 'b: 'a>(
-        &'a self,
-        from: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from<'g>(&'g self, from: &'g Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'g {
         self.neighbors(from)
             .into_iter()
             .map(move |to| self.make_edge_id(from, &to))

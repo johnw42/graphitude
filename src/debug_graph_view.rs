@@ -68,11 +68,11 @@ where
         self.inner.edge_ends(id)
     }
 
-    fn edges_from_into<'a, 'b: 'a>(
-        &'a self,
-        from: &'b Self::NodeId,
-        to: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from_into<'g>(
+        &'g self,
+        from: &'g Self::NodeId,
+        to: &'g Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'g {
         self.inner.edges_from_into(from, to)
     }
 }

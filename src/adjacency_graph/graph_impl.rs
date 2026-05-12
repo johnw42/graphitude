@@ -126,11 +126,11 @@ where
         (self.node_id(from), self.node_id(to)).into()
     }
 
-    fn edges_from_into<'a, 'b: 'a>(
-        &'a self,
-        from: &'b Self::NodeId,
-        into: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from_into<'g>(
+        &'g self,
+        from: &'g Self::NodeId,
+        into: &'g Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'g {
         self.adjacency
             .entry_at(from.key().to_index(), into.key().to_index())
             .into_iter()
@@ -141,10 +141,7 @@ where
             })
     }
 
-    fn edges_into<'a, 'b: 'a>(
-        &'a self,
-        into: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_into<'g>(&'g self, into: &'g Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'g {
         let into_key = into.key();
         self.adjacency
             .entries_in_col(into.key().to_index())
@@ -156,10 +153,7 @@ where
             })
     }
 
-    fn edges_from<'a, 'b: 'a>(
-        &'a self,
-        from: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from<'g>(&'g self, from: &'g Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'g {
         let from_key = from.key();
         self.adjacency
             .entries_in_row(from.key().to_index())

@@ -175,20 +175,14 @@ where
         self.edge(id).ends.clone()
     }
 
-    fn edges_from<'a, 'b: 'a>(
-        &'a self,
-        from: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from<'g>(&'g self, from: &'g Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'g {
         self.node(from)
             .edges_out
             .iter()
             .map(|edge| LinkedGraphEdgeId::new(edge, self.id.as_ref()))
     }
 
-    fn edges_into<'a, 'b: 'a>(
-        &'a self,
-        into: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_into<'g>(&'g self, into: &'g Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'g {
         if self.is_directed() {
             // For directed graphs, use edges_in.  We need to collect to avoid
             // borrowing issues with self.node() below since edges_in contains
@@ -207,11 +201,11 @@ where
         }
     }
 
-    fn edges_from_into<'a, 'b: 'a>(
-        &'a self,
-        from: &'b Self::NodeId,
-        into: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from_into<'g>(
+        &'g self,
+        from: &'g Self::NodeId,
+        into: &'g Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'g {
         self.node(from).edges_out.iter().filter_map(move |edge| {
             let (edge_source, edge_target) = edge.ends.values();
             let matches = if self.is_directed() {

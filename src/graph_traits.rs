@@ -77,10 +77,10 @@ pub trait Graph {
 
     /// Gets an iterator over the predecessors nodes of a given node, i.e.
     /// those nodes reachable by incoming edges.
-    fn predecessors<'a, 'b: 'a>(
-        &'a self,
-        node: &'b Self::NodeId,
-    ) -> impl ExactSizeIterator<Item = Self::NodeId> + 'a {
+    fn predecessors<'g>(
+        &'g self,
+        node: &'g Self::NodeId,
+    ) -> impl ExactSizeIterator<Item = Self::NodeId> + 'g {
         let mut visited = HashSet::new();
         LazyExactSizedIterator::new(self.edges_into(node).filter_map(move |eid| {
             let ends = self.edge_ends(&eid);
@@ -95,10 +95,10 @@ pub trait Graph {
 
     /// Gets an iterator over the successor nodes of a given node, i.e.
     /// those nodes reachable by outgoing edges.
-    fn successors<'a, 'b: 'a>(
-        &'a self,
-        node: &'b Self::NodeId,
-    ) -> impl ExactSizeIterator<Item = Self::NodeId> + 'a {
+    fn successors<'g>(
+        &'g self,
+        node: &'g Self::NodeId,
+    ) -> impl ExactSizeIterator<Item = Self::NodeId> + 'g {
         let mut visited = HashSet::new();
         LazyExactSizedIterator::new(self.edges_from(node).filter_map(move |eid| {
             let ends = self.edge_ends(&eid);
@@ -135,10 +135,7 @@ pub trait Graph {
     ) -> <Self::Directedness as Directedness>::EndPair<Self::NodeId>;
 
     /// Gets an iterator over the outgoing edges from a given node.
-    fn edges_from<'a, 'b: 'a>(
-        &'a self,
-        from: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from<'g>(&'g self, from: &'g Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'g {
         self.edges().filter(|eid| {
             let (source, target) = self.edge_ends(eid).into();
             source == *from || !Self::Directedness::IS_DIRECTED && target == *from
@@ -146,10 +143,7 @@ pub trait Graph {
     }
 
     /// Gets an iterator over the incoming edges to a given node.
-    fn edges_into<'a, 'b: 'a>(
-        &'a self,
-        into: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_into<'g>(&'g self, into: &'g Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'g {
         self.edges().filter(|eid| {
             let (source, target) = self.edge_ends(eid).into();
             target == *into || !Self::Directedness::IS_DIRECTED && source == *into
@@ -157,11 +151,11 @@ pub trait Graph {
     }
 
     /// Gets an iterator over the edges from one node into another.
-    fn edges_from_into<'a, 'b: 'a>(
-        &'a self,
-        from: &'b Self::NodeId,
-        into: &'b Self::NodeId,
-    ) -> impl Iterator<Item = Self::EdgeId> + 'a {
+    fn edges_from_into<'g>(
+        &'g self,
+        from: &'g Self::NodeId,
+        into: &'g Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'g {
         self.edges().filter(move |eid| {
             let (edge_source, edge_target) = self.edge_ends(eid).into();
             (edge_source == *from && edge_target == *into)
