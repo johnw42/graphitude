@@ -68,6 +68,7 @@ impl Directedness for Undirected {
 ///
 /// All methods have the same semantics as the corresponding `Vec` methods.
 pub trait EdgesInContainer<T>: Default {
+    fn from_iter<I: Iterator<Item = T>>(iter: I) -> Self;
     fn as_slice(&self) -> &[T];
     fn len(&self) -> usize;
     fn push(&mut self, item: T);
@@ -75,6 +76,10 @@ pub trait EdgesInContainer<T>: Default {
 }
 
 impl<T> EdgesInContainer<T> for Vec<T> {
+    fn from_iter<I: Iterator<Item = T>>(iter: I) -> Self {
+        iter.collect()
+    }
+
     fn as_slice(&self) -> &[T] {
         self.as_slice()
     }
@@ -93,6 +98,10 @@ impl<T> EdgesInContainer<T> for Vec<T> {
 }
 
 impl<T> EdgesInContainer<T> for () {
+    fn from_iter<I: Iterator<Item = T>>(_iter: I) -> Self {
+        unreachable!("Cannot create EdgesInContainer for undirected graphs");
+    }
+
     fn as_slice(&self) -> &[T] {
         &[]
     }

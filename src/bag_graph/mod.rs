@@ -1,6 +1,7 @@
 use crate::{
     bag::{Bag, BagKey},
     copier::GraphCopier,
+    directedness::EdgesInContainer,
     end_pair::EndPair,
     format_debug::format_debug,
     map_collector::MapCollector,
@@ -17,9 +18,7 @@ pub use ids::{BagGraphEdgeId, BagGraphNodeId};
 struct Node<G: Graph> {
     data: G::NodeData,
     edges_out: Vec<BagKey>,
-    // Only maintained for directed graphs, since for undirected graphs
-    // edges_out is sufficient to find all edges.
-    edges_in: Vec<BagKey>,
+    edges_in: <G::Directedness as Directedness>::EdgesInContainer<BagKey>,
 }
 
 struct Edge<G: Graph> {
@@ -128,6 +127,7 @@ where
             Either::Left(
                 self.node(into)
                     .edges_in
+                    .as_slice()
                     .iter()
                     .copied()
                     .map(BagGraphEdgeId::new),
@@ -191,7 +191,7 @@ where
         let node_key = self.nodes.insert(Node {
             data,
             edges_out: Vec::new(),
-            edges_in: Vec::new(),
+            edges_in: Default::default(),
         });
         BagGraphNodeId::new(node_key)
     }
@@ -224,9 +224,7 @@ where
 
         let (from, into) = ends.values();
 
-        let edge_key = self
-            .edges
-            .insert(Edge::new(data, from.clone(), into.clone()));
+        let edge_key = self.edges.insert(Edge::new(data, *from, *into));
 
         let eid = BagGraphEdgeId::new(edge_key);
 
@@ -260,7 +258,7 @@ where
                     self.edges.remove(*edge_key);
                 }
             }
-            for edge_key in &node.edges_in {
+            for edge_key in node.edges_in.as_slice() {
                 let edge = &self.edges[*edge_key];
                 let &other_node_key = edge.ends.other_value(&node_key).into_inner();
                 if other_node_key != node_key {
@@ -321,14 +319,15 @@ where
                 .iter()
                 .map(|edge_key| edge_map[edge_key])
                 .collect();
-            node.edges_in = node
-                .edges_in
-                .iter()
-                .map(|edge_key| edge_map[edge_key])
-                .collect();
+            node.edges_in = EdgesInContainer::from_iter(
+                node.edges_in
+                    .as_slice()
+                    .iter()
+                    .map(|edge_key| edge_map[edge_key]),
+            );
         }
         for edge in self.edges.iter_mut() {
-            edge.ends = edge.ends.clone().map(|node_key| node_map[&node_key]);
+            edge.ends = edge.ends.clone().map(|node_key| node_map[node_key]);
         }
         if let Some(node_map_collector) = node_map_collector {
             for (old_key, new_key) in node_map {
