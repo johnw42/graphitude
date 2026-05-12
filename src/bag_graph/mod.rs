@@ -7,6 +7,7 @@ use crate::{
     prelude::*,
 };
 use derivative::Derivative;
+use either::Either;
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
 mod ids;
@@ -123,12 +124,17 @@ where
     }
 
     fn edges_into<'g>(&'g self, into: &'g Self::NodeId) -> impl Iterator<Item = Self::EdgeId> + 'g {
-        self.node(into)
-            .edges_in
-            .iter()
-            .copied()
-            .map(BagGraphEdgeId::new)
-            .chain(self.edges_from(into).take_while(|_| !self.is_directed()))
+        if self.is_directed() {
+            Either::Left(
+                self.node(into)
+                    .edges_in
+                    .iter()
+                    .copied()
+                    .map(BagGraphEdgeId::new),
+            )
+        } else {
+            Either::Right(self.edges_from(into))
+        }
     }
 
     fn edges_from_into<'g>(

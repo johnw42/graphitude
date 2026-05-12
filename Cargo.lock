@@ -302,6 +302,7 @@ dependencies = [
  "clap",
  "derivative",
  "dot-parser",
+ "either",
  "generate_test_macro",
  "pathfinding",
  "quickcheck",
