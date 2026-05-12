@@ -60,58 +60,9 @@ pub trait Graph {
         }
     }
 
-    /// Creates a new graph view in which node and edge data are hidden.
-    fn to_debug(&self) -> impl Graph + Debug {
-        self.to_debug_with(|_| (), |_| ())
-    }
-
-    /// Creates a new graph view with custom debug formatting for nodes and edges.
-    fn to_debug_with<N, E>(
-        &self,
-        node_fmt: impl FnMut(&Self::NodeData) -> N,
-        edge_fmt: impl FnMut(&Self::EdgeData) -> E,
-    ) -> impl Graph + Debug
-    where
-        N: Debug,
-        E: Debug,
-    {
-        DebugGraphView::new(self, node_fmt, edge_fmt)
-    }
-
-    /// Writes a DOT representation of the graph to the given output.
-    #[cfg(feature = "dot")]
-    fn write_dot<D>(
-        &self,
-        generator: &D,
-        output: &mut impl io::Write,
-    ) -> Result<(), renderer::DotError<D::Error>>
-    where
-        D: renderer::DotRenderer<Self>,
-        Self: Sized,
-    {
-        renderer::generate_dot_file(self, generator, output)
-    }
-
-    /// Generates a DOT representation of the graph as a String.
-    #[cfg(feature = "dot")]
-    fn to_dot_string<D>(&self, generator: &D) -> Result<String, renderer::DotError<D::Error>>
-    where
-        D: renderer::DotRenderer<Self>,
-        Self: Sized,
-    {
-        let mut output = Vec::new();
-        self.write_dot(generator, &mut output)?;
-        Ok(String::from_utf8(output).expect("Generated DOT is not valid UTF-8"))
-    }
-
-    /// Creates a new path starting from the given starting node.  This is a
-    /// convenience method to avoid having to import the `Path` type separately
-    /// and specify its type argument explicity.
-    fn new_path(&self, start: &Self::NodeId) -> Path<'_, Self> {
-        Path::new(self, start.clone())
-    }
-
+    // =========================================================================
     // Nodes
+    // =========================================================================
 
     /// Gets a vector of all NodeIds in the graph.
     fn nodes(&self) -> impl ExactSizeIterator<Item = Self::NodeId>;
@@ -160,13 +111,20 @@ pub trait Graph {
         }))
     }
 
+    // =========================================================================
     // Edges
+    // =========================================================================
+
+    /// Gets a vector of all edges in the graph.
+    fn edges(&self) -> impl ExactSizeIterator<Item = Self::EdgeId> + '_;
 
     /// Gets the data associated with an edge.
     fn edge_data(&self, id: &Self::EdgeId) -> &Self::EdgeData;
 
-    /// Gets a vector of all edges in the graph.
-    fn edges(&self) -> impl ExactSizeIterator<Item = Self::EdgeId> + '_;
+    /// Gets the number of edges in the graph.
+    fn num_edges(&self) -> usize {
+        self.edges().len()
+    }
 
     /// Gets the ends of an edge as a pair of node IDs.  For directed edges, the
     /// first node ID is the source and the second is the target.  For
@@ -228,11 +186,6 @@ pub trait Graph {
         self.edges_from_into(from, into).next().is_some()
     }
 
-    /// Gets the number of edges in the graph.
-    fn num_edges(&self) -> usize {
-        self.edges().len()
-    }
-
     /// Gets the number of incoming edges to a given node.
     fn num_edges_into(&self, into: &Self::NodeId) -> usize {
         self.edges_into(into).count()
@@ -248,7 +201,9 @@ pub trait Graph {
         self.edges_from_into(from, into).count()
     }
 
+    // =========================================================================
     // Searches
+    // =========================================================================
 
     /// Performs a breadth-first search starting from the given node.
     fn bfs(&self, start: &Self::NodeId) -> BfsIterator<'_, Self> {
@@ -290,86 +245,71 @@ pub trait Graph {
         DfsIteratorWithPaths::new(self, start)
     }
 
-    // Pathfinding
-
     /// Finds shortest paths from a starting node to all other nodes using
     /// Dijkstra's algorithm.  Returns a map from each reachable node to a
     /// tuple of the path taken and the total cost.
     #[cfg(feature = "pathfinding")]
-    fn shortest_paths<C: Default + Ord + Copy + Add<Output = C>>(
-        &self,
+    fn shortest_paths<'g, C: Default + Ord + Copy + Add<Output = C>>(
+        &'g self,
         start: &Self::NodeId,
         distance_fn: impl Fn(&Self::EdgeId) -> C,
-    ) -> HashMap<Self::NodeId, (Path<'_, Self>, C)> {
-        // Find shortest paths using Dijkstra's algorithm.
+    ) -> HashMap<Self::NodeId, (Path<'g, Self>, C)> {
+        crate::dijkstra::shortest_paths(self, start, distance_fn)
+    }
 
-        let mut distances: HashMap<Self::NodeId, C> = HashMap::new();
-        let mut predecessors: HashMap<Self::NodeId, (Self::EdgeId, Self::NodeId)> = HashMap::new();
-        let mut unvisited: HashSet<Self::NodeId> = self.nodes().collect();
+    // =========================================================================
+    // Misc
+    // =========================================================================
 
-        distances.insert(start.clone(), C::default());
+    /// Creates a new graph view in which node and edge data are hidden.
+    fn to_debug(&self) -> impl Graph + Debug {
+        self.to_debug_with(|_| (), |_| ())
+    }
 
-        while !unvisited.is_empty() {
-            // Find unvisited node with minimum distance
-            let current = unvisited
-                .iter()
-                .filter_map(|node| distances.get(node).map(|&dist| (node.clone(), dist)))
-                .min_by_key(|(_, dist)| *dist);
+    /// Creates a new graph view with custom debug formatting for nodes and edges.
+    fn to_debug_with<N, E>(
+        &self,
+        node_fmt: impl FnMut(&Self::NodeData) -> N,
+        edge_fmt: impl FnMut(&Self::EdgeData) -> E,
+    ) -> impl Graph + Debug
+    where
+        N: Debug,
+        E: Debug,
+    {
+        DebugGraphView::new(self, node_fmt, edge_fmt)
+    }
 
-            let (current_node, current_dist) = match current {
-                Some(pair) => pair,
-                None => break, // No more reachable nodes
-            };
+    /// Writes a DOT representation of the graph to the given output.
+    #[cfg(feature = "dot")]
+    fn write_dot<D>(
+        &self,
+        generator: &D,
+        output: &mut impl io::Write,
+    ) -> Result<(), renderer::DotError<D::Error>>
+    where
+        D: renderer::DotRenderer<Self>,
+        Self: Sized,
+    {
+        renderer::generate_dot_file(self, generator, output)
+    }
 
-            unvisited.remove(&current_node);
+    /// Generates a DOT representation of the graph as a String.
+    #[cfg(feature = "dot")]
+    fn to_dot_string<D>(&self, generator: &D) -> Result<String, renderer::DotError<D::Error>>
+    where
+        D: renderer::DotRenderer<Self>,
+        Self: Sized,
+    {
+        let mut output = Vec::new();
+        self.write_dot(generator, &mut output)?;
+        Ok(String::from_utf8(output).expect("Generated DOT is not valid UTF-8"))
+    }
 
-            // Update distances to neighbors
-            for edge_id in self.edges_from(&current_node) {
-                let ends = self.edge_ends(&edge_id);
-                let neighbor = ends.other_value(&current_node).into_inner();
-                if unvisited.contains(&neighbor) {
-                    let edge_distance = distance_fn(&edge_id);
-                    let new_dist = current_dist + edge_distance;
-
-                    let should_update = distances
-                        .get(&neighbor)
-                        .is_none_or(|&old_dist| new_dist < old_dist);
-
-                    if should_update {
-                        distances.insert(neighbor.clone(), new_dist);
-                        predecessors.insert(neighbor.clone(), (edge_id, current_node.clone()));
-                    }
-                }
-            }
-        }
-
-        // Build paths from predecessors
-        let mut result: HashMap<<Self as Graph>::NodeId, (Path<Self>, C)> = HashMap::new();
-        for (node, &dist) in &distances {
-            if node == start {
-                result.insert(
-                    start.clone(),
-                    (Path::new(self, start.clone()), C::default()),
-                );
-            } else {
-                let mut current = node.clone();
-
-                let mut path_edges = Vec::new();
-                while let Some(pred) = predecessors.get(&current) {
-                    path_edges.push(pred.0.clone());
-                    current = pred.1.clone();
-                }
-
-                let mut path = Path::new(self, start.clone());
-                for edge_id in path_edges.iter().rev() {
-                    path.add_edge(edge_id.clone());
-                }
-
-                result.insert(node.clone(), (path, dist));
-            }
-        }
-
-        result
+    /// Creates a new path starting from the given starting node.  This is a
+    /// convenience method to avoid having to import the `Path` type separately
+    /// and specify its type argument explicity.
+    fn new_path(&self, start: &Self::NodeId) -> Path<'_, Self> {
+        Path::new(self, start.clone())
     }
 
     /// Returns true if the graph implementation is known to be very slow for

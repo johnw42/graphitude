@@ -50,6 +50,7 @@ pub mod graph_tests;
 pub mod tracing_support;
 
 mod bag;
+mod dijkstra;
 mod graph_test_support;
 mod iter;
 mod test_util;
