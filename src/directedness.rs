@@ -71,6 +71,9 @@ pub trait EdgesInContainer<T>: Default {
     fn from_iter<I: Iterator<Item = T>>(iter: I) -> Self;
     fn as_slice(&self) -> &[T];
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
     fn push(&mut self, item: T);
     fn retain(&mut self, f: impl FnMut(&T) -> bool);
 }

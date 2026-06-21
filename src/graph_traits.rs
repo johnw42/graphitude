@@ -410,6 +410,7 @@ pub trait GraphMut: Graph {
     /// already exists, returns `(new_id, Some((old_id, old_data)))`.  The
     /// `new_id` may be the same as the `old_id` if the graph implementation
     /// reuses edge IDs when replacing edges.
+    #[allow(clippy::type_complexity)]
     fn add_edge(
         &mut self,
         from: &Self::NodeId,

@@ -15,7 +15,7 @@ use crate::map_collector::MapCollector;
 pub struct BagKey(NonZero<usize>);
 
 impl BagKey {
-    pub fn to_index(&self) -> usize {
+    pub fn to_index(self) -> usize {
         self.0.get() - 1
     }
 
@@ -611,17 +611,21 @@ mod tests {
                     }
                 }
                 BagOp::Mutate(idx) => {
-                    if let Some(key) = get_key(&map, idx) {
-                        if let Some(val) = bag.get_mut(key) {
-                            *val *= 2;
-                            map.get_mut(&key).map(|v| *v *= 2);
+                    if let Some(key) = get_key(&map, idx)
+                        && let Some(val) = bag.get_mut(key)
+                    {
+                        *val *= 2;
+                        if let Some(v) = map.get_mut(&key) {
+                            *v *= 2;
                         }
                     }
                 }
                 BagOp::MutateAll() => {
                     for (key, val) in bag.pairs_mut() {
                         *val *= 2;
-                        map.get_mut(&key).map(|v| *v *= 2);
+                        if let Some(v) = map.get_mut(&key) {
+                            *v *= 2;
+                        }
                     }
                 }
                 BagOp::Compact => {

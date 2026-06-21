@@ -280,7 +280,7 @@ where
         into: &Self::NodeId,
         data: Self::EdgeData,
     ) -> (Self::EdgeId, Option<(Self::EdgeId, Self::EdgeData)>) {
-        let ends = ((from.clone(), into.clone())).into();
+        let ends = (from.clone(), into.clone()).into();
 
         if !self.allows_parallel_edges() {
             debug_assert!(self.num_edges_from_into(from, into) <= 1);
@@ -390,7 +390,7 @@ where
             let to_node = self.node_mut(into_nid);
             to_node
                 .edges_out
-                .retain(|edge| eid.as_ptr() != Arc::as_ptr(&edge));
+                .retain(|edge| eid.as_ptr() != Arc::as_ptr(edge));
         }
 
         Arc::into_inner(edge)

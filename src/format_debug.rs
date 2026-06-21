@@ -106,7 +106,7 @@ where
             "edges",
             &FormatDebugWith(|f: &mut Formatter<'_>| {
                 let make_edge_tag = |eid: &G::EdgeId| {
-                    let (n1, n2) = graph.edge_ends(&eid).into();
+                    let (n1, n2) = graph.edge_ends(eid).into();
                     let tag = if graph.is_directed() {
                         format!("{} -> {}", &node_tags[&n1], &node_tags[&n2])
                     } else {

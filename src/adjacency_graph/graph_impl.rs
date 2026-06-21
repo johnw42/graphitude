@@ -278,8 +278,8 @@ where
 
     fn compact(
         &mut self,
-        node_map_collector: Option<&mut dyn MapCollector<Self::NodeId>>,
-        edge_map_collector: Option<&mut dyn MapCollector<Self::EdgeId>>,
+        _node_map_collector: Option<&mut dyn MapCollector<Self::NodeId>>,
+        _edge_map_collector: Option<&mut dyn MapCollector<Self::EdgeId>>,
     ) {
         self.compaction_count = self.compaction_count.increment();
         // TODO: Compact the node bag and update the adjacency matrix accordingly.

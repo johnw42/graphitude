@@ -76,7 +76,7 @@ mod inner {
         D: Directedness,
     {
         match BagGraph::from_dot_string(data, builder) {
-            Ok(graph) => return Some(graph),
+            Ok(graph) => Some(graph),
             Err(ParseError::UnsupportedDirectedness) => None,
             Err(err) => {
                 eprintln!("Invalid DOT input: {err}");
