@@ -246,26 +246,27 @@ where
     fn remove_node(&mut self, nid: &Self::NodeId) -> N {
         let node_key = nid.key();
         let node = self.nodes.remove(node_key).expect("NodeId is invalid");
-        let is_directed = self.is_directed();
 
-        if is_directed {
+        if self.is_directed() {
             for edge_key in &node.edges_out {
                 let edge = &self.edges[*edge_key];
                 let &other_node_key = edge.ends.other_value(&node_key).into_inner();
                 if other_node_key != node_key {
                     let other_node = &mut self.nodes[other_node_key];
-                    other_node.edges_out.retain(|key| *key != *edge_key);
-                    self.edges.remove(*edge_key);
-                }
-            }
-            for edge_key in node.edges_in.as_slice() {
-                let edge = &self.edges[*edge_key];
-                let &other_node_key = edge.ends.other_value(&node_key).into_inner();
-                if other_node_key != node_key {
-                    let other_node = &mut self.nodes[other_node_key];
-                    other_node.edges_out.retain(|key| *key != *edge_key);
+                    other_node.edges_in.retain(|key| *key != *edge_key);
                 }
                 self.edges.remove(*edge_key);
+            }
+            for edge_key in node.edges_in.as_slice() {
+                // Edge may be missing because it was a self-loop and was already removed in the edges_out loop above.
+                if let Some(edge) = self.edges.get(*edge_key) {
+                    let &other_node_key = edge.ends.other_value(&node_key).into_inner();
+                    if other_node_key != node_key {
+                        let other_node = &mut self.nodes[other_node_key];
+                        other_node.edges_out.retain(|key| *key != *edge_key);
+                    }
+                    self.edges.remove(*edge_key);
+                }
             }
         } else {
             for edge_key in &node.edges_out {

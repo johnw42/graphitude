@@ -329,13 +329,19 @@ impl<T> Index<BagKey> for Bag<T> {
     type Output = T;
 
     fn index(&self, key: BagKey) -> &Self::Output {
-        self.get(key).expect("invalid BagKey")
+        match self.get(key) {
+            Some(value) => value,
+            None => panic!("invalid BagKey: {:?}", key),
+        }
     }
 }
 
 impl<T> IndexMut<BagKey> for Bag<T> {
     fn index_mut(&mut self, key: BagKey) -> &mut Self::Output {
-        self.get_mut(key).expect("invalid BagKey")
+        match self.get_mut(key) {
+            Some(value) => value,
+            None => panic!("invalid BagKey: {:?}", key),
+        }
     }
 }
 

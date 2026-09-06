@@ -101,8 +101,11 @@ impl<T> EdgesInContainer<T> for Vec<T> {
 }
 
 impl<T> EdgesInContainer<T> for () {
-    fn from_iter<I: Iterator<Item = T>>(_iter: I) -> Self {
-        unreachable!("Cannot create EdgesInContainer for undirected graphs");
+    fn from_iter<I: Iterator<Item = T>>(mut iter: I) -> Self {
+        assert!(
+            iter.next().is_none(),
+            "Cannot create EdgesInContainer for undirected graphs with non-empty iterator"
+        );
     }
 
     fn as_slice(&self) -> &[T] {
