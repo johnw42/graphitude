@@ -1,4 +1,4 @@
 pub use crate::{
-    Directed, Directedness, EdgeMultiplicity, Graph, GraphDirected, GraphElementId, GraphMut,
-    GraphUndirected, MultipleEdges, SingleEdge, Undirected,
+    Directed, Directedness, EdgeMultiplicity, Graph, GraphElementId, GraphMut, MultipleEdges,
+    SingleEdge, Undirected,
 };

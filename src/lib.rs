@@ -66,5 +66,5 @@ pub use bag_graph::BagGraph;
 pub use copier::GraphCopier;
 pub use directedness::{Directed, Directedness, Undirected};
 pub use edge_multiplicity::{EdgeMultiplicity, MultipleEdges, SingleEdge};
-pub use graph_traits::{Graph, GraphDirected, GraphElementId, GraphMut, GraphUndirected};
+pub use graph_traits::{Graph, GraphElementId, GraphMut};
 pub use linked_graph::LinkedGraph;

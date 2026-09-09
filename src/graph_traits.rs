@@ -314,14 +314,13 @@ pub trait Graph {
     fn is_very_slow(&self) -> bool {
         false
     }
-}
 
-/// A trait which is automatically implemented for directed graphs, providing
-/// methods specific to directed graphs.
-pub trait GraphDirected: Graph {
     /// Finds the strongly connected component containing the given node.
     #[cfg(feature = "pathfinding")]
-    fn strongly_connected_component(&self, start: &Self::NodeId) -> Vec<Self::NodeId> {
+    fn strongly_connected_component(&self, start: &Self::NodeId) -> Vec<Self::NodeId>
+    where
+        Self: Graph<Directedness = Directed>,
+    {
         pathfinding::prelude::strongly_connected_component(start, |nid| {
             self.successors(nid).collect::<Vec<_>>()
         })
@@ -329,7 +328,10 @@ pub trait GraphDirected: Graph {
 
     /// Partitions the graph into strongly connected components.
     #[cfg(feature = "pathfinding")]
-    fn strongly_connected_components(&self) -> Vec<Vec<Self::NodeId>> {
+    fn strongly_connected_components(&self) -> Vec<Vec<Self::NodeId>>
+    where
+        Self: Graph<Directedness = Directed>,
+    {
         pathfinding::prelude::strongly_connected_components(
             &self.nodes().collect::<Vec<_>>(),
             |nid| self.successors(nid).collect::<Vec<_>>(),
@@ -338,27 +340,25 @@ pub trait GraphDirected: Graph {
 
     /// Partitions nodes reachable from a starting point into strongly connected components.
     #[cfg(feature = "pathfinding")]
-    fn strongly_connected_components_from(&self, start: &Self::NodeId) -> Vec<Vec<Self::NodeId>> {
+    fn strongly_connected_components_from(&self, start: &Self::NodeId) -> Vec<Vec<Self::NodeId>>
+    where
+        Self: Graph<Directedness = Directed>,
+    {
         pathfinding::prelude::strongly_connected_components_from(start, |nid| {
             self.successors(nid).collect::<Vec<_>>()
         })
     }
-}
 
-impl<G> GraphDirected for G where G: Graph<Directedness = Directed> {}
-
-/// A trait which is automatically implemented for undirected graphs, providing
-/// methods specific to undirected graphs.
-pub trait GraphUndirected: Graph {
     #[cfg(feature = "pathfinding")]
-    fn connected_components(&self) -> Vec<HashSet<Self::NodeId>> {
+    fn connected_components(&self) -> Vec<HashSet<Self::NodeId>>
+    where
+        Self: Graph<Directedness = Undirected>,
+    {
         pathfinding::prelude::connected_components(&self.nodes().collect::<Vec<_>>(), |nid| {
             self.successors(nid).collect::<Vec<_>>()
         })
     }
 }
-
-impl<G> GraphUndirected for G where G: Graph<Directedness = Undirected> {}
 
 /// A trait for graphs that support mutation operations.
 ///
@@ -384,6 +384,17 @@ pub trait GraphMut: Graph {
     /// Removes a node from the graph, returning its data.  Any edges
     /// connected to the node are also be removed.
     fn remove_node(&mut self, id: &Self::NodeId) -> Self::NodeData;
+
+    /// Removes all nodes for which the given predicate returns false.  Any edges
+    /// connected to removed nodes are also removed.
+    fn retain_nodes(&mut self, retain: impl FnMut(&Self::NodeId) -> bool) {
+        let mut retain = retain;
+        for nid in self.nodes().collect::<Vec<_>>() {
+            if !retain(&nid) {
+                self.remove_node(&nid);
+            }
+        }
+    }
 
     /// Adds an edge with the given data between two nodes and returns the
     /// `EdgeId`.  Use [`Self::add_edge`] for graphs that do not
@@ -420,6 +431,16 @@ pub trait GraphMut: Graph {
 
     /// Remove an edge between two nodes, returning its data.
     fn remove_edge(&mut self, id: &Self::EdgeId) -> Self::EdgeData;
+
+    /// Removes all edges for which the given predicate returns false.
+    fn retain_edges(&mut self, retain: impl FnMut(&Self::EdgeId) -> bool) {
+        let mut retain = retain;
+        for eid in self.edges().collect::<Vec<_>>() {
+            if !retain(&eid) {
+                self.remove_edge(&eid);
+            }
+        }
+    }
 
     /// Removes all edges from one node into another.
     fn remove_edges_from_into(&mut self, from: &Self::NodeId, into: &Self::NodeId) {
