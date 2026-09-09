@@ -3,6 +3,8 @@ use std::{collections::HashSet, fmt::Debug, hash::Hash};
 #[cfg(feature = "pathfinding")]
 use std::{collections::HashMap, ops::Add};
 
+use either::Either;
+
 #[cfg(feature = "dot")]
 use {
     crate::dot::{parser, renderer},
@@ -111,6 +113,17 @@ pub trait Graph {
         }))
     }
 
+    /// Gets the neighbors of a node in an undirected graph.
+    fn neighbors<'g>(
+        &'g self,
+        node: &'g Self::NodeId,
+    ) -> impl ExactSizeIterator<Item = Self::NodeId> + 'g
+    where
+        Self: Graph<Directedness = Undirected>,
+    {
+        self.successors(node)
+    }
+
     // =========================================================================
     // Edges
     // =========================================================================
@@ -165,6 +178,26 @@ pub trait Graph {
         })
     }
 
+    /// Gets an iterator over all edges incident to a given node.  For directed
+    /// graphs, this includes both incoming and outgoing edges.  For undirected
+    /// graphs, this is equivalent to [`Self::edges_from`].
+    fn incident_edges<'g>(
+        &'g self,
+        node: &'g Self::NodeId,
+    ) -> impl Iterator<Item = Self::EdgeId> + 'g {
+        if self.is_directed() {
+            Either::Left(
+                self.edges_from(node)
+                    .chain(self.edges_into(node).filter(move |eid| {
+                        let (source, target) = self.edge_ends(eid).into();
+                        source != *node || target != *node
+                    })),
+            )
+        } else {
+            Either::Right(self.edges_from(node))
+        }
+    }
+
     /// Checks if there is at least one outgoing edge from the given node.
     fn has_edge_from(&self, from: &Self::NodeId) -> bool {
         self.edges_from(from).next().is_some()
@@ -193,6 +226,12 @@ pub trait Graph {
     /// Gets the number of edges from one node into another.
     fn num_edges_from_into(&self, from: &Self::NodeId, into: &Self::NodeId) -> usize {
         self.edges_from_into(from, into).count()
+    }
+
+    /// Gets the number of edges incident to a given node.  See
+    /// [`Self::incident_edges`] for details on what this includes.
+    fn num_incident_edges(&self, node: &Self::NodeId) -> usize {
+        self.incident_edges(node).count()
     }
 
     // =========================================================================
@@ -246,9 +285,9 @@ pub trait Graph {
     fn shortest_paths<'g, C: Default + Ord + Copy + Add<Output = C>>(
         &'g self,
         start: &Self::NodeId,
-        distance_fn: impl Fn(&Self::EdgeId) -> C,
+        cost_fn: impl Fn(&Self::EdgeId) -> C,
     ) -> HashMap<Self::NodeId, (Path<'g, Self>, C)> {
-        crate::dijkstra::shortest_paths(self, start, distance_fn)
+        crate::dijkstra::shortest_paths(self, start, cost_fn)
     }
 
     // =========================================================================
@@ -451,17 +490,11 @@ pub trait GraphMut: Graph {
 
     /// Reserves capacity for at least the given number of additional nodes
     /// and edges.  Does nothing by default.
-    fn reserve(&mut self, additional_nodes: usize, additional_edges: usize) {
-        let _ = additional_nodes;
-        let _ = additional_edges;
-    }
+    fn reserve(&mut self, _additional_nodes: usize, _additional_edges: usize) {}
 
     /// Reserves the exact capacity for the given number of additional nodes
     /// and edges.  Does nothing by default.
-    fn reserve_exact(&mut self, additional_nodes: usize, additional_edges: usize) {
-        let _ = additional_nodes;
-        let _ = additional_edges;
-    }
+    fn reserve_exact(&mut self, _additional_nodes: usize, _additional_edges: usize) {}
 
     /// Compacts internal storage used by the graph to minimize memory usage
     /// without reallocation.  Does nothing by default.  May invalidate existing
@@ -470,11 +503,9 @@ pub trait GraphMut: Graph {
     /// EdgeIds to new ones.
     fn compact(
         &mut self,
-        node_map_collector: Option<&mut dyn MapCollector<Self::NodeId>>,
-        edge_map_collector: Option<&mut dyn MapCollector<Self::EdgeId>>,
+        _node_map_collector: Option<&mut dyn MapCollector<Self::NodeId>>,
+        _edge_map_collector: Option<&mut dyn MapCollector<Self::EdgeId>>,
     ) {
-        let _ = node_map_collector;
-        let _ = edge_map_collector;
     }
 
     /// Shrinks internal storage used by the graph to fit its current size.
