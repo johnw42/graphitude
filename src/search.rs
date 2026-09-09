@@ -355,14 +355,10 @@ mod tests {
         assert_eq!(
             paths,
             vec![
-                Path::from_edges(&graph, nodes[0].clone(), vec![]),
-                Path::from_edges(&graph, nodes[0].clone(), vec![edges[0].clone()]),
-                Path::from_edges(&graph, nodes[0].clone(), vec![edges[1].clone()]),
-                Path::from_edges(
-                    &graph,
-                    nodes[0].clone(),
-                    vec![edges[0].clone(), edges[2].clone()]
-                ),
+                Path::from_edges(&graph, &nodes[0], []),
+                Path::from_edges(&graph, &nodes[0], [&edges[0]]),
+                Path::from_edges(&graph, &nodes[0], [&edges[1]]),
+                Path::from_edges(&graph, &nodes[0], [&edges[0], &edges[2]]),
             ]
         );
     }
@@ -374,14 +370,10 @@ mod tests {
         assert_eq!(
             visited,
             vec![
-                Path::from_edges(&graph, nodes[0].clone(), vec![]),
-                Path::from_edges(&graph, nodes[0].clone(), vec![edges[0].clone()]),
-                Path::from_edges(
-                    &graph,
-                    nodes[0].clone(),
-                    vec![edges[0].clone(), edges[2].clone()]
-                ),
-                Path::from_edges(&graph, nodes[0].clone(), vec![edges[1].clone()]),
+                Path::from_edges(&graph, &nodes[0], []),
+                Path::from_edges(&graph, &nodes[0], [&edges[0]]),
+                Path::from_edges(&graph, &nodes[0], [&edges[0], &edges[2]]),
+                Path::from_edges(&graph, &nodes[0], [&edges[1]]),
             ]
         );
     }

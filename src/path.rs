@@ -66,14 +66,14 @@ impl<G: Graph + ?Sized> Path<G> {
     /// Creates a new path from a sequence of edges and a starting node. Panics
     /// if the edges do not form a valid path, the edges are empty, or if the
     /// starting node does not match the one end of the first edge.
-    pub fn from_edges(
-        graph: &G,
-        start: G::NodeId,
-        edges: impl IntoIterator<Item = G::EdgeId>,
+    pub fn from_edges<'g>(
+        graph: &'g G,
+        start: &'g G::NodeId,
+        edges: impl IntoIterator<Item = &'g G::EdgeId>,
     ) -> Self {
-        let mut path = PathBuilder::new(graph, start);
+        let mut path = PathBuilder::new(graph, start.clone());
         for edge in edges {
-            path.push(edge);
+            path.push(edge.clone());
         }
         path.build()
     }
