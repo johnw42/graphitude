@@ -108,9 +108,9 @@ where
                 let make_edge_tag = |eid: &G::EdgeId| {
                     let (n1, n2) = graph.edge_ends(eid).into();
                     let tag = if graph.is_directed() {
-                        format!("{} -> {}", &node_tags[&n1], &node_tags[&n2])
+                        format!("{} -> {}", node_tags[&n1], node_tags[&n2])
                     } else {
-                        format!("{} -- {}", &node_tags[&n1], &node_tags[&n2])
+                        format!("{} -- {}", node_tags[&n1], node_tags[&n2])
                     };
                     FormatDebugAs(tag)
                 };
@@ -150,7 +150,7 @@ mod tests {
         assert_eq!(graph.edge_ends(&e1).into_values(), (n1.clone(), n2.clone()));
 
         // Single-line output.
-        let output = format!("{:?}", &graph);
+        let output = format!("{:?}", graph);
         let expected = r#"BagGraph { nodes: {0: "A", 1: "B"}, edges: {0 -> 1: 10} }"#;
         assert_eq!(output, expected);
 
@@ -179,30 +179,22 @@ mod tests {
         graph.add_edge(&n1, &n2, 10);
         graph.add_edge(&n2, &n3, 20);
 
-        let output = format!("{:?}", &graph);
+        let output = format!("{:?}", graph);
+        let expected = r#"AdjacencyGraph { nodes: {0: "B", 1: "A", 2: "C"}, edges: {0 -- 1: 10, 1 -- 2: 20} }"#;
+        assert_eq!(output, expected);
 
-        // Check structure
-        assert!(output.starts_with("AdjacencyGraph { nodes: {"));
-        assert!(output.contains("edges: {"));
-
-        // Check all nodes are present
-        assert!(output.contains(r#""A""#));
-        assert!(output.contains(r#""B""#));
-        assert!(output.contains(r#""C""#));
-
-        // Check edges use undirected notation (--)
-        assert!(output.contains("--"));
-        assert!(!output.contains("->"));
-
-        // Check edge data is present
-        assert!(output.contains("10"));
-        assert!(output.contains("20"));
-
-        // Multi-line output should have proper structure
         let output = format!("{:#?}", &graph);
-        assert!(output.starts_with("AdjacencyGraph {\n    nodes: {"));
-        assert!(output.contains("edges: {"));
-        assert!(output.contains("--"));
-        assert!(!output.contains("->"));
+        let expected = r#"AdjacencyGraph {
+    nodes: {
+        0: "B",
+        1: "A",
+        2: "C",
+    },
+    edges: {
+        0 -- 1: 10,
+        1 -- 2: 20,
+    },
+}"#;
+        assert_eq!(output, expected);
     }
 }
