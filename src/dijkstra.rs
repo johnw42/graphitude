@@ -1,6 +1,10 @@
 #![cfg(feature = "pathfinding")]
 
-use crate::{Graph, end_pair::EndPair as _, path::Path};
+use crate::{
+    Graph,
+    end_pair::EndPair as _,
+    path::{Path, PathBuilder},
+};
 use std::{
     collections::{HashMap, HashSet},
     ops::Add,
@@ -10,7 +14,7 @@ pub fn shortest_paths<'g, G, C: Default + Ord + Copy + Add<Output = C>>(
     graph: &'g G,
     start: &G::NodeId,
     distance_fn: impl Fn(&G::EdgeId) -> C,
-) -> HashMap<G::NodeId, (Path<'g, G>, C)>
+) -> HashMap<G::NodeId, (Path<G>, C)>
 where
     G: Graph + ?Sized,
 {
@@ -57,12 +61,12 @@ where
     }
 
     // Build paths from predecessors
-    let mut result: HashMap<G::NodeId, (Path<'g, G>, C)> = HashMap::new();
+    let mut result: HashMap<G::NodeId, (PathBuilder<'g, G>, C)> = HashMap::new();
     for (node, &dist) in &distances {
         if node == start {
             result.insert(
                 start.clone(),
-                (Path::new(graph, start.clone()), C::default()),
+                (PathBuilder::new(graph, start.clone()), C::default()),
             );
         } else {
             let mut current = node.clone();
@@ -73,9 +77,9 @@ where
                 current = pred.1.clone();
             }
 
-            let mut path = Path::new(graph, start.clone());
+            let mut path = PathBuilder::new(graph, start.clone());
             for edge_id in path_edges.iter().rev() {
-                path.add_edge(edge_id.clone());
+                path.push(edge_id.clone());
             }
 
             result.insert(node.clone(), (path, dist));
@@ -83,4 +87,7 @@ where
     }
 
     result
+        .into_iter()
+        .map(|(node, (path, dist))| (node, (path.build(), dist)))
+        .collect()
 }

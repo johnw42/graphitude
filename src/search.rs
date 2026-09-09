@@ -61,7 +61,7 @@ where
 pub struct BfsIteratorWithPaths<'g, G: Graph + ?Sized> {
     graph: &'g G,
     visited: HashSet<G::NodeId>,
-    queue: VecDeque<Path<'g, G>>,
+    queue: VecDeque<PathBuilder<'g, G>>,
 }
 
 impl<'g, G> BfsIteratorWithPaths<'g, G>
@@ -72,7 +72,10 @@ where
         Self {
             graph,
             visited: HashSet::with_capacity(DEFAULT_HASH_SET_CAPACITY),
-            queue: start.into_iter().map(|nid| Path::new(graph, nid)).collect(),
+            queue: start
+                .into_iter()
+                .map(|nid| PathBuilder::new(graph, nid))
+                .collect(),
         }
     }
 }
@@ -81,11 +84,11 @@ impl<'g, G> Iterator for BfsIteratorWithPaths<'g, G>
 where
     G: Graph + ?Sized,
 {
-    type Item = Path<'g, G>;
+    type Item = Path<G>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(path) = self.queue.pop_front() {
-            let nid = path.last_node().clone();
+        while let Some(path_builder) = self.queue.pop_front() {
+            let nid = path_builder.last_node().clone();
             if self.visited.insert(nid.clone()) {
                 for eid in self.graph.edges_from(&nid) {
                     let neighbor = self
@@ -94,12 +97,12 @@ where
                         .into_other_value(&nid)
                         .into_inner();
                     if !self.visited.contains(&neighbor) {
-                        let mut new_path = path.clone();
-                        new_path.add_edge_and_node(eid, neighbor);
-                        self.queue.push_back(new_path);
+                        let mut new_builder = path_builder.clone();
+                        new_builder.push(eid);
+                        self.queue.push_back(new_builder);
                     }
                 }
-                return Some(path);
+                return Some(path_builder.build());
             }
         }
         None
@@ -157,7 +160,7 @@ where
 pub struct DfsIteratorWithPaths<'g, G: Graph + ?Sized> {
     graph: &'g G,
     visited: HashSet<G::NodeId>,
-    stack: Vec<Path<'g, G>>,
+    stack: Vec<PathBuilder<'g, G>>,
 }
 
 impl<'g, G> DfsIteratorWithPaths<'g, G>
@@ -167,7 +170,7 @@ where
     pub fn new(graph: &'g G, start: Vec<G::NodeId>) -> Self {
         let mut stack = start
             .into_iter()
-            .map(|nid| Path::new(graph, nid))
+            .map(|nid| PathBuilder::new(graph, nid))
             .collect::<Vec<_>>();
         stack.reverse();
         Self {
@@ -182,24 +185,19 @@ impl<'g, G> Iterator for DfsIteratorWithPaths<'g, G>
 where
     G: Graph + ?Sized,
 {
-    type Item = Path<'g, G>;
+    type Item = Path<G>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(path) = self.stack.pop() {
-            let nid = path.last_node().clone();
+        while let Some(path_builder) = self.stack.pop() {
+            let nid = path_builder.last_node().clone();
             if self.visited.insert(nid.clone()) {
                 let edges = self.graph.edges_from(&nid).collect::<Vec<_>>();
                 for eid in edges.into_iter().rev() {
-                    let mut new_path = path.clone();
-                    let neighbor = self
-                        .graph
-                        .edge_ends(&eid)
-                        .into_other_value(&nid)
-                        .into_inner();
-                    new_path.add_edge_and_node(eid.clone(), neighbor);
+                    let mut new_path = path_builder.clone();
+                    new_path.push(eid);
                     self.stack.push(new_path);
                 }
-                return Some(path);
+                return Some(path_builder.build());
             }
         }
         None
@@ -357,7 +355,7 @@ mod tests {
         assert_eq!(
             paths,
             vec![
-                Path::new(&graph, nodes[0].clone()),
+                Path::from_edges(&graph, nodes[0].clone(), vec![]),
                 Path::from_edges(&graph, nodes[0].clone(), vec![edges[0].clone()]),
                 Path::from_edges(&graph, nodes[0].clone(), vec![edges[1].clone()]),
                 Path::from_edges(
@@ -376,7 +374,7 @@ mod tests {
         assert_eq!(
             visited,
             vec![
-                Path::new(&graph, nodes[0].clone()),
+                Path::from_edges(&graph, nodes[0].clone(), vec![]),
                 Path::from_edges(&graph, nodes[0].clone(), vec![edges[0].clone()]),
                 Path::from_edges(
                     &graph,

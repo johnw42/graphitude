@@ -1,20 +1,18 @@
 use std::iter::once;
 
-use crate::{Graph, end_pair::EndPair as _};
 use derive_where::derive_where;
 
-/// A path in a graph, represented as a sequence of nodes and the edges that
-/// connect them.
+use crate::{Graph, end_pair::EndPair as _};
+
 #[derive_where(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct Path<'g, G: Graph + ?Sized> {
+pub struct PathBuilder<'g, G: Graph + ?Sized> {
     #[derive_where(skip)]
     graph: &'g G,
     edges: Vec<G::EdgeId>,
     nodes: Vec<G::NodeId>,
 }
 
-impl<'g, G: Graph + ?Sized> Path<'g, G> {
-    /// Creates a new path starting at the given node.
+impl<'g, G: Graph + ?Sized> PathBuilder<'g, G> {
     pub fn new(graph: &'g G, start: G::NodeId) -> Self {
         Self {
             graph,
@@ -23,27 +21,77 @@ impl<'g, G: Graph + ?Sized> Path<'g, G> {
         }
     }
 
-    /// Creates a new path from a sequence of edges and a starting node. Panics
-    /// if the edges do not form a valid path, the edges are empty, or if the
-    /// starting node does not match the one end of the first edge.
-    pub fn from_edges(
-        graph: &'g G,
-        start: G::NodeId,
-        edges: impl IntoIterator<Item = G::EdgeId>,
-    ) -> Self {
-        let mut path = Path::<G>::new(graph, start);
-        path.extend(edges);
-        path
-    }
-
-    /// Returns the first node in the path.
-    pub fn first_node(&self) -> G::NodeId {
-        self.nodes.first().expect("Path has no nodes").clone()
+    pub fn push(&mut self, edge_id: G::EdgeId) {
+        let next_node = self
+            .graph
+            .edge_ends(&edge_id)
+            .into_other_value(
+                &self
+                    .nodes
+                    .last()
+                    .expect("Path always has at least one node"),
+            )
+            .into_inner();
+        self.edges.push(edge_id);
+        self.nodes.push(next_node);
     }
 
     /// Returns the last node in the path.
     pub fn last_node(&self) -> G::NodeId {
-        self.nodes.last().expect("Path has no nodes").clone()
+        self.nodes
+            .last()
+            .expect("Path always has at least one node")
+            .clone()
+    }
+
+    /// Builds a path from the current state of the builder.
+    pub fn build(self) -> Path<G> {
+        Path {
+            edges: self.edges,
+            nodes: self.nodes,
+        }
+    }
+}
+
+/// A path in a graph, represented as a sequence of nodes and the edges that
+/// connect them.
+#[derive(Clone)]
+#[derive_where(PartialEq, Eq, Hash, Debug; G::NodeId, G::EdgeId)]
+pub struct Path<G: Graph + ?Sized> {
+    edges: Vec<G::EdgeId>,
+    nodes: Vec<G::NodeId>,
+}
+
+impl<G: Graph + ?Sized> Path<G> {
+    /// Creates a new path from a sequence of edges and a starting node. Panics
+    /// if the edges do not form a valid path, the edges are empty, or if the
+    /// starting node does not match the one end of the first edge.
+    pub fn from_edges(
+        graph: &G,
+        start: G::NodeId,
+        edges: impl IntoIterator<Item = G::EdgeId>,
+    ) -> Self {
+        let mut path = PathBuilder::new(graph, start);
+        for edge in edges {
+            path.push(edge);
+        }
+        path.build()
+    }
+
+    /// Returns the first node in the path.
+    pub fn first_node(&self) -> G::NodeId {
+        self.nodes
+            .first()
+            .expect("Path always has at least one node")
+            .clone()
+    }
+
+    /// Returns the last node in the path.
+    pub fn last_node(&self) -> G::NodeId {
+        self.nodes
+            .last()
+            .expect("Path always has at least one node")
+            .clone()
     }
 
     /// Returns an iterator over the edges in the path.
@@ -70,67 +118,7 @@ impl<'g, G: Graph + ?Sized> Path<'g, G> {
         incoming
             .zip(outgoing)
             .zip(nodes)
-            .map(|((in_edge, out_edge), node)| {
-                if let Some(ref e) = in_edge {
-                    debug_assert!(self.graph.edge_ends(e).has(&node));
-                }
-                if let Some(ref e) = out_edge {
-                    debug_assert!(self.graph.edge_ends(e).has(&node));
-                }
-                (in_edge, node, out_edge)
-            })
-    }
-
-    /// Adds an edge to the end of the path, extending it to the edge's target
-    /// node. Panics if the edge's source node does not match the current
-    /// last node of the path.
-    pub fn add_edge(&mut self, edge_id: G::EdgeId) {
-        let next_node = self
-            .graph
-            .edge_ends(&edge_id)
-            .into_other_value(&self.last_node())
-            .into_inner();
-        self.edges.push(edge_id);
-        self.nodes.push(next_node);
-    }
-
-    /// Adds an edge and its target node to the end of the path. Panics if
-    /// the edge's source node does not match the current last node of the
-    /// path, or if the provided node does not match the edge's target node.
-    pub fn add_edge_and_node(&mut self, edge_id: G::EdgeId, node_id: G::NodeId) {
-        let last = self.last_node();
-
-        if self.graph.is_directed() {
-            assert!(
-                self.graph.edge_ends(&edge_id).values() == (&last, &node_id),
-                "Edge does not connect last node to provided node"
-            );
-        } else {
-            assert!(
-                self.graph.edge_ends(&edge_id).has_both(&last, &node_id),
-                "Edge does not connect last node to provided node"
-            );
-        }
-
-        self.edges.push(edge_id);
-        self.nodes.push(node_id);
-    }
-
-    /// Extends the path by appending all edges from another path. Panics if
-    /// the first node of the other path does not match the current last
-    /// node of this path.
-    pub fn extend_with(&mut self, other: &Path<G>) {
-        for edge_id in other.edges() {
-            self.add_edge(edge_id);
-        }
-    }
-}
-
-impl<'g, G: Graph + ?Sized> Extend<G::EdgeId> for Path<'g, G> {
-    fn extend<T: IntoIterator<Item = G::EdgeId>>(&mut self, iter: T) {
-        for edge_id in iter {
-            self.add_edge(edge_id);
-        }
+            .map(|((in_edge, out_edge), node)| (in_edge, node, out_edge))
     }
 }
 
@@ -144,23 +132,15 @@ mod tests {
                 use $crate::prelude::*;
 
                 #[test]
-                fn test_new_path() {
-                    let mut graph = <$type>::default();
-                    let n1 = graph.add_node("n1");
-                    let path = graph.new_path(&n1);
-                    assert_eq!(path.first_node(), n1);
-                    assert_eq!(path.last_node(), n1);
-                }
-
-                #[test]
                 fn test_add_edge() {
                     let mut graph = <$type>::default();
                     let n1 = graph.add_node("n1");
                     let n2 = graph.add_node("n2");
                     let e1 = graph.add_edge(&n1, &n2, "e1").0;
 
-                    let mut path = graph.new_path(&n1);
-                    path.add_edge(e1);
+                    let mut builder = PathBuilder::new(&graph, n1);
+                    builder.push(e1);
+                    let path = builder.build();
 
                     assert_eq!(path.last_node(), n2);
                     assert_eq!(path.edges().count(), 1);
@@ -175,9 +155,10 @@ mod tests {
                     let n3 = graph.add_node("n3");
                     let e1 = graph.add_edge(&n1, &n2, "e1").0;
                     let e2 = graph.add_edge(&n2, &n3, "e2").0;
-                    let mut path = graph.new_path(&n1);
-                    path.add_edge(e1.clone());
-                    path.add_edge(e2.clone());
+                    let mut builder = PathBuilder::new(&graph, n1.clone());
+                    builder.push(e1.clone());
+                    builder.push(e2.clone());
+                    let path = builder.build();
                     let mut iter = path.nodes_with_edges();
                     assert_eq!(iter.next(), Some((None, n1.clone(), Some(e1.clone()))));
                     assert_eq!(
@@ -186,43 +167,6 @@ mod tests {
                     );
                     assert_eq!(iter.next(), Some((Some(e2.clone()), n3.clone(), None)));
                     assert_eq!(iter.next(), None);
-                }
-
-                #[test]
-                fn test_extend_with() {
-                    let mut graph = <$type>::default();
-                    let n1 = graph.add_node("n1");
-                    let n2 = graph.add_node("n2");
-                    let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(&n1, &n2, "e12").0;
-                    let e2 = graph.add_edge(&n2, &n3, "e23").0;
-
-                    let mut path1 = graph.new_path(&n1);
-                    path1.add_edge(e1);
-
-                    let mut path2 = graph.new_path(&n2);
-                    path2.add_edge(e2);
-
-                    path1.extend_with(&path2);
-
-                    assert_eq!(path1.nodes().count(), 3);
-                    assert_eq!(path1.edges().count(), 2);
-                }
-
-                #[test]
-                fn test_extend() {
-                    let mut graph = <$type>::default();
-                    let n1 = graph.add_node("n1");
-                    let n2 = graph.add_node("n2");
-                    let n3 = graph.add_node("n3");
-                    let e1 = graph.add_edge(&n1, &n2, "e12").0;
-                    let e2 = graph.add_edge(&n2, &n3, "e23").0;
-
-                    let mut path = graph.new_path(&n1);
-                    path.extend(vec![e1, e2]);
-
-                    assert_eq!(path.nodes().count(), 3);
-                    assert_eq!(path.edges().count(), 2);
                 }
 
                 #[test]
@@ -235,8 +179,11 @@ mod tests {
                     let e2 = graph.add_edge(&n2, &n3, "e23").0;
                     let e3 = graph.add_edge(&n3, &n1, "e31").0;
 
-                    let mut path = graph.new_path(&n1);
-                    path.extend(vec![e1, e2, e3]);
+                    let mut builder = PathBuilder::new(&graph, n1.clone());
+                    builder.push(e1);
+                    builder.push(e2);
+                    builder.push(e3);
+                    let path = builder.build();
                     let debug_str = format!("{:?}", path);
                     assert!(debug_str.contains("Path"));
                     assert!(debug_str.contains("nodes"));

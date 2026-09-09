@@ -286,7 +286,7 @@ pub trait Graph {
         &'g self,
         start: &Self::NodeId,
         cost_fn: impl Fn(&Self::EdgeId) -> C,
-    ) -> HashMap<Self::NodeId, (Path<'g, Self>, C)> {
+    ) -> HashMap<Self::NodeId, (Path<Self>, C)> {
         crate::dijkstra::shortest_paths(self, start, cost_fn)
     }
 
@@ -336,13 +336,6 @@ pub trait Graph {
         let mut output = Vec::new();
         self.write_dot(generator, &mut output)?;
         Ok(String::from_utf8(output).expect("Generated DOT is not valid UTF-8"))
-    }
-
-    /// Creates a new path starting from the given starting node.  This is a
-    /// convenience method to avoid having to import the `Path` type separately
-    /// and specify its type argument explicity.
-    fn new_path(&self, start: &Self::NodeId) -> Path<'_, Self> {
-        Path::new(self, start.clone())
     }
 
     /// Returns true if the graph implementation is known to be very slow for

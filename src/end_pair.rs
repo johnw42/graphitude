@@ -1,7 +1,5 @@
 use std::hash::Hash;
 
-use derive_where::derive_where;
-
 use crate::util::{OtherValue, other_value, sort_pair};
 
 pub trait EndPair<T>:
