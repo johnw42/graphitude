@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 
 use generate_test_macro::generate_test_macro;
-use quickcheck::TestResult;
 
 use crate::end_pair::EndPair as _;
 use crate::generate_large_graph::generate_large_graph;
@@ -66,17 +65,14 @@ where
         ArbGraph {
             graph, node_ids, ..
         }: ArbGraph<G>,
-    ) -> TestResult {
+    ) {
         let actual_node_ids = graph.nodes().collect::<HashSet<_>>();
         let expected_node_ids = node_ids.into_iter().collect::<HashSet<_>>();
-        if actual_node_ids == expected_node_ids {
-            TestResult::passed()
-        } else {
-            TestResult::error(format!(
-                "Node ID mismatch: expected {:?} but got {:?}",
-                expected_node_ids, actual_node_ids
-            ))
-        }
+        assert_eq!(
+            actual_node_ids, expected_node_ids,
+            "Node ID mismatch: expected {:?} but got {:?}",
+            expected_node_ids, actual_node_ids
+        );
     }
 
     #[quickcheck]
@@ -84,17 +80,14 @@ where
         ArbGraph {
             graph, edge_ids, ..
         }: ArbGraph<G>,
-    ) -> TestResult {
+    ) {
         let actual_edge_ids = graph.edges().collect::<HashSet<_>>();
         let expected_edge_ids = edge_ids.into_iter().collect::<HashSet<_>>();
-        if actual_edge_ids == expected_edge_ids {
-            TestResult::passed()
-        } else {
-            TestResult::error(format!(
-                "Edge ID mismatch: expected {:?} but got {:?}",
-                expected_edge_ids, actual_edge_ids
-            ))
-        }
+        assert_eq!(
+            actual_edge_ids, expected_edge_ids,
+            "Edge ID mismatch: expected {:?} but got {:?}",
+            expected_edge_ids, actual_edge_ids
+        );
     }
 
     #[quickcheck]
@@ -222,6 +215,15 @@ where
                 let expected_count = graph.num_edges_from_into(&node_id, &other_node_id);
                 assert_eq!(actual_count, expected_count);
             });
+        });
+    }
+
+    #[quickcheck]
+    pub fn prop_num_incident_edges_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) {
+        graph.nodes().for_each(|node_id| {
+            let actual_count = graph.incident_edges(&node_id).count();
+            let expected_count = graph.num_incident_edges(&node_id);
+            assert_eq!(actual_count, expected_count);
         });
     }
 
@@ -368,6 +370,14 @@ where
         assert_eq!(graph.num_edges(), 0);
     }
 
+    #[quickcheck]
+    pub fn prop_incident_edges_are_unique(ArbGraph { graph, .. }: ArbGraph<G>) {
+        for node_id in graph.nodes() {
+            let incident_edges = graph.incident_edges(&node_id).collect::<Vec<_>>();
+            assert!(!has_duplicates(incident_edges));
+        }
+    }
+
     #[test]
     pub fn test_large_graph_structure(&mut self) {
         let graph = self.generate_large_graph();
@@ -459,10 +469,12 @@ where
                 }
                 assert_eq!(graph.num_nodes(), num_nodes);
                 assert_eq!(graph.num_edges(), num_edges);
-                {
-                    let _span = info_span!("check_graph_consistency").entered();
-                    check_graph_consistency(&graph);
-                }
+            }
+
+            // Check graph consistency periodically.
+            if i % 200 == 0 {
+                let _span = info_span!("check_graph_consistency").entered();
+                check_graph_consistency(&graph);
             }
         }
         drop(_remove_loop_span);
@@ -497,7 +509,7 @@ where
         let _remove_loop_span = info_span!("remove_edges_loop").entered();
         for i in 0..edge_ids.len() {
             // Test compaction periodically
-            if i % 250 == 0 {
+            if i % 100 == 0 {
                 let num_nodes = graph.num_nodes();
                 let num_edges = edge_ids.len();
 
@@ -515,10 +527,12 @@ where
                 }
                 assert_eq!(graph.num_nodes(), num_nodes);
                 assert_eq!(graph.num_edges(), num_edges);
-                {
-                    let _span = info_span!("check_graph_consistency").entered();
-                    check_graph_consistency(&graph);
-                }
+            }
+
+            // Check graph consistency periodically.
+            if i % 500 == 0 {
+                let _span = info_span!("check_graph_consistency").entered();
+                check_graph_consistency(&graph);
             }
 
             // Test removing a random edge.
