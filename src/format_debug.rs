@@ -155,7 +155,7 @@ mod tests {
         assert_eq!(output, expected);
 
         // Multi-line output.
-        let output = format!("{:#?}", &graph);
+        let output = format!("{:#?}", graph);
         let expected = r#"BagGraph {
     nodes: {
         0: "A",
@@ -183,7 +183,7 @@ mod tests {
         let expected = r#"AdjacencyGraph { nodes: {0: "B", 1: "A", 2: "C"}, edges: {0 -- 1: 10, 1 -- 2: 20} }"#;
         assert_eq!(output, expected);
 
-        let output = format!("{:#?}", &graph);
+        let output = format!("{:#?}", graph);
         let expected = r#"AdjacencyGraph {
     nodes: {
         0: "B",

@@ -282,8 +282,8 @@ pub trait Graph {
     /// Dijkstra's algorithm.  Returns a map from each reachable node to a
     /// tuple of the path taken and the total cost.
     #[cfg(feature = "pathfinding")]
-    fn shortest_paths<'g, C: Default + Ord + Copy + Add<Output = C>>(
-        &'g self,
+    fn shortest_paths<C: Default + Ord + Copy + Add<Output = C>>(
+        &self,
         start: &Self::NodeId,
         cost_fn: impl Fn(&Self::EdgeId) -> C,
     ) -> HashMap<Self::NodeId, (Path<Self>, C)> {

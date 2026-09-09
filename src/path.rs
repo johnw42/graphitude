@@ -26,8 +26,7 @@ impl<'g, G: Graph + ?Sized> PathBuilder<'g, G> {
             .graph
             .edge_ends(&edge_id)
             .into_other_value(
-                &self
-                    .nodes
+                self.nodes
                     .last()
                     .expect("Path always has at least one node"),
             )
