@@ -1,6 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData, mem::transmute, ptr::NonNull};
 
-use derivative::Derivative;
+use derive_where::derive_where;
 
 use crate::{
     GraphElementId, MultipleEdges, directedness::Directed,
@@ -12,17 +12,7 @@ use super::Graph;
 /// Node identifier for [`ObjectGraph`].
 ///
 /// Contains a raw pointer to the node data with a lifetime tied to the graph.
-#[derive(Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    Copy(bound = ""),
-    Debug(bound = ""),
-    PartialEq(bound = ""),
-    Eq(bound = ""),
-    Hash(bound = ""),
-    PartialOrd(bound = ""),
-    Ord(bound = "")
-)]
+#[derive_where(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId<'g, N>(NonNull<N>, PhantomData<&'g N>);
 
 // SAFETY: NodeId is Send and Sync because it only contains a raw pointer and

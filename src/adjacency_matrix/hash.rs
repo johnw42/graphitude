@@ -4,7 +4,7 @@ use std::{
     marker::PhantomData,
 };
 
-use derivative::Derivative;
+use derive_where::derive_where;
 
 use crate::{
     Directedness,
@@ -15,8 +15,8 @@ use crate::{
 ///
 /// Stores separate forward and backward edge indices for efficient traversal
 /// in both directions.
-#[derive(Clone, Derivative)]
-#[derivative(Default(bound = "D: Default"))]
+#[derive(Clone)]
+#[derive_where(Default)]
 pub struct HashAdjacencyMatrix<V, D> {
     /// Maps each row index to a map of column indices and their associated values.
     /// This represents the forward edges in a directed graph.

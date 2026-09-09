@@ -1,22 +1,14 @@
 use std::fmt::Debug;
 
-use derivative::Derivative;
-
 use crate::{
     Directedness, GraphElementId, Storage,
     adjacency_graph::edge_container::{EdgeContainer, EdgeContainerSelector},
     bag::BagKey,
 };
 
-#[derive(Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    Hash(bound = ""),
-    PartialEq(bound = ""),
-    Eq(bound = ""),
-    PartialOrd(bound = ""),
-    Ord(bound = "")
-)]
+use derive_where::derive_where;
+
+#[derive_where(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AdjacencyGraphNodeId<S: Storage> {
     payload: BagKey,
     compaction_count: S::CompactionCount,
@@ -42,15 +34,7 @@ impl<S: Storage> AdjacencyGraphNodeId<S> {
 
 impl<S: Storage> GraphElementId for AdjacencyGraphNodeId<S> {}
 
-#[derive(Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    PartialEq(bound = ""),
-    Eq(bound = ""),
-    Hash(bound = ""),
-    PartialOrd(bound = ""),
-    Ord(bound = "")
-)]
+#[derive_where(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AdjacencyGraphEdgeId<E, S, D, M>
 where
     S: Storage,

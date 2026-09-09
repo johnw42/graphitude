@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use derivative::Derivative;
+use derive_where::derive_where;
 
 use crate::{Graph, GraphElementId, linked_graph::GraphId};
 
@@ -13,8 +13,7 @@ use super::Edge;
 /// Edge identifier for [`LinkedGraph`](super::LinkedGraph).
 ///
 /// Contains a weak pointer to the edge data and a graph ID for safety checks.
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive_where(Clone)]
 pub struct LinkedGraphEdgeId<G: Graph> {
     ptr: Weak<Edge<G>>,
     graph_id: GraphId,

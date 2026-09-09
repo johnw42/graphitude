@@ -1,21 +1,13 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use derivative::Derivative;
-
 use crate::{Graph, GraphElementId, bag::BagKey};
 
 /// Node identifier for [`LinkedGraph`](super::LinkedGraph).
 ///
 /// Contains a weak pointer to the node data and a graph ID for safety checks.
-#[derive(Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    Hash(bound = ""),
-    PartialEq(bound = ""),
-    Eq(bound = ""),
-    PartialOrd(bound = ""),
-    Ord(bound = "")
-)]
+use derive_where::derive_where;
+
+#[derive_where(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BagGraphNodeId<G: Graph> {
     key: BagKey,
     graph: PhantomData<G>,
@@ -49,15 +41,7 @@ impl<G: Graph> Debug for BagGraphNodeId<G> {
 /// Edge identifier for [`LinkedGraph`](super::LinkedGraph).
 ///
 /// Contains a weak pointer to the edge data and a graph ID for safety checks.
-#[derive(Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    Hash(bound = ""),
-    PartialEq(bound = ""),
-    Eq(bound = ""),
-    PartialOrd(bound = ""),
-    Ord(bound = "")
-)]
+#[derive_where(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BagGraphEdgeId<G: Graph> {
     pub(super) key: BagKey,
     pub(super) phantom: PhantomData<G>,

@@ -1,6 +1,6 @@
-use std::{fmt::Debug, hash::Hash};
+use std::hash::Hash;
 
-use derivative::Derivative;
+use derive_where::derive_where;
 
 use crate::util::{OtherValue, other_value, sort_pair};
 
@@ -79,16 +79,7 @@ where
     }
 }
 
-#[derive(Derivative)]
-#[derivative(
-    Clone(bound = "T: Clone"),
-    Debug(bound = "T: Debug"),
-    Hash(bound = "T: Hash"),
-    PartialEq(bound = "T: PartialEq"),
-    Eq(bound = "T: Eq"),
-    Ord(bound = "T: Ord"),
-    PartialOrd(bound = "T: PartialOrd")
-)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct SortedPair<T>(T, T);
 
 impl<T> EndPair<T> for SortedPair<T>

@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use derivative::Derivative;
+use derive_where::derive_where;
 
 /// Node and edge ID types for adjacency graphs.
 use crate::{
@@ -33,8 +33,7 @@ use crate::bag::{Bag, BagKey};
 /// * `E` - The type of data stored in edges
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
 /// * `S` - The storage type ([`HashStorage`] or [`BitvecStorage`](crate::adjacency_matrix::BitvecStorage))
-#[derive(Derivative)]
-#[derivative(Default(bound = ""))]
+#[derive_where(Default)]
 pub struct AdjacencyGraph<N, E, D = Directed, M = SingleEdge, S = HashStorage>
 where
     D: Directedness + Default,

@@ -7,7 +7,7 @@ use crate::{
     map_collector::MapCollector,
     prelude::*,
 };
-use derivative::Derivative;
+use derive_where::derive_where;
 use either::Either;
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData};
 
@@ -43,8 +43,7 @@ impl<G: Graph> Edge<G> {
 /// * `N` - The type of data stored in nodes
 /// * `E` - The type of data stored in edges
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
-#[derive(Derivative)]
-#[derivative(Default(bound = "D: Default"))]
+#[derive_where(Default; D)]
 pub struct BagGraph<N, E, D>
 where
     D: Directedness,

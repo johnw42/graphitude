@@ -13,7 +13,7 @@ use crate::{
 mod edge_id;
 mod node_id;
 
-use derivative::Derivative;
+use derive_where::derive_where;
 pub use edge_id::LinkedGraphEdgeId;
 pub use node_id::LinkedGraphNodeId;
 
@@ -50,8 +50,7 @@ impl<G: Graph> Edge<G> {
 /// * `N` - The type of data stored in nodes
 /// * `E` - The type of data stored in edges
 /// * `D` - The directedness ([`Directed`] or [`Undirected`](crate::Undirected))
-#[derive(Derivative)]
-#[derivative(Default(bound = ""))]
+#[derive_where(Default)]
 pub struct LinkedGraph<N, E, D, M = MultipleEdges>
 where
     D: Directedness,

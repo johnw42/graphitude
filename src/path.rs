@@ -1,21 +1,13 @@
 use std::iter::once;
 
-use derivative::Derivative;
-
 use crate::{Graph, end_pair::EndPair as _};
+use derive_where::derive_where;
 
 /// A path in a graph, represented as a sequence of nodes and the edges that
 /// connect them.
-#[derive(Derivative)]
-#[derivative(
-    Clone(bound = ""),
-    PartialEq(bound = ""),
-    Eq(bound = ""),
-    Hash(bound = ""),
-    Debug(bound = "")
-)]
+#[derive_where(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Path<'g, G: Graph + ?Sized> {
-    #[derivative(Debug = "ignore", PartialEq = "ignore", Hash = "ignore")]
+    #[derive_where(skip)]
     graph: &'g G,
     edges: Vec<G::EdgeId>,
     nodes: Vec<G::NodeId>,
