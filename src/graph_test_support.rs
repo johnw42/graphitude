@@ -1,145 +1,60 @@
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::hash::Hash;
 
-use quickcheck::Arbitrary;
+#[cfg(any(test, feature = "test"))]
+use proptest::prelude::*;
 use tracing::info_span;
 
 use crate::prelude::*;
 use crate::tracing_support::{TimingScope, init_tracing, set_timing_scope};
 
-#[derive(Debug)]
-pub struct ArbGraph<G: Graph<NodeData = String, EdgeData = String>> {
-    /// The graph to test.
-    pub graph: G,
-    /// The node data used to construct the graph, for verification purposes.
-    pub node_data: Vec<String>,
-    /// The edge data used to construct the graph, for verification purposes.
-    /// Contains a pair of indices into the `node_data` vector for the source
-    /// and target of each edge, along with the edge data.
-    pub edge_data: Vec<((usize, usize), String)>,
-    /// The node IDs corresponding to the `node_data` vector, for verification purposes.
-    pub node_ids: Vec<G::NodeId>,
-    /// The edge IDs corresponding to the `edge_data` vector, for verification purposes.
-    pub edge_ids: Vec<G::EdgeId>,
-}
-
-impl<G> ArbGraph<G>
+#[cfg(any(test, feature = "test"))]
+pub fn arb_graph<G>() -> impl Strategy<Value = G>
 where
-    G: GraphMut<NodeData = String, EdgeData = String> + Default + 'static,
+    G: GraphMut<NodeData = String, EdgeData = String> + Default + Clone + Debug + 'static,
 {
-    pub fn new(node_data: Vec<String>, edge_data: Vec<((usize, usize), String)>) -> Self {
-        let mut graph = G::default();
-        let mut node_ids = Vec::new();
-        for data in node_data.iter() {
-            node_ids.push(graph.add_node(data.clone()));
-        }
-        let mut edge_ids = Vec::new();
-        for ((from, into), data) in edge_data.iter() {
-            let from_id = &node_ids[*from];
-            let into_id = &node_ids[*into];
-            edge_ids.push(graph.add_edge(from_id, into_id, data.clone()).0);
-        }
-        Self {
-            graph,
-            node_data,
-            edge_data,
-            node_ids,
-            edge_ids,
-        }
-    }
-}
+    (0..64_usize).prop_flat_map(move |num_nodes| {
+        (0..=2 * num_nodes).prop_flat_map(move |num_edges| {
+            (
+                0..=num_edges,
+                0..=num_nodes,
+                proptest::collection::vec((0..num_nodes, 0..num_nodes), num_edges),
+            )
+                .prop_map(
+                    move |(num_extra_parallel_edges, num_extra_self_loops, edge_pairs)| {
+                        let mut graph = G::default();
 
-impl<G> Clone for ArbGraph<G>
-where
-    G: GraphMut<NodeData = String, EdgeData = String> + Default + 'static,
-{
-    fn clone(&self) -> Self {
-        Self::new(self.node_data.clone(), self.edge_data.clone())
-    }
-}
+                        let node_ids = (0..num_nodes)
+                            .map(|i| graph.add_node(format!("n{}", i)))
+                            .collect::<Vec<_>>();
 
-impl<G> Arbitrary for ArbGraph<G>
-where
-    G: GraphMut<NodeData = String, EdgeData = String> + Default + 'static,
-{
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let num_nodes = usize::arbitrary(g) % (g.size() + 1);
-        let num_edges = usize::arbitrary(g) % (num_nodes * 2 + 1);
-        let num_extra_parallel_edges = usize::arbitrary(g) % (num_edges + 1);
-        let num_extra_self_loops = usize::arbitrary(g) % (num_nodes + 1);
-
-        let node_data: Vec<_> = (0..num_nodes).map(|i| format!("n{}", i)).collect();
-
-        let mut edge_data = Vec::new();
-        for i in 0..num_edges {
-            if node_data.len() < 2 {
-                break;
-            }
-            let source = usize::arbitrary(g) % node_data.len();
-            let target = usize::arbitrary(g) % node_data.len();
-            edge_data.push(((source, target), format!("e{}", i)));
-            if i < num_extra_parallel_edges {
-                edge_data.push(((source, target), format!("e{}-extra", i)));
-            }
-            if i < num_extra_self_loops {
-                edge_data.push(((source, source), format!("e{}-self", i)));
-            }
-        }
-
-        ArbGraph::new(node_data, edge_data)
-    }
-
-    fn shrink(&self) -> Box<dyn Iterator<Item = Self>> {
-        let node_data_clone1 = self.node_data.clone();
-        let node_data_clone2 = self.node_data.clone();
-        let edge_data_clone1 = self.edge_data.clone();
-        let edge_data_clone2 = self.edge_data.clone();
-
-        Box::new(
-            (0..node_data_clone1.len())
-                .map(move |i| {
-                    let mut new_node_data = node_data_clone1.clone();
-                    let new_edge_data = edge_data_clone1
-                        .clone()
-                        .into_iter()
-                        .filter_map(|((mut from, mut into), data)| {
-                            if from == i || into == i {
-                                None
-                            } else {
-                                if from > i {
-                                    from -= 1;
-                                }
-                                if into > i {
-                                    into -= 1;
-                                }
-                                Some(((from, into), data))
+                        for (i, (source, target)) in edge_pairs.into_iter().enumerate() {
+                            graph.add_edge(&node_ids[source], &node_ids[target], format!("e{}", i));
+                            if i < num_extra_parallel_edges {
+                                graph.add_edge(
+                                    &node_ids[source],
+                                    &node_ids[target],
+                                    format!("e{}-extra", i),
+                                );
                             }
-                        })
-                        .collect();
-                    new_node_data.remove(i);
-                    ArbGraph::new(new_node_data, new_edge_data)
-                })
-                .chain((0..edge_data_clone2.len()).map(move |i| {
-                    let mut new_edge_data = edge_data_clone2.clone();
-                    new_edge_data.remove(i);
-                    ArbGraph::new(node_data_clone2.clone(), new_edge_data)
-                })),
-        )
-    }
-}
+                            if i < num_extra_self_loops {
+                                graph.add_edge(
+                                    &node_ids[source],
+                                    &node_ids[source],
+                                    format!("e{}-self", i),
+                                );
+                            }
+                        }
 
-pub fn has_duplicates<T: Eq + Hash>(items: impl IntoIterator<Item = T>) -> bool {
-    let mut seen = HashSet::new();
-    for item in items {
-        if !seen.insert(item) {
-            return true;
-        }
-    }
-    false
+                        graph
+                    },
+                )
+        })
+    })
 }
 
 /// Checks the internal consistency of a graph.
+#[cfg(any(test, feature = "test"))]
 pub fn check_graph_consistency<G: Graph>(graph: &G) {
     let _scope = set_timing_scope(TimingScope::Consistency);
     init_tracing();

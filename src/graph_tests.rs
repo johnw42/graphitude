@@ -1,11 +1,16 @@
+#![cfg(any(test, feature = "test"))]
+
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 use std::marker::PhantomData;
 
 use generate_test_macro::generate_test_macro;
+use iterable_assertions::assert_unique;
+use proptest::prelude::*;
 
 use crate::end_pair::EndPair as _;
 use crate::generate_large_graph::generate_large_graph;
-use crate::graph_test_support::{ArbGraph, check_graph_consistency, has_duplicates};
+use crate::graph_test_support::{arb_graph, check_graph_consistency};
 use crate::{GraphCopier, prelude::*};
 
 #[doc(hidden)]
@@ -19,7 +24,7 @@ pub struct GraphTests<G> {
 #[generate_test_macro(graph_test_suite)]
 impl<G> GraphTests<G>
 where
-    G: GraphMut<NodeData = String, EdgeData = String> + Default + Clone,
+    G: GraphMut<NodeData = String, EdgeData = String> + Default + Debug + Clone + 'static,
 {
     pub fn new() -> Self {
         Self {
@@ -60,230 +65,149 @@ where
         graph
     }
 
-    #[quickcheck]
-    pub fn prop_node_ids_is_correct(
-        ArbGraph {
-            graph, node_ids, ..
-        }: ArbGraph<G>,
-    ) {
-        let actual_node_ids = graph.nodes().collect::<HashSet<_>>();
-        let expected_node_ids = node_ids.into_iter().collect::<HashSet<_>>();
-        assert_eq!(
-            actual_node_ids, expected_node_ids,
-            "Node ID mismatch: expected {:?} but got {:?}",
-            expected_node_ids, actual_node_ids
-        );
-    }
-
-    #[quickcheck]
-    pub fn prop_edge_ids_is_correct(
-        ArbGraph {
-            graph, edge_ids, ..
-        }: ArbGraph<G>,
-    ) {
-        let actual_edge_ids = graph.edges().collect::<HashSet<_>>();
-        let expected_edge_ids = edge_ids.into_iter().collect::<HashSet<_>>();
-        assert_eq!(
-            actual_edge_ids, expected_edge_ids,
-            "Edge ID mismatch: expected {:?} but got {:?}",
-            expected_edge_ids, actual_edge_ids
-        );
-    }
-
-    #[quickcheck]
-    pub fn prop_node_data_is_correct(
-        ArbGraph {
-            graph, node_data, ..
-        }: ArbGraph<G>,
-    ) {
-        let actual_node_data = graph
-            .nodes()
-            .map(|node_id| graph.node_data(&node_id).clone())
-            .collect::<HashSet<_>>();
-        let expected_node_data = node_data.into_iter().collect::<HashSet<_>>();
-        assert!(
-            actual_node_data == expected_node_data,
-            "Node data mismatch: expected {:?} but got {:?}",
-            expected_node_data,
-            actual_node_data
-        );
-    }
-
-    #[quickcheck]
-    pub fn prop_edge_data_is_correct(
-        ArbGraph {
-            graph, edge_data, ..
-        }: ArbGraph<G>,
-    ) {
-        let expected_edge_data = edge_data
-            .into_iter()
-            .map(|(_, data)| data)
-            .collect::<HashSet<_>>();
-        let actual_edge_data = graph
-            .edges()
-            .map(|edge_id| graph.edge_data(&edge_id).clone())
-            .collect::<HashSet<_>>();
-        assert!(
-            actual_edge_data.is_subset(&expected_edge_data)
-                && (!graph.allows_parallel_edges() || actual_edge_data == expected_edge_data),
-            "Edge data mismatch: expected {:?} but got {:?}",
-            expected_edge_data,
-            actual_edge_data
-        );
-    }
-
-    #[quickcheck]
-    pub fn prop_num_nodes_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_num_nodes_is_correct(graph: G) {
         let actual_node_count = graph.nodes().count();
         let expected_node_count = graph.num_nodes();
-        assert_eq!(actual_node_count, expected_node_count);
+        prop_assert_eq!(actual_node_count, expected_node_count);
     }
 
-    #[quickcheck]
-    pub fn prop_num_edges_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_num_edges_is_correct(graph: G) {
         let actual_edge_count = graph.edges().count();
         let expected_edge_count = graph.num_edges();
-        assert_eq!(actual_edge_count, expected_edge_count);
+        prop_assert_eq!(actual_edge_count, expected_edge_count);
     }
 
-    #[quickcheck]
-    pub fn prop_node_ids_are_unique(ArbGraph { graph, .. }: ArbGraph<G>) {
-        assert!(!has_duplicates(graph.nodes()));
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_node_ids_are_unique(graph: G) {
+        assert_unique!(graph.nodes());
     }
 
-    #[quickcheck]
-    pub fn prop_edge_ids_are_unique(ArbGraph { graph, .. }: ArbGraph<G>) {
-        assert!(!has_duplicates(graph.edges()));
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_edge_ids_are_unique(graph: G) {
+        assert_unique!(graph.edges());
     }
 
-    #[quickcheck]
-    pub fn prop_edges_from_returns_unique_values(ArbGraph { graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_edges_from_returns_unique_values(graph: G) {
         graph
             .nodes()
-            .for_each(|node_id| assert!(!has_duplicates(graph.edges_from(&node_id))));
+            .for_each(|node_id| assert_unique!(graph.edges_from(&node_id)));
     }
 
-    #[quickcheck]
-    pub fn prop_edges_into_returns_unique_values(ArbGraph { graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_edges_into_returns_unique_values(graph: G) {
         graph
             .nodes()
-            .for_each(|node_id| assert!(!has_duplicates(graph.edges_into(&node_id))));
+            .for_each(|node_id| assert_unique!(graph.edges_into(&node_id)));
     }
 
-    #[quickcheck]
-    pub fn prop_edges_from_into_returns_unique_values(ArbGraph { graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_edges_from_into_returns_unique_values(graph: G) {
         graph.nodes().for_each(|node_id| {
             graph.nodes().for_each(|other_node_id| {
-                assert!(!has_duplicates(
-                    graph.edges_from_into(&node_id, &other_node_id)
-                ));
+                assert_unique!(graph.edges_from_into(&node_id, &other_node_id));
             });
         });
     }
 
-    #[quickcheck]
-    pub fn prop_edges_from_into_finds_all_edges(ArbGraph { graph, .. }: ArbGraph<G>) {
-        graph.edges().for_each(|edge_id| {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_edges_from_into_finds_all_edges(graph: G) {
+        for edge_id in graph.edges() {
             let (left, right) = graph.edge_ends(&edge_id).into();
-            assert!(graph.edges_from_into(&left, &right).any(|e| e == edge_id));
-        });
+            prop_assert!(graph.edges_from_into(&left, &right).any(|e| e == edge_id));
+        }
     }
 
-    #[quickcheck]
-    pub fn prop_num_edges_from_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) {
-        graph.nodes().for_each(|node_id| {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_num_edges_from_is_correct(graph: G) {
+        for node_id in graph.nodes() {
             let actual_count = graph.edges_from(&node_id).count();
             let expected_count = graph.num_edges_from(&node_id);
-            assert_eq!(actual_count, expected_count);
-        });
+            prop_assert_eq!(actual_count, expected_count);
+        }
     }
 
-    #[quickcheck]
-    pub fn prop_num_edges_into_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) {
-        graph.nodes().for_each(|node_id| {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_num_edges_into_is_correct(graph: G) {
+        for node_id in graph.nodes() {
             let actual_count = graph.edges_into(&node_id).count();
             let expected_count = graph.num_edges_into(&node_id);
-            assert_eq!(actual_count, expected_count);
-        });
+            prop_assert_eq!(actual_count, expected_count);
+        }
     }
 
-    #[quickcheck]
-    pub fn prop_num_edges_from_into_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) {
-        graph.nodes().for_each(|node_id| {
-            graph.nodes().for_each(|other_node_id| {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_num_edges_from_into_is_correct(graph: G) {
+        for node_id in graph.nodes() {
+            for other_node_id in graph.nodes() {
                 let actual_count = graph.edges_from_into(&node_id, &other_node_id).count();
                 let expected_count = graph.num_edges_from_into(&node_id, &other_node_id);
-                assert_eq!(actual_count, expected_count);
-            });
-        });
+                prop_assert_eq!(actual_count, expected_count);
+            }
+        }
     }
 
-    #[quickcheck]
-    pub fn prop_num_incident_edges_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) {
-        graph.nodes().for_each(|node_id| {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_num_incident_edges_is_correct(graph: G) {
+        for node_id in graph.nodes() {
             let actual_count = graph.incident_edges(&node_id).count();
             let expected_count = graph.num_incident_edges(&node_id);
             assert_eq!(actual_count, expected_count);
-        });
+        }
     }
 
-    #[quickcheck]
-    pub fn prop_has_edge_from_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) {
-        graph.nodes().for_each(|node_id| {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_has_edge_from_is_correct(graph: G) {
+        for node_id in graph.nodes() {
             let has_edge = graph.has_edge_from(&node_id);
             let expected_has_edge = graph.edges_from(&node_id).next().is_some();
             assert_eq!(has_edge, expected_has_edge);
-        });
+        }
     }
 
-    #[quickcheck]
-    pub fn prop_has_edge_into_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) {
-        graph.nodes().for_each(|node_id| {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_has_edge_into_is_correct(graph: G) {
+        for node_id in graph.nodes() {
             let has_edge = graph.has_edge_into(&node_id);
             let expected_has_edge = graph.edges_into(&node_id).next().is_some();
-            assert_eq!(has_edge, expected_has_edge);
-        });
+            prop_assert_eq!(has_edge, expected_has_edge);
+        }
     }
 
-    #[quickcheck]
-    pub fn prop_has_edge_from_into_is_correct(ArbGraph { graph, .. }: ArbGraph<G>) {
-        graph.nodes().for_each(|node_id| {
-            graph.nodes().for_each(|other_node_id| {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_has_edge_from_into_is_correct(graph: G) {
+        for node_id in graph.nodes() {
+            for other_node_id in graph.nodes() {
                 let has_edge = graph.has_edge_from_into(&node_id, &other_node_id);
                 let expected_has_edge = graph
                     .edges_from_into(&node_id, &other_node_id)
                     .next()
                     .is_some();
-                assert_eq!(has_edge, expected_has_edge);
-            });
-        });
+                prop_assert_eq!(has_edge, expected_has_edge);
+            }
+        }
     }
 
-    #[quickcheck]
-    pub fn prop_is_empty_is_correct(
-        ArbGraph {
-            graph,
-            node_data,
-            edge_data,
-            ..
-        }: ArbGraph<G>,
-    ) {
-        assert_eq!(
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_is_empty_is_correct(graph: G) {
+        prop_assert_eq!(
             graph.is_empty(),
-            node_data.is_empty() && edge_data.is_empty()
+            graph.num_nodes() == 0 && graph.num_edges() == 0
         );
-        assert!(!node_data.is_empty() || edge_data.is_empty());
+        prop_assert!(graph.num_nodes() != 0 || graph.num_edges() == 0);
     }
 
-    #[quickcheck]
-    pub fn prop_clear_removes_all_nodes_and_edges(ArbGraph { mut graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_clear_removes_all_nodes_and_edges(mut graph: G) {
         graph.clear();
-        assert!(graph.nodes().next().is_none());
-        assert!(graph.edges().next().is_none());
+        prop_assert!(graph.nodes().next().is_none());
+        prop_assert!(graph.edges().next().is_none());
     }
 
-    #[quickcheck]
-    pub fn prop_no_orphan_edges(ArbGraph { graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_no_orphan_edges(graph: G) {
         let all_edges = graph.edges().collect::<HashSet<_>>();
         let from_edges = graph
             .nodes()
@@ -293,12 +217,12 @@ where
             .nodes()
             .flat_map(|node_id| graph.edges_into(&node_id).collect::<Vec<_>>())
             .collect::<HashSet<_>>();
-        assert_eq!(all_edges, from_edges);
-        assert_eq!(all_edges, into_edges);
+        prop_assert_eq!(&all_edges, &from_edges);
+        prop_assert_eq!(&all_edges, &into_edges);
     }
 
-    #[quickcheck]
-    pub fn prop_remove_node_removes_edges(ArbGraph { mut graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_remove_node_removes_edges(mut graph: G) {
         let node_id = graph.nodes().next();
         if let Some(node_id) = node_id {
             let num_nodes = graph.num_nodes();
@@ -309,38 +233,38 @@ where
                 .collect::<HashSet<_>>()
                 .len();
             graph.remove_node(&node_id);
-            assert_eq!(graph.num_nodes(), num_nodes - 1);
-            assert!(graph.num_edges() <= num_edges - num_node_edges);
+            prop_assert_eq!(graph.num_nodes(), num_nodes - 1);
+            prop_assert!(graph.num_edges() <= num_edges - num_node_edges);
         }
     }
 
-    #[quickcheck]
-    pub fn prop_edges_in_and_out_are_consistent(ArbGraph { graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_edges_in_and_out_are_consistent(graph: G) {
         for node_id in graph.nodes() {
             for edge_from in graph.edges_from(&node_id) {
                 let other_node = graph
                     .edge_ends(&edge_from)
                     .into_other_value(&node_id)
                     .into_inner();
-                assert!(graph.edges_into(&other_node).any(|e| e == edge_from));
+                prop_assert!(graph.edges_into(&other_node).any(|e| e == edge_from));
             }
             for edge_into in graph.edges_into(&node_id) {
                 let other_node = graph
                     .edge_ends(&edge_into)
                     .into_other_value(&node_id)
                     .into_inner();
-                assert!(graph.edges_from(&other_node).any(|e| e == edge_into));
+                prop_assert!(graph.edges_from(&other_node).any(|e| e == edge_into));
             }
         }
     }
 
-    #[quickcheck]
-    pub fn prop_edges_from_into_is_consistent(ArbGraph { graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_edges_from_into_is_consistent(graph: G) {
         for node_id in graph.nodes() {
             for other_node_id in graph.nodes() {
                 for edge_from_into in graph.edges_from_into(&node_id, &other_node_id) {
-                    assert!(graph.edges_from(&node_id).any(|e| e == edge_from_into));
-                    assert!(
+                    prop_assert!(graph.edges_from(&node_id).any(|e| e == edge_from_into));
+                    prop_assert!(
                         graph
                             .edges_into(&other_node_id)
                             .any(|e| e == edge_from_into)
@@ -350,31 +274,31 @@ where
         }
     }
 
-    #[quickcheck]
-    pub fn prop_can_remove_nodes(ArbGraph { mut graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_can_remove_nodes(mut graph: G) {
         let node_ids: Vec<_> = graph.nodes().collect();
         for node_id in node_ids {
             graph.remove_node(&node_id);
-            assert!(!graph.nodes().any(|n| n == node_id));
+            prop_assert!(!graph.nodes().any(|n| n == node_id));
         }
-        assert!(graph.is_empty());
+        prop_assert!(graph.is_empty());
     }
 
-    #[quickcheck]
-    pub fn prop_can_remove_edges(ArbGraph { mut graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_can_remove_edges(mut graph: G) {
         let edge_ids: Vec<_> = graph.edges().collect();
         for edge_id in edge_ids {
             graph.remove_edge(&edge_id);
-            assert!(!graph.edges().any(|e| e == edge_id));
+            prop_assert!(!graph.edges().any(|e| e == edge_id));
         }
-        assert_eq!(graph.num_edges(), 0);
+        prop_assert_eq!(graph.num_edges(), 0);
     }
 
-    #[quickcheck]
-    pub fn prop_incident_edges_are_unique(ArbGraph { graph, .. }: ArbGraph<G>) {
+    #[proptest(graph in arb_graph::<G>())]
+    pub fn prop_incident_edges_are_unique(graph: G) {
         for node_id in graph.nodes() {
             let incident_edges = graph.incident_edges(&node_id).collect::<Vec<_>>();
-            assert!(!has_duplicates(incident_edges));
+            assert_unique!(incident_edges);
         }
     }
 

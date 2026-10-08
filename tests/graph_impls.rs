@@ -1,3 +1,5 @@
+#![cfg(feature = "test")]
+
 mod bag {
     pub use graphitude::{BagGraph, prelude::*};
     use graphitude::{graph_test_suite, graph_tests::GraphTests};
