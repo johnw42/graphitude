@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 409352144723b172f66f3c6e7cab4d96e953dc46c046fc01a346421b6f43f7d3 # shrinks to matrix = HashAdjacencyMatrix { directedness: Directed, entries: [(0, 0, 128)] }
+cc dca4c46e044ff511519f9b80fdb9cd549bf35ef81fc67b07e87931f950890ece # shrinks to matrix = BitvecAdjacencyMatrix { directedness: Directed, entries: [(0, 0, 132)] }
+cc 49db5c5e84fed2201af3660ed607e88bd3d286204df510a75cc701c3089ccee4 # shrinks to matrix = BitvecAdjacencyMatrix { directedness: Undirected, entries: [(0, 0, 128)] }

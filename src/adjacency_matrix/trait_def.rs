@@ -69,9 +69,8 @@ where
     /// modifications to the matrix since the last call to `shrink_to_fit`.
     fn size_bound(&self) -> usize;
 
-    /// For internal use.  Gets the canonical indices for the given indices.  This will return a pair
+    /// Gets the canonical indices for the given indices.  This will return a pair
     /// `(i1, i2)` such that for symmetric matrices, `i1 <= i2`.
-    #[doc(hidden)]
     fn entry_indices(i1: usize, i2: usize) -> Pair<Self> {
         (i1, i2).into()
     }

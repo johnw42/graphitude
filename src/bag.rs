@@ -347,10 +347,8 @@ impl<T> IndexMut<BagKey> for Bag<T> {
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::*;
     use std::collections::{HashMap, HashSet};
-
-    use quickcheck::Arbitrary;
-    use quickcheck_macros::quickcheck;
 
     use super::*;
 
@@ -363,17 +361,20 @@ mod tests {
         Compact,
     }
 
-    impl Arbitrary for BagOp {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            match u32::arbitrary(g) % 6 {
-                0..2 => BagOp::Insert,
-                2 => BagOp::Remove(usize::arbitrary(g)),
-                3 => BagOp::Mutate(usize::arbitrary(g)),
-                4 => BagOp::MutateAll(),
-                5 => BagOp::Compact,
-                choice => unreachable!("Invalid value for BagOp: {}", choice),
-            }
-        }
+    fn arb_bag_op() -> impl Strategy<Value = BagOp> {
+        (0..5_usize).prop_flat_map(|index| {
+            prop_oneof![
+                4 => Just(BagOp::Insert),
+                1 => Just(BagOp::Remove(index)),
+                1 => Just(BagOp::Mutate(index)),
+                1 => Just(BagOp::MutateAll()),
+                1 => Just(BagOp::Compact),
+            ]
+        })
+    }
+
+    fn arb_bag_ops() -> impl Strategy<Value = Vec<BagOp>> {
+        prop::collection::vec(arb_bag_op(), 0..256)
     }
 
     #[test]
@@ -588,75 +589,77 @@ mod tests {
         );
     }
 
-    #[quickcheck]
-    fn test_aribrary_ops(ops: Vec<BagOp>) {
-        let mut bag: Bag<i32> = Bag::default();
-        let mut map: HashMap<BagKey, i32> = HashMap::new();
-        let mut counter = 0;
+    proptest! {
+        #[test]
+        fn test_aribrary_ops(ops in arb_bag_ops()) {
+            let mut bag: Bag<i32> = Bag::default();
+            let mut map: HashMap<BagKey, i32> = HashMap::new();
+            let mut counter: i32 = 0;
 
-        fn get_key(map: &HashMap<BagKey, i32>, idx: usize) -> Option<BagKey> {
-            if map.is_empty() {
-                None
-            } else {
-                Some(*map.keys().nth(idx % map.len()).unwrap())
+            fn get_key(map: &HashMap<BagKey, i32>, idx: usize) -> Option<BagKey> {
+                if map.is_empty() {
+                    None
+                } else {
+                    Some(*map.keys().nth(idx % map.len()).unwrap())
+                }
             }
-        }
 
-        for op in ops {
-            match op {
-                BagOp::Insert => {
-                    let value = counter;
-                    counter += 1;
-                    let key = bag.insert(value);
-                    map.insert(key, value);
-                }
-                BagOp::Remove(idx) => {
-                    if let Some(key) = get_key(&map, idx) {
-                        let removed = bag.remove(key).expect("expected present value");
-                        assert_eq!(removed, map.remove(&key).unwrap());
+            for op in ops {
+                match op {
+                    BagOp::Insert => {
+                        let value = counter;
+                        counter += 1;
+                        let key = bag.insert(value);
+                        map.insert(key, value);
                     }
-                }
-                BagOp::Mutate(idx) => {
-                    if let Some(key) = get_key(&map, idx)
-                        && let Some(val) = bag.get_mut(key)
-                    {
-                        *val *= 2;
-                        if let Some(v) = map.get_mut(&key) {
-                            *v *= 2;
+                    BagOp::Remove(idx) => {
+                        if let Some(key) = get_key(&map, idx) {
+                            let removed = bag.remove(key).expect("expected present value");
+                            assert_eq!(removed, map.remove(&key).unwrap());
                         }
                     }
-                }
-                BagOp::MutateAll() => {
-                    for (key, val) in bag.pairs_mut() {
-                        *val *= 2;
-                        if let Some(v) = map.get_mut(&key) {
-                            *v *= 2;
+                    BagOp::Mutate(idx) => {
+                        if let Some(key) = get_key(&map, idx)
+                            && let Some(val) = bag.get_mut(key)
+                        {
+                            *val += 1;
+                            if let Some(v) = map.get_mut(&key) {
+                                *v += 1;
+                            }
                         }
                     }
-                }
-                BagOp::Compact => {
-                    let mut key_map = HashMap::new();
-                    bag.compact(Some(&mut key_map));
-                    let mut new_map = HashMap::new();
-                    for (old_key, new_key) in key_map {
-                        new_map.insert(
-                            new_key,
-                            map.remove(&old_key).expect("old key should exist in map"),
-                        );
+                    BagOp::MutateAll() => {
+                        for (key, val) in bag.pairs_mut() {
+                            *val += 1;
+                            if let Some(v) = map.get_mut(&key) {
+                                *v += 1;
+                            }
+                        }
                     }
-                    map = new_map;
+                    BagOp::Compact => {
+                        let mut key_map = HashMap::new();
+                        bag.compact(Some(&mut key_map));
+                        let mut new_map = HashMap::new();
+                        for (old_key, new_key) in key_map {
+                            new_map.insert(
+                                new_key,
+                                map.remove(&old_key).expect("old key should exist in map"),
+                            );
+                        }
+                        map = new_map;
+                    }
                 }
-            }
-            bag.verify_index();
-            for (key, value) in map.iter() {
-                assert_eq!(bag.get(*key), Some(value));
-            }
-            for (key, value) in bag.pairs() {
-                assert_eq!(map.get(&key), Some(value));
-            }
-            for key in bag.keys() {
-                assert!(map.contains_key(&key));
-                assert_eq!(bag[key], map[&key]);
+                bag.verify_index();
+                for (key, value) in map.iter() {
+                    assert_eq!(bag.get(*key), Some(value));
+                }
+                for (key, value) in bag.pairs() {
+                    assert_eq!(map.get(&key), Some(value));
+                }
+                for key in bag.keys() {
+                    assert!(map.contains_key(&key));
+                    assert_eq!(bag[key], map[&key]);
+                }
             }
         }
     }
